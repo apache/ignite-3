@@ -33,7 +33,6 @@ set(SOURCES
     diagnostic/diagnosable_adapter.cpp
     diagnostic/diagnostic_record.cpp
     diagnostic/diagnostic_record_storage.cpp
-    meta/column_meta.cpp
     meta/table_meta.cpp
     query/column_metadata_query.cpp
     query/data_query.cpp
@@ -109,6 +108,5 @@ endif()
 
 ignite_test(connection_info_test DISCOVER SOURCES config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(config_tools_test DISCOVER SOURCES config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
-ignite_test(string_utils_test DISCOVER SOURCES string_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(application_data_buffer_test DISCOVER SOURCES app/application_data_buffer_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 

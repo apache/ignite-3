@@ -12,7 +12,7 @@ statement ok
 INSERT INTO test VALUES (11, 22), (13, 22), (12, 21)
 
 # aggregates cannot be nested
-statement error
+statement error: Aggregate expressions cannot be nested
 SELECT SUM(SUM(41)), COUNT(*);
 
 # simple aggregates without group by
@@ -82,7 +82,7 @@ SELECT b, SUM(a), COUNT(*), SUM(a+2) FROM test WHERE a <= 12 GROUP BY b ORDER BY
 22	11.000000	1	13.000000
 
 # nested aggregate in group by
-statement error
+statement error: Aggregate expressions cannot be nested
 SELECT b % 2 AS f, COUNT(SUM(a)) FROM test GROUP BY f;
 
 statement ok
@@ -110,7 +110,7 @@ SELECT i, i + 10 FROM integers GROUP BY i ORDER BY i
 3	13
 
 # using non-group column and non-aggregate should throw an error
-statement error
+statement error: Expression 'J' is not being grouped
 SELECT i, SUM(j), j FROM integers GROUP BY i ORDER BY i
 
 # but it works if we wrap it in ANY_VALUE()
@@ -171,23 +171,30 @@ NULL	NULL	NULL
 2	0	2.000000
 3	1	3.000000
 
-# https://issues.apache.org/jira/browse/IGNITE-25077
-# Error: Column 'K' not found in any table
-skipif ignite3
-# aliases can be referenced in group by <columns> clause.
+# expression with column references can be used in group by <columns> clause.
 query II
-SELECT 1 AS k, SUM(i) FROM integers GROUP BY k+1 ORDER BY 2
+SELECT 1 AS k, SUM(i) FROM integers GROUP BY i%2 ORDER BY 2
 ----
-1	6
+1	2
+1	4
+1	NULL
 
-# https://issues.apache.org/jira/browse/IGNITE-25077
-# Error: Column 'K' not found in any table
-skipif ignite3
-# aliases can be referenced in group by <grouping sets> clause.
-query II
-SELECT 1 AS k, SUM(i) FROM integers GROUP BY GROUPING SETS ((k+1)) ORDER BY 2
+# expression with column references can be used in group by <grouping sets> clause.
+query I
+SELECT SUM(i) FROM integers GROUP BY GROUPING SETS (POWER(ROUND(ABS(SQRT(i*i)), 1), 2)) ORDER BY 1
 ----
-1	6
+1
+2
+3
+NULL
+
+# expression with aliases can't be used in group by <columns> clause.
+statement error: Column 'K' not found in any table
+SELECT 1 AS k, SUM(i) FROM integers GROUP BY k+1 ORDER BY 2
+
+# expression with aliases can't be used in group by <grouping sets> clause.
+statement error: Column 'K' not found in any table
+SELECT 1 AS k, SUM(i) FROM integers GROUP BY GROUPING SETS ((k+1)) ORDER BY 2
 
 # group by column refs should be recognized, even if one uses an explicit table specifier and the other does not
 query II

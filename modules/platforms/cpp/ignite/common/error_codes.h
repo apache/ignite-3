@@ -53,7 +53,8 @@ enum class group : underlying_t {
     RECOVERY = 0x14,
     EMBEDDED = 0x15,
     MARSHALLING = 0x16,
-    REST = 0x17
+    REST = 0x17,
+    COMMONCFG = 0x18
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -91,6 +92,7 @@ enum class code : underlying_t {
     CLUSTER_ID_MISMATCH = 0x30006,
     CLIENT_SSL_CONFIGURATION = 0x30007,
     HANDSHAKE_HEADER = 0x30008,
+    SERVER_TO_CLIENT_REQUEST = 0x30009,
 
     // Sql group. Group code: 4
     QUERY_NO_RESULT_SET = 0x40001,
@@ -143,6 +145,7 @@ enum class code : underlying_t {
     REPLICA_MISS = 0x80006,
     CURSOR_CLOSE = 0x80007,
     REPLICA_STOPPING = 0x80008,
+    GROUP_OVERLOADED = 0x80009,
 
     // Storage group. Group code: 9
     INDEX_NOT_BUILT = 0x90001,
@@ -153,11 +156,12 @@ enum class code : underlying_t {
 
     // Network group. Group code: 11
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
-    PORT_IN_USE = 0xb0002,
+    BIND = 0xb0002,
     FILE_TRANSFER = 0xb0003,
     FILE_VALIDATION = 0xb0004,
     RECIPIENT_LEFT = 0xb0005,
     ADDRESS_UNRESOLVED = 0xb0006,
+    PORT_IN_USE [[deprecated("PORT_IN_USE is deprecated. Use BIND instead.")]] = BIND,
 
     // NodeConfiguration group. Group code: 12
     CONFIG_READ = 0xc0001,
@@ -194,6 +198,7 @@ enum class code : underlying_t {
     NODE_NOT_FOUND = 0x10000c,
     MARSHALLING_TYPE_MISMATCH = 0x10000d,
     COMPUTE_JOB_CANCELLED = 0x10000e,
+    COMPUTE_PLATFORM_EXECUTOR = 0x10000f,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,
@@ -211,6 +216,7 @@ enum class code : underlying_t {
     NODES_NOT_FOUND = 0x140002,
     PARTITION_STATE = 0x140003,
     CLUSTER_NOT_IDLE = 0x140004,
+    RESTART_WITH_CLEAN_UP = 0x140005,
 
     // Embedded group. Group code: 21
     CLUSTER_NOT_INITIALIZED = 0x150001,
@@ -224,7 +230,12 @@ enum class code : underlying_t {
     UNMARSHALLING = 0x160003,
 
     // Rest group. Group code: 23
-    CLUSTER_NOT_INIT = 0x170001
+    CLUSTER_NOT_INIT = 0x170001,
+
+    // CommonConfiguration group. Group code: 24
+    CONFIGURATION_APPLY = 0x180001,
+    CONFIGURATION_PARSE = 0x180002,
+    CONFIGURATION_VALIDATION = 0x180003
 };
 
 } // namespace error

@@ -32,6 +32,7 @@ import com.typesafe.config.ConfigValueType;
 import java.lang.reflect.Array;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -46,6 +47,9 @@ class HoconListConfigurationSource implements ConfigurationSource {
      */
     private final List<String> path;
 
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
+
     /**
      * HOCON list that this source has been created from.
      */
@@ -54,11 +58,13 @@ class HoconListConfigurationSource implements ConfigurationSource {
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON list.
      *
-     * @param path         Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
-     *                     object.
+     * @param keyIgnorer Determines if key should be ignored.
+     * @param path Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
+     *         object.
      * @param hoconCfgList HOCON list.
      */
-    HoconListConfigurationSource(List<String> path, ConfigList hoconCfgList) {
+    HoconListConfigurationSource(KeyIgnorer keyIgnorer, List<String> path, ConfigList hoconCfgList) {
+        this.keyIgnorer = keyIgnorer;
         this.path = path;
         this.hoconCfgList = hoconCfgList;
     }
@@ -105,6 +111,10 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
         String syntheticKeyName = ((NamedListNode<?>) node).syntheticKeyName();
 
+        if (keyIgnorer.shouldIgnore(join(appendKey(path, syntheticKeyName)))) {
+            return;
+        }
+
         for (int idx = 0; idx < hoconCfgList.size(); idx++) {
             ConfigValue next = hoconCfgList.get(idx);
 
@@ -139,7 +149,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
                 ));
             }
 
-            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, path, hoconCfg), false);
+            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, keyIgnorer, path, hoconCfg), false);
         }
     }
 

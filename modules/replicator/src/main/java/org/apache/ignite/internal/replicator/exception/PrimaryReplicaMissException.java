@@ -22,12 +22,14 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
-public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException {
+public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException,
+        RetriableTransactionException {
     private static final long serialVersionUID = 8755220779942651494L;
 
     /**
@@ -35,6 +37,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
      *
      * @param txId Transaction id.
      * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
+     * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
      */
     public PrimaryReplicaMissException(UUID txId, Long expectedEnlistmentConsistencyToken, Long currentEnlistmentConsistencyToken) {
         super(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, expectedEnlistmentConsistencyToken={}, "

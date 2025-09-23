@@ -56,14 +56,19 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
@@ -338,6 +343,57 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                 .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0)
                 .check();
+    }
+
+    @Test
+    void writeIntentFromCommittedTxShouldBeIndexed() throws Exception {
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
+
+        disableWriteIntentSwitchExecution();
+
+        Transaction tx = node().transactions().begin();
+        insertDataInTransaction(tx, TABLE_NAME, List.of("ID", "NAME", "SALARY"), new Object[]{0, "0", 10.0});
+        tx.commit();
+
+        createIndexForSalaryFieldAndWaitBecomeAvailable();
+
+        CatalogIndexDescriptor indexDescriptor = indexDescriptor(INDEX_NAME);
+        SortedIndexStorage indexStorage = (SortedIndexStorage) indexStorage(indexDescriptor, 0);
+
+        boolean hasSomethingInIndex;
+        try (Cursor<IndexRow> indexRows = indexStorage.readOnlyScan(null, null, 0)) {
+            hasSomethingInIndex = indexRows.hasNext();
+        }
+
+        assertTrue(hasSomethingInIndex, "Row should have been put to the index");
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21546")
+    void writeIntentFromAbortedTxShouldNotBeIndexed() throws Exception {
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
+
+        disableWriteIntentSwitchExecution();
+
+        Transaction tx = node().transactions().begin();
+        insertDataInTransaction(tx, TABLE_NAME, List.of("ID", "NAME", "SALARY"), new Object[]{0, "0", 10.0});
+        tx.rollback();
+
+        createIndexForSalaryFieldAndWaitBecomeAvailable();
+
+        CatalogIndexDescriptor indexDescriptor = indexDescriptor(INDEX_NAME);
+        SortedIndexStorage indexStorage = (SortedIndexStorage) indexStorage(indexDescriptor, 0);
+
+        boolean hasSomethingInIndex;
+        try (Cursor<IndexRow> indexRows = indexStorage.readOnlyScan(null, null, 0)) {
+            hasSomethingInIndex = indexRows.hasNext();
+        }
+
+        assertFalse(hasSomethingInIndex, "Nothing should have been put to the index");
+    }
+
+    private static void disableWriteIntentSwitchExecution() {
+        node().dropMessages((recipientId, message) -> message instanceof WriteIntentSwitchReplicaRequest);
     }
 
     private static IgniteImpl node() {

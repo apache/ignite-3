@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -41,7 +43,6 @@ import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -53,7 +54,7 @@ import org.jetbrains.annotations.Nullable;
 public class ClusterServiceFactory {
     private final List<String> allNodes;
 
-    private final Map<String, ClusterNode> nodeByName = new ConcurrentHashMap<>();
+    private final Map<String, InternalClusterNode> nodeByName = new ConcurrentHashMap<>();
     private final Map<String, LocalMessagingService> messagingServicesByNode = new ConcurrentHashMap<>();
     private final Map<String, LocalTopologyService> topologyServicesByNode = new ConcurrentHashMap<>();
 
@@ -66,7 +67,7 @@ public class ClusterServiceFactory {
         this.allNodes = allNodes;
     }
 
-    private ClusterNode nodeByName(String name) {
+    private InternalClusterNode nodeByName(String name) {
         return nodeByName.computeIfAbsent(
                 name,
                 key -> new ClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
@@ -123,7 +124,7 @@ public class ClusterServiceFactory {
 
             @Override
             public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                ClusterNode node = nodeByName.remove(nodeName);
+                InternalClusterNode node = nodeByName.remove(nodeName);
 
                 if (node != null) {
                     messagingServicesByNode.remove(nodeName);
@@ -141,9 +142,9 @@ public class ClusterServiceFactory {
     private static class LocalTopologyService extends AbstractTopologyService {
         private static final AtomicInteger NODE_COUNTER = new AtomicInteger(1);
 
-        private final ClusterNode localMember;
-        private final Map<String, ClusterNode> allMembers;
-        private final Map<NetworkAddress, ClusterNode> allMembersByAddress;
+        private final InternalClusterNode localMember;
+        private final Map<String, InternalClusterNode> allMembers;
+        private final Map<NetworkAddress, InternalClusterNode> allMembersByAddress;
 
         private LocalTopologyService(String localMember, List<String> allMembers) {
             this.allMembers = new ConcurrentHashMap<>();
@@ -164,14 +165,14 @@ public class ClusterServiceFactory {
         }
 
         private void evictNode(String nodeName) {
-            ClusterNode nodeToEvict = allMembers.remove(nodeName);
+            InternalClusterNode nodeToEvict = allMembers.remove(nodeName);
 
             if (nodeToEvict != null) {
                 getEventHandlers().forEach(handler -> handler.onDisappeared(nodeToEvict));
             }
         }
 
-        private static ClusterNode nodeFromName(String name) {
+        private static InternalClusterNode nodeFromName(String name) {
             return new ClusterNodeImpl(randomUUID(), name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
         }
 
@@ -182,58 +183,63 @@ public class ClusterServiceFactory {
 
         /** {@inheritDoc} */
         @Override
-        public ClusterNode localMember() {
+        public InternalClusterNode localMember() {
             return localMember;
         }
 
         /** {@inheritDoc} */
         @Override
-        public Collection<ClusterNode> allMembers() {
+        public Collection<InternalClusterNode> allMembers() {
+            return allMembers.values();
+        }
+
+        @Override
+        public Collection<InternalClusterNode> logicalTopologyMembers() {
             return allMembers.values();
         }
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable ClusterNode getByAddress(NetworkAddress addr) {
+        public @Nullable InternalClusterNode getByAddress(NetworkAddress addr) {
             return allMembersByAddress.get(addr);
         }
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable ClusterNode getByConsistentId(String consistentId) {
+        public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
             return allMembers.get(consistentId);
         }
 
         @Override
-        public @Nullable ClusterNode getById(UUID id) {
+        public @Nullable InternalClusterNode getById(UUID id) {
             return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
         }
 
         @Override
-        public void onJoined(ClusterNode node) {
+        public void onJoined(InternalClusterNode node) {
         }
 
         @Override
-        public void onLeft(ClusterNode node) {
+        public void onLeft(InternalClusterNode node) {
         }
     }
 
     private class LocalMessagingService extends AbstractMessagingService {
-        private final ClusterNode localNode;
+        private final InternalClusterNode localNode;
 
-        private LocalMessagingService(ClusterNode localNode) {
+        private LocalMessagingService(InternalClusterNode localNode) {
             this.localNode = localNode;
         }
 
         /** {@inheritDoc} */
         @Override
-        public void weakSend(ClusterNode recipient, NetworkMessage msg) {
+        public void weakSend(InternalClusterNode recipient, NetworkMessage msg) {
             throw new AssertionError("Not implemented yet");
         }
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+        public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
             for (var handler : messagingServicesByNode.get(recipient.name()).messageHandlers(msg.groupType())) {
                 handler.onReceived(msg, localNode, null);
             }
@@ -246,7 +252,7 @@ public class ClusterServiceFactory {
             LocalMessagingService recipient = messagingServicesByNode.get(recipientConsistentId);
 
             if (recipient == null) {
-                return CompletableFuture.failedFuture(new UnresolvableConsistentIdException(recipientConsistentId));
+                return failedFuture(new UnresolvableConsistentIdException(recipientConsistentId));
             }
 
             for (NetworkMessageHandler handler : recipient.messageHandlers(msg.groupType())) {
@@ -256,9 +262,14 @@ public class ClusterServiceFactory {
             return nullCompletedFuture();
         }
 
+        @Override
+        public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
+            return failedFuture(new UnsupportedOperationException());
+        }
+
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
+        public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
             throw new AssertionError("Not implemented yet");
         }
 
@@ -270,7 +281,7 @@ public class ClusterServiceFactory {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
+        public CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
             throw new AssertionError("Not implemented yet");
         }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -34,9 +35,11 @@ import org.junit.jupiter.api.Test;
  * Check LIMIT and\or OFFSET commands.
  */
 public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
+    private static final String TABLE_NAME = "test";
+
     @BeforeEach
     void beforeEach() {
-        sql("CREATE TABLE test (pk INT PRIMARY KEY, col0 INT)");
+        sql("CREATE TABLE " + TABLE_NAME + " (pk INT PRIMARY KEY, col0 INT)");
     }
 
     @AfterEach
@@ -46,8 +49,13 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
 
     /** Tests correctness of fetch / offset params. */
     @Test
-    public void testInvalidLimitOffset() {
+    public void testInvalidLimitOffset() throws InterruptedException {
         BigDecimal moreThanUpperLong = new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(1));
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25283 Remove
+        // In case of empty assignments, SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In order to eliminate this, assignments stabilization is needed, otherwise test may fail. Not related to colocation.
+        awaitAssignmentsStabilization(CLUSTER.aliveNode(), TABLE_NAME);
 
         // cache the plan with concrete type param
         igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(Long.MAX_VALUE));

@@ -21,9 +21,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.Set;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.SqlException;
@@ -37,7 +36,7 @@ public final class ValidationHelper {
             SqlProperties properties,
             ParsedResult parsedResult
     ) {
-        Set<SqlQueryType> allowedTypes = properties.get(QueryProperty.ALLOWED_QUERY_TYPES);
+        Set<SqlQueryType> allowedTypes = properties.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
 
         if (!parsedResult.queryType().supportsIndependentExecution()) {
@@ -46,11 +45,7 @@ public final class ValidationHelper {
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
-        if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type. Expected {} but got {}.", allowedTypes, queryType);
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
+        validateQueryType(allowedTypes, queryType);
     }
 
     /** Performs validation of dynamic params provided. **/
@@ -71,6 +66,18 @@ public final class ValidationHelper {
 
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
+        }
+    }
+
+    /** Validates query type. */
+    static void validateQueryType(
+            Set<SqlQueryType> allowedTypes,
+            SqlQueryType queryType
+    ) {
+        if (!allowedTypes.contains(queryType)) {
+            String message = format("Invalid SQL statement type. Expected {} but got {}.", allowedTypes, queryType);
+
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
     }
 }

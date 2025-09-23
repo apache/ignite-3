@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -45,7 +47,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
-    private static final ClusterNode CLUSTER_NODE = new ClusterNodeImpl(
+    private static final InternalClusterNode CLUSTER_NODE = new ClusterNodeImpl(
             randomUUID(),
             "test-node",
             new NetworkAddress("localhost", 1234)
@@ -89,7 +90,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(
-                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, colocationEnabled()
         );
 
         assertThat(tx.schemaTimestamp(), is(beginTs));
@@ -122,7 +123,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(
-                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, colocationEnabled()
         );
 
         tx.assignCommitPartition(txCommitPart);

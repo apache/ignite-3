@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedRowsCount;
+import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedColumnsCount;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -28,6 +28,7 @@ import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -213,6 +214,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         return this;
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 
     private void requestNextBatchIfNeeded() throws Exception {
@@ -450,7 +458,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return null;
         }
 
-        int columnCount = storedRowsCount(descriptor);
+        int columnCount = storedColumnsCount(descriptor);
 
         // MERGE clause can use format [insert row type] + [full row type] + [columns to update] which is bigger on
         // size of [full row type] then different type of formats, so we can detect it and use for right column mapping.

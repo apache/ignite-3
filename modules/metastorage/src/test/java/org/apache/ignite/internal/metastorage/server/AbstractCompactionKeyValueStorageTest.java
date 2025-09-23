@@ -526,6 +526,57 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(entryBefore, entryAfter);
     }
 
+    @Test
+    void testReadCompactedTombstoneConcurrent() {
+        KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
+
+        byte[] extraKey = key(-1);
+        byte[] extraValue = keyValue(0, 0);
+
+        for (int i = 0; i < 1000; i++) {
+            byte[] key = key(i);
+            byte[] value = keyValue(i, i);
+
+            storage.put(key, value, context);
+            storage.remove(key, context);
+
+            long revision = storage.revision();
+
+            // Increase revision, so that compaction on "revision" can safely be executed.
+            storage.put(extraKey, extraValue, context);
+
+            runRace(
+                    () -> {
+                        storage.setCompactionRevision(revision);
+                        storage.compact(revision);
+                    },
+                    () -> {
+                        // We update the same value in order to cause a race in "writeBatch" method, that would leave already compacted
+                        // revisions in a list of revisions associated with this key.
+                        storage.put(key, value, context);
+                    }
+            );
+
+            // Not a real assertion. It's for a developer that reads this test. Yes, you.
+            assertEquals(revision + 2, storage.revision());
+
+            long nextToLast = storage.revision() - 1;
+
+            // Here we read the previous value of the key that's been inserted right now. This read from the storage must NOT fail.
+            // WatchProcessor does exactly the same thing, and it must work, otherwise Ignite nodes will fail in "remove+put" scenarios.
+            assertDoesNotThrow(() -> {
+                Entry entry = storage.get(key, nextToLast);
+
+                assertTrue(entry.empty());
+            });
+
+            // Check that compaction itself can handle the same case with a "writeBatch" race.
+            storage.setCompactionRevision(nextToLast);
+            storage.compact(nextToLast);
+            storage.remove(key, context);
+        }
+    }
+
     /**
      * Tests {@link KeyValueStorage#get(byte[], long)} using examples from the description only for the {@link #BAR_KEY} for which the last
      * revision is tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions are added in
@@ -551,7 +602,6 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 5);
 
         storage.setCompactionRevision(5);
-        // TODO IGNITE-25212 Consider expecting a tombstone here.
         assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 5);
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 6);
 
@@ -946,7 +996,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testConcurrentReadAndCompaction() {
         KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 500; i++) {
             byte[] key = key(i);
             byte[] value = keyValue(i, i);
 
@@ -980,7 +1030,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testConcurrentUpdateAndCompaction() {
         KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
 
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 1000; i++) {
             byte[] key = key(i);
             byte[] value = keyValue(i, i);
 
@@ -1000,15 +1050,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                     }
             );
 
-            try {
-                Entry entry = storage.get(key, revision);
-
-                assertFalse(entry.empty());
-                assertEquals(revision, entry.revision());
-                assertArrayEquals(value, entry.value());
-            } catch (CompactedException ignore) {
-                // This is expected.
-            }
+            assertThrows(
+                    CompactedException.class,
+                    () -> storage.get(key, revision)
+            );
 
             storage.remove(key, context);
         }

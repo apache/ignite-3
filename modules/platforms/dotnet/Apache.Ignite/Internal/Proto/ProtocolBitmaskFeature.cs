@@ -38,5 +38,20 @@ internal enum ProtocolBitmaskFeature
     /// <summary>
     /// Transaction direct mapping.
     /// </summary>
-    TxDirectMapping = 4
+    TxDirectMapping = 4,
+
+    /// <summary>
+    /// Platform compute jobs (call non-Java jobs from client).
+    /// </summary>
+    PlatformComputeJob = 8,
+
+    /// <summary>
+    /// Platform compute executor (respond to server calls for job execution).
+    /// </summary>
+    PlatformComputeExecutor = 16,
+
+    /// <summary>
+    /// Streamer receiver execution options, including .NET receivers.
+    /// </summary>
+    StreamerReceiverExecutionOptions = 32
 }

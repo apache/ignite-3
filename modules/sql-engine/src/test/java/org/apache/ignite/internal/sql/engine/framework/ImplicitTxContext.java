@@ -36,7 +36,7 @@ public class ImplicitTxContext implements QueryTransactionContext {
 
     @Override
     public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
-        return new QueryTransactionWrapperImpl(new NoOpTransaction("dummy", false), true, NoOpTransactionTracker.INSTANCE);
+        return new QueryTransactionWrapperImpl(new NoOpTransaction("dummy", false), true, NoOpTransactionalOperationTracker.INSTANCE);
     }
 
     @Override

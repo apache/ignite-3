@@ -69,8 +69,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
             0,
             ZONE_NAME,
             1,
-            -1,
-            -1,
+            1,
+            1,
             -1,
             -1,
             "",
@@ -92,6 +92,28 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> nullAndEmptySets() {
         return Stream.of(null, Set.of()).map(Arguments::of);
+    }
+
+    /**
+     * Test cases for the create/alter zone parameter validation. The order is: number of replicas, default quorum size, default consensus
+     * group size, minimum quorum size, maximum quorum size.
+     *
+     * @return Stream of arguments for parameterized test.
+     */
+    static Stream<Arguments> quorumTable() {
+        return Stream.of(
+                Arguments.of(null, 1, 1, 1, 1), // default replicas count is 1
+                Arguments.of(1, 1, 1, 1, 1),
+                Arguments.of(2, 2, 2, 2, 2),
+                Arguments.of(3, 2, 3, 2, 2),
+                Arguments.of(4, 2, 3, 2, 2),
+                Arguments.of(5, 3, 5, 2, 3),
+                Arguments.of(6, 3, 5, 2, 3),
+                Arguments.of(7, 3, 5, 2, 4),
+                Arguments.of(8, 3, 5, 2, 4),
+                Arguments.of(9, 3, 5, 2, 5),
+                Arguments.of(10, 3, 5, 2, 5)
+        );
     }
 
     static Catalog emptyCatalog() {

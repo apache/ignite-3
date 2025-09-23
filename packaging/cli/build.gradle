@@ -23,6 +23,8 @@ plugins {
     alias(libs.plugins.checksum)
 }
 
+apply from: "$rootDir/buildscripts/utils.gradle"
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -174,6 +176,7 @@ ospackage {
     packageDescription "This package will install Apache Ignite CLI"
     os LINUX
     user 'root'
+    release getCommitNum()
 
     into(linuxTokens.INSTALL_DIR) {
         from "$buildDir/linux/start.sh"

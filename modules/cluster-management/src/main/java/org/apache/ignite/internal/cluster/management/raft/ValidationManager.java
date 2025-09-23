@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -30,8 +31,8 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +55,7 @@ public class ValidationManager {
     /**
      * Validates a given {@code state} against the {@code nodeState} received from an {@link InitCmgStateCommand}.
      */
-    static ValidationResult validateState(ClusterState state, ClusterNode node, ClusterState nodeState) {
+    static ValidationResult validateState(ClusterState state, InternalClusterNode node, ClusterState nodeState) {
         if (!state.cmgNodes().equals(nodeState.cmgNodes())) {
             return ValidationResult.errorResult(String.format(
                     "CMG node names do not match. CMG nodes: %s, nodes stored in CMG: %s",
@@ -112,11 +113,28 @@ public class ValidationManager {
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                     clusterTag, state.clusterTag()
             ));
+        } else if (!isColocationEnabledMatched(isColocationEnabled(node))) {
+            return ValidationResult.configErrorResult(String.format(
+                    "Colocation enabled mode does not match. Joining node colocation mode is: %s, cluster colocation mode is: %s",
+                    isColocationEnabled(node),
+                    isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next())
+            ));
         } else {
             putValidatedNode(node);
 
             return ValidationResult.successfulResult();
         }
+    }
+
+    private static boolean isColocationEnabled(LogicalNode node) {
+        return Boolean.parseBoolean(node.systemAttributes().get(COLOCATION_FEATURE_FLAG));
+    }
+
+    private boolean isColocationEnabledMatched(boolean joiningNodeColocationEnabled) {
+        Set<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
+
+        return logicalTopologyNodes.isEmpty()
+                || isColocationEnabled(logicalTopologyNodes.iterator().next()) == joiningNodeColocationEnabled;
     }
 
     boolean isNodeValidated(LogicalNode node) {
@@ -131,13 +149,13 @@ public class ValidationManager {
 
     void removeValidatedNodes(Collection<LogicalNode> nodes) {
         Set<UUID> validatedNodeIds = storageManager.getValidatedNodes().stream()
-                .map(ClusterNode::id)
+                .map(InternalClusterNode::id)
                 .collect(toSet());
 
         // Using a sorted stream to have a stable notification order.
         nodes.stream()
                 .filter(node -> validatedNodeIds.contains(node.id()))
-                .sorted(Comparator.comparing(ClusterNode::id))
+                .sorted(Comparator.comparing(InternalClusterNode::id))
                 .forEach(node -> {
                     storageManager.removeValidatedNode(node);
 
@@ -155,7 +173,7 @@ public class ValidationManager {
         // Remove all other versions of this node, if they were validated at some point, but not removed from the physical topology.
         storageManager.getValidatedNodes().stream()
                 .filter(n -> n.name().equals(node.name()) && !n.id().equals(node.id()))
-                .sorted(Comparator.comparing(ClusterNode::id))
+                .sorted(Comparator.comparing(InternalClusterNode::id))
                 .forEach(nodeVersion -> {
                     storageManager.removeValidatedNode(nodeVersion);
 

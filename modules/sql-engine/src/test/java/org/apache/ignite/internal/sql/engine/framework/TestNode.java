@@ -31,10 +31,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -54,7 +54,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -81,8 +81,6 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -90,6 +88,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -160,14 +159,14 @@ public class TestNode implements LifecycleAware {
                         return true;
                     }
                 });
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureManager);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureManager, new NoOpMetricManager());
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 
         holdLock = new IgniteSpinBusyLock();
 
         messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, holdLock, clockService
+                topologyService.localMember(), messagingService, taskExecutor, holdLock, clockService
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService, clockService
@@ -202,6 +201,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
@@ -235,20 +235,10 @@ public class TestNode implements LifecycleAware {
                 prepareService,
                 catalogService,
                 executionService,
-                SqlQueryProcessor.DEFAULT_PROPERTIES,
-                NoOpTransactionTracker.INSTANCE,
+                NoOpTransactionalOperationTracker.INSTANCE,
                 new QueryIdGenerator(nodeName.hashCode()),
-                new EventLog() {
-                    @Override
-                    public void log(Event event) {
-                        // No-op.
-                    }
-
-                    @Override
-                    public void log(String type, Supplier<Event> eventProvider) {
-                        // No-op.
-                    }
-                }
+                EventLog.NOOP,
+                new SqlQueryMetricSource()
         ));
     }
 
@@ -337,10 +327,30 @@ public class TestNode implements LifecycleAware {
         return awaitPlan(prepareService.prepareAsync(parsedResult, ctx));
     }
 
+    /**
+     * Prepares (aka parses, validates, and optimizes) the given (possible multiple) query string
+     * and returns the plan(s) to execute.
+     *
+     * @param query A query string to prepare.
+     * @return A plan(s) to execute.
+     */
+    public List<QueryPlan> prepareScript(String query) {
+        List<ParsedResult> parsedResult = parserService.parseScript(query);
+        SqlOperationContext ctx = createContext().build();
+
+        List<QueryPlan> plans = new ArrayList<>();
+
+        for (ParsedResult res : parsedResult) {
+            plans.add(awaitPlan(prepareService.prepareAsync(res, ctx)));
+        }
+
+        return plans;
+    }
+
     /** Executes the given script. */
     public void initSchema(String script) {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = queryExecutor.executeQuery(
-                SqlPropertiesHelper.emptyProperties(),
+                new SqlProperties(),
                 ImplicitTxContext.create(),
                 script,
                 null,
@@ -373,7 +383,7 @@ public class TestNode implements LifecycleAware {
     /** Executes the given query. */
     public AsyncSqlCursor<InternalSqlRow> executeQuery(QueryTransactionContext txContext, String query, Object... params) {
         return executeQuery(
-                SqlPropertiesHelper.emptyProperties(), txContext, query, params
+                new SqlProperties(), txContext, query, params
         );
     }
 
@@ -411,7 +421,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
+                .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                 .txContext(ImplicitTxContext.create())
                 .parameters();
     }

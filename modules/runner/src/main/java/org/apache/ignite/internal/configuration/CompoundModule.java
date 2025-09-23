@@ -50,7 +50,7 @@ public class CompoundModule implements ConfigurationModule {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
+    public Collection<RootKey<?, ?, ?>> rootKeys() {
         return unionFromModulesExtractedWith(ConfigurationModule::rootKeys);
     }
 
@@ -83,5 +83,15 @@ public class CompoundModule implements ConfigurationModule {
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         modules.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
+    }
+
+    @Override
+    public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
+        modules.forEach(module -> module.migrateDeprecatedConfigurations(superRootChange));
+    }
+
+    @Override
+    public Collection<String> deletedPrefixes() {
+        return unionFromModulesExtractedWith(ConfigurationModule::deletedPrefixes);
     }
 }

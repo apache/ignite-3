@@ -41,8 +41,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
@@ -81,8 +82,7 @@ public class MappingServiceImpl implements MappingService {
     private final PartitionPruner partitionPruner;
     private final LongSupplier logicalTopologyVerSupplier;
     private final ExecutionDistributionProvider distributionProvider;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final NodeProperties nodeProperties;
 
     /**
      * Constructor.
@@ -102,7 +102,8 @@ public class MappingServiceImpl implements MappingService {
             int cacheSize,
             PartitionPruner partitionPruner,
             LongSupplier logicalTopologyVerSupplier,
-            ExecutionDistributionProvider distributionProvider
+            ExecutionDistributionProvider distributionProvider,
+            NodeProperties nodeProperties
     ) {
         this.localNodeName = localNodeName;
         this.clock = clock;
@@ -111,6 +112,7 @@ public class MappingServiceImpl implements MappingService {
         this.partitionPruner = partitionPruner;
         this.logicalTopologyVerSupplier = logicalTopologyVerSupplier;
         this.distributionProvider = distributionProvider;
+        this.nodeProperties = nodeProperties;
     }
 
     /** Called when the primary replica has expired. */
@@ -119,7 +121,7 @@ public class MappingServiceImpl implements MappingService {
 
         int tableOrZoneId;
 
-        if (enabledColocation) {
+        if (nodeProperties.colocationEnabled()) {
             tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
         } else {
             tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
@@ -137,6 +139,7 @@ public class MappingServiceImpl implements MappingService {
 
         boolean mapOnBackups = parameters.mapOnBackups();
         Predicate<String> nodeExclusionFilter = parameters.nodeExclusionFilter();
+        PartitionPruningMetadata partitionPruningMetadata = multiStepPlan.partitionPruningMetadata();
 
         CompletableFuture<MappedFragments> mappedFragments;
         if (nodeExclusionFilter != null) {
@@ -148,7 +151,7 @@ public class MappingServiceImpl implements MappingService {
             ).mappedFragments;
         }
 
-        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
+        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters, partitionPruningMetadata));
     }
 
     private MappingsCacheValue computeMappingCacheKey(
@@ -163,7 +166,7 @@ public class MappingServiceImpl implements MappingService {
             for (Fragment fragment : template.fragments) {
                 topologyAware = topologyAware || !fragment.systemViews().isEmpty();
                 for (IgniteTable source : fragment.tables().values()) {
-                    if (enabledColocation) {
+                    if (nodeProperties.colocationEnabled()) {
                         tableOrZoneIds.add(source.zoneId());
                     } else {
                         tableOrZoneIds.add(source.id());
@@ -359,18 +362,25 @@ public class MappingServiceImpl implements MappingService {
                 : factory.allOf(nodes);
     }
 
-    private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
-        return partitionPruner.apply(mappedFragments, parameters.dynamicParameters());
+    private List<MappedFragment> applyPartitionPruning(
+            List<MappedFragment> mappedFragments, 
+            MappingParameters parameters, 
+            @Nullable PartitionPruningMetadata partitionPruningMetadata
+    ) {
+        if (partitionPruningMetadata == null) {
+            return mappedFragments;
+        }
+        return partitionPruner.apply(mappedFragments, parameters.dynamicParameters(), partitionPruningMetadata);
     }
 
     private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan) {
         // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
         return templatesCache.get(plan.id(), key -> {
-            IdGenerator idGenerator = new IdGenerator(0);
+            IdGenerator idGenerator = new IdGenerator(plan.numSources());
 
             RelOptCluster cluster = Commons.cluster();
 
-            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.root());
+            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.getRel());
 
             return new FragmentsTemplate(
                     idGenerator.nextId(), cluster, fragments

@@ -33,9 +33,8 @@ using Common;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
+using Marshalling;
 using Proto;
-using Proto.BinaryTuple;
-using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -64,6 +63,10 @@ internal static class DataStreamerWithReceiver
     /// <param name="resultChannel">Channel for results from the receiver. Null when results are not expected.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="receiverExecutionOptions">Receiver options.</param>
+    /// <param name="payloadMarshaller">Payload marshaller.</param>
+    /// <param name="argMarshaller">Argument marshaller.</param>
+    /// <param name="resultMarshaller">Result marshaller.</param>
     /// <param name="receiverArg">Receiver arg.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
@@ -84,6 +87,10 @@ internal static class DataStreamerWithReceiver
         Channel<TResult>? resultChannel,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
+        ReceiverExecutionOptions receiverExecutionOptions,
+        IMarshaller<TPayload>? payloadMarshaller,
+        IMarshaller<TArg>? argMarshaller,
+        IMarshaller<TResult>? resultMarshaller,
         TArg receiverArg,
         CancellationToken cancellationToken)
         where TKey : notnull
@@ -91,6 +98,8 @@ internal static class DataStreamerWithReceiver
     {
         IgniteArgumentCheck.NotNull(data);
         DataStreamer.ValidateOptions(options);
+
+        var customReceiverExecutionOptions = receiverExecutionOptions != ReceiverExecutionOptions.Default;
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
@@ -198,25 +207,9 @@ internal static class DataStreamerWithReceiver
 
         Batch<TSource, TPayload> Add(TSource item)
         {
-            var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumns.Length, hashedColumnsPredicate: schema.HashedColumnIndexProvider);
-
-            try
-            {
-                return Add0(item, ref tupleBuilder);
-            }
-            finally
-            {
-                tupleBuilder.Dispose();
-            }
-        }
-
-        Batch<TSource, TPayload> Add0(TSource item, ref BinaryTupleBuilder tupleBuilder)
-        {
-            // Write key to compute hash.
             var key = keySelector(item);
-            keyWriter.Write(ref tupleBuilder, key, schema, keyOnly: true, Span<byte>.Empty);
-
-            var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
+            var hash = keyWriter.GetKeyColocationHash(schema, key);
+            var partitionId = Math.Abs(hash % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
 
             var payload = payloadSelector(item);
@@ -300,15 +293,22 @@ internal static class DataStreamerWithReceiver
 
             try
             {
-                SerializeBatch(buf, items.AsSpan(0, count), partitionId);
+                SerializeBatch(buf, new ArraySegment<TPayload>(items, 0, count), partitionId);
 
                 // ReSharper disable once AccessToModifiedClosure
                 var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
 
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
-                (results, int resultsCount) = await SendBatchAsync<TResult>(
-                    table, buf, count, preferredNode, retryPolicy, expectResults: resultChannel != null).ConfigureAwait(false);
+                (results, int resultsCount) = await SendBatchAsync(
+                    table,
+                    buf,
+                    count,
+                    preferredNode,
+                    retryPolicy,
+                    expectResults: resultChannel != null,
+                    customReceiverExecutionOptions,
+                    resultMarshaller).ConfigureAwait(false);
 
                 if (results != null && resultChannel != null)
                 {
@@ -379,9 +379,9 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        void SerializeBatch<T>(
+        void SerializeBatch(
             PooledArrayBuffer buf,
-            Span<T> items,
+            ArraySegment<TPayload> items,
             int partitionId)
         {
             // T is one of the supported types (numbers, strings, etc).
@@ -394,26 +394,12 @@ internal static class DataStreamerWithReceiver
 
             var expectResults = resultChannel != null;
             w.Write(expectResults);
-            WriteReceiverPayload(ref w, receiverClassName, receiverArg, items);
+            StreamerReceiverSerializer.WriteReceiverInfo(ref w, receiverClassName, receiverArg, items, payloadMarshaller, argMarshaller);
+
+            w.Write(receiverExecutionOptions.Priority);
+            w.Write(receiverExecutionOptions.MaxRetries);
+            w.Write((int)receiverExecutionOptions.ExecutorType);
         }
-    }
-
-    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, object? arg, Span<T> items)
-    {
-        Debug.Assert(items.Length > 0, "items.Length > 0");
-        Debug.Assert(!items.IsEmpty, "!items.IsEmpty");
-
-        // className + arg + items size + item type + items.
-        int binaryTupleSize = 1 + 3 + 1 + 1 + items.Length;
-        using var builder = new BinaryTupleBuilder(binaryTupleSize);
-
-        builder.AppendString(className);
-        builder.AppendObjectWithType(arg);
-
-        builder.AppendObjectCollectionWithType(items);
-
-        w.Write(binaryTupleSize);
-        w.Write(builder.Build().Span);
     }
 
     private static async Task<(T[]? ResultsPooledArray, int ResultsCount)> SendBatchAsync<T>(
@@ -422,12 +408,28 @@ internal static class DataStreamerWithReceiver
         int count,
         PreferredNode preferredNode,
         IRetryPolicy retryPolicy,
-        bool expectResults)
+        bool expectResults,
+        bool customReceiverExecutionOptions,
+        IMarshaller<T>? marshaller)
     {
-        var (resBuf, socket) = await table.Socket.DoOutInOpAndGetSocketAsync(
-                ClientOp.StreamerWithReceiverBatchSend,
-                tx: null,
-                buf,
+        var (resBuf, socket) = await table.Socket.DoWithRetryAsync(
+                (buf, customReceiverExecutionOptions),
+                static (_, _) => ClientOp.StreamerWithReceiverBatchSend,
+                async static (socket, arg) =>
+                {
+                    if (arg.customReceiverExecutionOptions &&
+                        !socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.StreamerReceiverExecutionOptions))
+                    {
+                        throw new IgniteClientException(
+                            ErrorGroups.Client.ProtocolCompatibility,
+                            $"{nameof(ReceiverExecutionOptions)} are not supported by the server.");
+                    }
+
+                    var res = await socket.DoOutInOpAsync(ClientOp.StreamerWithReceiverBatchSend, arg.buf)
+                        .ConfigureAwait(false);
+
+                    return (res, socket);
+                },
                 preferredNode,
                 retryPolicy)
             .ConfigureAwait(false);
@@ -438,26 +440,8 @@ internal static class DataStreamerWithReceiver
             Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
 
             return expectResults
-                ? Read(resBuf.GetReader())
+                ? StreamerReceiverSerializer.ReadReceiverResults(resBuf.GetReader(), marshaller)
                 : (null, 0);
-        }
-
-        static (T[]? ResultsPooledArray, int ResultsCount) Read(MsgPackReader reader)
-        {
-            if (reader.TryReadNil())
-            {
-                return (null, 0);
-            }
-
-            var numElements = reader.ReadInt32();
-            if (numElements == 0)
-            {
-                return (null, 0);
-            }
-
-            var tuple = new BinaryTupleReader(reader.ReadBinary(), numElements);
-
-            return tuple.GetObjectCollectionWithType<T>();
         }
     }
 

@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Transactions
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Transactions;
@@ -108,12 +109,24 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
+        [SuppressMessage("ReSharper", "UseAwaitUsing", Justification = "Testing synchronous Dispose.")]
         public async Task TestDisposeDoesNotUpdateData()
+        {
+            using (var tx = await Client.Transactions.BeginAsync())
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+            }
+
+            var (_, hasValue) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasValue);
+        }
+
+        [Test]
+        public async Task TestDisposeAsyncDoesNotUpdateData()
         {
             await using (var tx = await Client.Transactions.BeginAsync())
             {
                 await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
-                await tx.RollbackAsync();
             }
 
             var (_, hasValue) = await TupleView.GetAsync(null, GetTuple(1));
@@ -337,24 +350,81 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual(123, server.LastClientObservableTimestamp);
         }
 
+        [Test]
+        public async Task TestRunInTransactionUpdatesData()
+        {
+            await Client.Transactions.RunInTransactionAsync(
+                async tx => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultUpdatesData()
+        {
+            var res = await Client.Transactions.RunInTransactionAsync(async tx =>
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+                return await TupleView.GetAsync(tx, GetTuple(1));
+            });
+
+            Assert.AreEqual("2", res.Value[1]);
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync<int>(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
+        }
+
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;
 
-            public ValueTask DisposeAsync()
+            public ValueTask DisposeAsync() => new(Task.CompletedTask);
+
+            public void Dispose()
             {
-                return new ValueTask(Task.CompletedTask);
+                // No-op.
             }
 
-            public Task CommitAsync()
-            {
-                return Task.CompletedTask;
-            }
+            public Task CommitAsync() => Task.CompletedTask;
 
-            public Task RollbackAsync()
-            {
-                return Task.CompletedTask;
-            }
+            public Task RollbackAsync() => Task.CompletedTask;
         }
     }
 }

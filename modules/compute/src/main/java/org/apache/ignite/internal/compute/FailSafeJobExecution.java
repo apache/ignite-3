@@ -61,11 +61,19 @@ class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHold
     private JobState capturedState;
 
     /**
+     * Job id of the execution.
+     */
+    private final UUID jobId;
+
+    /**
      * Link to the current job execution object. It can be updated when the job is restarted on another node.
      */
     private CancellableJobExecution<ComputeJobDataHolder> runningJobExecution;
 
-    FailSafeJobExecution(CancellableJobExecution<ComputeJobDataHolder> runningJobExecution) throws RuntimeException {
+    private CompletableFuture<ComputeJobDataHolder> completeHook;
+
+    FailSafeJobExecution(CancellableJobExecution<ComputeJobDataHolder> runningJobExecution, UUID jobId) {
+        this.jobId = jobId;
         this.resultFuture = new CompletableFuture<>();
         this.runningJobExecution = runningJobExecution;
 
@@ -80,15 +88,15 @@ class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHold
                 .whenComplete((state, e) -> capturedState = state != null ? state : failedState());
     }
 
-    private static JobState failedState() {
-        return JobStateImpl.builder().id(UUID.randomUUID()).createTime(Instant.now()).status(JobStatus.FAILED).build();
+    private JobState failedState() {
+        return JobStateImpl.builder().id(jobId).createTime(Instant.now()).status(JobStatus.FAILED).build();
     }
 
     /**
      * Registers a hook for the future that is returned to the user. This future will be completed when the job is completed.
      */
     private void registerCompleteHook() {
-        runningJobExecution.resultAsync().whenComplete((res, err) -> {
+        completeHook = runningJobExecution.resultAsync().whenComplete((res, err) -> {
             if (err == null) {
                 resultFuture.complete(res);
             } else {
@@ -100,13 +108,20 @@ class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHold
     void updateJobExecution(CancellableJobExecution<ComputeJobDataHolder> jobExecution) {
         LOG.debug("Updating job execution: {}", jobExecution);
 
+        CancellableJobExecution<ComputeJobDataHolder> previousRunningJobExecution = runningJobExecution;
+        CompletableFuture<ComputeJobDataHolder> previousCompleteHook = completeHook;
+
         runningJobExecution = jobExecution;
         registerCompleteHook();
+
+        // Cancel the hook so that the cancelling the execution doesn't trigger it
+        previousCompleteHook.cancel(true);
+        cleanRunningJobExecution(previousRunningJobExecution);
     }
 
     /**
-     * Transforms the state by modifying the fields that should be always the same regardless of the job execution attempt. For example,
-     * the job creation time should be the same for all attempts.
+     * Transforms the state by modifying the fields that should be always the same regardless of the job execution attempt. The job creation
+     * time and job id should be the same for all attempts.
      *
      * <p>Can update {@link #capturedState} as a side-effect if the one is null.
      *
@@ -124,7 +139,7 @@ class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHold
 
         return JobStateImpl.toBuilder(jobState)
                 .createTime(capturedState.createTime())
-                .id(capturedState.id())
+                .id(jobId)
                 .build();
     }
 
@@ -180,8 +195,16 @@ class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHold
     void completeExceptionally(Exception ex) {
         if (exception.compareAndSet(null, ex)) {
             resultFuture.completeExceptionally(ex);
+            cleanRunningJobExecution(runningJobExecution);
         } else {
             throw new IllegalStateException("Job is already completed exceptionally.");
         }
+    }
+
+    /**
+     * Cancels the running job result future, triggering the execution manager clean process.
+     */
+    private static void cleanRunningJobExecution(CancellableJobExecution<ComputeJobDataHolder> previousRunningJobExecution) {
+        previousRunningJobExecution.resultAsync().cancel(true);
     }
 }

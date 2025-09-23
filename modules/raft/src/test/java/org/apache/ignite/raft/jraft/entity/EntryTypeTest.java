@@ -26,18 +26,18 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link EntryType} testing. */
 public class EntryTypeTest {
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
-    void testFromOrdinal() {
-        assertEquals(EntryType.ENTRY_TYPE_UNKNOWN, EntryType.fromOrdinal(0));
+    void testFromId() {
+        assertEquals(EntryType.ENTRY_TYPE_UNKNOWN, EntryType.fromId(0));
 
-        assertEquals(EntryType.ENTRY_TYPE_NO_OP, EntryType.fromOrdinal(1));
+        assertEquals(EntryType.ENTRY_TYPE_NO_OP, EntryType.fromId(1));
 
-        assertEquals(EntryType.ENTRY_TYPE_DATA, EntryType.fromOrdinal(2));
+        assertEquals(EntryType.ENTRY_TYPE_DATA, EntryType.fromId(2));
 
-        assertEquals(EntryType.ENTRY_TYPE_CONFIGURATION, EntryType.fromOrdinal(3));
+        assertEquals(EntryType.ENTRY_TYPE_CONFIGURATION, EntryType.fromId(3));
 
-        assertThrows(IllegalArgumentException.class, () -> EntryType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> EntryType.fromOrdinal(4));
+        assertThrows(IllegalArgumentException.class, () -> EntryType.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> EntryType.fromId(4));
     }
 }

@@ -20,8 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -50,6 +49,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -86,6 +86,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -238,17 +240,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // No new transactions through ddl.
-        assertEquals(0, txManager.pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /** Check correctness of implicit and explicit transactions. */
     @Test
     public void checkTransactionsWithDml() {
-        if (enabledColocation()) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24886 Test fails in case of enabledColocation
-            return;
-        }
-
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -304,7 +301,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
-        assertEquals(0, txManagerInternal.pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -348,7 +345,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
-        Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
+        Matcher<String> planMatcher = containsIndexScanIgnoreBounds("PUBLIC", "TEST", "TEST_IDX");
 
         checkMixedTransactions(planMatcher);
     }
@@ -555,7 +552,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT, txManager.finished() - txPrevCnt);
         // No new transactions through ddl.
-        assertEquals(0, txManager.pending());
+        waitUntilActiveTransactionsCount(is(0));
 
         checkDml(ROW_COUNT, sql, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -775,7 +772,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         execute(1, sql, "SELECT * FROM TEST");
 
-        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /**
@@ -813,7 +810,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, execute(sql, "SELECT ID FROM TEST WHERE ID = -1").result().size());
         }
 
-        assertEquals(0, txManager().pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     @Test
@@ -832,9 +829,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 .build();
 
         ResultSet<?> rs = executeForRead(sql, statement);
-        assertEquals(1, txManager().pending());
+        waitUntilActiveTransactionsCount(is(1));
+
         rs.close();
-        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     @Test
@@ -976,13 +975,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         expectQueryCancelled(() -> await(scriptFut));
 
         waitUntilRunningQueriesCount(is(0));
-        assertThat(txManager().pending(), is(0));
+        waitUntilActiveTransactionsCount(is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
         expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
 
         waitUntilRunningQueriesCount(is(0));
-        assertThat(txManager().pending(), is(0));
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     @Test
@@ -1012,7 +1011,55 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         // Query was actually cancelled.
         waitUntilRunningQueriesCount(is(0));
         expectQueryCancelled(() -> await(f));
-        assertThat(txManager().pending(), is(0));
+        waitUntilActiveTransactionsCount(is(0));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = JoinRelType.class, mode = Mode.INCLUDE, names = {"INNER", "LEFT", "RIGHT", "FULL"})
+    public void cancelLongRunningJoinStatement(JoinRelType joinType) throws InterruptedException {
+        IgniteSql sql = igniteSql();
+
+        sql.executeScript("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
+        for (int i = 0; i < 10; i++) {
+            sql.executeScript("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        String join10x = String.format("SELECT count(*) FROM ("
+                + "SELECT "
+                + "t1.ID AS ID1, t2.ID AS ID2, t3.ID AS ID3, t4.ID AS ID4, t5.ID AS ID5, "
+                + "t6.ID AS ID6, t7.ID AS ID7, t8.ID AS ID8, t9.ID AS ID9, t10.ID AS ID10 "
+                + "FROM TEST t1 "
+                + "%s JOIN TEST t2  ON 1 = 1 "
+                + "%s JOIN TEST t3  ON 1 = 1 "
+                + "%s JOIN TEST t4  ON 1 = 1 "
+                + "%s JOIN TEST t5  ON 1 = 1 "
+                + "%s JOIN TEST t6  ON 1 = 1 "
+                + "%s JOIN TEST t7  ON 1 = 1 "
+                + "%s JOIN TEST t8  ON 1 = 1 "
+                + "%s JOIN TEST t9  ON 1 = 1 "
+                + "%s JOIN TEST t10 ON 1 = 1 "
+                + ")", joinType, joinType, joinType, joinType, joinType, joinType, joinType, joinType, joinType);
+
+        {
+            Statement statement = sql.statementBuilder()
+                    .query(join10x)
+                    .build();
+
+            CancelHandle cancelHandle = CancelHandle.create();
+            CompletableFuture<?> fut = sql.executeAsync(null, cancelHandle.token(), statement);
+
+            // Wait until the query starts executing.
+            waitUntilRunningQueriesCount(greaterThan(0));
+            // Wait a bit more to improve failure rate.
+            Thread.sleep(500);
+
+            cancelHandle.cancel();
+
+            // Query was actually cancelled.
+            waitUntilRunningQueriesCount(is(0));
+            expectQueryCancelled(() -> await(fut));
+            waitUntilActiveTransactionsCount(is(0));
+        }
     }
 
     @Test
@@ -1222,6 +1269,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public abstract void cancelQueryString() throws InterruptedException;
+
+    @Test
+    public abstract void cancelBatch() throws InterruptedException;
 
     @Test
     public void cancelQueryBeforeExecution() {

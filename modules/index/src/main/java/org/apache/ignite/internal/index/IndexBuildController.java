@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOV
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -59,6 +59,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -69,12 +70,12 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -109,6 +110,8 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -125,7 +128,8 @@ class IndexBuildController implements ManuallyCloseable {
             ClusterService clusterService,
             PlacementDriver placementDriver,
             ClockService clockService,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            NodeProperties nodeProperties
     ) {
         this.indexBuilder = indexBuilder;
         this.indexManager = indexManager;
@@ -134,6 +138,7 @@ class IndexBuildController implements ManuallyCloseable {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
     }
 
     /** Starts component. */
@@ -236,7 +241,8 @@ class IndexBuildController implements ManuallyCloseable {
 
             return CompletableFutures.allOf(startBuildIndexFutures);
         }).whenComplete((res, ex) -> {
-            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+            // StorageClosedException happens on node stop, so we can ignore it.
+            if (ex != null && !hasCause(ex, NodeStoppingException.class, StorageClosedException.class)) {
                 failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
             }
         });
@@ -270,7 +276,7 @@ class IndexBuildController implements ManuallyCloseable {
                 Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
                 if (parameters.groupId() instanceof ZonePartitionId) {
-                    assert enabledColocation() : "Primary replica ID must be of type ZonePartitionId";
+                    assert nodeProperties.colocationEnabled() : "Primary replica ID must be of type ZonePartitionId";
 
                     ZonePartitionId primaryReplicaId = (ZonePartitionId) parameters.groupId();
 
@@ -335,7 +341,8 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                if (!hasCause(ex, NodeStoppingException.class)) {
+                // StorageClosedException happens on node stop, so we can ignore it.
+                if (!hasCause(ex, NodeStoppingException.class, StorageClosedException.class)) {
                     failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
                 }
             }
@@ -523,7 +530,7 @@ class IndexBuildController implements ManuallyCloseable {
         );
     }
 
-    private ClusterNode localNode() {
+    private InternalClusterNode localNode() {
         return IndexManagementUtils.localNode(clusterService);
     }
 

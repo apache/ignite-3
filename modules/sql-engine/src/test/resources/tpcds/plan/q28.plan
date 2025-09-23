@@ -1,0 +1,105 @@
+Limit
+    fetch: 100
+    est: (rows=1)
+  Project
+      fieldNames: [B1_LP, B1_CNT, B1_CNTD, B2_LP, B2_CNT, B2_CNTD, B3_LP, B3_CNT, B3_CNTD, B4_LP, B4_CNT, B4_CNTD, B5_LP, B5_CNT, B5_CNTD, B6_LP, B6_CNT, B6_CNTD]
+      projection: [B1_LP, B1_CNT, B1_CNTD, B2_LP, B2_CNT, B2_CNTD, B3_LP, B3_CNT, B3_CNTD, B4_LP, B4_CNT, B4_CNTD, B5_LP, B5_CNT, B5_CNTD, B6_LP, B6_CNT, B6_CNTD]
+      est: (rows=1)
+    NestedLoopJoin
+        predicate: true
+        type: inner
+        est: (rows=1)
+      NestedLoopJoin
+          predicate: true
+          type: inner
+          est: (rows=1)
+        NestedLoopJoin
+            predicate: true
+            type: inner
+            est: (rows=1)
+          NestedLoopJoin
+              predicate: true
+              type: inner
+              est: (rows=1)
+            NestedLoopJoin
+                predicate: true
+                type: inner
+                est: (rows=1)
+              ColocatedHashAggregate
+                  fieldNames: [B2_LP, B2_CNT, B2_CNTD]
+                  group: []
+                  aggregation: [AVG(SS_LIST_PRICE), COUNT(SS_LIST_PRICE), COUNT(DISTINCT SS_LIST_PRICE)]
+                  est: (rows=1)
+                Exchange
+                    distribution: single
+                    est: (rows=180025)
+                  TableScan
+                      table: PUBLIC.STORE_SALES
+                      predicate: AND(SEARCH(SS_QUANTITY, Sarg[[6..10]]), OR(AND(>=(SS_LIST_PRICE, 152.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 162.00)), AND(>=(SS_COUPON_AMT, 2196.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 3196.00)), AND(>=(SS_WHOLESALE_COST, 56.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 76.00))))
+                      fieldNames: [SS_LIST_PRICE]
+                      est: (rows=180025)
+              ColocatedHashAggregate
+                  fieldNames: [B3_LP, B3_CNT, B3_CNTD]
+                  group: []
+                  aggregation: [AVG(SS_LIST_PRICE), COUNT(SS_LIST_PRICE), COUNT(DISTINCT SS_LIST_PRICE)]
+                  est: (rows=1)
+                Exchange
+                    distribution: single
+                    est: (rows=180025)
+                  TableScan
+                      table: PUBLIC.STORE_SALES
+                      predicate: AND(SEARCH(SS_QUANTITY, Sarg[[11..15]]), OR(AND(>=(SS_LIST_PRICE, 53.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 63.00)), AND(>=(SS_COUPON_AMT, 3430.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 4430.00)), AND(>=(SS_WHOLESALE_COST, 13.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 33.00))))
+                      fieldNames: [SS_LIST_PRICE]
+                      est: (rows=180025)
+            ColocatedHashAggregate
+                fieldNames: [B4_LP, B4_CNT, B4_CNTD]
+                group: []
+                aggregation: [AVG(SS_LIST_PRICE), COUNT(SS_LIST_PRICE), COUNT(DISTINCT SS_LIST_PRICE)]
+                est: (rows=1)
+              Exchange
+                  distribution: single
+                  est: (rows=180025)
+                TableScan
+                    table: PUBLIC.STORE_SALES
+                    predicate: AND(SEARCH(SS_QUANTITY, Sarg[[16..20]]), OR(AND(>=(SS_LIST_PRICE, 182.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 192.00)), AND(>=(SS_COUPON_AMT, 3262.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 4262.00)), AND(>=(SS_WHOLESALE_COST, 20.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 40.00))))
+                    fieldNames: [SS_LIST_PRICE]
+                    est: (rows=180025)
+          ColocatedHashAggregate
+              fieldNames: [B6_LP, B6_CNT, B6_CNTD]
+              group: []
+              aggregation: [AVG(SS_LIST_PRICE), COUNT(SS_LIST_PRICE), COUNT(DISTINCT SS_LIST_PRICE)]
+              est: (rows=1)
+            Exchange
+                distribution: single
+                est: (rows=180025)
+              TableScan
+                  table: PUBLIC.STORE_SALES
+                  predicate: AND(SEARCH(SS_QUANTITY, Sarg[[26..30]]), OR(AND(>=(SS_LIST_PRICE, 180.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 190.00)), AND(>=(SS_COUPON_AMT, 12592.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 13592.00)), AND(>=(SS_WHOLESALE_COST, 22.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 42.00))))
+                  fieldNames: [SS_LIST_PRICE]
+                  est: (rows=180025)
+        ColocatedHashAggregate
+            fieldNames: [B1_LP, B1_CNT, B1_CNTD]
+            group: []
+            aggregation: [AVG(SS_LIST_PRICE), COUNT(SS_LIST_PRICE), COUNT(DISTINCT SS_LIST_PRICE)]
+            est: (rows=1)
+          Exchange
+              distribution: single
+              est: (rows=180025)
+            TableScan
+                table: PUBLIC.STORE_SALES
+                predicate: AND(SEARCH(SS_QUANTITY, Sarg[[0..5]]), OR(AND(>=(SS_LIST_PRICE, 73.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 83.00)), AND(>=(SS_COUPON_AMT, 7826.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 8826.00)), AND(>=(SS_WHOLESALE_COST, 70.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 90.00))))
+                fieldNames: [SS_LIST_PRICE]
+                est: (rows=180025)
+      ColocatedHashAggregate
+          fieldNames: [B5_LP, B5_CNT, B5_CNTD]
+          group: []
+          aggregation: [AVG(SS_LIST_PRICE), COUNT(SS_LIST_PRICE), COUNT(DISTINCT SS_LIST_PRICE)]
+          est: (rows=1)
+        Exchange
+            distribution: single
+            est: (rows=180025)
+          TableScan
+              table: PUBLIC.STORE_SALES
+              predicate: AND(SEARCH(SS_QUANTITY, Sarg[[21..25]]), OR(AND(>=(SS_LIST_PRICE, 85.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 95.00)), AND(>=(SS_COUPON_AMT, 3310.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 4310.00)), AND(>=(SS_WHOLESALE_COST, 37.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 57.00))))
+              fieldNames: [SS_LIST_PRICE]
+              est: (rows=180025)

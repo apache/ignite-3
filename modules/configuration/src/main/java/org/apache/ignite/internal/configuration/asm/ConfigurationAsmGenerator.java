@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.is
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
+import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL;
@@ -134,7 +135,7 @@ public class ConfigurationAsmGenerator {
      * @return Configuration instance.
      */
     public synchronized DynamicConfiguration<?, ?> instantiateCfg(
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
             DynamicConfigurationChanger changer
     ) {
         SchemaClassesInfo info = schemasInfo.get(rootKey.schemaClass());
@@ -487,7 +488,20 @@ public class ConfigurationAsmGenerator {
     public static String publicName(Field f) {
         PublicName annotation = f.getAnnotation(PublicName.class);
 
-        return annotation == null ? f.getName() : annotation.value();
+        return annotation == null || annotation.value().isEmpty() ? f.getName() : annotation.value();
+    }
+
+    /**
+     * Return fields legacy names. If schema field contains {@link PublicName} annotation, this method will return its
+     * {@link PublicName#legacyNames()} ()}. Otherwise it will return empty array.
+     *
+     * @param f Configuration schema field.
+     * @return User-facing configuration legacy names.
+     */
+    public static String[] legacyNames(Field f) {
+        PublicName annotation = f.getAnnotation(PublicName.class);
+
+        return annotation == null ? STRING_EMPTY_ARRAY : annotation.legacyNames();
     }
 
     /**

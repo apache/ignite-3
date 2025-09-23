@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestampTracker.EMPTY_TS_PROVIDER;
+import static org.apache.ignite.internal.hlc.HybridTimestampTracker.emptyTracker;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -141,6 +142,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
     @Test
     public void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -171,6 +173,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
     @Test
     public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -200,7 +203,10 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testEnlistFailAfterCommit() {
+        ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
+
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -214,11 +220,11 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         tx.commit();
 
-        WriteContext wc = new WriteContext();
+        WriteContext wc = new WriteContext(emptyTracker());
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(clientChannel, wc);
+            tx.enlistFuture(ch, clientChannel, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {
@@ -228,7 +234,10 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testEnlistFailAfterRollback() {
+        ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
+
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -242,11 +251,11 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         tx.rollback();
 
-        WriteContext wc = new WriteContext();
+        WriteContext wc = new WriteContext(emptyTracker());
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(clientChannel, wc);
+            tx.enlistFuture(ch, clientChannel, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {
@@ -256,8 +265,8 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     private static class TestClientChannel implements ClientChannel {
         private final CountDownLatch txFinishStartedLatch;
-
         private final CountDownLatch secondFinishLatch;
+        private final ClientTransactionInflights inflights = new ClientTransactionInflights();
 
         TestClientChannel(CountDownLatch txFinishStartedLatch, CountDownLatch secondFinishLatch) {
             this.txFinishStartedLatch = txFinishStartedLatch;
@@ -286,6 +295,11 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         @Override
         public ProtocolContext protocolContext() {
             return null;
+        }
+
+        @Override
+        public ClientTransactionInflights inflights() {
+            return inflights;
         }
 
         @Override

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.BIND_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -169,10 +169,9 @@ public class NettyServer {
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    String errorMessage = addresses.length == 0
-                            ? "Port " + port + " is not available."
-                            : String.format("Address %s:%d is not available", addresses[0], port);
-                    bindFuture.completeExceptionally(new IgniteException(PORT_IN_USE_ERR, errorMessage, future.cause()));
+                    String address = addresses.length == 0 ? "" : addresses[0];
+                    String errorMessage = "Cannot start server at address=" + address + ", port=" + port;
+                    bindFuture.completeExceptionally(new IgniteException(BIND_ERR, errorMessage, future.cause()));
                 }
             });
 
@@ -201,7 +200,7 @@ public class NettyServer {
     }
 
     /**
-     * Returns gets the local address of the server.
+     * Returns address to which the server is bound (might be an 'any local'/wildcard address if bound to all interfaces).
      *
      * @return Gets the local address of the server.
      */

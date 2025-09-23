@@ -43,9 +43,6 @@ public class MetricsTests
     [TearDown]
     public void TearDown()
     {
-        AssertMetric(MetricNames.RequestsActive, 0);
-        AssertMetric(MetricNames.ConnectionsActive, 0);
-
         _listener.Dispose();
 
         TestUtils.CheckByteArrayPoolLeak(5000);
@@ -94,15 +91,15 @@ public class MetricsTests
 
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric(MetricNames.BytesSent, 15);
+        AssertMetric(MetricNames.BytesSent, 16);
         AssertMetric(MetricNames.BytesReceived, 91);
 
         await client.Tables.GetTablesAsync();
 
-        AssertMetric(MetricNames.BytesSent, 21);
+        AssertMetric(MetricNames.BytesSent, 22);
         AssertMetric(MetricNames.BytesReceived, 100);
 
-        AssertTaggedMetric(MetricNames.BytesSent, 21, server, client);
+        AssertTaggedMetric(MetricNames.BytesSent, 22, server, client);
         AssertTaggedMetric(MetricNames.BytesReceived, 100, server, client);
     }
 
@@ -389,6 +386,25 @@ public class MetricsTests
             return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
         }
 
+        public int GetTaggedMetric(string name, string nodeAddr, Guid? clientId)
+        {
+            _listener.RecordObservableInstruments();
+
+            if (clientId != null)
+            {
+                var taggedName = $"{name}_{MetricTags.ClientId}={clientId},{MetricTags.NodeAddress}={nodeAddr}";
+                return _metricsWithTags.TryGetValue(taggedName, out var val) ? (int)val : 0;
+            }
+
+            // Client id is not known, find by name and node address.
+            return _metricsWithTags
+                .Where(x =>
+                    x.Key.StartsWith($"{name}_{MetricTags.ClientId}=", StringComparison.Ordinal) &&
+                    x.Key.EndsWith($",{MetricTags.NodeAddress}={nodeAddr}", StringComparison.Ordinal))
+                .Select(x => (int)x.Value)
+                .SingleOrDefault();
+        }
+
         public void AssertMetric(string name, int value, int timeoutMs = 1000)
         {
             TestUtils.WaitForCondition(
@@ -397,22 +413,13 @@ public class MetricsTests
                 messageFactory: () => $"{name}: expected '{value}', but was '{GetMetric(name)}'");
         }
 
-        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId)
+        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId, int timeoutMs = 1000)
         {
-            if (clientId == null)
-            {
-                // Client id is not known, find by name and node address.
-                var val = _metricsWithTags.Single(x =>
-                    x.Key.StartsWith($"{name}_{MetricTags.ClientId}=", StringComparison.Ordinal) &&
-                    x.Key.EndsWith($",{MetricTags.NodeAddress}={nodeAddr}", StringComparison.Ordinal));
-
-                Assert.AreEqual(value, val.Value);
-            }
-            else
-            {
-                var taggedName = $"{name}_{MetricTags.ClientId}={clientId},{MetricTags.NodeAddress}={nodeAddr}";
-                Assert.AreEqual(value, _metricsWithTags[taggedName]);
-            }
+            TestUtils.WaitForCondition(
+                condition: () => GetTaggedMetric(name, nodeAddr, clientId) == value,
+                timeoutMs: timeoutMs,
+                messageFactory: () => $"{name} for {nodeAddr} ({clientId}): expected '{value}', " +
+                                      $"but was '{GetTaggedMetric(name, nodeAddr, clientId)}'");
         }
 
         public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>

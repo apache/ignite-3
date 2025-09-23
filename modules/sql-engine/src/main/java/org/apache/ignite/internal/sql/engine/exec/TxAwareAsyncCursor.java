@@ -94,10 +94,10 @@ class TxAwareAsyncCursor<T> implements AsyncDataCursor<T> {
 
                         errorListener.accept(cancelEx);
 
-                        return txWrapper.rollback(cancelEx);
+                        return txWrapper.finalise(cancelEx);
                     }
 
-                    return txWrapper.commitImplicit();
+                    return txWrapper.finalise();
                 })
                 .whenComplete((r, e) -> {
                     if (e != null) {
@@ -136,7 +136,7 @@ class TxAwareAsyncCursor<T> implements AsyncDataCursor<T> {
 
         errorListener.accept(throwable);
 
-        return txWrapper.rollback(throwable)
+        return txWrapper.finalise(throwable)
                 .handle((none, rollbackError) -> {
                     if (rollbackError != null) {
                         wrapped.addSuppressed(rollbackError);

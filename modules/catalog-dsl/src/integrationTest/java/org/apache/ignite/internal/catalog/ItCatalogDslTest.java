@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.catalog.ColumnType.INTEGER;
+import static org.apache.ignite.catalog.ColumnType.VARCHAR;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -44,6 +47,7 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
+import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.IndexDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -67,6 +71,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     static final String POJO_RECORD_TABLE_NAME = "pojo_record_test";
 
+    static final String EXPLICIT_QUOTES_TABLE_NAME = "explicit_quotes_test_table";
+
     static final String ZONE_NAME = "ZONE_TEST";
 
     private static final int KEY = 1;
@@ -79,8 +85,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        sql("DROP TABLE IF EXISTS " + POJO_KV_TABLE_NAME);
-        sql("DROP TABLE IF EXISTS " + POJO_RECORD_TABLE_NAME);
+        dropAllTables();
+        dropAllSchemas();
+
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
     }
 
@@ -89,8 +96,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // Given zone definition
         ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME)
                 .distributionAlgorithm("rendezvous")
-                .dataNodesAutoAdjust(1)
-                .filter("filter")
+                .filter(DEFAULT_FILTER)
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
                 .build();
 
@@ -170,6 +176,41 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 SqlException.class,
                 () -> sql("DROP TABLE " + POJO_KV_TABLE_NAME),
                 "Table with name " + toFullTableName(POJO_KV_TABLE_NAME) + " not found"
+        );
+    }
+
+    @Test
+    void tableCreateAndDropByDefinitionWithExplicitQuotes() {
+        // Given table definition
+        TableDefinition tableDefinition = TableDefinition.builder(EXPLICIT_QUOTES_TABLE_NAME)
+                .ifNotExists()
+                .columns(
+                        column("ID", INTEGER),
+                        column("NAME", VARCHAR),
+                        column("\"FooBar\"", ColumnType.varchar(20).notNull().defaultValue("a"))
+                )
+                .primaryKey("id")
+                .index("name", "\"FooBar\"")
+                .build();
+
+        // When create table from definition
+        assertThat(catalog().createTableAsync(tableDefinition), will(not(nullValue())));
+
+        // Then table was created
+        assertThrows(
+                SqlException.class,
+                () -> sql("CREATE TABLE " + EXPLICIT_QUOTES_TABLE_NAME + " (id int PRIMARY KEY)"),
+                "Table with name " + toFullTableName(EXPLICIT_QUOTES_TABLE_NAME) + " already exists"
+        );
+
+        // When drop table by definition
+        assertThat(catalog().dropTableAsync(tableDefinition), willCompleteSuccessfully());
+
+        // Then table is dropped
+        assertThrows(
+                SqlException.class,
+                () -> sql("DROP TABLE " + EXPLICIT_QUOTES_TABLE_NAME),
+                "Table with name " + toFullTableName(EXPLICIT_QUOTES_TABLE_NAME) + " not found"
         );
     }
 
@@ -340,7 +381,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .builder(ZONE_NAME)
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
                 .partitions(3)
-                .replicas(3)
+                .replicas(5)
+                .quorumSize(2)
                 .dataNodesAutoAdjustScaleDown(0)
                 .dataNodesAutoAdjustScaleUp(1)
                 .filter("$..*")
@@ -357,6 +399,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                         .withZoneName(zoneDefinition.zoneName())
                         .withPartitions(zoneDefinition.partitions())
                         .withReplicas(zoneDefinition.replicas())
+                        .withQuorumSize(zoneDefinition.quorumSize())
                         .withDataNodesAutoAdjustScaleDown(zoneDefinition.dataNodesAutoAdjustScaleDown())
                         .withDataNodesAutoAdjustScaleUp(zoneDefinition.dataNodesAutoAdjustScaleUp())
                         .withFilter(zoneDefinition.filter())
@@ -370,7 +413,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         ColumnDefinition column3 = column("COL3", ColumnType.BOOLEAN);
         ColumnDefinition column4 = column("COL4", ColumnType.VARCHAR);
         ColumnDefinition column5 = column("COL5", ColumnType.DECIMAL);
-
 
         TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
                 .zone(ZONE_NAME)
@@ -408,8 +450,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void tableDefinitionWithIndexes() {
-        sql("CREATE TABLE t (id int primary key, col1 varchar, col2 int)");
-        sql("CREATE INDEX t_sorted ON t USING SORTED (col2 DESC, col1)");
+        sql("CREATE TABLE t (id int primary key, col1 varchar, col2 int, \"cOl3\" int)");
+        sql("CREATE INDEX t_sorted ON t USING SORTED (col2 DESC, col1, \"cOl3\")");
         sql("CREATE INDEX t_hash ON t USING HASH (col1, col2)");
 
         sql("CREATE SCHEMA s");
@@ -437,7 +479,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 assertEquals(IndexType.SORTED, index.type());
                 assertEquals(List.of(
                                 ColumnSorted.column("COL2", SortOrder.DESC_NULLS_FIRST),
-                                ColumnSorted.column("COL1", SortOrder.ASC_NULLS_LAST)
+                                ColumnSorted.column("COL1", SortOrder.ASC_NULLS_LAST),
+                                ColumnSorted.column("cOl3", SortOrder.ASC_NULLS_LAST)
                         ),
                         index.columns()
                 );
@@ -594,9 +637,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         TableDefinition table = catalog.tableDefinition(name);
         assertNotNull(table);
         // Table Name
-        assertEquals("a b", table.tableName());
+        assertEquals("\"a b\"", table.tableName());
         // Schema name
-        assertEquals("Table Schema", table.schemaName());
+        assertEquals("\"Table Schema\"", table.schemaName());
 
         // Column
         List<ColumnDefinition> columns = table.columns();
@@ -619,7 +662,188 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         catalog.dropTable(table);
     }
 
+    @Test
+    public void createDifferentSchemaFromDefinition() {
+        sql("CREATE SCHEMA s");
+
+        {
+            TableDefinition def = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                    .columns(column("id", INTEGER), column("fname", VARCHAR), column("lname", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+            Table table = catalog().createTable(def);
+            QualifiedName qualifiedName = QualifiedName.of("PUBLIC", POJO_KV_TABLE_NAME);
+            assertEquals(qualifiedName, table.qualifiedName());
+
+            TableDefinition tableDef = catalog().tableDefinition(def.qualifiedName());
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals(POJO_KV_TABLE_NAME, tableDef.tableName());
+            assertEquals("PUBLIC", tableDef.schemaName());
+        }
+
+        {
+            TableDefinition def = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                    .schema("s")
+                    .columns(column("id", INTEGER), column("fname", VARCHAR), column("lname", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            Table table = catalog().createTable(def);
+            QualifiedName qualifiedName = QualifiedName.of("S", POJO_KV_TABLE_NAME);
+            assertEquals(qualifiedName, table.qualifiedName());
+
+            TableDefinition tableDef = catalog().tableDefinition(def.qualifiedName());
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals(POJO_KV_TABLE_NAME, tableDef.tableName());
+            assertEquals("S", tableDef.schemaName());
+        }
+
+        // Quoted names
+        sql("CREATE SCHEMA \"a Schema\"");
+
+        {
+            TableDefinition def = TableDefinition.builder("A_TABLE")
+                    .schema("\"a Schema\"")
+                    .columns(column("id", INTEGER), column("fname", VARCHAR), column("lname", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            Table table = catalog().createTable(def);
+            QualifiedName qualifiedName = QualifiedName.of("\"a Schema\"", "A_TABLE");
+            assertEquals(qualifiedName, table.qualifiedName());
+
+            TableDefinition tableDef = catalog().tableDefinition(def.qualifiedName());
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals("A_TABLE", tableDef.tableName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
+        }
+
+        {
+            TableDefinition def = TableDefinition.builder("\"a tablE\"")
+                    .schema("\"a Schema\"")
+                    .columns(column("id", INTEGER), column("fname", VARCHAR), column("lname", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            Table table = catalog().createTable(def);
+            QualifiedName qualifiedName = QualifiedName.of("\"a Schema\"", "\"a tablE\"");
+            assertEquals(qualifiedName, table.qualifiedName());
+
+            TableDefinition tableDef = catalog().tableDefinition(def.qualifiedName());
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals("\"a tablE\"", tableDef.tableName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
+        }
+    }
+
+    @Test
+    public void createDifferentSchemaFromAnnotation() {
+        sql("CREATE SCHEMA s");
+
+        {
+            Table table = catalog().createTable(PojoClass1.class);
+            QualifiedName qualifiedName = QualifiedName.of("PUBLIC", POJO_KV_TABLE_NAME);
+            assertEquals(qualifiedName, table.qualifiedName());
+
+            TableDefinition def = catalog().tableDefinition(qualifiedName);
+            assertEquals(qualifiedName, def.qualifiedName());
+            assertEquals(POJO_KV_TABLE_NAME, def.tableName());
+            assertEquals("PUBLIC", def.schemaName());
+        }
+
+        {
+            Table table = catalog().createTable(PojoClass2.class);
+            QualifiedName qualifiedName = QualifiedName.of("S", POJO_KV_TABLE_NAME);
+            assertEquals(qualifiedName, table.qualifiedName());
+            assertEquals(qualifiedName, catalog().tableDefinition(qualifiedName).qualifiedName());
+
+            TableDefinition def = catalog().tableDefinition(qualifiedName);
+            assertEquals(qualifiedName, def.qualifiedName());
+            assertEquals(POJO_KV_TABLE_NAME, def.tableName());
+            assertEquals("S", def.schemaName());
+        }
+
+        // Quoted names
+        sql("CREATE SCHEMA \"a Schema\"");
+
+        {
+            Table table = catalog().createTable(PojoClass3.class);
+            QualifiedName qualifiedName = QualifiedName.of("\"a Schema\"", "A_TABLE");
+            assertEquals(qualifiedName, table.qualifiedName());
+
+            TableDefinition tableDef = catalog().tableDefinition(qualifiedName);
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals("A_TABLE", tableDef.tableName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
+        }
+
+        {
+            Table table = catalog().createTable(PojoClass4.class);
+            QualifiedName qualifiedName = QualifiedName.of("\"a Schema\"", "\"a tablE\"");
+            assertEquals(qualifiedName, table.qualifiedName());
+            assertEquals(qualifiedName, catalog().tableDefinition(qualifiedName).qualifiedName());
+
+            TableDefinition tableDef = catalog().tableDefinition(qualifiedName);
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals("\"a tablE\"", tableDef.tableName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
+        }
+    }
+
     private static IgniteCatalog catalog() {
         return CLUSTER.node(0).catalog();
+    }
+
+    @org.apache.ignite.catalog.annotations.Table(POJO_KV_TABLE_NAME)
+    private static class PojoClass1 {
+        @Id
+        @SuppressWarnings("unused")
+        Integer id;
+        @SuppressWarnings("unused")
+        String fname;
+        @SuppressWarnings("unused")
+        String lname;
+    }
+
+    @org.apache.ignite.catalog.annotations.Table(
+            value = POJO_KV_TABLE_NAME,
+            schemaName = "S"
+    )
+    private static class PojoClass2 {
+        @Id
+        @SuppressWarnings("unused")
+        Integer id;
+        @SuppressWarnings("unused")
+        String fname;
+        @SuppressWarnings("unused")
+        String lname;
+    }
+
+    @org.apache.ignite.catalog.annotations.Table(
+            value = "a_table",
+            schemaName = "\"a Schema\""
+    )
+    private static class PojoClass3 {
+        @Id
+        @SuppressWarnings("unused")
+        Integer id;
+        @SuppressWarnings("unused")
+        String fname;
+        @SuppressWarnings("unused")
+        String lname;
+    }
+
+    @org.apache.ignite.catalog.annotations.Table(
+            value = "\"a tablE\"",
+            schemaName = "\"a Schema\""
+    )
+    private static class PojoClass4 {
+        @Id
+        @SuppressWarnings("unused")
+        Integer id;
+        @SuppressWarnings("unused")
+        String fname;
+        @SuppressWarnings("unused")
+        String lname;
     }
 }

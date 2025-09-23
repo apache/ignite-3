@@ -17,32 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.not;
-
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Join;
-import org.apache.calcite.rel.core.Project;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexShuttle;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -116,7 +99,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpMatches(ofType(NativeTypes.DOUBLE)),
 
-
                 forTypePair(NumericPair.SMALLINT_SMALLINT)
                         .firstOpMatches(ofType(NativeTypes.INT16))
                         .secondOpMatches(ofType(NativeTypes.INT16)),
@@ -173,7 +155,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpMatches(ofType(NativeTypes.DOUBLE)),
 
-
                 forTypePair(NumericPair.INT_INT)
                         .firstOpMatches(ofType(NativeTypes.INT32))
                         .secondOpMatches(ofType(NativeTypes.INT32)),
@@ -225,7 +206,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                 forTypePair(NumericPair.INT_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpMatches(ofType(NativeTypes.DOUBLE)),
-
 
                 forTypePair(NumericPair.BIGINT_BIGINT)
                         .firstOpBeSame()
@@ -319,7 +299,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
                         .firstOpMatches(ofType(Types.DECIMAL_2_1))
                         .secondOpMatches(ofType(Types.DECIMAL_2_1)),
@@ -360,7 +339,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
                         .firstOpMatches(ofType(Types.DECIMAL_4_3))
                         .secondOpMatches(ofType(Types.DECIMAL_4_3)),
@@ -397,7 +375,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
                         .firstOpMatches(ofType(Types.DECIMAL_2_0))
                         .secondOpMatches(ofType(Types.DECIMAL_2_0)),
@@ -430,7 +407,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
                         .firstOpMatches(ofType(Types.DECIMAL_3_1))
                         .secondOpMatches(ofType(Types.DECIMAL_3_1)),
@@ -459,7 +435,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
                         .firstOpMatches(ofType(Types.DECIMAL_5_3))
                         .secondOpMatches(ofType(Types.DECIMAL_5_3)),
@@ -484,7 +459,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
                         .firstOpMatches(ofType(Types.DECIMAL_5_0))
                         .secondOpMatches(ofType(Types.DECIMAL_5_0)),
@@ -505,7 +479,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
                         .firstOpMatches(ofType(Types.DECIMAL_6_1))
                         .secondOpMatches(ofType(Types.DECIMAL_6_1)),
@@ -522,7 +495,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
                         .firstOpMatches(ofType(Types.DECIMAL_8_3))
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
@@ -535,7 +507,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.REAL_REAL)
                         .firstOpMatches(ofType(NativeTypes.FLOAT))
                         .secondOpMatches(ofType(NativeTypes.FLOAT)),
@@ -543,7 +514,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                 forTypePair(NumericPair.REAL_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
                         .secondOpMatches(ofType(NativeTypes.DOUBLE)),
-
 
                 forTypePair(NumericPair.DOUBLE_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -652,109 +622,5 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
     @Test
     void argsIncludesAllTypePairs() {
         checkIncludesAllNumericTypePairs(args());
-    }
-
-    private static Matcher<IgniteRel> equalsToSomeOperatorMatcher(
-            Matcher<RexNode> first, Matcher<RexNode> second
-    ) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                RelNode projectRel = (RelNode) actual;
-                Join joinRel = (Join) projectRel.getInput(0);
-
-                RexNode comparison = joinRel.getCondition();
-
-                assertThat(comparison, instanceOf(RexCall.class));
-
-                RexCall comparisonCall = (RexCall) comparison;
-
-                RexNode leftOperand = comparisonCall.getOperands().get(0);
-                RexNode rightOperand = comparisonCall.getOperands().get(1);
-
-                assertThat(leftOperand, first);
-                assertThat(rightOperand, second);
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
-    }
-
-    private static Matcher<IgniteRel> quantifyOperatorMatcher(
-            Matcher<RexNode> first, Matcher<RexNode> second, int firstOpIdx, int secondOpIdx
-    ) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                RexNode expression = ((Project) actual).getProjects().get(0);
-
-                List<RexNode> comparisonToVerify = findComparison(expression, firstOpIdx, secondOpIdx);
-
-                assertThat(comparisonToVerify, not(Matchers.empty()));
-
-                for (RexNode comparison : comparisonToVerify) {
-                    assertThat(comparison, instanceOf(RexCall.class));
-
-                    RexCall comparisonCall = (RexCall) comparison;
-
-                    RexNode leftOperand = comparisonCall.getOperands().get(0);
-                    RexNode rightOperand = comparisonCall.getOperands().get(1);
-
-                    assertThat(leftOperand, first);
-                    assertThat(rightOperand, second);
-                }
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
-    }
-
-    /** Finds a comparison call comparing input references with provided indexes. */
-    private static List<RexNode> findComparison(RexNode expression, int firstOpIdx, int secondOpIdx) {
-        List<RexNode> result = new ArrayList<>();
-        new RexShuttle() {
-            @Override
-            public RexNode visitCall(RexCall call) {
-                if (call.getKind().belongsTo(SqlKind.BINARY_COMPARISON)) {
-                    result.add(call);
-
-                    return call;
-                }
-
-                return super.visitCall(call);
-            }
-        }.apply(expression);
-
-        result.removeIf(cmp -> {
-            try {
-                new RexShuttle() {
-                    @Override
-                    public RexNode visitInputRef(RexInputRef inputRef) {
-                        int column = inputRef.getIndex();
-                        if (column != firstOpIdx && column != secondOpIdx) {
-                            throw Util.FoundOne.NULL;
-                        }
-
-                        return inputRef;
-                    }
-                }.apply(cmp);
-            } catch (Util.FoundOne ignored) {
-                return true;
-            }
-
-            return false;
-        });
-
-        return result;
     }
 }

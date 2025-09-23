@@ -54,7 +54,7 @@ namespace Apache.Ignite.Internal
 
         /// <inheritdoc/>
         public IgniteClientConfiguration Configuration =>
-            new(Socket.Configuration); // Defensive copy.
+            new(Socket.Configuration.Configuration); // Defensive copy.
 
         /// <inheritdoc/>
         public ITables Tables { get; }

@@ -25,13 +25,15 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
@@ -44,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>API operations on this are linearized with respect to node restarts. Normally (except for situations when timeouts trigger), user
  * operations will not interact with detached objects.
  */
-class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<K, V>> implements KeyValueView<K, V> {
+class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<K, V>> implements KeyValueView<K, V>, Wrapper {
     RestartProofKeyValueView(
             IgniteAttachmentLock attachmentLock,
             Ignite initialIgnite,
@@ -190,8 +192,18 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
+    public void removeAll(@Nullable Transaction tx) {
+        consumeAttached(view -> view.removeAll(tx));
+    }
+
+    @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         return attachedAsync(view -> view.removeAllAsync(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return attachedAsync(view -> view.removeAllAsync(tx));
     }
 
     @Override
@@ -262,16 +274,15 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public <E, V1, R, A> CompletableFuture<Void> streamData(
+    public <E, V1, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V1, A, R> receiver,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, V1> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg
-    ) {
-        return attachedAsync(view -> view.streamData(publisher, keyFunc, payloadFunc, receiver, resultSubscriber, options, receiverArg));
+            @Nullable DataStreamerOptions options) {
+        return attachedAsync(view -> view.streamData(publisher, receiver, keyFunc, payloadFunc, receiverArg, resultSubscriber, options));
     }
 
     // TODO: IGNITE-23011 - support cursor transparency?
@@ -294,5 +305,10 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
             @Nullable CriteriaQueryOptions opts
     ) {
         return attachedAsync(view -> view.queryAsync(tx, criteria, indexName, opts));
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return attached(view -> Wrappers.unwrap(view, classToUnwrap));
     }
 }

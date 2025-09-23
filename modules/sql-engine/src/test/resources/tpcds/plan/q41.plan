@@ -1,0 +1,52 @@
+Sort
+    collation: [I_PRODUCT_NAME ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      group: [I_PRODUCT_NAME]
+      aggregation: []
+      est: (rows=450)
+    Project
+        fieldNames: [I_PRODUCT_NAME]
+        projection: [I_PRODUCT_NAME]
+        est: (rows=2250)
+      Filter
+          predicate: >(ITEM_CNT, 0)
+          est: (rows=2250)
+        CorrelatedNestedLoopJoin
+            predicate: true
+            type: left
+            correlates: [$cor2]
+            est: (rows=4500)
+          Exchange
+              distribution: single
+              est: (rows=4500)
+            TableScan
+                table: PUBLIC.ITEM
+                predicate: SEARCH(I_MANUFACT_ID, Sarg[[970..1010]])
+                fieldNames: [I_MANUFACT, I_PRODUCT_NAME]
+                est: (rows=4500)
+          Project
+              fieldNames: [ITEM_CNT]
+              projection: [CAST(f0_0):BIGINT NOT NULL]
+              est: (rows=1)
+            ReduceSortAggregate
+                fieldNames: [f0_0]
+                collation: []
+                group: []
+                aggregation: [$SUM0(_ACC0)]
+                est: (rows=1)
+              Exchange
+                  distribution: single
+                  est: (rows=1)
+                MapSortAggregate
+                    fieldNames: [_ACC0]
+                    collation: []
+                    group: []
+                    aggregation: [COUNT()]
+                    est: (rows=1)
+                  TableScan
+                      table: PUBLIC.ITEM
+                      predicate: OR(AND(=(I_MANUFACT, $cor2.I_MANUFACT), OR(AND(=(I_CATEGORY, _UTF-8'Women'), SEARCH(I_COLOR, Sarg[_UTF-8'frosted', _UTF-8'rose':CHAR(7) CHARACTER SET "UTF-8"]:CHAR(7) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Gross', _UTF-8'Lb':CHAR(5) CHARACTER SET "UTF-8"]:CHAR(5) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'large':CHAR(6) CHARACTER SET "UTF-8", _UTF-8'medium']:CHAR(6) CHARACTER SET "UTF-8")), AND(=(I_CATEGORY, _UTF-8'Women'), SEARCH(I_COLOR, Sarg[_UTF-8'black':CHAR(9) CHARACTER SET "UTF-8", _UTF-8'chocolate']:CHAR(9) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Box':CHAR(4) CHARACTER SET "UTF-8", _UTF-8'Dram']:CHAR(4) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'economy', _UTF-8'petite':CHAR(7) CHARACTER SET "UTF-8"]:CHAR(7) CHARACTER SET "UTF-8")), AND(=(I_CATEGORY, _UTF-8'Men'), SEARCH(I_COLOR, Sarg[_UTF-8'magenta', _UTF-8'slate':CHAR(7) CHARACTER SET "UTF-8"]:CHAR(7) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Bundle', _UTF-8'Carton']:CHAR(6) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'N/A':CHAR(5) CHARACTER SET "UTF-8", _UTF-8'small']:CHAR(5) CHARACTER SET "UTF-8")), AND(=(I_CATEGORY, _UTF-8'Men'), SEARCH(I_COLOR, Sarg[_UTF-8'cornflower', _UTF-8'firebrick':CHAR(10) CHARACTER SET "UTF-8"]:CHAR(10) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Oz':CHAR(5) CHARACTER SET "UTF-8", _UTF-8'Pound']:CHAR(5) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'large':CHAR(6) CHARACTER SET "UTF-8", _UTF-8'medium']:CHAR(6) CHARACTER SET "UTF-8")))), AND(=(I_MANUFACT, $cor2.I_MANUFACT), OR(AND(=(I_CATEGORY, _UTF-8'Women'), SEARCH(I_COLOR, Sarg[_UTF-8'almond', _UTF-8'steel':CHAR(6) CHARACTER SET "UTF-8"]:CHAR(6) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Case', _UTF-8'Tsp':CHAR(4) CHARACTER SET "UTF-8"]:CHAR(4) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'large':CHAR(6) CHARACTER SET "UTF-8", _UTF-8'medium']:CHAR(6) CHARACTER SET "UTF-8")), AND(=(I_CATEGORY, _UTF-8'Women'), SEARCH(I_COLOR, Sarg[_UTF-8'aquamarine', _UTF-8'purple':CHAR(10) CHARACTER SET "UTF-8"]:CHAR(10) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Bunch', _UTF-8'Gram':CHAR(5) CHARACTER SET "UTF-8"]:CHAR(5) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'economy', _UTF-8'petite':CHAR(7) CHARACTER SET "UTF-8"]:CHAR(7) CHARACTER SET "UTF-8")), AND(=(I_CATEGORY, _UTF-8'Men'), SEARCH(I_COLOR, Sarg[_UTF-8'lavender', _UTF-8'papaya':CHAR(8) CHARACTER SET "UTF-8"]:CHAR(8) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Cup':CHAR(6) CHARACTER SET "UTF-8", _UTF-8'Pallet']:CHAR(6) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'N/A':CHAR(5) CHARACTER SET "UTF-8", _UTF-8'small']:CHAR(5) CHARACTER SET "UTF-8")), AND(=(I_CATEGORY, _UTF-8'Men'), SEARCH(I_COLOR, Sarg[_UTF-8'cyan':CHAR(6) CHARACTER SET "UTF-8", _UTF-8'maroon']:CHAR(6) CHARACTER SET "UTF-8"), SEARCH(I_UNITS, Sarg[_UTF-8'Each', _UTF-8'N/A':CHAR(4) CHARACTER SET "UTF-8"]:CHAR(4) CHARACTER SET "UTF-8"), SEARCH(I_SIZE, Sarg[_UTF-8'large':CHAR(6) CHARACTER SET "UTF-8", _UTF-8'medium']:CHAR(6) CHARACTER SET "UTF-8")))))
+                      fieldNames: [I_CATEGORY, I_MANUFACT, I_SIZE, I_COLOR, I_UNITS]
+                      est: (rows=1499)

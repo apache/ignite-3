@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -79,7 +79,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             int zoneId = testZoneId(ignite);
 
             // Check that there are no meta files for partitions of the table.
@@ -158,18 +158,13 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
-        List<ColumnFamilyDescriptor> cfDescriptors = List.of(
-                // Column family to store configuration log entry.
-                new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8)),
-                // Default column family to store user data log entry.
-                new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY)
-        );
+        List<ColumnFamilyDescriptor> cfDescriptors = cfDescriptors();
 
         List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
         try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasNoDataForPartition(db, tablePartitionPrefix, cfHandles.get(0));
             assertThatFamilyHasNoDataForPartition(db, tablePartitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasNoDataForPartition(db, tablePartitionPrefix, cfHandles.get(2));
         }
     }
 
@@ -211,7 +206,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         createPersistentTable();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        String partitionPrefix = enabledColocation()
+        String partitionPrefix = colocationEnabled()
                 ? testZonePartitionPrefix(ignite)
                 : testTablePartitionPrefix(ignite);
 
@@ -219,19 +214,24 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
-        List<ColumnFamilyDescriptor> cfDescriptors = List.of(
+        List<ColumnFamilyDescriptor> cfDescriptors = cfDescriptors();
+
+        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+
+        try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(2));
+        }
+    }
+
+    private static List<ColumnFamilyDescriptor> cfDescriptors() {
+        return List.of(
+                new ColumnFamilyDescriptor("Meta".getBytes(UTF_8)),
                 // Column family to store configuration log entry.
                 new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8)),
                 // Default column family to store user data log entry.
                 new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY)
         );
-
-        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-
-        try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(1));
-        }
     }
 
     private static void assertThatFamilyHasDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {

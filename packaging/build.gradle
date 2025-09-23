@@ -35,6 +35,7 @@ configurations {
     cliArtifacts
     cliZip
     dbZip
+    dotNetClient
     release
     localDefaults
 }
@@ -45,6 +46,7 @@ dependencies {
     cliArtifacts project(':ignite-cli')
     cliZip project(path: ':packaging-cli', configuration: 'cliZip')
     dbZip project(path: ':packaging-db', configuration: 'dbZip')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     release project(path: ':packaging-cli', configuration: 'cliRelease')
     release project(path: ':packaging-db', configuration: 'dbRelease')
     release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
@@ -81,8 +83,10 @@ def replaceVars = tasks.register('replaceVars', Copy) {
     into "$buildDir/docker"
 }
 
+ext.docker_image_name = "apacheignite/ignite"
+
 docker {
-    name 'apacheignite/ignite'
+    name project.docker_image_name
     dockerfile file('docker/Dockerfile')
 
     copySpec.into 'dist', {
@@ -110,6 +114,9 @@ docker {
                 from configurations.dbArtifacts
                 from "$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME"
                 from "$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME"
+            }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
             }
         }
         into('cli') {

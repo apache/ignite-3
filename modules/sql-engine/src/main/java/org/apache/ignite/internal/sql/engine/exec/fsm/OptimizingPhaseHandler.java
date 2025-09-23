@@ -24,7 +24,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -52,8 +51,9 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
         HybridTimestamp operationTime = query.executor.deriveOperationTime(query.txContext);
 
-        String schemaName = query.properties.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = query.properties.get(QueryProperty.TIME_ZONE_ID);
+        String schemaName = query.properties.defaultSchema();
+        ZoneId timeZoneId = query.properties.timeZoneId();
+        String userName = query.properties.userName();
 
         SqlOperationContext operationContext = SqlOperationContext.builder()
                 .queryId(query.id)
@@ -64,7 +64,8 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                 .operationTime(operationTime)
                 .txContext(query.txContext)
                 .txUsedListener(tx -> query.usedTransaction = tx)
-                .errorHandler(throwable -> query.setError(throwable))
+                .errorHandler(query::setError)
+                .userName(userName)
                 .build();
 
         query.operationContext = operationContext;

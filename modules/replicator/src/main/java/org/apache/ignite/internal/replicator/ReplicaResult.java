@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import java.util.function.BiConsumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,6 +32,9 @@ public class ReplicaResult {
 
     /** The replication future. */
     private final CommandApplicationResult commandApplicationResult;
+
+    /** Delayed ack processor. */
+    public @Nullable BiConsumer<Object, Throwable> delayedAckProcessor;
 
     /**
      * Construct a replica result.

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -156,6 +157,13 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
+    }
+
     private void doFlush() throws Exception {
         flush();
     }
@@ -249,7 +257,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             GroupKey grpKey = b.build();
 
             AggregateRow<RowT> aggRow = groups.computeIfAbsent(grpKey, k -> create());
-            aggRow.update(accs, allFields, handler, row);
+            aggRow.update(accs, grpFields, handler, row);
         }
 
         /**
@@ -279,7 +287,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
                 }
 
-                aggRow.writeTo(type, accs, fields, allFields, grpId);
+                aggRow.writeTo(type, accs, fields, allFields.cardinality(), grpFields, grpId);
 
                 RowT row = rowFactory.create(fields);
 

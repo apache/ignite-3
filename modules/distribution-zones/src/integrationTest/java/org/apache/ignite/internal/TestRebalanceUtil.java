@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -59,7 +59,7 @@ public class TestRebalanceUtil {
      * @return Partition replication group identifier..
      */
     public static PartitionGroupId partitionReplicationGroupId(InternalTable table, int partitionId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return new ZonePartitionId(table.zoneId(), partitionId);
         } else {
             return new TablePartitionId(table.tableId(), partitionId);
@@ -74,7 +74,7 @@ public class TestRebalanceUtil {
      * @return Partition replication group identifier..
      */
     public static PartitionGroupId partitionReplicationGroupId(CatalogTableDescriptor tableDescriptor, int partitionId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return new ZonePartitionId(tableDescriptor.zoneId(), partitionId);
         } else {
             return new TablePartitionId(tableDescriptor.id(), partitionId);
@@ -88,7 +88,7 @@ public class TestRebalanceUtil {
      * @return Stable partition assignments key.
      */
     public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
         } else {
             return RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionGroupId);
@@ -102,10 +102,24 @@ public class TestRebalanceUtil {
      * @return Pending partition assignments key.
      */
     public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
         } else {
             return RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) partitionGroupId);
+        }
+    }
+
+    /**
+     * Returns pending partition change trigger key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Pending partition change trigger key.
+     */
+    public static ByteArray pendingChangeTriggerKey(PartitionGroupId partitionGroupId) {
+        if (colocationEnabled()) {
+            return ZoneRebalanceUtil.pendingChangeTriggerKey(((ZonePartitionId) partitionGroupId));
+        } else {
+            return RebalanceUtil.pendingChangeTriggerKey((TablePartitionId) partitionGroupId);
         }
     }
 
@@ -116,7 +130,7 @@ public class TestRebalanceUtil {
      * @return Planned partition assignments key.
      */
     public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
         } else {
             return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);
@@ -136,7 +150,7 @@ public class TestRebalanceUtil {
             TableViewInternal table,
             int partitionId
     ) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ZoneRebalanceUtil.zonePartitionAssignments(metaStorageManager, table.zoneId(), partitionId);
         } else {
             return RebalanceUtil.stablePartitionAssignments(metaStorageManager, table.tableId(), partitionId);

@@ -22,22 +22,10 @@ Here is an example of how you can create a new table on a cluster:
 
 [source, java]
 ----
-ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
+client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
 ----
 
 NOTE: ResultSet is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep server cursor open.
-
-=== Using Sequences
-
-When creating a table, you can designate the primary key column to be filled automatically from the sequence the values for your primary key by using sql sequences:
-
-[source, java]
-----
-ignite.sql().execute(null, "CREATE SEQUENCE IF NOT EXISTS defaultSequence;");
-
-ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id bigint default NEXTVAL('defaultSequence') primary key, city_id bigint, name varchar, age int, company varchar);");
-----
-
 
 == Filling Tables
 
@@ -45,31 +33,12 @@ With Ignite 3, you can fill the table by adding rows one by one, or in a batch. 
 
 [source, java]
 ----
-long rowsAdded = Arrays.stream(client.sql().executeBatch(null,
+long rowsAdded = Arrays.stream(client.sql().executeBatch(tx,
     "INSERT INTO Person (id, name, age) values (?, ?, ?)",
     BatchedArguments.of(1, "John", 46)
         .add(2, "Jane", 28)
         .add(3, "Mary", 51)
         .add(4, "Richard", 33)))
-    .sum();
-----
-
-=== Using Sequences
-
-When filling a table, you can generate the values for your primary key by using sql sequences:
-
-[source, java]
-----
-ignite.sql().execute(null, "CREATE SEQUENCE IF NOT EXISTS defaultSequence;");
-
-ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id bigint default NEXTVAL('defaultSequence') primary key, city_id bigint, name varchar, age int, company varchar);");
-
-long rowsAdded = Arrays.stream(client.sql().executeBatch(null,
-    "INSERT INTO Person (city_id, name, age, company) values (?, ?, ?, ?)",
-    BatchedArguments.of(1, "John", 46, "oldCorp")
-        .add(2, "Jane", 28, "newCorp")
-        .add(3, "Mary", 51, "newCorp")
-        .add(4, "Richard", 33, "oldCorp")))
     .sum();
 ----
 
@@ -124,3 +93,50 @@ client.sql().executeScript(script);
 --
 
 NOTE: Execution of each statement is considered complete when the first page is ready to be returned. As a result, when working with large data sets, SELECT statement may be affected by later statements in the same script.
+
+=== Query Cancellation
+
+To cancel a query, create and pass the cancellation token to the execution method:
+
+[tabs]
+--
+tab:Java[]
+----
+CancelHandle cancelHandle = CancelHandle.create();
+CancellationToken cancelToken = cancelHandle.token();
+
+ignite.sql().execute(null, cancelToken, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
+----
+
+tab:C++[]
+----
+std::shared_ptr<cancel_handle> handle = cancel_handle::create();
+std::shared_ptr<cancellation_token> token = handle->get_token();
+
+client.get_sql().execute(nullptr, token.get(), "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);", {});
+----
+--
+
+After the query is submitted, you can cancel all queries that use the tokens from the same `cancelHandle` object at any point by using the `cancel()` or `cancelAsync()` methods, for example:
+
+[tabs]
+--
+tab:Java[]
+----
+CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
+----
+tab: .NET[]
+----
+var cts = new CancellationTokenSource();
+await using var resultSet = await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key)", cts.Token);
+await cts.CancelAsync();
+----
+tab:C++[]
+----
+handle->cancel_async(ignite_result<void> cancellationResult) {
+// Handle cancellationResult here
+});
+----
+--
+
+Another way to cancel queries is by using the SQL link:sql-reference/operational-commands#kill-query[KILL QUERY] command. The query id can be retrieved via the `SQL_QUERIES` link:administrators-guide/metrics/system-views[system view].

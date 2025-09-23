@@ -21,8 +21,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
+import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,10 +45,10 @@ public interface StreamerReceiverRunner {
      * @param <R> Result type.
      */
     <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
-            ReceiverDescriptor<A> receiver,
+            DataStreamerReceiverDescriptor<I, A, R> receiver,
             @Nullable A receiverArg,
             Collection<I> items,
-            ClusterNode node,
+            InternalClusterNode node,
             List<DeploymentUnit> deploymentUnits);
 
     /**
@@ -59,5 +61,9 @@ public interface StreamerReceiverRunner {
      * @param deploymentUnits Deployment units.
      * @return Serialized receiver results.
      */
-    CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits);
+    CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
+            byte[] payload,
+            InternalClusterNode node,
+            List<DeploymentUnit> deploymentUnits,
+            ReceiverExecutionOptions options);
 }

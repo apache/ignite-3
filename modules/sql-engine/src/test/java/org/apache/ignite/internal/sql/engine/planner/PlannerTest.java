@@ -226,7 +226,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .name("TEST")
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("VAL", NativeTypes.STRING)
-                .distribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                .distribution(TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
                 .build());
 
         String[] queries = {
@@ -254,7 +254,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .addColumn("COL2", NativeTypes.STRING)
                 .addColumn("COL3", NativeTypes.INT32)
                 .addColumn("COL4", NativeTypes.FLOAT)
-                .distribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                .distribution(TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
                 .build());
 
         String sql = "SELECT pk FROM tab0 WHERE (((((col4 < 341.32))) AND col3 IN (SELECT col0 FROM tab0 WHERE ((col0 > 564) "
@@ -270,13 +270,13 @@ public class PlannerTest extends AbstractPlannerTest {
         IgniteSchema publicSchema = createSchema(
                 TestBuilders.table()
                         .name("PERSON")
-                        .distribution(IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE))
+                        .distribution(TestBuilders.affinity(0, nextTableId(), Integer.MIN_VALUE))
                         .addColumn("PK", NativeTypes.INT32)
                         .addColumn("ORG_ID", NativeTypes.INT32)
                         .build(),
                 TestBuilders.table()
                         .name("COMPANY")
-                        .distribution(IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE))
+                        .distribution(TestBuilders.affinity(0, nextTableId(), Integer.MIN_VALUE))
                         .addColumn("PK", NativeTypes.INT32)
                         .addColumn("ID", NativeTypes.INT32)
                         .build()
@@ -427,6 +427,4 @@ public class PlannerTest extends AbstractPlannerTest {
                 .size(100)
                 .distribution(distribution);
     }
-
-
 }

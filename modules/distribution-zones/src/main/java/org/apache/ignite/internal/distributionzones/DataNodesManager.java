@@ -104,7 +104,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -195,7 +195,7 @@ public class DataNodesManager {
 
         executor = createZoneManagerExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
-                NamedThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
+                IgniteThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
         );
 
         scaleUpTimerPrefixListener = createScaleUpTimerPrefixListener();
@@ -372,12 +372,6 @@ public class DataNodesManager {
                 .filter(node -> !newLogicalTopology.contains(node) && !Objects.equals(node.nodeName(), localNodeName))
                 .filter(node -> !scaleDownTimer.nodes().contains(node))
                 .collect(toSet());
-
-        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty())
-                && zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE) {
-            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
-        }
 
         int partitionResetDelay = partitionDistributionResetTimeoutSupplier.getAsInt();
 
@@ -843,16 +837,11 @@ public class DataNodesManager {
         HybridTimestamp newTimestamp = timestamp;
 
         if (scaleUpTriggerTime <= timestampLong) {
-            newTimestamp = scaleUpTimer.timeToTrigger();
             dataNodes.addAll(filterDataNodes(scaleUpTimer.nodes(), zoneDescriptor));
         }
 
         if (scaleDownTriggerTime <= timestampLong) {
             dataNodes.removeAll(scaleDownTimer.nodes());
-
-            if (scaleDownTriggerTime > scaleUpTriggerTime) {
-                newTimestamp = scaleDownTimer.timeToTrigger();
-            }
         }
 
         return new DataNodesHistoryEntry(newTimestamp, dataNodes);
@@ -883,12 +872,7 @@ public class DataNodesManager {
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp, @Nullable Integer catalogVersion) {
         DataNodesHistory volatileHistory = dataNodesHistoryVolatile.get(zoneId);
         if (volatileHistory != null && volatileHistory.entryIsPresentAtExactTimestamp(timestamp)) {
-            return completedFuture(volatileHistory.dataNodesForTimestamp(timestamp)
-                    .dataNodes()
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet())
-            );
+            return completedFuture(nodeNames(volatileHistory.dataNodesForTimestamp(timestamp).dataNodes()));
         }
 
         if (catalogVersion == null) {
@@ -913,7 +897,7 @@ public class DataNodesManager {
 
                     return entry.dataNodes();
                 }))
-                .thenApply(nodes -> nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet()));
+                .thenApply(DistributionZonesUtil::nodeNames);
     }
 
     private Set<NodeWithAttributes> topologyNodes() {

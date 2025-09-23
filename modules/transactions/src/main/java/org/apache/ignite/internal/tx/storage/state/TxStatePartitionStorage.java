@@ -141,6 +141,9 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
     /**
      * Closes and removes all data from the storage.
      *
+     * <p>The destruction is not guaranteed to be durable (that is, if a node stops/crashes before persisting this change to disk,
+     * the storage might still be there after node restart).
+     *
      * <p>REQUIRED: For background tasks for storage, such as rebalancing, to be completed by the time the method is called.
      */
     void destroy();
@@ -248,7 +251,7 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
     /**
      * Updates the current snapshot information.
      */
-    void snapshotInfo(byte[] snapshotInfo, long index, long term);
+    void snapshotInfo(byte[] snapshotInfo);
 
     /**
      * Returns the current snapshot information of {@code null} if it was never saved.

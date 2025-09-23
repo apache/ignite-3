@@ -62,7 +62,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(table);
 
         PrepareService prepareService = new PrepareServiceImpl(
-                "test", 2, cacheFactory, null, 15_000L, 2, metricManager, new PredefinedSchemaManager(schema)
+                "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema)
         );
 
         prepareService.start();
@@ -94,7 +94,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         await(prepareService.prepareAsync(parsedResult, ctx));
 
-        MetricSet metricSet = metricManager.metricSnapshot().get1().get(SqlPlanCacheMetricSource.NAME);
+        MetricSet metricSet = metricManager.metricSnapshot().metrics().get(SqlPlanCacheMetricSource.NAME);
 
         assertEquals(String.valueOf(hits), metricSet.get("Hits").getValueAsString(), "Hits");
         assertEquals(String.valueOf(misses), metricSet.get("Misses").getValueAsString(), "Misses");

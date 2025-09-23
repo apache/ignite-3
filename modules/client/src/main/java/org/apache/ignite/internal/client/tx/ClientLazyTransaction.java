@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.PartitionMapping;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -61,7 +64,7 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to commit.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::commitAsync);
@@ -85,7 +88,7 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to rollback.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::rollbackAsync);
@@ -94,6 +97,10 @@ public class ClientLazyTransaction implements Transaction {
     @Override
     public boolean isReadOnly() {
         return options != null && options.readOnly();
+    }
+
+    public long timeout() {
+        return options == null ? USE_CONFIGURED_TIMEOUT_DEFAULT : options.timeoutMillis();
     }
 
     /**
@@ -134,39 +141,52 @@ public class ClientLazyTransaction implements Transaction {
      *
      * @param tx Transaction.
      * @param ch Channel.
-     * @param pm Partition mapping.
-     * @return Future that will be completed when the transaction is started.
+     *
+     * @return Future that will be completed when the transaction is started and first request flag.
      */
-    public static CompletableFuture<ClientTransaction> ensureStarted(
-            @Nullable Transaction tx,
-            ReliableChannel ch,
-            @Nullable PartitionMapping pm
+    public static IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
+            Transaction tx,
+            ReliableChannel ch
     ) {
-        if (tx == null) {
-            return nullCompletedFuture();
-        }
+        return ensureStarted(tx, ch, () -> ch.getChannelAsync(null));
+    }
 
+    /**
+     * Ensures that the underlying transaction is actually started on the server.
+     *
+     * @param tx Transaction.
+     * @param ch Channel.
+     * @param channelResolver Client channel resolver. {@code null} value means skipping explicit tx begin request.
+     *
+     * @return Future that will be completed when the transaction is started and first request flag.
+     */
+    public static IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
+            Transaction tx,
+            ReliableChannel ch,
+            @Nullable Supplier<CompletableFuture<ClientChannel>> channelResolver
+    ) {
         if (!(tx instanceof ClientLazyTransaction)) {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        return ((ClientLazyTransaction) tx).ensureStarted(ch, pm);
+        return ((ClientLazyTransaction) tx).ensureStarted(ch, channelResolver);
     }
 
-    private synchronized CompletableFuture<ClientTransaction> ensureStarted(
+    private synchronized IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
             ReliableChannel ch,
-            @Nullable PartitionMapping pm
+            @Nullable Supplier<CompletableFuture<ClientChannel>> channelResolver
     ) {
         var tx0 = tx;
 
         if (tx0 != null) {
-            return tx0;
+            return new IgniteBiTuple<>(tx0, false);
         }
 
-        tx0 = ClientTransactions.beginAsync(ch, pm, options, observableTimestamp);
+        tx0 = channelResolver != null ? ClientTransactions.beginAsync(ch, options, observableTimestamp, channelResolver)
+                : new CompletableFuture<>();
         tx = tx0;
 
-        return tx0;
+        return new IgniteBiTuple<>(tx0, channelResolver == null);
     }
 
     /**

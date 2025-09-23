@@ -24,13 +24,12 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -83,17 +82,7 @@ public class TestServer {
         this.testSslConfig = testSslConfig;
         this.authenticationManager = securityConfiguration == null
                 ? new DummyAuthenticationManager()
-                : new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
-                    @Override
-                    public void log(Event event) {
-
-                    }
-
-                    @Override
-                    public void log(String type, Supplier<Event> eventProvider) {
-
-                    }
-                });
+                : new AuthenticationManagerImpl(securityConfiguration, EventLog.NOOP);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.networkConfiguration = networkConfiguration;
 
@@ -152,6 +141,7 @@ public class TestServer {
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
                 new TestLowWatermark(),
+                new SystemPropertiesNodeProperties(),
                 Runnable::run
         );
 

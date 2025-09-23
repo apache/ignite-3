@@ -37,7 +37,7 @@ import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -55,14 +55,13 @@ public class FileDeployerService {
      */
     private Path unitsFolder;
 
-
     private final ExecutorService executor;
 
     /** Constructor. */
     public FileDeployerService(String nodeName) {
         executor = Executors.newFixedThreadPool(
                 DEPLOYMENT_EXECUTOR_SIZE,
-                NamedThreadFactory.create(nodeName, "deployment", LOG)
+                IgniteThreadFactory.create(nodeName, "deployment", LOG)
         );
     }
 

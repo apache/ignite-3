@@ -44,7 +44,6 @@ import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,7 +55,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  * type pairs supported by cast specification.
  */
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-25174")
 public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
     @Override
     protected int initialNodes() {

@@ -8,6 +8,20 @@ CREATE TABLE integers(i INTEGER)
 statement ok
 INSERT INTO integers VALUES (1), (2), (3), (NULL)
 
+# use alias in GROUP BY clause where alias is expression dependent on table column;
+query IR
+SELECT CASE WHEN (i = 1) THEN 2 ELSE (CASE WHEN (i = 0) THEN 2 ELSE 1 END) END as alias, SUM(i) FROM integers GROUP BY alias ORDER BY alias;
+----
+1	5
+2	1
+
+query IR
+SELECT POWER(ROUND(ABS(SQRT(i*i)), 1), 2) % 2 as alias, SUM(i) FROM integers GROUP BY alias ORDER BY alias;
+----
+0	2
+1	4
+NULL	NULL
+
 # use alias in HAVING clause
 # CONTROVERSIAL: this query DOES NOT work in PostgreSQL
 query IR

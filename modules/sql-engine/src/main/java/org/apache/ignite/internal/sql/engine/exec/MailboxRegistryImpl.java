@@ -22,11 +22,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * MailboxRegistryImpl.
@@ -130,15 +130,15 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
 
     /** {@inheritDoc} */
     @Override
-    public void onAppeared(ClusterNode member) {
+    public void onAppeared(InternalClusterNode member) {
         // NO-OP
     }
 
     /** {@inheritDoc} */
     @Override
-    public void onDisappeared(ClusterNode member) {
-        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member.name())));
-        remotes.values().forEach(n -> n.onNodeLeft(member.name()));
+    public void onDisappeared(InternalClusterNode member) {
+        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member)));
+        remotes.values().forEach(n -> n.onNodeLeft(member));
     }
 
     private static class MailboxKey {

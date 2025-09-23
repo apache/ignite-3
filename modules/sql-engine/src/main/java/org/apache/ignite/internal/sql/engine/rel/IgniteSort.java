@@ -28,16 +28,15 @@ import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.jetbrains.annotations.Nullable;
@@ -120,37 +119,8 @@ public class IgniteSort extends Sort implements IgniteRel {
 
     /** {@inheritDoc} */
     @Override
-    public Pair<RelTraitSet, List<RelTraitSet>> passThroughTraits(RelTraitSet required) {
-        if (isEnforcer() || required.getConvention() != IgniteConvention.INSTANCE) {
-            return null;
-        }
-
-        RelCollation requiredCollation = TraitUtils.collation(required);
-        RelCollation relCollation = traitSet.getCollation();
-
-        if (!requiredCollation.satisfies(relCollation)) {
-            return null;
-        }
-
-        return Pair.of(required, List.of(required.replace(RelCollations.EMPTY)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Pair<RelTraitSet, List<RelTraitSet>> deriveTraits(RelTraitSet childTraits, int childId) {
-        assert childId == 0;
-
-        if (isEnforcer() || childTraits.getConvention() != IgniteConvention.INSTANCE) {
-            return null;
-        }
-
-        return Pair.of(childTraits.replace(collation()), List.of(childTraits));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public double estimateRowCount(RelMetadataQuery mq) {
-        return memRows(mq.getRowCount(getInput()));
+        return IgniteLimit.estimateRowCount(mq.getRowCount(getInput()), offset, fetch);
     }
 
     /** {@inheritDoc} */
@@ -196,5 +166,18 @@ public class IgniteSort extends Sort implements IgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        if (offset != null) {
+            writer.addOffset(offset);
+        }
+
+        if (fetch != null) {
+            writer.addFetch(fetch);
+        }
+
+        return writer.addCollation(collation, getRowType());
     }
 }

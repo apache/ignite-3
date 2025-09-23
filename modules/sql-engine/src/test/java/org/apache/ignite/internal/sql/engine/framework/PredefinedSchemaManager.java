@@ -84,6 +84,12 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
+    public int catalogVersion(long timestamp) {
+        return root.catalogVersion();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Void> schemaReadyFuture(int catalogVersion) {
         return nullCompletedFuture();
     }

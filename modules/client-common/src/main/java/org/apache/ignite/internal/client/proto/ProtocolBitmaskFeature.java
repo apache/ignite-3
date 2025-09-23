@@ -37,7 +37,52 @@ public enum ProtocolBitmaskFeature {
     /**
      * Direct mapping for transactions.
      */
-    TX_DIRECT_MAPPING(2);
+    TX_DIRECT_MAPPING(2),
+
+    /**
+     * Platform compute jobs (call non-Java jobs from client).
+     */
+    PLATFORM_COMPUTE_JOB(3),
+
+    /**
+     * Platform compute executor (respond to server calls for job execution).
+     */
+    PLATFORM_COMPUTE_EXECUTOR(4),
+
+    /**
+     * Streamer receiver execution options.
+     */
+    STREAMER_RECEIVER_EXECUTION_OPTIONS(5),
+
+    /**
+     * Delayed ack optimization for directly mapped transactions.
+     */
+    TX_DELAYED_ACKS(6),
+
+    /**
+     * Piggyback txn start in the first request.
+     */
+    TX_PIGGYBACK(7),
+
+    /**
+     * Allow txn no-op operations to be enlisted in direct transaction.
+     */
+    TX_ALLOW_NOOP_ENLIST(8),
+
+    /**
+     * Client supports Partition Awareness for SQL queries.
+     */
+    SQL_PARTITION_AWARENESS(9),
+
+    /**
+     * Direct mapping for SQL queries within explicit transactions.
+     */
+    SQL_DIRECT_TX_MAPPING(10),
+
+    /**
+     * Compute task ID for broadcast jobs.
+     */
+    COMPUTE_TASK_ID(11);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

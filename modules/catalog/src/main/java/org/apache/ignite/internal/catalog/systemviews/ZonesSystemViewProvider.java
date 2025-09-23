@@ -67,6 +67,7 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
                 .addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
                 .addColumn("CONSISTENCY_MODE", STRING, wrapper -> wrapper.zone.consistencyMode().name())
                 // End of legacy columns list. New columns must be added below this line.
+                .addColumn("ZONE_QUORUM_SIZE", INT32, wrapper -> wrapper.zone.quorumSize())
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {
                             Catalog catalog = catalogSupplier.get();
                             CatalogZoneDescriptor defaultZone = catalog.defaultZone();

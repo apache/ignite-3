@@ -142,6 +142,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CONNECTION:
         case error::code::PROTOCOL:
         case error::code::PROTOCOL_COMPATIBILITY:
+        case error::code::SERVER_TO_CLIENT_REQUEST:
             return sql_state::S08001_CANNOT_CONNECT;
         case error::code::TABLE_ID_NOT_FOUND:
             return sql_state::S42S02_TABLE_OR_VIEW_NOT_FOUND;
@@ -217,6 +218,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::REPLICA_UNAVAILABLE:
         case error::code::REPLICA_MISS:
         case error::code::REPLICA_STOPPING:
+        case error::code::GROUP_OVERLOADED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
@@ -230,7 +232,7 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // Network group. Group code: 11
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
-        case error::code::PORT_IN_USE:
+        case error::code::BIND:
         case error::code::FILE_TRANSFER:
         case error::code::FILE_VALIDATION:
         case error::code::RECIPIENT_LEFT:
@@ -276,6 +278,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_NOT_FOUND:
         case error::code::MARSHALLING_TYPE_MISMATCH:
         case error::code::COMPUTE_JOB_CANCELLED:
+        case error::code::COMPUTE_PLATFORM_EXECUTOR:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17
@@ -298,6 +301,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
         case error::code::CLUSTER_NOT_IDLE:
+        case error::code::RESTART_WITH_CLEAN_UP:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21
@@ -315,6 +319,12 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // REST service group. Group code: 23
         case error::code::CLUSTER_NOT_INIT:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Configuration group. Group code: 24
+        case error::code::CONFIGURATION_APPLY:
+        case error::code::CONFIGURATION_PARSE:
+        case error::code::CONFIGURATION_VALIDATION:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

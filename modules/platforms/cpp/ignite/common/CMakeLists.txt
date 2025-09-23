@@ -47,6 +47,8 @@ set(SOURCES
     big_decimal.cpp
     big_integer.cpp
     detail/mpi.cpp
+    detail/string_utils.cpp
+    detail/thread_timer.cpp
     uuid.cpp
 )
 
@@ -65,6 +67,8 @@ endif()
 
 ignite_test(bits_test DISCOVER SOURCES detail/bits_test.cpp LIBS ${TARGET})
 ignite_test(bytes_test DISCOVER SOURCES detail/bytes_test.cpp LIBS ${TARGET})
+ignite_test(string_utils_test DISCOVER SOURCES detail/string_utils_test.cpp LIBS ${TARGET})
+ignite_test(thread_timer_test DISCOVER SOURCES detail/thread_timer_test.cpp LIBS ${TARGET})
 ignite_test(uuid_test DISCOVER SOURCES uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test DISCOVER SOURCES bignum_test.cpp LIBS ${TARGET})
 ignite_test(primitive_test DISCOVER SOURCES primitive_test.cpp LIBS ${TARGET})

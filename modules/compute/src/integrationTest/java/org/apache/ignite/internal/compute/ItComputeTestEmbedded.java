@@ -254,8 +254,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void executesNullReturningJobViaSyncBroadcast() {
         Ignite entryNode = node(0);
 
-        Collection<Object> results = entryNode.compute()
-                .execute(BroadcastJobTarget.nodes(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
+        Collection<Object> results = entryNode.compute().execute(
+                BroadcastJobTarget.nodes(entryNode.cluster().nodes()),
+                JobDescriptor.builder(NullReturningJob.class).build(),
+                null);
 
         assertThat(results, everyItem(nullValue()));
     }
@@ -265,7 +267,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Ignite entryNode = node(0);
 
         CompletableFuture<Collection<Object>> resultsFuture = entryNode.compute().executeAsync(
-                BroadcastJobTarget.nodes(entryNode.clusterNodes()),
+                BroadcastJobTarget.nodes(entryNode.cluster().nodes()),
                 JobDescriptor.builder(NullReturningJob.class).build(),
                 null
         );
@@ -277,7 +279,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Ignite entryNode = node(0);
 
         CompletableFuture<BroadcastExecution<Object>> executionFut = entryNode.compute().submitAsync(
-                BroadcastJobTarget.nodes(entryNode.clusterNodes()),
+                BroadcastJobTarget.nodes(entryNode.cluster().nodes()),
                 JobDescriptor.builder(NullReturningJob.class).build(),
                 null
         );

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -91,12 +92,11 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
     void optimizedInsertUsedForLiterals(String insertStatement) {
         node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
 
-        {
-            QueryPlan plan = node.prepare(insertStatement);
+        QueryPlan plan = node.prepare(insertStatement);
 
-            assertThat(plan, instanceOf(KeyValueModifyPlan.class));
-            assertExpressions((KeyValueModifyPlan) plan, "10", "20");
-        }
+        assertThat(plan, instanceOf(KeyValueModifyPlan.class));
+        assertThat(((KeyValueModifyPlan) plan).getRel().operation(), equalTo(Operation.INSERT));
+        assertExpressions((KeyValueModifyPlan) plan, "10", "20");
     }
 
     @Test
@@ -107,6 +107,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
             QueryPlan plan = node.prepare("INSERT INTO test VALUES (?, ?)");
 
             assertThat(plan, instanceOf(KeyValueModifyPlan.class));
+            assertThat(((KeyValueModifyPlan) plan).getRel().operation(), equalTo(Operation.INSERT));
             assertExpressions((KeyValueModifyPlan) plan, "?0", "?1");
         }
 
@@ -114,6 +115,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
             QueryPlan plan = node.prepare("INSERT INTO test(id, val) VALUES (?, ?)");
 
             assertThat(plan, instanceOf(KeyValueModifyPlan.class));
+            assertThat(((KeyValueModifyPlan) plan).getRel().operation(), equalTo(Operation.INSERT));
             assertExpressions((KeyValueModifyPlan) plan, "?0", "?1");
         }
 
@@ -121,6 +123,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
             QueryPlan plan = node.prepare("INSERT INTO test(val, id) VALUES (?, ?)");
 
             assertThat(plan, instanceOf(KeyValueModifyPlan.class));
+            assertThat(((KeyValueModifyPlan) plan).getRel().operation(), equalTo(Operation.INSERT));
             assertExpressions((KeyValueModifyPlan) plan, "?1", "?0");
         }
     }
@@ -132,6 +135,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
         QueryPlan plan = node.prepare("INSERT INTO test VALUES (?, 1, CAST(CURRENT_DATE as VARCHAR(128)))");
 
         assertThat(plan, instanceOf(KeyValueModifyPlan.class));
+        assertThat(((KeyValueModifyPlan) plan).getRel().operation(), equalTo(Operation.INSERT));
         assertExpressions((KeyValueModifyPlan) plan, "?0", "1", "CAST(CURRENT_DATE):VARCHAR(128) CHARACTER SET \"UTF-8\" NOT NULL");
     }
 
@@ -146,6 +150,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
         QueryPlan plan = node.prepare(insertStatement);
 
         assertThat(plan, instanceOf(KeyValueModifyPlan.class));
+        assertThat(((KeyValueModifyPlan) plan).getRel().operation(), equalTo(Operation.INSERT));
         assertExpressions((KeyValueModifyPlan) plan, "1", "10", "_UTF-8'a'");
     }
 
@@ -169,7 +174,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(KeyValueModifyPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.modifyNode().expressions().stream()
+        List<String> keyExpressions = (plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 

@@ -86,13 +86,41 @@ allprojects {
 
     tasks.withType(Test).configureEach {
         defaultCharacterEncoding = 'UTF-8'
+        def extraJvmArgs = []
 
-        jvmArgs += defaultJvmArgs
+        if (project.hasProperty('extraJvmArgs')) {
+            extraJvmArgs = project.property('extraJvmArgs')
+                .toString()
+                .trim()
+                .split(/\s+/)  // Split on whitespace
+                .toList()
+        }
+
+        jvmArgs += defaultJvmArgs + extraJvmArgs
 
         systemProperty 'jraft.available_processors', 1
 
         if (project.hasProperty('excludeTest')) {
             exclude project.property('excludeTest')
+        }
+
+        def dockerVersion = findProperty("migration-tools.docker.version")
+        systemProperty "migration-tools.docker.version", dockerVersion != null ? dockerVersion : project.version
+
+        [
+            "tests.containers.support",
+            "e2e.testLimiter",
+            "ai2.sampleCluster.Xmx",
+            "ai2.sampleCluster.checkpointChecker.maxwaitseconds",
+            "ai2.sampleCluster.checkpointChecker.pollingseconds",
+            "ai2.sampleCluster.recreate.seeding.maxwaitseconds",
+            "ai2.sampleCluster.recreate.seeding.pollingseconds",
+            "seeddata.nCachesPerStint",
+        ].forEach {
+            def v = findProperty(it)
+            if (v != null) {
+                systemProperty it, v
+            }
         }
     }
 
@@ -117,6 +145,12 @@ allprojects {
     tasks.withType(Test).configureEach {
         outputs.upToDateWhen { false }
     }
+
+    configurations.configureEach {
+        resolutionStrategy {
+            force libs.protobuf.java
+        }
+    }
 }
 
 subprojects {
@@ -136,9 +170,19 @@ subprojects {
                 releasesOnly()
             }
         }
+
+        mavenLocal()
     }
 
     tasks.register('printSubDependencies', DependencyReportTask)
+}
+
+tasks.register('checkstyle') {
+    description = 'Runs all checkstyle tasks'
+
+    rootProject.subprojects { Project subproject ->
+        dependsOn subproject.tasks.withType(Checkstyle)
+    }
 }
 
 idea.project.settings {
@@ -149,6 +193,9 @@ idea.project.settings {
     runConfigurations {
         defaults(org.jetbrains.gradle.ext.JUnit) {
             vmParameters = defaultJvmArgs.join(' ')
+        }
+        defaults(org.jetbrains.gradle.ext.Application) {
+            jvmArgs = defaultJvmArgs.join(' ')
         }
     }
 }

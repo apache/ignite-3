@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.prepare.bounds;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -46,6 +48,19 @@ public class MultiBounds extends SearchBounds {
     @Override
     public Type type() {
         return Type.MULTI;
+    }
+
+    @Override
+    public SearchBounds accept(RexShuttle shuttle) {
+        RexNode condition = condition();
+        RexNode newCondition = shuttle.apply(condition);
+        List<SearchBounds> newBounds = RexUtils.processSearchBounds(shuttle, bounds);
+
+        if (newCondition == condition && newBounds == bounds) {
+            return this;
+        }
+
+        return new MultiBounds(newCondition, newBounds);
     }
 
     /** {@inheritDoc} */

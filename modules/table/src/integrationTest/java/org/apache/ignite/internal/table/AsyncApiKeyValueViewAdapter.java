@@ -31,9 +31,9 @@ import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -120,6 +120,11 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     @Override
     public Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys) {
         return await(delegate.removeAllAsync(tx, keys));
+    }
+
+    @Override
+    public void removeAll(@Nullable Transaction tx) {
+        removeAll(tx);
     }
 
     @Override
@@ -218,6 +223,11 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        throw new UnsupportedOperationException("Must not be called");
+    }
+
+    @Override
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
         throw new UnsupportedOperationException("Must not be called");
     }
@@ -291,9 +301,10 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public <E, S, R, A> CompletableFuture<Void> streamData(Publisher<E> publisher, Function<E, Entry<K, V>> keyFunc,
-            Function<E, S> payloadFunc, ReceiverDescriptor<A> receiver, @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options, @Nullable A receiverArg) {
+    public <E, S, A, R> CompletableFuture<Void> streamData(Publisher<E> publisher, DataStreamerReceiverDescriptor<S, A, R> receiver,
+            Function<E, Entry<K, V>> keyFunc, Function<E, S> payloadFunc, @Nullable A receiverArg,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            @Nullable DataStreamerOptions options) {
         throw new UnsupportedOperationException();
     }
 }

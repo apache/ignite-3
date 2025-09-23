@@ -39,7 +39,7 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
  * to make tests automatically register this extension, like this:
  *
  * <pre>
- * integrationTestImplementation(testFixtures(project(':ignite-core')))
+ * integrationTestImplementation testFixtures(project(':ignite-core'))
  * </pre>
  */
 @AutoService(Extension.class)
@@ -61,7 +61,10 @@ public class DumpThreadsOnTimeout implements TestExecutionExceptionHandler, Life
         throw throwable;
     }
 
-    private static boolean isJunitMethodTimeout(Throwable throwable) {
+    /**
+     * Returns {@code true} if provided exception is a TimeoutException thrown by JUnit, {@code false} otherwise.
+     */
+    public static boolean isJunitMethodTimeout(Throwable throwable) {
         // This is a pretty hacky and not too reliable way to determine whether this is the timeout event we are
         // interested in (meaning, a timed-out testable/lifecycle method execution), but it looks like this is the
         // best we can do.

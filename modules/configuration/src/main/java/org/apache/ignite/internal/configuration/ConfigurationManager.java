@@ -19,11 +19,13 @@ package org.apache.ignite.internal.configuration;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
@@ -32,26 +34,41 @@ public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
 
-    /**
-     * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param generator                   Configuration tree generator.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
-     *                                  extensions are not valid.
-     */
+    @TestOnly
     public ConfigurationManager(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
+    ) {
+        this(rootKeys, storage, generator, configurationValidator, changer -> {}, s -> false);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param rootKeys Configuration root keys.
+     * @param storage Configuration storage.
+     * @param generator Configuration tree generator.
+     * @param keyIgnorer Determines if key should be ignored.
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the
+     *         schema or its extensions are not valid.
+     */
+    public ConfigurationManager(
+            Collection<RootKey<?, ?, ?>> rootKeys,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator,
+            ConfigurationMigrator migrator,
+            KeyIgnorer keyIgnorer
     ) {
         registry = new ConfigurationRegistry(
                 rootKeys,
                 storage,
                 generator,
-                configurationValidator
+                configurationValidator,
+                migrator,
+                keyIgnorer
         );
     }
 

@@ -64,6 +64,13 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
+    CreateZoneImpl quorumSize(Integer n) {
+        Objects.requireNonNull(n, "Quorum size must not be null.");
+
+        withOptions.add(Option.quorumSize(n));
+        return this;
+    }
+
     CreateZoneImpl partitions(Integer n) {
         Objects.requireNonNull(n, "Partitions must not be null.");
 
@@ -75,16 +82,6 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         Objects.requireNonNull(distributionAlgorithm, "Partition distribution algorithm must not be null.");
 
         withOptions.add(Option.distributionAlgorithm(distributionAlgorithm));
-        return this;
-    }
-
-    CreateZoneImpl dataNodesAutoAdjust(Integer adjust) {
-        Objects.requireNonNull(
-                adjust,
-                "Timeout between node added or node left topology event itself and data nodes switch must not be null."
-        );
-
-        withOptions.add(Option.dataNodesAutoAdjust(adjust));
         return this;
     }
 

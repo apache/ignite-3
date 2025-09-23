@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.function.Function;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,8 +35,8 @@ import org.jetbrains.annotations.Nullable;
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface DataStreamerReceiver<T, A, R> {
     /**
-     * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, Function, Function,
-     * ReceiverDescriptor, Subscriber, DataStreamerOptions, Object)}).
+     * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, DataStreamerReceiverDescriptor,
+     * Function, Function, Object, Subscriber, DataStreamerOptions)}).
      *
      * <p>The receiver is called for each page (batch) in the data streamer and is responsible for processing the items,
      * updating zero or more tables, and returning a result.
@@ -49,4 +50,31 @@ public interface DataStreamerReceiver<T, A, R> {
             List<T> page,
             DataStreamerReceiverContext ctx,
             @Nullable A arg);
+
+    /**
+     * Marshaller for the receiver payload (batch items).
+     *
+     * @return Payload marshaller.
+     */
+    default @Nullable Marshaller<T, byte[]> payloadMarshaller() {
+        return null;
+    }
+
+    /**
+     * Marshaller for the input argument.
+     *
+     * @return Input marshaller.
+     */
+    default @Nullable Marshaller<A, byte[]> argumentMarshaller() {
+        return null;
+    }
+
+    /**
+     * Marshaller for the job result.
+     *
+     * @return Result marshaller.
+     */
+    default @Nullable Marshaller<R, byte[]> resultMarshaller() {
+        return null;
+    }
 }

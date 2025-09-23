@@ -21,10 +21,12 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.readValue;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -220,7 +222,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     continue;
                 }
 
-                if (nativeType.spec().fixedLength()) {
+                if (nativeType.fixedLength()) {
                     estimatedSize += nativeType.sizeInBytes();
                 } else {
                     if (value instanceof String) {
@@ -301,7 +303,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     builder.appendUuidNotNull((UUID) value);
                     break;
 
-                case BYTES:
+                case BYTE_ARRAY:
                     builder.appendBytesNotNull((byte[]) value);
                     break;
 
@@ -323,6 +325,14 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
                 case TIMESTAMP:
                     builder.appendTimestampNotNull((Instant) value);
+                    break;
+
+                case DURATION:
+                    builder.appendDuration((Duration) value);
+                    break;
+
+                case PERIOD:
+                    builder.appendPeriod((Period) value);
                     break;
 
                 default:

@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -183,7 +183,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     private Set<String> stableAssignmentNodes(int zoneId) {
         MetaStorageManager metaStorageManager = unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager();
 
-        var stableAssignmentsPrefix = enabledColocation()
+        var stableAssignmentsPrefix = colocationEnabled()
                 ? new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
                 : new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
 
@@ -191,7 +191,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
 
         assertThat(entriesFuture, willCompleteSuccessfully());
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return entriesFuture.join().stream()
                     .filter(entry -> extractZonePartitionId(entry.key(), ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
                                     .zoneId() == zoneId)

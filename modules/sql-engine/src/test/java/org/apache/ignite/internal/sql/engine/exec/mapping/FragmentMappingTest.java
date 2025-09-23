@@ -28,8 +28,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -48,10 +50,10 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.NetworkAddress;
@@ -71,6 +73,10 @@ import org.junit.jupiter.api.Test;
  *     // Both tables have distribution affinity([0], tableId, zoneId)
  *     addTable("T1", "N1");
  *     addTable("T2", "N2", "N3");
+ *
+ *     // Near semantic defines table T1 with primary partitions on nodes N0 and N1
+ *     // together with backups placed on N1 and N2.
+ *     addTable("T1", List.of(List.of("N0", "N1"), List.of("N1", "N2")));
  *
  *     // Adds table with identity(0) distribution. Can be used to mimic node system views.
  *     addTableIdent("NT1", "N1");
@@ -269,6 +275,8 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         addTable("T2", List.of(List.of("N0", "N1", "N2")));
         addTable("T3", List.of(List.of("N1", "N2")));
 
+        addTable("T4", List.of(List.of("N0", "N1"), List.of("N2", "N1")));
+
         testRunner.runTest(this::initSchema, "test_backup_mapping.test");
     }
 
@@ -286,7 +294,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         tables.put(
                 tableName,
                 new Pair<>(
-                        IgniteDistributions.affinity(-1, -1, -1),
+                        TestBuilders.affinity(-1, -1, -1),
                         nodeNames.stream()
                                 .map(List::of)
                                 .collect(Collectors.toList())
@@ -298,13 +306,13 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         String tableName = name;
 
         for (List<String> partitionNodes : assignments) {
-            tableName = formatName(tableName, new TreeSet<>(partitionNodes));
+            tableName = formatName(tableName, new LinkedHashSet<>(partitionNodes));
         }
 
         tables.put(
                 tableName,
                 new Pair<>(
-                        IgniteDistributions.affinity(-1, -1, -1),
+                        TestBuilders.affinity(-1, -1, -1),
                         assignments
                 )
         );
@@ -392,8 +400,13 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             }
 
             IgniteDistribution distributionToUse;
-            if (distribution.function() instanceof AffinityDistribution) {
-                distributionToUse = IgniteDistributions.affinity(0, objectId, objectId);
+            if (distribution.isTableDistribution()) {
+                distributionToUse = IgniteDistributions.affinity(
+                        List.of(0),
+                        objectId,
+                        objectId,
+                        TraitUtils.affinityDistributionLabel("PUBLIC", tableName, "ZONE_" + objectId)
+                );
             } else {
                 distributionToUse = distribution;
             }
@@ -439,7 +452,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         }
     }
 
-    private static String formatName(String name, TreeSet<String> nodeNames) {
+    private static String formatName(String name, Set<String> nodeNames) {
         return name + "_" + String.join("", nodeNames);
     }
 

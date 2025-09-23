@@ -19,6 +19,8 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -54,18 +56,27 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
-            await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args).ConfigureAwait(false);
+        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(
+            ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args) =>
+            await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
-            await ExecuteAsyncInternal(transaction, statement, static cols => GetReaderFactory<T>(cols), args)
+        public async Task<IResultSet<T>> ExecuteAsync<T>(
+            ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args) =>
+            await ExecuteAsyncInternal(
+                    transaction,
+                    statement,
+                    static cols => GetReaderFactory<T>(cols),
+                    args,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        public async Task<IgniteDbDataReader> ExecuteReaderAsync(
+            ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args)
         {
-            var resultSet = await ExecuteAsyncInternal<object>(transaction, statement, _ => null!, args).ConfigureAwait(false);
+            var resultSet = await ExecuteAsyncInternal<object>(
+                transaction, statement, _ => null!, args, cancellationToken).ConfigureAwait(false);
 
             if (!resultSet.HasRowSet)
             {
@@ -78,6 +89,12 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async Task ExecuteScriptAsync(SqlStatement script, params object?[]? args)
         {
+            await ExecuteScriptAsync(script, CancellationToken.None, args).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async Task ExecuteScriptAsync(SqlStatement script, CancellationToken cancellationToken, params object?[]? args)
+        {
             IgniteArgumentCheck.NotNull(script);
 
             using var bufferWriter = ProtoCommon.GetMessageWriter();
@@ -85,15 +102,66 @@ namespace Apache.Ignite.Internal.Sql
 
             try
             {
-                using var buf = await _socket.DoOutInOpAsync(ClientOp.SqlExecScript, bufferWriter).ConfigureAwait(false);
+                using var buf = await _socket.DoOutInOpAsync(
+                    ClientOp.SqlExecScript, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
+            catch (SqlException e)
             {
-                throw new SqlException(
-                    e.TraceId,
-                    ErrorGroups.Sql.StmtValidation,
-                    "Invalid query, check inner exceptions for details: " + script,
-                    e);
+                ConvertExceptionAndThrow(e, script, cancellationToken);
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task<long[]> ExecuteBatchAsync(
+            ITransaction? transaction,
+            SqlStatement statement,
+            IEnumerable<IEnumerable<object?>> args,
+            CancellationToken cancellationToken = default)
+        {
+            IgniteArgumentCheck.NotNull(statement);
+            IgniteArgumentCheck.NotNull(args);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, default).ConfigureAwait(false);
+
+            using var bufferWriter = ProtoCommon.GetMessageWriter();
+
+            WriteStatement(bufferWriter, statement, tx, writeTx: true);
+            WriteBatchArgs(bufferWriter, args);
+            bufferWriter.MessageWriter.Write(_socket.ObservableTimestamp);
+
+            try
+            {
+                var (buf, _) = await _socket.DoOutInOpAndGetSocketAsync(
+                    ClientOp.SqlExecBatch, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                using (buf)
+                {
+                    return Read(buf);
+                }
+            }
+            catch (SqlBatchException e)
+            {
+                ConvertExceptionAndThrow(e, statement, cancellationToken);
+
+                throw;
+            }
+
+            static long[] Read(PooledBuffer resBuf)
+            {
+                var r = resBuf.GetReader();
+                r.Skip(4); // Unused values: resourceId, rowSet, morePages, wasApplied
+
+                int count = r.ReadInt32();
+                var affectedRows = new long[count];
+
+                for (var i = 0; i < count; i++)
+                {
+                    affectedRows[i] = r.ReadInt64();
+                }
+
+                return affectedRows;
             }
         }
 
@@ -145,16 +213,19 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="statement">Statement to execute.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
         /// <param name="args">Arguments for the statement.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
         internal async Task<ResultSet<T>> ExecuteAsyncInternal<T>(
             ITransaction? transaction,
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,
-            ICollection<object?>? args)
+            ICollection<object?>? args,
+            CancellationToken cancellationToken)
         {
             IgniteArgumentCheck.NotNull(statement);
 
+            cancellationToken.ThrowIfCancellationRequested();
             Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, default).ConfigureAwait(false);
 
             using var bufferWriter = ProtoCommon.GetMessageWriter();
@@ -164,26 +235,43 @@ namespace Apache.Ignite.Internal.Sql
 
             try
             {
-                (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
+                (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(
+                    ClientOp.SqlExec, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
-                return new ResultSet<T>(socket, buf, rowReaderFactory);
+                return new ResultSet<T>(socket, buf, rowReaderFactory, cancellationToken);
             }
-            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
+            catch (SqlException e)
             {
                 buf?.Dispose();
 
-                throw new SqlException(
-                    e.TraceId,
-                    ErrorGroups.Sql.StmtValidation,
-                    "Invalid query, check inner exceptions for details: " + statement,
-                    e);
+                ConvertExceptionAndThrow(e, statement, cancellationToken);
+
+                throw;
             }
             catch (Exception)
             {
                 buf?.Dispose();
 
                 throw;
+            }
+        }
+
+        private static void ConvertExceptionAndThrow(IgniteException e, SqlStatement statement, CancellationToken token)
+        {
+            switch (e.Code)
+            {
+                case ErrorGroups.Sql.StmtParse:
+                    throw new SqlException(
+                        e.TraceId,
+                        ErrorGroups.Sql.StmtValidation,
+                        "Invalid query, check inner exceptions for details: " + statement,
+                        e);
+
+                case ErrorGroups.Sql.ExecutionCancelled:
+                    var cancelledToken = token.IsCancellationRequested ? token : CancellationToken.None;
+
+                    throw new OperationCanceledException(e.Message, e, cancelledToken);
             }
         }
 
@@ -218,10 +306,48 @@ namespace Apache.Ignite.Internal.Sql
         private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
             ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
 
-        private void WriteStatement(
+        private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object?>> args)
+        {
+            int rowSize = -1;
+            int rowCountPos = -1;
+            int rowCount = 0;
+
+            var w = writer.MessageWriter;
+
+            foreach (var arg in args)
+            {
+                IgniteArgumentCheck.NotNull(arg);
+                IEnumerable<object?> row = arg;
+                rowCount++;
+
+                if (rowSize < 0)
+                {
+                    // First row, write header.
+                    if (!row.TryGetNonEnumeratedCount(out rowSize))
+                    {
+                        var list = row.ToList();
+                        rowSize = list.Count;
+                        row = list;
+                    }
+
+                    IgniteArgumentCheck.Ensure(rowSize > 0, nameof(args), "Batch arguments must not contain empty rows.");
+
+                    w.Write(rowSize);
+                    rowCountPos = writer.ReserveMsgPackInt32();
+                    w.Write(false); // Paged args.
+                }
+
+                w.WriteObjectEnumerableAsBinaryTuple(row, expectedCount: rowSize, errorPrefix: "Inconsistent batch argument size: ");
+            }
+
+            IgniteArgumentCheck.Ensure(rowCount > 0, nameof(args), "Batch arguments must not be empty.");
+
+            writer.WriteMsgPackInt32(rowCount, rowCountPos);
+        }
+
+        private static void WriteStatement(
             PooledArrayBuffer writer,
             SqlStatement statement,
-            ICollection<object?>? args,
             Transaction? tx = null,
             bool writeTx = false)
         {
@@ -240,7 +366,20 @@ namespace Apache.Ignite.Internal.Sql
 
             WriteProperties(statement, ref w);
             w.Write(statement.Query);
-            w.WriteObjectCollectionAsBinaryTuple(args);
+        }
+
+        private void WriteStatement(
+            PooledArrayBuffer writer,
+            SqlStatement statement,
+            ICollection<object?>? args,
+            Transaction? tx = null,
+            bool writeTx = false)
+        {
+            var w = writer.MessageWriter;
+
+            WriteStatement(writer, statement, tx, writeTx);
+
+            w.WriteObjectCollectionWithCountAsBinaryTuple(args);
             w.Write(_socket.ObservableTimestamp);
         }
     }

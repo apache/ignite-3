@@ -24,11 +24,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Keeps track of all finished RO transactions.
@@ -93,11 +93,7 @@ public class FinishedReadOnlyTransactionTracker {
         }
     }
 
-    private CompletableFuture<Void> sendCursorCleanupCommand(ClusterNode node, FinishedTransactionsBatchMessage message) {
+    private CompletableFuture<Void> sendCursorCleanupCommand(InternalClusterNode node, FinishedTransactionsBatchMessage message) {
         return messagingService.send(node, message);
-    }
-
-    void onTransactionFinished(UUID id) {
-        transactionInflights.markReadOnlyTxFinished(id, false);
     }
 }

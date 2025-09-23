@@ -35,7 +35,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.ElectionListener;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Scheduler wrapper that triggers idempotent cache vacuumization with an ability to suspend and resume the triggering. It is valid but not
@@ -148,7 +148,7 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
     }
 
     @Override
-    public void onLeaderElected(ClusterNode newLeader) {
+    public void onLeaderElected(InternalClusterNode newLeader) {
         if (newLeader.name().equals(nodeName)) {
             startLocalVacuumizationTriggering();
         } else {

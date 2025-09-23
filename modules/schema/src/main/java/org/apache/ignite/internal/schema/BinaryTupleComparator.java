@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareFieldValue;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.equalityFlag;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFlagSet;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
@@ -68,8 +66,10 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         int numElements = columnTypes.size();
 
-        BinaryTupleReader tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(numElements, buffer1) : new BinaryTuple(numElements, buffer1);
-        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
+        BinaryTupleReader tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(numElements, buffer1)
+                : new BinaryTuple(numElements, buffer1, UnsafeByteBufferAccessor::new);
+        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2)
+                : new BinaryTuple(numElements, buffer2, UnsafeByteBufferAccessor::new);
 
         int columnsToCompare = Math.min(tuple1.elementCount(), tuple2.elementCount());
 
@@ -112,73 +112,8 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         NativeType nativeType = columnTypes.get(colIdx);
 
-        int res = compareField(nativeType.spec(), tuple1, colIdx, tuple2, colIdx);
+        int res = compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
-    }
-
-    /**
-     * Compares individual fields of two tuples using ascending order.
-     */
-    @SuppressWarnings("DataFlowIssue")
-    private static int compareField(NativeTypeSpec typeSpec, BinaryTupleReader tuple1, int index1, BinaryTupleReader tuple2, int index2) {
-        switch (typeSpec) {
-            case INT8:
-            case BOOLEAN:
-                return Byte.compare(tuple1.byteValue(index1), tuple2.byteValue(index2));
-
-            case INT16:
-                return Short.compare(tuple1.shortValue(index1), tuple2.shortValue(index2));
-
-            case INT32:
-                return Integer.compare(tuple1.intValue(index1), tuple2.intValue(index2));
-
-            case INT64:
-                return Long.compare(tuple1.longValue(index1), tuple2.longValue(index2));
-
-            case FLOAT:
-                return Float.compare(tuple1.floatValue(index1), tuple2.floatValue(index2));
-
-            case DOUBLE:
-                return Double.compare(tuple1.doubleValue(index1), tuple2.doubleValue(index2));
-
-            case BYTES:
-                return Arrays.compareUnsigned(tuple1.bytesValue(index1), tuple2.bytesValue(index2));
-
-            case UUID:
-                return tuple1.uuidValue(index1).compareTo(tuple2.uuidValue(index2));
-
-            case STRING:
-                return tuple1.stringValue(index1).compareTo(tuple2.stringValue(index2));
-
-            case DECIMAL:
-                BigDecimal numeric1 = tuple1.decimalValue(index1, Integer.MIN_VALUE);
-                BigDecimal numeric2 = tuple2.decimalValue(index2, Integer.MIN_VALUE);
-
-                return numeric1.compareTo(numeric2);
-
-            case TIMESTAMP:
-                return tuple1.timestampValue(index1).compareTo(tuple2.timestampValue(index2));
-
-            case DATE:
-                return tuple1.dateValue(index1).compareTo(tuple2.dateValue(index2));
-
-            case TIME:
-                return tuple1.timeValue(index1).compareTo(tuple2.timeValue(index2));
-
-            case DATETIME:
-                return tuple1.dateTimeValue(index1).compareTo(tuple2.dateTimeValue(index2));
-
-            default:
-                throw new IllegalArgumentException(format("Unsupported column type in binary tuple comparator. [type={}]", typeSpec));
-        }
-    }
-
-    private static boolean isFlagSet(ByteBuffer tuple, int flag) {
-        return (tuple.get(0) & flag) != 0;
-    }
-
-    private static int equalityFlag(ByteBuffer tuple) {
-        return isFlagSet(tuple, EQUALITY_FLAG) ? 1 : -1;
     }
 }

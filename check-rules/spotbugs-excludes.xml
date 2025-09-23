@@ -30,6 +30,7 @@
       <Class name="~com\.facebook\.presto\..*" />
       <Class name="~org\.apache\.ignite\.internal\.generated\..*"/>
       <Class name="~org\.apache\.ignite\.rest\.client\..*"/>
+      <Class name="~.*\.jmh_generated\..*"/>
       <Annotation name="org.immutables.value.Generated" />
     </Or>
   </Match>
@@ -56,6 +57,12 @@
       <Bug pattern="RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN"/>
       <!-- we specifically catch even not thrown exceptions is some places to be extra defendant -->
       <Bug pattern="REC_CATCH_EXCEPTION"/>
+      <!-- We assume 64-bit writes to be atomic. -->
+      <Bug pattern="AT_NONATOMIC_64BIT_PRIMITIVE"/>
+      <!-- These rules fail a lot because they consider some classes to be not thread safe even when they are used with external
+           synchronization or are not used in multithreaded environment at all. -->
+      <Bug pattern="AT_NONATOMIC_OPERATIONS_ON_SHARED_VARIABLE"/>
+      <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE"/>
     </Or>
   </Match>
   <Match>
@@ -184,7 +191,7 @@
     <Source name="DistributionZoneRebalanceEngine.java"/>
   </Match>
   <Match>
-    <!-- wait/notify condition is atomic, so there is n need to put it into synchronized block for performance reasons -->
+    <!-- wait/notify condition is atomic, so there is no need to put it into synchronized block for performance reasons -->
     <Bug pattern="NN_NAKED_NOTIFY"/>
     <Class name="org.apache.ignite.internal.pagememory.persistence.checkpoint.Checkpointer"/>
     <Method name="cancel"/>
@@ -254,6 +261,11 @@
       <Field name="PENDING_CHANGE_TRIGGER_PREFIX_BYTES"/>
     </Or>
   </Match>
+  <Match>
+    <!-- This class is not a singleton. -->
+    <Bug pattern="SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR"/>
+    <Class name="org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff"/>
+  </Match>
   <!-- end of false-positive exclusions -->
 
 
@@ -273,12 +285,6 @@
       <Field name="invalid"/>
       <Field name="val"/>
     </Or>
-  </Match>
-  <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21691 -->
-    <Bug pattern="IS2_INCONSISTENT_SYNC"/>
-    <Class name="org.apache.ignite.internal.metrics.exporters.BasicMetricExporter"/>
-    <Field name="configuration"/>
   </Match>
   <Match>
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21692 -->

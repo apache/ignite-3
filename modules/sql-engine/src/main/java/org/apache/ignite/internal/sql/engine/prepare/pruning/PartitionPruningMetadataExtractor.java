@@ -20,8 +20,6 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import static org.apache.calcite.rel.core.TableModify.Operation.INSERT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
-import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
@@ -45,7 +43,7 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -223,7 +221,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     private void extractFromTable(
             long sourceId,
             IgniteTable table,
-            @Nullable ImmutableBitSet requiredColumns,
+            @Nullable ImmutableIntList requiredColumns,
             @Nullable RexNode condition,
             RexBuilder rexBuilder) {
 
@@ -247,22 +245,14 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
     }
 
-    private static RexNode remapColumns(IgniteTable table, ImmutableBitSet requiredColumns, RexNode condition, RexBuilder rexBuilder) {
-        Int2IntMap mapping  = new Int2IntArrayMap(requiredColumns.cardinality());
-
-        int i = 0;
-        for (int r : requiredColumns) {
-            mapping.put(i, r);
-            i++;
-        }
-
+    private static RexNode remapColumns(IgniteTable table, ImmutableIntList requiredColumns, RexNode condition, RexBuilder rexBuilder) {
         RelDataType rowType = table.getRowType(Commons.typeFactory(), requiredColumns);
 
         return condition.accept(new RexShuttle() {
             @Override
             public RexNode visitLocalRef(RexLocalRef localRef) {
                 int fieldIdx = localRef.getIndex();
-                int index = mapping.get(fieldIdx);
+                int index = requiredColumns.get(fieldIdx);
                 RelDataType fieldType = rowType.getFieldList().get(fieldIdx).getType();
 
                 return rexBuilder.makeLocalRef(fieldType, index);
@@ -622,7 +612,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             // rhs  :  [c1 = 2, c2 = 3]
             // result :  [c1 = 1, c2 = 2], [c1 = 2, c2 = 3]
 
-
             if (res instanceof PruningColumnSet) {
                 PruningColumnSet columnSet = (PruningColumnSet) res;
                 candidates.add(columnSet);
@@ -715,7 +704,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
     private static IntList distributionKeys(IgniteTable table) {
         IgniteDistribution distribution = table.distribution();
-        if (!distribution.function().affinity()) {
+        if (!distribution.isTableDistribution()) {
             return IntArrayList.of();
         }
 

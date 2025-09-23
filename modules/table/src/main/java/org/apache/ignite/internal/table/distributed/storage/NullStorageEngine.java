@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
+import static java.util.Collections.emptySet;
+
+import java.util.Set;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -59,13 +62,18 @@ public class NullStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         throwNoEngineException(tableId);
     }
 
     private static <T> T throwNoEngineException(@Nullable Integer tableId) {
         throw new StorageException("Table uses an unknown storage profile or engine, so current node either should not receive "
-                + "any assignments, or storage profile addition is not handled property"
+                + "any assignments, or storage profile addition is not handled properly"
                 + (tableId == null ? "" : " [tableId=" + tableId + "]"));
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return emptySet();
     }
 }

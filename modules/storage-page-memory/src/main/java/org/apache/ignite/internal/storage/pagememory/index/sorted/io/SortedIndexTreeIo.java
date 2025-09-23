@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
@@ -155,6 +156,7 @@ public interface SortedIndexTreeIo {
      *
      * @param dataPageReader Data page reader.
      * @param binaryTupleComparator Comparator of index columns {@link BinaryTuple}s.
+     * @param partialBinaryTupleComparator Matcher partial data of index columns {@link BinaryTuple}s.
      * @param partitionId Partition ID.
      * @param pageAddr Page address.
      * @param idx Element's index.
@@ -165,6 +167,7 @@ public interface SortedIndexTreeIo {
     default int compare(
             DataPageReader dataPageReader,
             Comparator<ByteBuffer> binaryTupleComparator,
+            PartialBinaryTupleMatcher partialBinaryTupleComparator,
             int partitionId,
             long pageAddr,
             int idx,
@@ -176,8 +179,20 @@ public interface SortedIndexTreeIo {
 
         ByteBuffer firstBinaryTupleBuffer;
 
+        ByteBuffer secondBinaryTupleBuffer = rowKey.indexColumns().valueBuffer();
+
         if (indexColumnsSize == NOT_FULLY_INLINE) {
-            // TODO: IGNITE-17325 Use a comparator for inlined tuple
+            ByteBuffer partialFirstBinaryTupleBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsInlineSize());
+
+            int firstCmp = partialBinaryTupleComparator.match(
+                    partialFirstBinaryTupleBuffer.order(LITTLE_ENDIAN),
+                    secondBinaryTupleBuffer
+            );
+
+            if (firstCmp != 0) {
+                return firstCmp;
+            }
+
             long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
 
             ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
@@ -188,8 +203,6 @@ public interface SortedIndexTreeIo {
         } else {
             firstBinaryTupleBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
         }
-
-        ByteBuffer secondBinaryTupleBuffer = rowKey.indexColumns().valueBuffer();
 
         int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer.order(LITTLE_ENDIAN), secondBinaryTupleBuffer);
 

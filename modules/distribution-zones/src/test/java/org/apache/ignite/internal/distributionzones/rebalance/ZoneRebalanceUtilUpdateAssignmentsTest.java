@@ -118,7 +118,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             "zone1",
             partNum,
             replicas,
-            1000,
+            replicas,
             1000,
             1000,
             "",
@@ -133,10 +133,10 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<String> nodes3 = IntStream.of(5).mapToObj(i -> "nodes3_" + i).collect(toSet());
     private static final Set<String> nodes4 = IntStream.of(5).mapToObj(i -> "nodes4_" + i).collect(toSet());
 
-    private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, partNum + 1, replicas);
-    private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, partNum + 1, replicas);
-    private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, partNum + 1, replicas);
-    private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, partNum + 1, replicas);
+    private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, partNum + 1, replicas, replicas);
+    private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, partNum + 1, replicas, replicas);
+    private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, partNum + 1, replicas, replicas);
+    private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, partNum + 1, replicas, replicas);
 
     private static final long expectedPendingChangeTriggerKey = 10L;
     private static final HybridTimestamp expectedPendingChangeTimestampKey = hybridTimestamp(1000L);
@@ -319,6 +319,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 zonePartitionId,
                 nodesForNewAssignments,
                 partNum + 1,
+                replicas,
                 replicas,
                 expectedPendingChangeTriggerKey,
                 expectedPendingChangeTimestampKey,

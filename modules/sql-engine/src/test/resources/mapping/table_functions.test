@@ -1,8 +1,13 @@
 N0
 SELECT * FROM TABLE(system_range(1, 5))
 ---
-Fragment#0 root
+Fragment#1 root
+  distribution: single
   executionNodes: [N0]
-  tree:
-    TableFunctionScan(source=1, distribution=single)
+  colocationGroup[-1]: {nodes=[N0], sourceIds=[-1], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
+  tree: 
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 5)
+        est: (rows=100)
 ---

@@ -52,6 +52,7 @@ namespace Apache.Ignite
             Embedded.GroupCode => Embedded.GroupName,
             Marshalling.GroupCode => Marshalling.GroupName,
             Rest.GroupCode => Rest.GroupName,
+            CommonConfiguration.GroupCode => CommonConfiguration.GroupName,
 
             _ => UnknownGroupName
         };
@@ -86,6 +87,7 @@ namespace Apache.Ignite
             Embedded.GroupCode => Embedded.ErrorPrefix,
             Marshalling.GroupCode => Marshalling.ErrorPrefix,
             Rest.GroupCode => Rest.ErrorPrefix,
+            CommonConfiguration.GroupCode => CommonConfiguration.ErrorPrefix,
 
             _ => UnknownGroupName
         };
@@ -199,6 +201,9 @@ namespace Apache.Ignite
 
             /// <summary> HandshakeHeader error. </summary>
             public const int HandshakeHeader = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> ServerToClientRequest error. </summary>
+            public const int ServerToClientRequest = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
@@ -390,6 +395,9 @@ namespace Apache.Ignite
 
             /// <summary> ReplicaStopping error. </summary>
             public const int ReplicaStopping = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> GroupOverloaded error. </summary>
+            public const int GroupOverloaded = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>
@@ -442,8 +450,8 @@ namespace Apache.Ignite
             /// <summary> UnresolvableConsistentId error. </summary>
             public const int UnresolvableConsistentId = (GroupCode << 16) | (1 & 0xFFFF);
 
-            /// <summary> PortInUse error. </summary>
-            public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
+            /// <summary> Bind error. </summary>
+            public const int Bind = (GroupCode << 16) | (2 & 0xFFFF);
 
             /// <summary> FileTransfer error. </summary>
             public const int FileTransfer = (GroupCode << 16) | (3 & 0xFFFF);
@@ -456,6 +464,10 @@ namespace Apache.Ignite
 
             /// <summary> AddressUnresolved error. </summary>
             public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> PortInUse is obsolete. Use Bind instead. </summary>
+            [Obsolete]
+            public const int PortInUse = Bind;
         }
 
         /// <summary> NodeConfiguration errors. </summary>
@@ -599,6 +611,9 @@ namespace Apache.Ignite
 
             /// <summary> ComputeJobCancelled error. </summary>
             public const int ComputeJobCancelled = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> ComputePlatformExecutor error. </summary>
+            public const int ComputePlatformExecutor = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
@@ -678,6 +693,9 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> RestartWithCleanUp error. </summary>
+            public const int RestartWithCleanUp = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>
@@ -741,6 +759,28 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotInit error. </summary>
             public const int ClusterNotInit = (GroupCode << 16) | (1 & 0xFFFF);
+        }
+
+        /// <summary> CommonConfiguration errors. </summary>
+        public static class CommonConfiguration
+        {
+            /// <summary> CommonConfiguration group code. </summary>
+            public const short GroupCode = 24;
+
+            /// <summary> CommonConfiguration group name. </summary>
+            public const String GroupName = "COMMONCFG";
+
+            /// <summary> CommonConfiguration error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
+            /// <summary> ConfigurationApply error. </summary>
+            public const int ConfigurationApply = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> ConfigurationParse error. </summary>
+            public const int ConfigurationParse = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> ConfigurationValidation error. </summary>
+            public const int ConfigurationValidation = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }

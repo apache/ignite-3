@@ -245,6 +245,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                     aliveNodesConsistentIds,
                     zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
+                    zoneDescriptor.consensusGroupSize(),
                     revision,
                     timestamp,
                     metaStorageManager,
@@ -268,6 +269,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             Set<String> aliveNodesConsistentIds,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
@@ -288,7 +290,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
         }
 
         if (manualUpdate) {
-            enrichAssignments(partId, aliveDataNodes, partitions, replicas, partAssignments);
+            enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
         }
 
         Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
@@ -349,7 +351,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
      * Returns a modifiable set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
      * {@link LocalPartitionStateEnum#CATCHING_UP}.
      */
-    private static Set<Assignment> getAliveNodesWithData(
+    static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
@@ -375,16 +377,27 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             Collection<String> aliveDataNodes,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             Set<Assignment> partAssignments
     ) {
-        Set<Assignment> calcAssignments = calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), partitions, replicas);
+        Set<Assignment> calcAssignments = calculateAssignmentForPartition(
+                aliveDataNodes,
+                partId.partitionId(),
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {
                 break;
             }
 
-            partAssignments.add(calcAssignment);
+            // It's required to add calcAssignment if there's no such in partAssignments already either in peer or learner form.
+            if (!partAssignments.contains(Assignment.forPeer(calcAssignment.consistentId()))
+                    && !partAssignments.contains(Assignment.forLearner(calcAssignment.consistentId()))) {
+                partAssignments.add(calcAssignment);
+            }
         }
     }
 

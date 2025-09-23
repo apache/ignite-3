@@ -89,7 +89,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 keyOnly);
 
         /// <inheritdoc/>
-        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, bool keyOnly, Span<byte> noValueSet)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
         {
             int written = 0;
             var columns = keyOnly ? schema.KeyColumns : schema.Columns;
@@ -105,6 +105,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
+                    if (col.IsKey)
+                    {
+                        throw new ArgumentException($"Key column '{col.Name}' not found in the provided tuple '{record}'");
+                    }
+
                     tupleBuilder.AppendNoValue(noValueSet);
                 }
             }

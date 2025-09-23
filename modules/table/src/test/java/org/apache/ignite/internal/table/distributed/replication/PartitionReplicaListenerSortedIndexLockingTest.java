@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
@@ -63,6 +63,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -73,6 +74,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -107,6 +110,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TransactionStateR
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
@@ -123,7 +127,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
@@ -175,7 +179,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
 
         StorageSortedIndexDescriptor pkIndexDescriptor = new StorageSortedIndexDescriptor(
                 PK_INDEX_ID,
-                List.of(new StorageSortedIndexColumnDescriptor("ID", NativeTypes.INT32, false, true)),
+                List.of(new StorageSortedIndexColumnDescriptor("ID", NativeTypes.INT32, false, true, false)),
                 false
         );
 
@@ -223,7 +227,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
 
         when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
@@ -231,7 +235,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
-                enabledColocation() ? new ZonePartitionId(ZONE_ID, PART_ID) : new TablePartitionId(TABLE_ID, PART_ID),
+                colocationEnabled() ? new ZonePartitionId(ZONE_ID, PART_ID) : new TablePartitionId(TABLE_ID, PART_ID),
                 TABLE_ID,
                 () -> Map.of(
                         pkLocker.id(), pkLocker
@@ -246,7 +250,8 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                         PART_ID,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        replicationConfiguration
+                        replicationConfiguration,
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 new DummyValidationSchemasSource(schemaManager),
                 localNode,
@@ -258,7 +263,9 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 schemaManager,
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties(),
+                new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
@@ -318,7 +325,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
             insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
 
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ReplicaRequest request;
 
@@ -400,7 +407,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
             }
         }
 
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ReplicaRequest request;
 
@@ -506,7 +513,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
 
             pkStorage.get().put(binaryRow, rowId);
             TEST_MV_PARTITION_STORAGE.addWrite(rowId, binaryRow, txId, TABLE_ID, PART_ID);
-            TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs);
+            TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs, txId);
         }
     }
 

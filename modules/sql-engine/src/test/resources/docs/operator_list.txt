@@ -378,6 +378,9 @@ EVERY(<boolean>)
 SOME(<boolean>)
 #014b53be23fc2009080420e94b78d52bf2b09dbd
 
+GROUPING(...)
+#c19a178a82716bcc5f313ca5259637dd60c8ba0e
+
 [internal]
 LITERAL_AGG()
 #6d021f1dd7329dc18c22767552769bc90f27b7ac
@@ -446,6 +449,9 @@ EXISTS <any>
 <any> DESC
 #cd2aa6863ed54bd03d844b08664115655e7ae2e4
 
+CURRENT_USER
+#3cfbde57fbba1435023dc75472eedaec6555d525
+
 TYPEOF(<any>)
 #85771dfef877b07351286b9f792f2ae2cd4a234d
 
@@ -501,8 +507,9 @@ JSON_TYPE(<character>)
 JSON_VALUE(json_doc, path [RETURNING type] [{NULL | ERROR | DEFAULT value} ON EMPTY] [{NULL | ERROR | DEFAULT value} ON ERROR])
 #93bd442e87a5f53e52fc9227291c7e3a97d3782b
 
+JSON_QUERY(<any> <character> <any> WRAPPER <any> ON EMPTY <any> ON ERROR)
 JSON_QUERY(<any> <character> RETURNING <any> <any> WRAPPER <any> ON EMPTY <any> ON ERROR)
-#31185ae83391a4700666220253cca898d2e33836
+#a7034824b8a355310836ecdf15593e6fed5b8077
 
 JSON_TYPE(<any>)
 #8daf3ac25da544b79650f8876580b1254d9f158a
@@ -574,11 +581,13 @@ EXTRACTVALUE(<string>, <string>)
 XMLTRANSFORM(<string>, <string>)
 #cea0989d0e701f8f200f34006b0bc3269dac556f
 
+EXTRACT(<string>, <string>)
 EXTRACT(<string>, <string>, <string>)
-#8e2004af04aa75a7e8a260ddbc095f2de2540bc3
+#73cca47491791f8af4e6ed92a539fbea1c12909b
 
+EXISTSNODE(<string>, <string>)
 EXISTSNODE(<string>, <string>, <string>)
-#fc8c57d6fe872dafbe6e49ab284f8fb1d146d4ee
+#08f80c3abcf7ce2372217732c963c12fd10494d9
 
 
 === Collection Functions

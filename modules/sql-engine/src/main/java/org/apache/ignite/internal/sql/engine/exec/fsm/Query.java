@@ -21,15 +21,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -41,6 +39,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Encapsulates intermediate state populated throughout query lifecycle.
  */
 class Query {
+    final CompletableFuture<Void> terminationFuture = new CompletableFuture<>();
     volatile CompletableFuture<Object> resultHolder = new CompletableFuture<>();
 
     // Below are attributes the query was initialized with
@@ -68,8 +67,6 @@ class Query {
     volatile @Nullable List<ParsedResult> parsedScript = null;
 
     // Below are internal attributes
-    private final ConcurrentMap<ExecutionPhase, CompletableFuture<Void>> onPhaseStartedCallback = new ConcurrentHashMap<>();
-
     private volatile ExecutionPhase currentPhase = ExecutionPhase.REGISTERED;
 
     /** Constructs the query. */
@@ -119,15 +116,13 @@ class Query {
         this.parsedResult = parsedResult;
     }
 
-    CompletableFuture<Void> onPhaseStarted(ExecutionPhase phase) {
-        return onPhaseStartedCallback.computeIfAbsent(phase, k -> new CompletableFuture<>());
-    }
-
     /** Moves the query to a given state. */
     void moveTo(ExecutionPhase newPhase) {
         currentPhase = newPhase;
 
-        onPhaseStartedCallback.computeIfAbsent(newPhase, k -> new CompletableFuture<>()).complete(null);
+        if (newPhase == ExecutionPhase.TERMINATED) {
+            terminationFuture.complete(null);
+        }
     }
 
     ExecutionPhase currentPhase() {
@@ -158,7 +153,7 @@ class Query {
     CompletableFuture<Void> cancel() {
         cancel.cancel();
 
-        return onPhaseStarted(ExecutionPhase.TERMINATED);
+        return terminationFuture;
     }
 
     void reset() {

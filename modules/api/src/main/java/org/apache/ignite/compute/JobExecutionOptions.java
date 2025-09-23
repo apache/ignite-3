@@ -21,7 +21,6 @@ package org.apache.ignite.compute;
  * Job execution options.
  */
 public class JobExecutionOptions {
-
     /**
      * Default job execution options with priority default value = 0 and max retries default value = 0.
      */
@@ -31,27 +30,55 @@ public class JobExecutionOptions {
 
     private final int maxRetries;
 
+    private final JobExecutorType executorType;
+
     /**
      * Constructor.
      *
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
+     * @param executorType Job executor type.
      */
-    private JobExecutionOptions(int priority, int maxRetries) {
+    private JobExecutionOptions(int priority, int maxRetries, JobExecutorType executorType) {
         this.priority = priority;
         this.maxRetries = maxRetries;
+        this.executorType = executorType;
     }
 
+    /**
+     * Creates the builder for job execution options.
+     *
+     * @return Builder for job execution options.
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Gets the job execution priority.
+     *
+     * @return Job execution priority.
+     */
     public int priority() {
         return priority;
     }
 
+    /**
+     * Gets the number of times to retry job execution in case of failure.
+     *
+     * @return Number of retries.
+     */
     public int maxRetries() {
         return maxRetries;
+    }
+
+    /**
+     * Gets the job executor type.
+     *
+     * @return Job executor type.
+     */
+    public JobExecutorType executorType() {
+        return executorType;
     }
 
     /** JobExecutionOptions builder. */
@@ -60,18 +87,48 @@ public class JobExecutionOptions {
 
         private int maxRetries;
 
+        private JobExecutorType executorType = JobExecutorType.JAVA_EMBEDDED;
+
+        /**
+         * Sets the job execution priority.
+         *
+         * @param priority Job execution priority.
+         * @return Builder instance.
+         */
         public Builder priority(int priority) {
             this.priority = priority;
             return this;
         }
 
+        /**
+         * Sets the number of times to retry job execution in case of failure.
+         *
+         * @param maxRetries Number of retries. 0 to not retry.
+         * @return Builder instance.
+         */
         public Builder maxRetries(int maxRetries) {
             this.maxRetries = maxRetries;
             return this;
         }
 
+        /**
+         * Sets the job executor type. See {@link JobExecutorType} for more details.
+         *
+         * @param jobExecutorType Job executor type.
+         * @return Builder instance.
+         */
+        public Builder executorType(JobExecutorType jobExecutorType) {
+            this.executorType = jobExecutorType;
+            return this;
+        }
+
+        /**
+         * Builds the job execution options.
+         *
+         * @return Job execution options.
+         */
         public JobExecutionOptions build() {
-            return new JobExecutionOptions(priority, maxRetries);
+            return new JobExecutionOptions(priority, maxRetries, executorType);
         }
     }
 }

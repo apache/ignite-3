@@ -28,13 +28,13 @@ public class CatalogSerializationCompatibilityV2ReadsV1Test extends CatalogSeria
     }
 
     @Override
-    protected String dirName() {
-        return "serialization_v1";
+    protected int entryVersion() {
+        return 1;
     }
 
     @Override
-    protected int entryVersion() {
-        return 1;
+    protected String dirName() {
+        return "serialization_v1";
     }
 
     @Override

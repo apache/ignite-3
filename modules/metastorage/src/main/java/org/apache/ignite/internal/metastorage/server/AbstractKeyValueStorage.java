@@ -127,11 +127,9 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected abstract long[] keyRevisionsForOperation(byte[] key);
 
     /**
-     * Returns key values by revision for operation.
-     *
-     * @throws CompactedException If value is compacted for this particular revision.
+     * Returns key values by revision for operation. Returns {@code null} if there's no value for the given revision.
      */
-    protected abstract Value valueForOperation(byte[] key, long revision) throws CompactedException;
+    protected abstract @Nullable Value valueForOperation(byte[] key, long revision);
 
     /**
      * Returns {@code true} if the metastorage is in the recovery state.
@@ -144,6 +142,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      * Returns {@code true} if the watches have {@link #startWatches started}.
      */
     protected abstract boolean areWatchesStarted();
+
+    @Override
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        watchProcessor.registerNotificationEnqueuedListener(listener);
+    }
 
     @Override
     public Entry get(byte[] key) {
@@ -323,6 +326,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         long revision = keyRevisions[maxRevisionIndex];
 
         Value value = valueForOperation(key, revision);
+
+        if (value == null) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
+            return EntryImpl.empty(key);
+        }
 
         if (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone()) {
             CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);

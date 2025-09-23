@@ -205,4 +205,25 @@ internal static partial class LogMessages
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
         this ILogger logger, long requestId, ResponseFlags flags, EndPoint remoteAddress);
+
+    [LoggerMessage(
+        Message = "Failed to send server op response [requestId={RequestId}, message={Message}]",
+        Level = LogLevel.Error,
+        EventId = 1028)]
+    internal static partial void LogServerOpResponseError(
+        this ILogger logger, Exception e, long requestId, string message);
+
+    [LoggerMessage(
+        Message = "Received server op [requestId={RequestId}, opCode={Op}, opType={OpType}, remoteAddress={RemoteAddress}]",
+        Level = LogLevel.Trace,
+        EventId = 1029)]
+    internal static partial void LogServerOpTrace(
+        this ILogger logger, long requestId, int op, ServerOp opType, EndPoint remoteAddress);
+
+    [LoggerMessage(
+        Message = "Table op failed [op={Op}]",
+        Level = LogLevel.Debug,
+        EventId = 1030)]
+    internal static partial void LogFailedTableOpDebug(
+        this ILogger logger, Exception e, ClientOp op);
 }

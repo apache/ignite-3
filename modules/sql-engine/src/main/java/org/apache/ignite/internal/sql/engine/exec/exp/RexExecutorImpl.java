@@ -137,9 +137,7 @@ public class RexExecutorImpl implements RexExecutor {
             List<RexNode> exps,
             RelDataType rowType
     ) {
-        final JavaTypeFactoryImpl typeFactory =
-                new JavaTypeFactoryImpl(rexBuilder.getTypeFactory().getTypeSystem());
-        final RexToLixTranslator.InputGetter getter = new DataContextInputGetter(rowType, typeFactory);
+        final RexToLixTranslator.InputGetter getter = new DataContextInputGetter(rowType);
         final String code = compile(rexBuilder, exps, getter, rowType);
 
         return new RexExecutable(code, "generated Rex code");
@@ -172,18 +170,11 @@ public class RexExecutorImpl implements RexExecutor {
      * <code>{@link org.apache.calcite.DataContext#get}("inputRecord")</code>.
      */
     private static class DataContextInputGetter implements RexToLixTranslator.InputGetter {
-        /** Type factory. */
-        private final RelDataTypeFactory typeFactory;
-
         /** Row type. */
         private final RelDataType rowType;
 
-        DataContextInputGetter(
-                RelDataType rowType,
-                RelDataTypeFactory typeFactory
-        ) {
+        DataContextInputGetter(RelDataType rowType) {
             this.rowType = rowType;
-            this.typeFactory = typeFactory;
         }
 
         /** {@inheritDoc} */

@@ -23,8 +23,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * RAFT server event interceptor. It is used to intercept RAFT server events of certain RAFT groups on server side, and notify about
@@ -35,7 +35,7 @@ public class RaftServiceEventInterceptor {
     private ConcurrentHashMap<ReplicationGroupId, Set<Consumer<Long>>> subscriptions = new ConcurrentHashMap<>();
 
     /** Callbacks by cluster nodes. */
-    private ConcurrentHashMap<ClusterNode, Set<Consumer<Long>>> nodesSubscriptions = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<InternalClusterNode, Set<Consumer<Long>>> nodesSubscriptions = new ConcurrentHashMap<>();
 
     /**
      * Subscribes a node to notification.
@@ -44,7 +44,7 @@ public class RaftServiceEventInterceptor {
      * @param subscriber Subscriber node.
      * @param notifyAction Notify action.
      */
-    public void subscribe(ReplicationGroupId groupId, ClusterNode subscriber, Consumer<Long> notifyAction) {
+    public void subscribe(ReplicationGroupId groupId, InternalClusterNode subscriber, Consumer<Long> notifyAction) {
         subscriptions.compute(groupId, (id, actions) -> {
             if (actions == null) {
                 actions = new HashSet<>();
@@ -78,7 +78,7 @@ public class RaftServiceEventInterceptor {
      * @param groupId Group id.
      * @param subscriber Subscriber node.
      */
-    public void unsubscribe(ReplicationGroupId groupId, ClusterNode subscriber) {
+    public void unsubscribe(ReplicationGroupId groupId, InternalClusterNode subscriber) {
         subscriptions.computeIfPresent(groupId, (id, actions) -> {
             nodesSubscriptions.computeIfPresent(subscriber, (node, nodeActions) -> {
                 Set<Consumer<Long>> grpNodeActions = new HashSet<>(actions);
@@ -116,7 +116,7 @@ public class RaftServiceEventInterceptor {
      *
      * @param clusterNode Subscriber node.
      */
-    public void unsubscribeNode(ClusterNode clusterNode) {
+    public void unsubscribeNode(InternalClusterNode clusterNode) {
         for (ReplicationGroupId grpId : subscriptions.keySet()) {
             unsubscribe(grpId, clusterNode);
         }
@@ -129,7 +129,7 @@ public class RaftServiceEventInterceptor {
      * @param term Term.
      */
     public void onLeaderElected(ReplicationGroupId groupId, long term) {
-        HashSet<Consumer<Long>> actionsToInvoke = new HashSet();
+        HashSet<Consumer<Long>> actionsToInvoke = new HashSet<>();
 
         subscriptions.computeIfPresent(groupId, (id, actions) -> {
             actionsToInvoke.addAll(actions);

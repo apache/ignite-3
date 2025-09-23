@@ -82,7 +82,6 @@ class ConfigurationDuplicatesValidatorTest extends BaseIgniteAbstractTest {
             + "  rest {\n"
             + "    port: 123\n"
             + "  },\n"
-            + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 

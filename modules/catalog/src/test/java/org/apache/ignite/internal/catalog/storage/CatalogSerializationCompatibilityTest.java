@@ -17,98 +17,149 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
-import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.assertj.core.api.BDDAssertions;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for catalog storage objects. Protocol version 1.
+ *
+ * <p>How to add a test case:
+ * <ul>
+ *     <li>Update descriptor generator(s) to return version(s) you want to test.
+ *     See {@link TestTableDescriptors}, {@link TestZoneDescriptors}, and so on.</li>
+ *     <li>Copy an existing test case.</li>
+ *     <li>Set versions to those you what to check.</li>
+ *     <li>Set {@link #WRITE_SNAPSHOT}  to {@code true} to generate a snapshot.</li>
+ *     <li>Run test case to generate a snapshot, set {@link #WRITE_SNAPSHOT} back to false.</li>
+ * </ul>
+ * <pre>
+ *     public void newTableV42() {
+ *         int version = 42;
+ *
+ *         // Generates table descriptors for version 42.
+ *         List&lt;UpdateEntry&gt; entries = TestTableDescriptors.tables(state, version)
+ *                 .stream()
+ *                 .map(NewTableEntry::new)
+ *                 .collect(Collectors.toList());
+ *
+ *         // Use serializer version 42 for all CatalogTableDescriptors in this test case.
+ *         checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE.id(), version);
+ *         checker.compareEntries(entries, "NewTableEntry", version);
+ *     }
+ * </pre>
  */
-public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTest {
-    private static final String UPDATE_TIMESTAMP_FIELD_REGEX = ".*updateTimestamp";
+public abstract class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTest {
 
-    private final TestDescriptorState state = new TestDescriptorState(42);
+    /** Whether to write entries to the test directory. */
+    private static final boolean WRITE_SNAPSHOT = false;
+
+    final TestDescriptorState state = new TestDescriptorState(42);
+
+    CatalogSerializationChecker checker;
+
+    @BeforeEach
+    public void init() {
+        checker = new CatalogSerializationChecker(
+                log,
+                dirName(),
+                entryVersion(),
+                expectExactVersion(),
+                protocolVersion()
+        );
+        checker.writeSnapshot(WRITE_SNAPSHOT);
+    }
+
+    @AfterEach
+    public void reset() {
+        checker.reset();
+    }
 
     @Test
     public void snapshotEntry() {
-        List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
+
+        EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
+        objectVersions.put(Type.TABLE, entryVersion());
+        objectVersions.put(Type.INDEX, entryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
+
         Catalog catalog1 = new Catalog(
                 2367,
                 5675344L,
                 100,
                 zones,
-                TestCatalogObjectDescriptors.schemas(state),
+                TestSchemaDescriptors.schemas(state, entryVersion(), objectVersions),
                 zones.get(0).id()
         );
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        compareSnapshotEntry(snapshotEntry, "SnapshotEntry", entryVersion());
+        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntry", entryVersion());
     }
 
     @Test
     public void snapshotEntryNoDefaultZone() {
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
+
+        EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
+        objectVersions.put(Type.TABLE, entryVersion());
+        objectVersions.put(Type.INDEX, entryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
+
         Catalog catalog1 = new Catalog(
                 789879,
                 23432L,
                 2343,
-                TestCatalogObjectDescriptors.zones(state),
-                TestCatalogObjectDescriptors.schemas(state),
+                zones,
+                TestSchemaDescriptors.schemas(state, entryVersion(), objectVersions),
                 null
         );
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", entryVersion());
+        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", entryVersion());
     }
 
     @Test
     public void objectIdUpdate() {
         List<UpdateEntry> entries = List.of(new ObjectIdGenUpdateEntry(23431), new ObjectIdGenUpdateEntry(1204));
 
-        compareEntries(entries, "ObjectIdGenUpdateEntry", entryVersion());
+        checker.compareEntries(entries, "ObjectIdGenUpdateEntry", entryVersion());
     }
 
     // Zones
 
     @Test
     public void newZone() {
-        List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
         List<UpdateEntry> entries = zones.stream().map(NewZoneEntry::new).collect(Collectors.toList());
 
-        compareEntries(entries, "NewZoneEntry", entryVersion());
+        checker.compareEntries(entries, "NewZoneEntry", entryVersion());
     }
 
     @Test
     public void alterZone() {
-        List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
+
         List<UpdateEntry> entries = List.of(
                 new AlterZoneEntry(zones.get(1)),
                 new AlterZoneEntry(zones.get(2))
         );
 
-        compareEntries(entries, "AlterZoneEntry", entryVersion());
+        checker.compareEntries(entries, "AlterZoneEntry", entryVersion());
     }
 
     @Test
@@ -118,7 +169,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new SetDefaultZoneEntry(state.id())
         );
 
-        compareEntries(entries, "SetDefaultZoneEntry", entryVersion());
+        checker.compareEntries(entries, "SetDefaultZoneEntry", entryVersion());
     }
 
     @Test
@@ -128,19 +179,24 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropZoneEntry(state.id())
         );
 
-        compareEntries(entries, "DropZoneEntry", entryVersion());
+        checker.compareEntries(entries, "DropZoneEntry", entryVersion());
     }
 
     // Schemas
 
     @Test
     public void newSchema() {
-        List<UpdateEntry> entries = TestCatalogObjectDescriptors.schemas(state)
+        EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
+        objectVersions.put(Type.TABLE, entryVersion());
+        objectVersions.put(Type.INDEX, entryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
+
+        List<UpdateEntry> entries = TestSchemaDescriptors.schemas(state, entryVersion(), objectVersions)
                 .stream()
                 .map(NewSchemaEntry::new)
                 .collect(Collectors.toList());
 
-        compareEntries(entries, "NewSchemaEntry", entryVersion());
+        checker.compareEntries(entries, "NewSchemaEntry", entryVersion());
     }
 
     @Test
@@ -150,19 +206,21 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropSchemaEntry(state.id())
         );
 
-        compareEntries(entries, "DropSchemaEntry", entryVersion());
+        checker.compareEntries(entries, "DropSchemaEntry", entryVersion());
     }
 
     // Tables
 
     @Test
     public void newTable() {
-        List<UpdateEntry> entries = TestCatalogObjectDescriptors.tables(state)
+        int version = entryVersion();
+
+        List<UpdateEntry> entries = TestTableDescriptors.tables(state, version)
                 .stream()
                 .map(NewTableEntry::new)
                 .collect(Collectors.toList());
 
-        compareEntries(entries, "NewTableEntry", entryVersion());
+        checker.compareEntries(entries, "NewTableEntry", version);
     }
 
     @Test
@@ -172,7 +230,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RenameTableEntry(state.id(), "NEW_NAME2")
         );
 
-        compareEntries(entries, "RenameTableEntry", entryVersion());
+        checker.compareEntries(entries, "RenameTableEntry", entryVersion());
     }
 
     @Test
@@ -182,21 +240,21 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropTableEntry(state.id())
         );
 
-        compareEntries(entries, "DropTableEntry", entryVersion());
+        checker.compareEntries(entries, "DropTableEntry", entryVersion());
     }
-
-    // Columns
 
     // Indexes
 
     @Test
     public void newIndex() {
-        List<UpdateEntry> entries1 = TestCatalogObjectDescriptors.sortedIndices(state)
+        int version = entryVersion();
+
+        List<UpdateEntry> entries1 = TestIndexDescriptors.sortedIndices(state, version)
                 .stream()
                 .map(NewIndexEntry::new)
                 .collect(Collectors.toList());
 
-        List<UpdateEntry> entries2 = TestCatalogObjectDescriptors.hashIndices(state)
+        List<UpdateEntry> entries2 = TestIndexDescriptors.hashIndices(state, version)
                 .stream()
                 .map(NewIndexEntry::new)
                 .collect(Collectors.toList());
@@ -206,14 +264,14 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
         Collections.shuffle(entries, state.random());
 
-        compareEntries(entries, "NewIndexEntry", entryVersion());
+        checker.compareEntries(entries, "NewIndexEntry", version);
     }
 
     @Test
     public void renameIndex() {
         List<UpdateEntry> entries = List.of(new RenameIndexEntry(state.id(), "NEW_NAME"));
 
-        compareEntries(entries, "RenameIndexEntry", entryVersion());
+        checker.compareEntries(entries, "RenameIndexEntry", entryVersion());
     }
 
     @Test
@@ -223,7 +281,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new RemoveIndexEntry(state.id())
         );
 
-        compareEntries(entries, "RemoveIndexEntry", entryVersion());
+        checker.compareEntries(entries, "RemoveIndexEntry", entryVersion());
     }
 
     @Test
@@ -233,7 +291,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new MakeIndexAvailableEntry(state.id())
         );
 
-        compareEntries(entries, "MakeIndexAvailableEntry", entryVersion());
+        checker.compareEntries(entries, "MakeIndexAvailableEntry", entryVersion());
     }
 
     @Test
@@ -243,7 +301,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new StartBuildingIndexEntry(state.id())
         );
 
-        compareEntries(entries, "StartBuildingIndexEntry", entryVersion());
+        checker.compareEntries(entries, "StartBuildingIndexEntry", entryVersion());
     }
 
     @Test
@@ -253,15 +311,15 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropIndexEntry(state.id())
         );
 
-        compareEntries(entries, "DropIndexEntry", entryVersion());
+        checker.compareEntries(entries, "DropIndexEntry", entryVersion());
     }
 
     // Columns
 
     @Test
     public void newColumns() {
-        List<CatalogTableColumnDescriptor> columns1 = TestCatalogObjectDescriptors.columns(state);
-        List<CatalogTableColumnDescriptor> columns2 = TestCatalogObjectDescriptors.columns(state);
+        List<CatalogTableColumnDescriptor> columns1 = TestTableColumnDescriptors.columns(state);
+        List<CatalogTableColumnDescriptor> columns2 = TestTableColumnDescriptors.columns(state);
 
         Collections.shuffle(columns1, state.random());
         Collections.shuffle(columns2, state.random());
@@ -271,25 +329,25 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new NewColumnsEntry(state.id(), columns2)
         );
 
-        compareEntries(entries, "NewColumnsEntry", entryVersion());
+        checker.compareEntries(entries, "NewColumnsEntry", entryVersion());
     }
 
     @Test
     public void alterColumn() {
-        List<CatalogTableColumnDescriptor> columns = TestCatalogObjectDescriptors.columns(state);
+        List<CatalogTableColumnDescriptor> columns = TestTableColumnDescriptors.columns(state);
         Collections.shuffle(columns, state.random());
 
         List<UpdateEntry> entries = List.of(
                 new AlterColumnEntry(state.id(), columns.get(0)),
                 new AlterColumnEntry(state.id(), columns.get(1))
         );
-        compareEntries(entries, "AlterColumnsEntry", entryVersion());
+        checker.compareEntries(entries, "AlterColumnsEntry", entryVersion());
     }
 
     @Test
     public void dropColumns() {
-        List<CatalogTableColumnDescriptor> columns1 = TestCatalogObjectDescriptors.columns(state);
-        List<CatalogTableColumnDescriptor> columns2 = TestCatalogObjectDescriptors.columns(state);
+        List<CatalogTableColumnDescriptor> columns1 = TestTableColumnDescriptors.columns(state);
+        List<CatalogTableColumnDescriptor> columns2 = TestTableColumnDescriptors.columns(state);
 
         Collections.shuffle(columns1, state.random());
         Collections.shuffle(columns2, state.random());
@@ -298,70 +356,21 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 new DropColumnsEntry(state.id(), Set.of("C1", "C2")),
                 new DropColumnsEntry(state.id(), Set.of("C3"))
         );
-        compareEntries(entries, "DropColumnsEntry", entryVersion());
+        checker.compareEntries(entries, "DropColumnsEntry", entryVersion());
     }
 
     // System views
 
     @Test
     public void newSystemView() {
-        List<UpdateEntry> entries = TestCatalogObjectDescriptors.systemViews(state)
+        int version = entryVersion();
+
+        List<UpdateEntry> entries = TestSystemViewDescriptors.systemViews(state, version)
                 .stream()
                 .map(NewSystemViewEntry::new)
                 .collect(Collectors.toList());
 
-        compareEntries(entries, "NewSystemViewEntry", entryVersion());
-    }
-
-    protected void compareSnapshotEntry(SnapshotEntry expectedEntry, String fileName, int version) {
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, fileName, version);
-
-        assertEquals(expectedEntry.typeId(), actualEntry.typeId());
-        assertEquals(expectedEntry.activationTime(), actualEntry.activationTime(), "activationTime");
-        assertEquals(expectedEntry.objectIdGenState(), actualEntry.objectIdGenState(), "objectIdGenState");
-        assertEquals(expectedEntry.defaultZoneId(), actualEntry.defaultZoneId(), "defaultZoneId");
-
-        var assertion = BDDAssertions.assertThat(expectedEntry.snapshot())
-                .usingRecursiveComparison();
-
-        if (entryVersion() == 1) {
-            // Ignoring update timestamp for version 1.
-            assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
-        }
-
-        assertion.isEqualTo(actualEntry.snapshot());
-    }
-
-    protected void compareEntries(List<UpdateEntry> entries, String fileName, int version) {
-        List<UpdateEntry> actual = checkEntries(entries, fileName, version);
-        assertEquals(entries.size(), actual.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            UpdateEntry expectedEntry = entries.get(i);
-            UpdateEntry actualEntry = actual.get(i);
-
-            var assertion = BDDAssertions.assertThat(actualEntry).as("entry#" + i)
-                    .usingRecursiveComparison();
-
-            if (entryVersion() == 1) {
-                // Ignoring update timestamp for version 1.
-                assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
-            }
-
-            assertion.isEqualTo(expectedEntry);
-        }
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private <T extends UpdateEntry> List<T> checkEntries(List<? extends T> entries, String fileName, int version) {
-        VersionedUpdate update = new VersionedUpdate(1, 100L, (List<UpdateEntry>) entries);
-        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName, version);
-
-        assertEquals(update.version(), deserializedUpdate.version());
-        assertEquals(update.typeId(), deserializedUpdate.typeId());
-        assertEquals(update.delayDurationMs(), deserializedUpdate.delayDurationMs());
-
-        return (List) deserializedUpdate.entries();
+        checker.compareEntries(entries, "NewSystemViewEntry", version);
     }
 
     protected int protocolVersion() {
@@ -378,70 +387,5 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
     protected boolean expectExactVersion() {
         return false;
-    }
-
-    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String entryFileName, int version) {
-        String fileName = format("{}_{}.bin", entryFileName, version);
-        String resourceName = dirName() + "/" + fileName;
-
-        CatalogEntrySerializerProvider provider;
-        if (expectExactVersion()) {
-            provider = new VersionCheckingProvider(protocolVersion());
-        } else {
-            provider = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
-        }
-
-        log.info("Read fileName: {}, class: {}, version: {}", fileName, entryClass.getSimpleName(), version);
-
-        UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl(provider, protocolVersion());
-
-        byte[] srcBytes;
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourceName)) {
-            assertNotNull(is, "Resource does not exist: " + resourceName);
-            while (is.available() > 0) {
-                bos.write(is.read());
-            }
-            srcBytes = bos.toByteArray();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Unable to resource", e);
-        }
-
-        return entryClass.cast(marshaller.unmarshall(srcBytes));
-    }
-
-    private static class VersionCheckingProvider implements CatalogEntrySerializerProvider {
-
-        private final CatalogEntrySerializerProvider provider;
-
-        private final int expected;
-
-        private VersionCheckingProvider(int expected) {
-            this.provider = DEFAULT_PROVIDER;
-            this.expected = expected;
-        }
-
-        @Override
-        public <T extends MarshallableEntry> CatalogObjectSerializer<T> get(int version, int typeId) {
-            CatalogObjectSerializer<MarshallableEntry> serializer = provider.get(version, typeId);
-
-            checkVersion(typeId, version);
-
-            return (CatalogObjectSerializer<T>) serializer;
-        }
-
-        @Override
-        public int latestSerializerVersion(int typeId) {
-            int latest = provider.latestSerializerVersion(typeId);
-            checkVersion(typeId, latest);
-            return latest;
-        }
-
-        private void checkVersion(int typeId, int version) {
-            if (version != expected) {
-                Assertions.fail("Requested unexpected version for type " + typeId + ". All versions must be " + expected);
-            }
-        }
     }
 }

@@ -49,7 +49,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -66,7 +66,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Class containing tests related to Raft-based replication for the Colocation feature.
  */
 @ExtendWith(ExecutorServiceExtension.class)
-public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
+public class ItZoneDataReplicationTest extends ItAbstractColocationTest {
     /**
      * Tests that inserted data is replicated to all replica nodes.
      */
@@ -75,51 +75,53 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
     void testReplicationOnAllNodes(boolean useExplicitTx) throws Exception {
         startCluster(3);
 
-        // Create a zone with a single partition on every node.
-        createZone(TEST_ZONE_NAME, 1, cluster.size());
+        Node node0 = getNode(0);
 
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        // Create a zone with a single partition on every node.
+        createZone(node0, TEST_ZONE_NAME, 1, cluster.size());
+
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
-        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
-        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
+        KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
         // Test single insert.
         if (useExplicitTx) {
             node.transactions().runInTransaction(tx -> {
-                kvView1.put(tx, 42, 69);
-                kvView2.put(tx, 142, 169);
+                kvView1.put(tx, 42L, 69);
+                kvView2.put(tx, 142L, 169);
             });
         } else {
-            kvView1.put(null, 42, 69);
-            kvView2.put(null, 142, 169);
+            kvView1.put(null, 42L, 69);
+            kvView2.put(null, 142L, 169);
         }
 
         for (Node n : cluster) {
             if (useExplicitTx) {
                 node.transactions().runInTransaction(tx -> {
-                    assertThat(n.name, kvView1.get(tx, 42), is(69));
-                    assertThat(n.name, kvView1.get(tx, 142), is(nullValue()));
+                    assertThat(n.name, kvView1.get(tx, 42L), is(69));
+                    assertThat(n.name, kvView1.get(tx, 142L), is(nullValue()));
 
-                    assertThat(n.name, kvView2.get(tx, 42), is(nullValue()));
-                    assertThat(n.name, kvView2.get(tx, 142), is(169));
+                    assertThat(n.name, kvView2.get(tx, 42L), is(nullValue()));
+                    assertThat(n.name, kvView2.get(tx, 142L), is(169));
                 });
             } else {
-                assertThat(n.name, kvView1.get(null, 42), is(69));
-                assertThat(n.name, kvView1.get(null, 142), is(nullValue()));
+                assertThat(n.name, kvView1.get(null, 42L), is(69));
+                assertThat(n.name, kvView1.get(null, 142L), is(nullValue()));
 
-                assertThat(n.name, kvView2.get(null, 42), is(nullValue()));
-                assertThat(n.name, kvView2.get(null, 142), is(169));
+                assertThat(n.name, kvView2.get(null, 42L), is(nullValue()));
+                assertThat(n.name, kvView2.get(null, 142L), is(169));
             }
         }
 
         // Test batch insert.
-        Map<Integer, Integer> data1 = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
-        Map<Integer, Integer> data2 = IntStream.range(10, 20).boxed().collect(toMap(Function.identity(), Function.identity()));
+        Map<Long, Integer> data1 = longsToIntsMap(0, 10);
+        Map<Long, Integer> data2 = longsToIntsMap(10, 20);
 
         if (useExplicitTx) {
             node.transactions().runInTransaction(tx -> {
@@ -150,6 +152,10 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         }
     }
 
+    private static Map<Long, Integer> longsToIntsMap(int fromInclusive, int toExclusive) {
+        return IntStream.range(fromInclusive, toExclusive).boxed().collect(toMap(n -> (long) n, Function.identity()));
+    }
+
     /**
      * Tests that inserted data is replicated to a newly joined replica node.
      */
@@ -158,11 +164,13 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
     void testDataRebalance(boolean truncateRaftLog) throws Exception {
         startCluster(2);
 
-        // Create a zone with a single partition on every node + one extra replica for the upcoming node.
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
+        Node node0 = getNode(0);
 
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        // Create a zone with a single partition on every node + one extra replica for the upcoming node.
+        int zoneId = createZone(node0, TEST_ZONE_NAME, 1, cluster.size() + 1);
+
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
@@ -170,11 +178,11 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         Node node = cluster.get(0);
 
-        Map<Integer, Integer> data1 = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
-        Map<Integer, Integer> data2 = IntStream.range(10, 20).boxed().collect(toMap(Function.identity(), Function.identity()));
+        Map<Long, Integer> data1 = longsToIntsMap(0, 10);
+        Map<Long, Integer> data2 = longsToIntsMap(10, 20);
 
-        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
-        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
+        KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
         kvView1.putAll(null, data1);
         kvView2.putAll(null, data2);
@@ -202,19 +210,21 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
     void testLocalRaftLogReapplication() throws Exception {
         startCluster(1);
 
+        Node node0 = getNode(0);
+
         // Create a zone with the test profile. The storage in it is augmented to lose all data upon restart, but its Raft configuration
         // is persistent, so the data can be restored.
-        createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
+        createZoneWithStorageProfiles(node0, TEST_ZONE_NAME, 1, cluster.size(), "test");
 
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
-        KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
 
-        kvView.put(null, 42, 42);
+        kvView.put(null, 42L, 42);
 
         // Restart the node.
         node.stop();
@@ -225,9 +235,9 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         node.waitForMetadataCompletenessAtNow();
 
-        kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+        kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
 
-        assertThat(kvView.get(null, 42), is(42));
+        assertThat(kvView.get(null, 42L), is(42));
     }
 
     /**
@@ -249,16 +259,18 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         startCluster(1);
 
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
+        Node node0 = getNode(0);
 
-        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        int zoneId = createZone(node0, TEST_ZONE_NAME, 1, cluster.size() + 1);
+
+        int tableId = createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
 
         Node node = cluster.get(0);
 
         // Add some data to the table.
-        KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
 
-        Map<Integer, Integer> data = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
+        Map<Long, Integer> data = longsToIntsMap(0, 10);
 
         kvView.putAll(null, data);
 
@@ -311,15 +323,17 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         startCluster(1);
 
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
+        Node node0 = getNode(0);
 
-        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        int zoneId = createZone(node0, TEST_ZONE_NAME, 1, cluster.size() + 1);
+
+        int tableId = createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
 
         Node node = cluster.get(0);
 
-        KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
 
-        Map<Integer, Integer> data = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
+        Map<Long, Integer> data = longsToIntsMap(0, 10);
 
         kvView.putAll(null, data);
 
@@ -400,7 +414,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
     }
 
     private static @Nullable MvTableStorage tableStorage(Node node, int tableId) {
-        TableImpl table = node.tableManager.startedTables().get(tableId);
+        TableViewInternal table = node.tableManager.startedTables().get(tableId);
 
         return table == null ? null : table.internalTable().storage();
     }

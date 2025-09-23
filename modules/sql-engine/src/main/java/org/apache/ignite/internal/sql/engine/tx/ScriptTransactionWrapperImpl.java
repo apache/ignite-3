@@ -30,7 +30,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -64,11 +64,11 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private Throwable rollbackCause;
 
-    private final TransactionTracker txTracker;
+    private final TransactionalOperationTracker txTracker;
 
     private final AtomicBoolean completedTx = new AtomicBoolean();
 
-    ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionTracker txTracker) {
+    ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionalOperationTracker txTracker) {
         this.managedTx = managedTx;
         this.txTracker = txTracker;
     }
@@ -79,18 +79,20 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     @Override
-    public CompletableFuture<Void> commitImplicit() {
+    public CompletableFuture<Void> finalise() {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> rollback(Throwable cause) {
+    public CompletableFuture<Void> finalise(Throwable error) {
+        assert error != null;
+
         synchronized (mux) {
             if (rollbackCause != null) {
                 return txFinishFuture;
             }
 
-            rollbackCause = cause;
+            rollbackCause = error;
             txState = State.ROLLBACK;
         }
 
@@ -125,11 +127,6 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
                 throw new CompletionException(ex);
             }
         });
-    }
-
-    /** Rolls back the transaction when all cursors are closed. */
-    void rollbackWhenCursorsClosed() {
-        changeState(State.ROLLBACK);
     }
 
     /** Registers a new cursor associated with the current transaction. */
@@ -195,8 +192,8 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
                 throw new IllegalStateException("Unknown transaction target state: " + txState);
         }
 
-        if (managedTx.isReadOnly() && completedTx.compareAndSet(false, true)) {
-            txTracker.unregister(managedTx.id());
+        if (completedTx.compareAndSet(false, true)) {
+            txTracker.registerOperationFinish(managedTx);
         }
     }
 

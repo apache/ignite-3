@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -113,7 +111,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select all tables columns.
         assertPlan("SELECT T1.*, T2.* FROM T1 JOIN T2 USING (DEPTID)", schemas,
-                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID0", "NAME0", "PARENTID"));
+                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID$0", "NAME$0", "PARENTID"));
 
         // Select system columns and all table columns.
         assertPlan("SELECT T1.* FROM T1 JOIN T2 USING (DEPTID)", schemas,
@@ -161,7 +159,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select all tables columns.
         assertPlan("SELECT T1.*, T2.* FROM T1 NATURAL JOIN T2", schemas,
-                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID0", "NAME0", "PARENTID"));
+                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID$0", "NAME$0", "PARENTID"));
 
         // Select system columns and all table columns.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
@@ -215,15 +213,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
     }
 
     private static Stream<Arguments> nativeTypesMatrix() {
-        Set<ColumnType> unsupportedTypes = Set.of(
-                ColumnType.NULL,
-                // TODO Exclude interval types after https://issues.apache.org/jira/browse/IGNITE-17373
-                ColumnType.PERIOD,
-                ColumnType.DURATION
-        );
-
-        List<TypeArg> types1 = Arrays.stream(ColumnType.values())
-                .filter(c -> !unsupportedTypes.contains(c))
+        List<TypeArg> types1 = Arrays.stream(NativeType.nativeTypes())
                 .map(c -> TypeUtils.columnType2NativeType(c, 5, 2, 5))
                 .map(TypeArg::new)
                 .collect(Collectors.toList());

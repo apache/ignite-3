@@ -40,6 +40,7 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -171,7 +172,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
-                    new TestConfigurationValidator()
+                    new TestConfigurationValidator(),
+                    new SystemPropertiesNodeProperties()
             );
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
@@ -193,7 +195,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurator
+                    cmgRaftConfigurator,
+                    new NoOpMetricManager()
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

@@ -27,6 +27,17 @@
       url: installation/migration-from-ai2/overview
 - title: Getting Started
   url: quick-start/getting-started-guide
+  items:
+    - title: Quick Start
+      url: quick-start/getting-started-guide
+    - title: Start Ignite 3 Cluster
+      url: quick-start/start-cluster
+    - title: Explore SQL Capabilities
+      url: quick-start/explore-sql
+    - title: Persist Your Data
+      url: quick-start/persist-data
+    - title: Use Java API
+      url: quick-start/java-api
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
@@ -81,6 +92,8 @@
       url: developers-guide/data-streamer
     - title: Code Deployment
       url: developers-guide/code-deployment/code-deployment
+    - title: Events
+      url: developers-guide/events/overview
     - title: REST API
       url: developers-guide/rest/rest-api
       items:
@@ -96,17 +109,15 @@
           url: administrators-guide/config/node-config
         - title: Cluster Configuration Parameters
           url: administrators-guide/config/cluster-config
-        - title: Storage Configuration
-          url: administrators-guide/config/storage/persistent
-          items:
-            - title: Native Persistent Storage
-              url: administrators-guide/config/storage/persistent
-            - title: RocksDB Persistent Storage
-              url: administrators-guide/config/storage/rocksdb
-            - title: Volatile Storage
-              url: administrators-guide/config/storage/volatile
-            - title: Table Configuration
-              url: administrators-guide/config/storage/table-configuration
+    - title: Storage Configuration
+        url: administrators-guide/config/storage/persistent
+        items:
+          - title: Native Persistent Storage
+            url: administrators-guide/config/storage/persistent
+          - title: RocksDB Persistent Storage
+            url: administrators-guide/config/storage/rocksdb
+          - title: Volatile Storage
+            url: administrators-guide/config/storage/volatile
     - title: Cluster Lifecycle
       url: administrators-guide/lifecycle
     - title: Distribution Zones
@@ -115,6 +126,10 @@
       url: administrators-guide/storage
     - title: Data Partitioning
       url: administrators-guide/data-partitions
+    - title: Disaster Recovery
+      url: administrators-guide/disaster-recovery
+    - title: Disaster Recovery for System Groups
+      url: administrators-guide/system-groups-recovery
     - title: Data Colocation
       url: administrators-guide/colocation
     - title: Cluster Security
@@ -148,12 +163,26 @@
       url: sql-reference/distribution-zones
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
+    - title: Operational Commands
+      url: sql-reference/operational-commands
     - title: Grammar Reference
       url: sql-reference/grammar-reference
     - title: Data Types
       url: sql-reference/data-types
+    - title: Explain Statement
+      url: sql-reference/explain-statement
+      items:
+        - title: Explain Statement
+          url: sql-reference/explain-statement
+        - title: List Of Operators
+          url: sql-reference/explain-operators-list
 - title: SQL Performance Tuning
-  url: sql-tuning
+  url: sql-tuning/sql-tuning
+  items:
+    - title: SQL Performance Tuning
+      url: sql-tuning/sql-tuning
+    - title: Improving Queries
+      url: sql-tuning/using-explain
 - title: General Configuration Tips
   url: general-tips
 - title: Glossary

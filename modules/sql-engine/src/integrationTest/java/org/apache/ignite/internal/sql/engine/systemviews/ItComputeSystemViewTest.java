@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.is;
@@ -257,14 +258,14 @@ public class ItComputeSystemViewTest extends AbstractSystemViewTest {
             return completedFuture(List.of(
                     MapReduceJob.<Void, Void>builder()
                             .jobDescriptor(JobDescriptor.builder(InfiniteMapReduceJob.class).build())
-                            .nodes(taskContext.ignite().clusterNodes())
+                            .nodes(taskContext.ignite().cluster().nodes())
                             .build()
             ));
         }
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Void> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 

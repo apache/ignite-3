@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.storage.util.LockByRowId;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -115,8 +117,8 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 new StorageSortedIndexDescriptor(
                         sortedIndexId,
                         List.of(
-                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
+                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true, false),
+                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true, false)
                         ),
                         false
                 )
@@ -163,7 +165,8 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
     }
 
@@ -207,7 +210,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Those writes resulted in three commits.
-        verify(storage, times(3)).commitWrite(any(), any());
+        verify(storage, times(3)).commitWrite(any(), any(), eq(txUuid));
 
         ReadResult result1 = storage.read(new RowId(partitionId.partitionId(), id1), HybridTimestamp.MAX_VALUE);
         assertEquals(row1, result1.binaryRow());

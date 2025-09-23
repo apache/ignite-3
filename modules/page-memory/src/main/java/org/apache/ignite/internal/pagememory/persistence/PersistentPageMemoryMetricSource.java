@@ -50,6 +50,11 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
         return name;
     }
 
+    @Override
+    public @Nullable String group() {
+        return "storage";
+    }
+
     /**
      * Adds metric to the source.
      */
@@ -67,7 +72,7 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
 
         enabled = true;
 
-        return new MetricSet(name, Map.copyOf(metrics));
+        return new MetricSet(name, description(), group(), Map.copyOf(metrics));
     }
 
     @Override

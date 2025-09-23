@@ -104,7 +104,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(plc)) {
             Transaction tx = client.transactions().begin();
-            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel(), null).join();
+            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel()).get1().join();
 
             assertThrows(IgniteClientConnectionException.class, tx::commit);
             assertEquals(0, plc.invocations.size());
@@ -167,7 +167,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             Transaction tx = client.transactions().begin();
-            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel(), null).join();
+            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel()).get1().join();
 
             var ex = assertThrows(IgniteException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors."));
@@ -213,6 +213,10 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         var nullOpFields = new ArrayList<String>();
 
         for (var field : ClientOp.class.getDeclaredFields()) {
+            if ("WRITE_MASK".equals(field.getName()) || "BATCH_MASK".equals(field.getName()) || "OP_MASK".equals(field.getName())) {
+                continue;
+            }
+
             var opCode = (int) field.get(null);
 
             if (opCode == ClientOp.RESERVED_EXTENSION_RANGE_START || opCode == ClientOp.RESERVED_EXTENSION_RANGE_END) {
@@ -226,7 +230,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
             }
         }
 
-        long expectedNullCount = 23;
+        long expectedNullCount = 24;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
@@ -238,7 +242,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     @Test
     public void testRetryReadPolicyAllOperationsSupported() {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, null, 0, 0, null, null, null, false, null, 0);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, null, 0, 0, null, null, null, false, null, 0, 1024);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);

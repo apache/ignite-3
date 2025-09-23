@@ -44,8 +44,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
-import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.hamcrest.core.Is;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,9 +52,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests distribution zone command exception handling. */
 @ExtendWith(ExecutorServiceExtension.class)
-@ExtendWith(FailureManagerExtension.class)
-// TODO: https://issues.apache.org/jira/browse/IGNITE-25222 - unmute.
-@MuteFailureManagerLogging
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     private DdlCommandHandler commandHandler;
 

@@ -180,6 +180,60 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testCreateTableWithNamedPk() {
+        long timePriorToTableCreation = clock.nowLong();
+        String expectedName = "CUSTOM_PK_NAME";
+
+        CatalogCommand command = CreateTableCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(SCHEMA_NAME)
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(expectedName)
+                        .columns(List.of("key1", "key2"))
+                        .build())
+                .colocationColumns(List.of("key2"))
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        // Validate catalog version from the past.
+        Catalog catalog = manager.activeCatalog(timePriorToTableCreation);
+
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
+
+        assertNotNull(schema);
+        assertNull(schema.table(TABLE_NAME));
+        assertNull(schema.aliveIndex(expectedName));
+
+        assertNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, expectedName));
+
+        // Validate actual catalog
+        catalog = manager.activeCatalog(clock.nowLong());
+
+        schema = catalog.schema(SCHEMA_NAME);
+        CatalogTableDescriptor table = schema.table(TABLE_NAME);
+
+        // There should be no index with default name.
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+
+        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.aliveIndex(expectedName);
+
+        assertSame(pkIndex, catalog.aliveIndex(SCHEMA_NAME, expectedName));
+        assertSame(pkIndex, catalog.index(pkIndex.id()));
+
+        // Validate newly created pk index
+        assertEquals(expectedName, pkIndex.name());
+        assertEquals(table.id(), pkIndex.tableId());
+        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertTrue(pkIndex.unique());
+        assertTrue(pkIndex.isCreatedWithTable());
+        assertEquals(AVAILABLE, pkIndex.status());
+    }
+
+    @Test
     public void testCreateMultipleTables() {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
@@ -1145,7 +1199,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .zoneName(customZoneName)
                 .partitions(42)
                 .replicas(15)
-                .dataNodesAutoAdjust(73)
                 .filter("expression")
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();

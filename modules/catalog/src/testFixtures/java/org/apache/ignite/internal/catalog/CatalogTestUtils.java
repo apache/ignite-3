@@ -19,16 +19,13 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
@@ -49,7 +46,6 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -72,7 +68,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
@@ -585,36 +581,6 @@ public class CatalogTestUtils {
         }
     }
 
-    /**
-     * Waits till default zone appears in latest version of catalog.
-     *
-     * @param manager Catalog manager to monitor.
-     * @return Default zone descriptor.
-     */
-    public static CatalogZoneDescriptor awaitDefaultZoneCreation(CatalogManager manager) {
-        try {
-            int[] versionHolder = new int[1];
-            CatalogZoneDescriptor[] catalogZoneDescriptor = new CatalogZoneDescriptor[1];
-
-            assertTrue(waitForCondition(() -> {
-                int latestVersion = manager.latestCatalogVersion();
-
-                versionHolder[0] = latestVersion;
-
-                catalogZoneDescriptor[0] = manager.catalog(latestVersion).defaultZone();
-
-                return catalogZoneDescriptor[0] != null;
-            }, 5_000));
-
-            // additionally we have to wait till all listeners complete handling of event
-            await(manager.catalogReadyFuture(versionHolder[0]));
-
-            return catalogZoneDescriptor[0];
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     /** Test command that does nothing but increments object id counter of a catalog. */
     public static class TestCommand implements CatalogCommand {
 
@@ -655,7 +621,7 @@ public class CatalogTestUtils {
 
     private static ScheduledExecutorService createScheduledExecutorService(String nodeName) {
         return Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "catalog-utils-scheduled-executor", LOG)
+                IgniteThreadFactory.create(nodeName, "catalog-utils-scheduled-executor", LOG)
         );
     }
 

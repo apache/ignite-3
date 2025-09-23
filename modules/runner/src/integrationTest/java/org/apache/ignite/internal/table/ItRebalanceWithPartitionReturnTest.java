@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,7 +42,9 @@ import org.apache.ignite.internal.ConfigOverrides;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.AfterEach;
@@ -116,11 +119,11 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
     @Test
     @ConfigOverrides({
             @ConfigOverride(
-                    name = "nodeAttributes",
+                    name = "ignite.nodeAttributes",
                     value = "{ nodeAttributes: {region = US, storage = SSD}}"
             ),
             @ConfigOverride(
-                    name = "nodeAttributes",
+                    name = "ignite.nodeAttributes",
                     value = "{ nodeAttributes: {region = EU, storage = SSD}}",
                     nodeIndex = 0
             )
@@ -174,9 +177,13 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
                 Set<String> nodeNames = new HashSet<>();
 
                 for (int j = 0; j < partCount; j++) {
+                    PartitionGroupId replicationGroupId = colocationEnabled()
+                            ? new ZonePartitionId(tableImpl.zoneId(), j)
+                            : new TablePartitionId(tableImpl.tableId(), j);
+
                     Set<Assignment> nodes = unwrapIgniteImpl(node0)
                             .placementDriver()
-                            .getAssignments(new TablePartitionId(tableImpl.tableId(), j), igniteImpl.clock().current())
+                            .getAssignments(replicationGroupId, igniteImpl.clock().current())
                             .join()
                             .nodes();
 
@@ -189,9 +196,13 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             Set<String> nodeNames = new HashSet<>();
 
             for (int j = 0; j < partCount; j++) {
+                PartitionGroupId replicationGroupId = colocationEnabled()
+                        ? new ZonePartitionId(tableImpl.zoneId(), j)
+                        : new TablePartitionId(tableImpl.tableId(), j);
+
                 Set<Assignment> nodes = unwrapIgniteImpl(node0)
                         .placementDriver()
-                        .getAssignments(new TablePartitionId(tableImpl.tableId(), j), igniteImpl.clock().current())
+                        .getAssignments(replicationGroupId, igniteImpl.clock().current())
                         .join()
                         .nodes();
 
@@ -233,9 +244,13 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             Set<String> nodeNames = new HashSet<>();
 
             for (int j = 0; j < partCount; j++) {
+                PartitionGroupId replicationGroupId = colocationEnabled()
+                        ? new ZonePartitionId(tableImpl.zoneId(), j)
+                        : new TablePartitionId(tableImpl.tableId(), j);
+
                 Set<Assignment> nodes = unwrapIgniteImpl(node0)
                         .placementDriver()
-                        .getAssignments(new TablePartitionId(tableImpl.tableId(), j), igniteImpl.clock().current())
+                        .getAssignments(replicationGroupId, igniteImpl.clock().current())
                         .join()
                         .nodes();
 
@@ -292,7 +307,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", ZONE_NAME, filter);
     }
 
     private static String createTableSql() {

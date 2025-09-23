@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,11 +36,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
@@ -52,6 +55,8 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
+    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
+
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
@@ -291,7 +296,7 @@ public class TxCleanupRequestSender {
         return txMessageSender.cleanup(node, partitions, txId, commit, commitTimestamp)
                 .handle((networkMessage, throwable) -> {
                     if (throwable != null) {
-                        if (TransactionFailureHandler.isRecoverable(throwable)) {
+                        if (ReplicatorRecoverableExceptions.isRecoverable(throwable)) {
                             // In the case of a failure we repeat the process, but start with finding correct primary replicas
                             // for this subset of partitions. If nothing changed in terms of the nodes and primaries
                             // we eventually will call ourselves with the same parameters.
@@ -311,6 +316,18 @@ public class TxCleanupRequestSender {
                         }
 
                         return CompletableFuture.<Void>failedFuture(throwable);
+                    }
+
+                    if (networkMessage instanceof TxCleanupMessageErrorResponse) {
+                        TxCleanupMessageErrorResponse errorResponse = (TxCleanupMessageErrorResponse) networkMessage;
+                        if (writeIntentSwitchFailureShouldBeLogged(errorResponse.throwable())) {
+                            LOG.warn(
+                                    "First cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
+                                    errorResponse.throwable(), txId
+                            );
+                        }
+
+                        // We don't fail the resulting future as a failing cleanup is not a problem.
                     }
 
                     return CompletableFutures.<Void>nullCompletedFuture();

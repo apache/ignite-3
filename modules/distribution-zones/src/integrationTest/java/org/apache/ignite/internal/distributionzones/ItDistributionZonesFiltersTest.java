@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
@@ -30,9 +31,12 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deserializeLatestDataNodesHistoryEntry;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -41,7 +45,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestRebalanceUtil;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -54,10 +57,13 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.sql.SqlException;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junitpioneer.jupiter.cartesian.ArgumentSets;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 
 /**
  * Integration test for data nodes' filters functionality.
@@ -288,9 +294,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // There is no node that match the filter
         String newFilter = "$[?(@.region == \"FOO\" && @.storage == \"BAR\")]";
 
-        node0.sql().execute(null, alterZoneSql(newFilter));
-
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 0, zoneId);
+        assertThrowsWithCode(SqlException.class, STMT_VALIDATION_ERR, () -> node0.sql().execute(null, alterZoneSql(newFilter)), null);
 
         assertValueInStorage(
                 metaStorageManager,
@@ -420,6 +424,64 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
     }
 
+    @CartesianTest
+    @CartesianTest.MethodFactory("testEmptyDataNodesAlterZoneParamFactory")
+    public void testAlterZoneWhenDataNodesAreAlreadyEmpty(ConsistencyMode consistencyMode, String alterZoneSet) throws Exception {
+        String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
+
+        // This node do not pass the filter.
+        IgniteImpl node0 = unwrapIgniteImpl(node(0));
+
+        // This node passes the filter
+        startNode(1, createStartConfig("{region: EU, storage: HDD}", STORAGE_PROFILES_CONFIGS));
+
+        executeSql(node0, createZoneSql(1, 5, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode));
+        executeSql(createTableSql());
+
+        MetaStorageManager metaStorageManager = unwrapIgniteImpl(node0).metaStorageManager();
+        int zoneId = getZoneId(node0);
+        TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+
+        stopNode(1);
+
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 0, zoneId);
+        assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        // We need to be sure, that the first asynchronous catalog change of replica was handled,
+        // so we create a listener with a latch, and change replica again and wait for latch, so we can be sure that the first
+        // replica was handled.
+        node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, parameters -> {
+            latch.countDown();
+
+            return falseCompletedFuture();
+        });
+
+        executeSql(node0, alterZoneSetSql(alterZoneSet));
+
+        assertTrue(latch.await(10_000, MILLISECONDS));
+
+        assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
+        assertStableAssignmentsAreNotEmpty(metaStorageManager, partId);
+    }
+
+    @SuppressWarnings("unused")
+    private static ArgumentSets testEmptyDataNodesAlterZoneParamFactory() {
+        return ArgumentSets.argumentsForFirstParameter(ConsistencyMode.STRONG_CONSISTENCY, ConsistencyMode.HIGH_AVAILABILITY)
+                .argumentsForNextParameter(
+                        "REPLICAS 1",
+                        "QUORUM SIZE 3",
+                        "AUTO SCALE UP 10000",
+                        "AUTO SCALE DOWN 10000"
+                );
+    }
+
+    private static void executeSql(IgniteImpl node, String sql) {
+        node.sql().execute(null, sql);
+    }
+
     private static void waitDataNodeAndListenersAreHandled(
             MetaStorageManager metaStorageManager,
             int expectedDataNodesSize,
@@ -455,7 +517,14 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
             MetaStorageManager metaStorageManager,
             PartitionGroupId partId
     ) throws InterruptedException, ExecutionException {
-        assertTrue(metaStorageManager.get(TestRebalanceUtil.pendingPartitionAssignmentsKey(partId)).get().empty());
+        assertTrue(metaStorageManager.get(pendingPartitionAssignmentsKey(partId)).get().empty());
+    }
+
+    private static void assertStableAssignmentsAreNotEmpty(
+            MetaStorageManager metaStorageManager,
+            PartitionGroupId partId
+    ) throws ExecutionException, InterruptedException {
+        assertFalse(metaStorageManager.get(stablePartitionAssignmentsKey(partId)).get().empty());
     }
 
     private static String createZoneSql(
@@ -480,11 +549,15 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", ZONE_NAME, filter);
     }
 
     private static String alterZoneSql(int replicas) {
-        return String.format("ALTER ZONE \"%s\" SET \"REPLICAS\" = %s", ZONE_NAME, replicas);
+        return String.format("ALTER ZONE \"%s\" SET (REPLICAS %s)", ZONE_NAME, replicas);
+    }
+
+    private static String alterZoneSetSql(String set) {
+        return String.format("ALTER ZONE \"%s\" SET (%s)", ZONE_NAME, set);
     }
 
     private static String createTableSql() {

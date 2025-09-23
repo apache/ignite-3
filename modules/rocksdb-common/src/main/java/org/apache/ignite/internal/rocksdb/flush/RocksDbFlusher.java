@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
@@ -33,6 +33,8 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.AbstractEventListener;
@@ -41,12 +43,15 @@ import org.rocksdb.FlushOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.Status.Code;
 
 /**
  * Helper class to deal with RocksDB flushes. Provides an ability to wait until current state of data is flushed to the storage.
  * Requires enabled {@link Options#setAtomicFlush(boolean)} option to work properly.
  */
 public class RocksDbFlusher {
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlusher.class);
+
     private final FailureProcessor failureProcessor;
 
     /** Rocks DB instance. */
@@ -62,7 +67,7 @@ public class RocksDbFlusher {
     private final ScheduledExecutorService scheduledPool;
 
     /** Thread pool to execute flush and complete flush completion futures. */
-    final ExecutorService threadPool;
+    final Executor threadPool;
 
     /** Supplier of delay values to batch independent flush requests. */
     private final IntSupplier delaySupplier;
@@ -101,6 +106,7 @@ public class RocksDbFlusher {
      * Constructor.
      *
      * @param name RocksDB instance name, for logging purposes.
+     * @param nodeName nodeName Node name.
      * @param busyLock Busy lock.
      * @param scheduledPool Scheduled pool the schedule flushes.
      * @param threadPool Thread pool to execute flush and to run flush completion closure, provided by {@code onFlushCompleted} parameter.
@@ -115,9 +121,10 @@ public class RocksDbFlusher {
      */
     public RocksDbFlusher(
             String name,
+            String nodeName,
             IgniteSpinBusyLock busyLock,
             ScheduledExecutorService scheduledPool,
-            ExecutorService threadPool,
+            Executor threadPool,
             IntSupplier delaySupplier,
             LogSyncer logSyncer,
             FailureProcessor failureProcessor,
@@ -129,7 +136,7 @@ public class RocksDbFlusher {
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
         this.failureProcessor = failureProcessor;
-        this.flushListener = new RocksDbFlushListener(name, this, logSyncer, failureProcessor);
+        this.flushListener = new RocksDbFlushListener(name, nodeName, this, logSyncer, failureProcessor);
     }
 
     /**
@@ -230,7 +237,13 @@ public class RocksDbFlusher {
                         db.flush(flushOptions, columnFamilyHandles);
                     }
                 } catch (RocksDBException e) {
-                    failureProcessor.process(new FailureContext(e, "Error occurred during the explicit flush"));
+                    if (e.getStatus().getCode() == Code.TryAgain) {
+                        LOG.warn("Unable to perform explicit flush, will try again.", e);
+
+                        scheduleFlush();
+                    } else {
+                        failureProcessor.process(new FailureContext(e, "Error occurred during the explicit flush."));
+                    }
                 } finally {
                     busyLock.leaveBusy();
                 }

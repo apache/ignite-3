@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
@@ -54,7 +54,7 @@ public class ConditionalWatchInhibitor {
                 LOG.info("Started inhibiting, rev=" + rev);
                 return inhibitFuture;
             } else {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         };
 

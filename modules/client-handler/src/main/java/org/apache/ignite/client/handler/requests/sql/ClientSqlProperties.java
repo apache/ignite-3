@@ -20,9 +20,7 @@ package org.apache.ignite.client.handler.requests.sql;
 import java.time.ZoneId;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,17 +64,16 @@ class ClientSqlProperties {
     }
 
     SqlProperties toSqlProps() {
-        SqlProperties.Builder builder = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.QUERY_TIMEOUT, queryTimeout);
+        SqlProperties sqlProperties = new SqlProperties().queryTimeout(queryTimeout);
 
         if (schema != null) {
-            builder.set(QueryProperty.DEFAULT_SCHEMA, schema);
+            sqlProperties.defaultSchema(schema);
         }
 
         if (timeZoneId != null) {
-            builder.set(QueryProperty.TIME_ZONE_ID, ZoneId.of(timeZoneId));
+            sqlProperties.timeZoneId(ZoneId.of(timeZoneId));
         }
 
-        return builder.build();
+        return sqlProperties;
     }
 }

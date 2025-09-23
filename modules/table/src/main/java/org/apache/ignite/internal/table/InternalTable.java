@@ -26,6 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -33,11 +34,11 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -112,7 +113,7 @@ public interface InternalTable extends ManuallyCloseable {
     default CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         return get(keyRow, readTimestamp, null, null, recipientNode);
     }
@@ -132,7 +133,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     );
 
     /**
@@ -160,7 +161,7 @@ public interface InternalTable extends ManuallyCloseable {
     default CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         return getAll(keyRows, readTimestamp, null, null, recipientNode);
     }
@@ -182,7 +183,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     );
 
     /**
@@ -236,9 +237,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param rows Rows to insert into the table.
      * @param tx The transaction.
-     * @return Future represents the pending completion of the operation, with rejected rows for insertion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is inserted, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for insertion in the result.
+     *         If a record is inserted, the element will be excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
@@ -303,9 +303,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param rows Rows with key columns set.
      * @param tx The transaction.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is deleted, the element will be excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
@@ -314,9 +313,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param rows Rows to delete.
      * @param tx The transaction.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is deleted, the element will be excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
@@ -347,7 +345,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             UUID txCoordinatorId
     ) {
         return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null, txCoordinatorId);
@@ -372,7 +370,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -446,7 +444,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
@@ -523,12 +521,12 @@ public interface InternalTable extends ManuallyCloseable {
     ScheduledExecutorService streamerFlushExecutor();
 
     /**
-     * Returns {@link ClusterNode} where primary replica of replication group is located.
+     * Returns {@link InternalClusterNode} where primary replica of replication group is located.
      *
      * @param partitionIndex Partition index.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(int partitionIndex);
+    CompletableFuture<InternalClusterNode> partitionLocation(int partitionIndex);
 
     /**
      * Returns the <em>estimated size</em> of this table.
@@ -555,4 +553,11 @@ public interface InternalTable extends ManuallyCloseable {
      * @return The id.
      */
     ReplicationGroupId targetReplicationGroupId(int partId);
+
+    /**
+     * Returns a metric source for this table.
+     *
+     * @return Table metrics source.
+     */
+    TableMetricSource metrics();
 }

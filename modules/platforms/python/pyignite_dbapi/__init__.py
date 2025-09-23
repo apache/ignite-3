@@ -17,7 +17,7 @@ import datetime
 import decimal
 import uuid
 import pkgutil
-from typing import Optional, List, Any, Sequence, Tuple, Union
+from typing import Optional, List, Any, Sequence, Union
 
 from pyignite_dbapi import _pyignite_dbapi_extension
 from pyignite_dbapi import native_type_code
@@ -109,7 +109,7 @@ def Timestamp(year, month, day, hour, minute, second):
 # noinspection PyPep8Naming
 def DateFromTicks(ticks):
     """
-    Function that is used to construct an object holding a date value from the given ticks value (number of seconds
+    Function used to construct an object holding a date value from the given ticks value (number of seconds
     since the epoch; see the documentation of the standard Python time module for details).
     """
     return DATE.fromtimestamp(ticks)
@@ -118,7 +118,7 @@ def DateFromTicks(ticks):
 # noinspection PyPep8Naming
 def TimeFromTicks(ticks):
     """
-    Function that is used to construct an object holding a time value from the given ticks value (number of seconds
+    Function used to construct an object holding a time value from the given ticks value (number of seconds
     since the epoch; see the documentation of the standard Python time module for details).
     """
     return DATETIME.fromtimestamp(ticks).time()
@@ -127,7 +127,7 @@ def TimeFromTicks(ticks):
 # noinspection PyPep8Naming
 def TimestampFromTicks(ticks):
     """
-    Function that is used to construct an object holding a time stamp value from the given ticks value (number of
+    Function used to construct an object holding a time stamp value from the given ticks value (number of
     seconds since the epoch; see the documentation of the standard Python time module for details).
     """
     return TIMESTAMP(ticks)
@@ -255,7 +255,7 @@ def _type_code_from_int(native: int):
 
 class ColumnDescription(tuple):
     """
-    Represents a description of the single column of the result set.
+    Represents a description of the result set's single column.
     """
 
     def __new__(cls, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
@@ -356,7 +356,7 @@ class Cursor:
         Read-only attribute that specifies the number of rows that the last .execute() produced (for DQL statements
         like SELECT) or affected (for DML statements like UPDATE or INSERT).
         The attribute value is -1 if no .execute() has been performed on the cursor or the rowcount of the last
-        operation is cannot be determined by the interface.
+        operation cannot be determined by the interface.
         """
         if self._py_cursor is None:
             return -1
@@ -412,7 +412,7 @@ class Cursor:
         Parameters may be provided as sequence or mapping and will be bound to variables in the operation.
         Arguments are specified as a question mark '?' in the request.
 
-        The parameters may also be specified as list of tuples to e.g. insert multiple rows in a single operation,
+        The parameters may also be specified as a list of tuples to e.g. insert multiple rows in a single operation,
         but this kind of usage is deprecated: .executemany() should be used instead.
         """
         if self._py_cursor is None:
@@ -427,6 +427,11 @@ class Cursor:
         Internal method.
         Update column description for the current cursor. To be called after query execution.
         """
+        column_num = self._py_cursor.column_count()
+        if not column_num:
+            self._description = None
+            return
+
         self._description = []
         for column_id in range(self._py_cursor.column_count()):
             self._description.append(ColumnDescription(
@@ -475,7 +480,7 @@ class Cursor:
         Fetch the next set of rows of a query result, returning a sequence of sequences. An empty sequence is returned
         when no more rows are available.
 
-        The number of rows to fetch per call is specified by the parameter. If it is not given, the cursor’s arraysize
+        The parameter specifies the number of rows to fetch per call. If it is not given, the cursor’s arraysize
         determines the number of rows to be fetched. The method tries to fetch as many rows as indicated by the size
         parameter. If this is not possible due to the specified number of rows not being available, fewer rows will be
         returned.
@@ -555,7 +560,6 @@ class Connection:
     NotSupportedError = NotSupportedError
 
     def __init__(self):
-        self._autocommit = True
         self._py_connection = None
         self._cursors = {}
         self._cursor_cnt = 0
@@ -620,7 +624,7 @@ class Connection:
         return self._py_connection.autocommit()
 
     @autocommit.setter
-    def autocommit(self, value):
+    def autocommit(self, value: bool):
         """
         Attribute that is used to query and set the autocommit mode of the connection.
         Setting the attribute to True or False adjusts the connection’s mode accordingly.
@@ -640,7 +644,7 @@ class Connection:
         Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
         and start a new transaction.
 
-        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
+        Changing from False to True (enabling autocommit) has database-dependent semantics with respect to how pending
         transactions are handled.
         """
         if self._py_connection is not None:
@@ -672,7 +676,7 @@ def connect(address: [str], **kwargs) -> Connection:
     Parameters
     ----------
     address: [str]
-        A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
+        A list of cluster node addresses for the client to choose from. Used for initial connection and fail-over.
 
     Keyword Arguments
     -----------------
@@ -684,13 +688,22 @@ def connect(address: [str], **kwargs) -> Connection:
         A schema name to be used by default. Default value: 'PUBLIC'.
     timezone: str, optional
         A timezone to use as a client's timezone. Required to correctly work with date/time values, received from
-        client. By default, a server's timezone is used.
+        the client. By default, a server's timezone is used.
     page_size: int, optional
         Maximum number of rows that can be received or sent in a single request. Default value: 1024.
     timeout: int, optional
         A timeout for network operations, in seconds. Default value: 30.
     autocommit: bool, optional
         Connection autocommit mode. Default value: True (enabled).
+    use_ssl: bool, optional
+        Set to True if you like to use SSL for your connection. Make sure it's configured on the server side as well.
+    ssl_keyfile: str, optional
+        A path to SSL key file to identify the local (client) party.
+    ssl_certfile: str, optional
+        A path to ssl certificate file to identify the local (client) party.
+    ssl_ca_certfile: str, optional
+        A path to a trusted certificate or a certificate chain.
+        Required to check the validity of the remote (server-side) certificate.
     """
     return _pyignite_dbapi_extension.connect(address=address, **kwargs)
 

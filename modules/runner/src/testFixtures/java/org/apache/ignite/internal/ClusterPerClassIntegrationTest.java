@@ -36,6 +36,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -44,21 +46,26 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -67,6 +74,9 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
@@ -76,6 +86,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractTest {
     /** Test default table name. */
     protected static final String DEFAULT_TABLE_NAME = "person";
+
+    /** Default partition count for tests. */
+    protected static final int DEFAULT_PARTITION_COUNT = 25;
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
@@ -92,7 +105,18 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
-            + "  compute.threadPoolSize: 1,\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "}";
+
+    /** Template for tests that may not have some storage engines enabled. */
+    protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
+            + "  rest.port: {},\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
@@ -168,13 +192,20 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     void stopCluster() {
         CLUSTER.shutdown();
 
-        MicronautCleanup.removeShutdownHooks();
+        TestMvTableStorage.resetPartitionStorageFactory();
     }
 
     /** Drops all visible tables. */
     protected static void dropAllTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
+        Ignite aliveNode = CLUSTER.aliveNode();
+        String dropTablesScript = aliveNode.tables().tables().stream()
+                .filter(t -> !CatalogUtils.SYSTEM_SCHEMAS.contains(t.qualifiedName().schemaName()))
+                .map(Table::name)
+                .map(name -> "DROP TABLE " + name)
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropTablesScript.isEmpty()) {
+            sqlScript(dropTablesScript);
         }
     }
 
@@ -187,10 +218,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
         assert latestCatalog != null;
 
-        latestCatalog.schemas().stream()
-                .filter(schema -> !CatalogUtils.SYSTEM_SCHEMAS.contains(schema.name()))
-                .filter(schema -> !SqlCommon.DEFAULT_SCHEMA_NAME.equals(schema.name()))
-                .forEach(schema -> sql("DROP SCHEMA " + quoteIfNeeded(schema.name()) + " CASCADE"));
+        String dropSchemasScript = latestCatalog.schemas().stream()
+                .map(CatalogSchemaDescriptor::name)
+                .filter(Predicate.not(CatalogUtils.SYSTEM_SCHEMAS::contains))
+                .filter(Predicate.not(SqlCommon.DEFAULT_SCHEMA_NAME::equals))
+                .map(name -> "DROP SCHEMA " + quoteIfNeeded(name) + " CASCADE")
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropSchemasScript.isEmpty()) {
+            aliveNode.sql().executeScript(dropSchemasScript);
+        }
     }
 
     /** Drops all visible zones. */
@@ -198,13 +235,29 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
         Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-        for (CatalogZoneDescriptor z : catalog.zones()) {
-            String zoneName = z.name();
-            if (defaultZone != null && zoneName.equals(defaultZone.name())) {
-                continue;
-            }
-            sql("DROP ZONE " + zoneName);
+
+        Predicate<String> isNotDefaultZone = defaultZone == null ? zoneName -> true
+                : Predicate.not(defaultZone.name()::equals);
+
+        String dropZonesScript = catalog.zones().stream()
+                .map(CatalogZoneDescriptor::name)
+                .filter(isNotDefaultZone)
+                .map(name -> "DROP ZONE " + quoteIfNeeded(name))
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropZonesScript.isEmpty()) {
+            sqlScript(dropZonesScript);
         }
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param replicas Replica factor.
+     */
+    protected static Table createTable(String name, int replicas) {
+        return createZoneAndTable(zoneName(name), name, replicas, DEFAULT_PARTITION_COUNT);
     }
 
     /**
@@ -390,11 +443,33 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return CLUSTER.aliveNodesWithIndices();
     }
 
-    protected static List<List<Object>> sql(String sql, Object... args) {
+    protected static long[] dmlBatch(String dmlQuery, BatchedArguments batchedArgs) {
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+        Statement statement = sql.createStatement(dmlQuery);
+
+        return sql.executeBatch(null, statement, batchedArgs);
+    }
+
+    /**
+     * Run SQL on the first Ignite instance with implicit transaction and parameters.
+     *
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(String sql, Object... args) {
         return sql(null, sql, args);
     }
 
-    protected static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
+    /**
+     * Run SQL on given Ignite instance with implicit transaction and parameters.
+     *
+     * @param nodeIndex Ignite instance to run a query.
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
         return sql(nodeIndex, null, sql, args);
     }
 
@@ -486,17 +561,33 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
      * {@link #deletePeople(String, int...)} to remove people.
      */
-    protected static class Person {
-        final int id;
+    public static class Person {
+        public final int id;
 
-        final String name;
+        public final String name;
 
-        final double salary;
+        public final double salary;
 
+        /** Default constructor. */
+        public Person() {
+            this(0, null, 0);
+        }
+
+        /** Constructor. */
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+
+        /** Returns value tuple to work with KV storage. */
+        public Tuple toValueTuple() {
+            return Tuple.create().set("name", name).set("salary", salary);
+        }
+
+        /** Returns key tuple to work with KV storage. */
+        public Tuple toKeyTuple() {
+            return Tuple.create().set("id", id);
         }
     }
 
@@ -570,6 +661,36 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected static ClusterNode clusterNode(Ignite node) {
-        return unwrapIgniteImpl(node).node();
+        return unwrapIgniteImpl(node).node().toPublicNode();
+    }
+
+    /** Ad-hoc registered extension for dumping cluster state in case of test failure. */
+    @RegisterExtension
+    static ClusterStateDumpingExtension testFailureHook = new ClusterStateDumpingExtension();
+
+    private static class ClusterStateDumpingExtension implements TestExecutionExceptionHandler {
+        @Override
+        public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
+            if (DumpThreadsOnTimeout.isJunitMethodTimeout(throwable)) {
+                assert context.getTestInstance().filter(ClusterPerClassIntegrationTest.class::isInstance).isPresent();
+
+                try {
+                    dumpClusterState();
+                } catch (Throwable suppressed) {
+                    // Add to suppressed if smth goes wrong.
+                    throwable.addSuppressed(suppressed);
+                }
+            }
+
+            // Re-throw original exception to fail the test.
+            throw throwable;
+        }
+
+        private static void dumpClusterState() {
+            List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
+            for (Ignite node : nodes) {
+                unwrapIgniteImpl(node).dumpClusterState();
+            }
+        }
     }
 }

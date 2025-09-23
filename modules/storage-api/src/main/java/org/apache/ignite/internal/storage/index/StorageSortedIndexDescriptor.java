@@ -50,6 +50,8 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
         private final boolean asc;
 
+        private final boolean nullsFirst;
+
         /**
          * Creates a Column Descriptor.
          *
@@ -57,12 +59,20 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
          * @param type Type of the column.
          * @param nullable Flag indicating that the column may contain {@code null}s.
          * @param asc Sort order of the column.
+         * @param nullsFirst Flag denotes whether to put NULL values first or last in the sorted stream.
          */
-        public StorageSortedIndexColumnDescriptor(String name, NativeType type, boolean nullable, boolean asc) {
+        public StorageSortedIndexColumnDescriptor(
+                String name,
+                NativeType type,
+                boolean nullable,
+                boolean asc,
+                boolean nullsFirst
+        ) {
             this.name = name;
             this.type = type;
             this.nullable = nullable;
             this.asc = asc;
+            this.nullsFirst = nullsFirst;
         }
 
         @Override
@@ -87,6 +97,13 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
          */
         public boolean asc() {
             return asc;
+        }
+
+        /**
+         * Returns {@code true} if nulls in this column are put first, returns {@code false} otherwise.
+         */
+        public boolean nullsFirst() {
+            return nullsFirst;
         }
 
         @Override
@@ -179,7 +196,9 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
                     CatalogColumnCollation collation = columnDescriptor.collation();
 
-                    return new StorageSortedIndexColumnDescriptor(columnName, getNativeType(column), column.nullable(), collation.asc());
+                    return new StorageSortedIndexColumnDescriptor(
+                            columnName, getNativeType(column), column.nullable(), collation.asc(), collation.nullsFirst()
+                    );
                 })
                 .collect(toList());
     }

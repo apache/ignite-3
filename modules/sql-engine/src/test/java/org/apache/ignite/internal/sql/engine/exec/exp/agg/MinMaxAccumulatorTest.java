@@ -35,8 +35,8 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -125,9 +125,9 @@ public class MinMaxAccumulatorTest {
         RelDataType dataType = TypeUtils.native2relationalType(tf, nativeType);
 
         Supplier<Accumulator> supplier;
-        if (nativeType.spec() == NativeTypeSpec.STRING) {
+        if (nativeType.spec() == ColumnType.STRING) {
             supplier = min ? VarCharMinMax.MIN_FACTORY : VarCharMinMax.MAX_FACTORY;
-        } else if (nativeType.spec() == NativeTypeSpec.BYTES) {
+        } else if (nativeType.spec() == ColumnType.BYTE_ARRAY) {
             supplier = min ? VarBinaryMinMax.MIN_FACTORY : VarBinaryMinMax.MAX_FACTORY;
         } else {
             supplier = MinMaxAccumulator.newAccumulator(min, tf, dataType);

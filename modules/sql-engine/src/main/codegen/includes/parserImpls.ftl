@@ -197,6 +197,18 @@ SqlNode ColumnNameWithSortDirection() :
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
         }
     )?
+
+    (
+        LOOKAHEAD(2)
+        <NULLS> <FIRST> {
+            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
+        }
+    |
+        <NULLS> <LAST> {
+            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
+        }
+    )?
+
     {
         return col;
     }
@@ -606,7 +618,7 @@ SqlNodeList ZoneOptionsList() :
 void ZoneElement(List<SqlNode> zoneOptions) :
 {
     final Span s;
-    final SqlIdentifier key;
+    SqlIdentifier key;
     final SqlNode option;
     final SqlParserPos pos;
 }
@@ -617,24 +629,45 @@ void ZoneElement(List<SqlNode> zoneOptions) :
       (
           <SCALE>
           (
-              <UP> option = UnsignedIntegerLiteral()
+              <UP>
+              (
+                  option = UnsignedIntegerLiteral()
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  }
+                  |
+                  <OFF>
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+                  }
+              )
+              |
+              <DOWN>
+              (
+                  option = UnsignedIntegerLiteral()
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  }
+                  |
+                  <OFF>
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+                  }
+              )
+              |
+              <OFF>
               {
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
-              }
-              |
-              <DOWN> option = UnsignedIntegerLiteral()
-              {
+                  zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
               }
           )
-          |
-          <ADJUST> option = UnsignedIntegerLiteral()
-          {
-              key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
-              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
-          }
       )
       |
       <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
@@ -657,6 +690,12 @@ void ZoneElement(List<SqlNode> zoneOptions) :
               zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
           }
       )
+      |
+      <QUORUM> { pos = getPos(); } <SIZE> option = UnsignedIntegerLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.QUORUM_SIZE.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
       |
       <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = NonEmptyCharacterStringLiteral()
       {
@@ -758,11 +797,34 @@ SqlNode SqlAlterZone() :
           return new IgniteSqlAlterZoneSetDefault(s.end(this), zoneId, ifExists);
         }
         |
+        LOOKAHEAD(2)
         { s.add(this); } optionList = AlterZoneOptions() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+        |
+        { s.add(this); } optionList = ZoneOptionsList() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+        |
+        optionList = ZoneOption()
+        {
           return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
         }
       )
     )
+}
+
+SqlNodeList ZoneOption() :
+{
+    List<SqlNode> zoneOptions = new ArrayList<SqlNode>();
+
+    final Span s = Span.of();
+}
+{
+    ZoneElement(zoneOptions)
+    {
+        return new SqlNodeList(zoneOptions, s.end(this));
+    }
 }
 
 SqlNodeList AlterZoneOptions() :
@@ -934,32 +996,46 @@ Boolean SqlKillNoWait():
 SqlNode SqlIgniteExplain() :
 {
     SqlNode stmt;
-    SqlExplainLevel detailLevel = SqlExplainLevel.EXPPLAN_ATTRIBUTES;
-    SqlExplain.Depth depth;
     Span s;
-    final SqlExplainFormat format;
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
 }
 {
-    <EXPLAIN> { s = span(); } <PLAN>
-    [ detailLevel = ExplainDetailLevel() ]
-    depth = ExplainDepth()
-    (
-        LOOKAHEAD(2)
-        <AS> <XML> { format = SqlExplainFormat.XML; }
-    |
-        LOOKAHEAD(2)
-        <AS> <JSON> { format = SqlExplainFormat.JSON; }
-    |
-        <AS> <DOT_FORMAT> { format = SqlExplainFormat.DOT; }
-    |
-        { format = SqlExplainFormat.TEXT; }
-    )
-    <FOR> stmt = SqlQueryOrDml() {
-        return new SqlExplain(s.end(this),
-            stmt,
-            detailLevel.symbol(SqlParserPos.ZERO),
-            depth.symbol(SqlParserPos.ZERO),
-            format.symbol(SqlParserPos.ZERO),
+    <EXPLAIN> { s = span(); }
+    [ mode = ExplainMode() ]
+    stmt = SqlQueryOrDml() {
+        return new IgniteSqlExplain(s.end(this),
+            stmt, mode.symbol(getPos()),
             nDynamicParams);
+    }
+}
+
+IgniteSqlExplainMode ExplainMode() :
+{
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
+}
+{
+    (
+        <MAPPING> <FOR>
+        {
+            mode = IgniteSqlExplainMode.MAPPING;
+        }
+        |
+        <PLAN> <FOR>
+        {
+        }
+    )
+    {
+        return mode;
+    }
+}
+
+/**
+ * DESCRIBE is actually not supported, therefore let's throw an exception.
+ */
+SqlNode SqlIgniteDescribe() :
+{ }
+{
+    <DESCRIBE> {
+        throw SqlUtil.newContextException(span().pos(), IgniteResource.INSTANCE.unexpectedStatement(token.image));
     }
 }

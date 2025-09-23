@@ -259,6 +259,7 @@ void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple
     const std::size_t bytes_num = bytes_for_bits(count);
 
     auto no_value_bytes = reinterpret_cast<std::byte *>(alloca(bytes_num));
+    memset(no_value_bytes, 0, bytes_num);
     protocol::bitset_span no_value(no_value_bytes, bytes_num);
 
     auto tuple_data = pack_tuple(sch, tuple, key_only, no_value);

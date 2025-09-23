@@ -86,7 +86,7 @@ public class ParserServiceImpl implements ParserService {
                     normalizedQuery,
                     result.dynamicParamsCount(),
                     () -> {
-                        if (!used.compareAndSet(false, true)) {
+                        if (queryType != SqlQueryType.TX_CONTROL && !used.compareAndSet(false, true)) {
                             throw new IllegalStateException("Parsed result of script is not reusable.");
                         }
 

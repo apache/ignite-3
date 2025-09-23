@@ -109,8 +109,7 @@ class TableDefinitionCollector {
 
                     List<String> colocationColumnList = new ArrayList<>(colocationColumns.values());
 
-                    Builder builder = TableDefinition.builder(tableName.objectName())
-                            .schema(tableName.schemaName())
+                    Builder builder = TableDefinition.builder(tableName)
                             .zone(zoneName)
                             .columns(columns)
                             .colocateBy(colocationColumnList);

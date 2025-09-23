@@ -25,14 +25,17 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
+import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
@@ -44,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A part of exchange which sends batches to a remote downstream.
@@ -232,18 +236,37 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         return this;
     }
 
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent)
+                .app("class=").app(getClass().getSimpleName())
+                .app(", waiting=").app(waiting)
+                .nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+
+        for (Entry<String, RemoteDownstream<RowT>> entry : this.nodeBuffers.entrySet()) {
+            writer.app(childIndent)
+                    .app("class=" + entry.getValue().getClass().getSimpleName())
+                    .app(", nodeName=").app(entry.getKey())
+                    .app(", state=").app(entry.getValue().state)
+                    .nl();
+        }
+
+        Debuggable.dumpState(writer, childIndent, sources());
+    }
+
     private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) {
         RowHandler<RowT> handler = context().rowHandler();
 
         List<BinaryTupleMessage> rows0 = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
-            BinaryTuple tuple = handler.toBinaryTuple(row);
-
             rows0.add(
                     TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                            .elementCount(tuple.elementCount())
-                            .tuple(tuple.byteBuffer())
+                            .elementCount(handler.columnCount(row))
+                            .tuple(handler.toByteBuffer(row))
                             .build()
             );
         }
@@ -332,12 +355,9 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (nodeName.equals(context().originatingNodeName())) {
+    /** Notifies the outbox that provided node has left the cluster. */
+    public void onNodeLeft(InternalClusterNode node) {
+        if (node.id().equals(context().originatingNodeId())) {
             this.execute(this::close);
         }
     }
@@ -386,6 +406,11 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         rewind();
 
         onRequest(currentNode, rewind.amountOfBatches);
+    }
+
+    @TestOnly
+    public boolean isDone() {
+        return waiting == NOT_WAITING && nodeBuffers.values().stream().allMatch(RemoteDownstream::isDone);
     }
 
     private static final class RemoteDownstream<RowT> {
@@ -560,6 +585,11 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         void close() {
             curr = null;
             state = State.END;
+        }
+
+        @TestOnly
+        boolean isDone() {
+            return state == State.END;
         }
     }
 

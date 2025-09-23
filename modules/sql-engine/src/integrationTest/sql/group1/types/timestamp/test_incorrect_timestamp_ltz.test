@@ -14,8 +14,7 @@ CREATE TABLE timestamp_t(t TIMESTAMP WITH LOCAL TIME ZONE)
 statement error: Illegal TIMESTAMP WITH LOCAL TIME ZONE literal 'blabla': not in format 'yyyy-MM-dd HH:mm:ss'
 INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE 'blabla')
 
-# statement error: Invalid DATE value, 'blabla'
-statement error: begin 0, end -1, length 19
+statement error: Illegal TIMESTAMP WITH LOCAL TIME ZONE literal 'blabla Europe/Paris': not in format 'yyyy-MM-dd HH:mm:ss'
 INSERT INTO timestamp_t VALUES ('blabla'::TIMESTAMP WITH LOCAL TIME ZONE)
 
 statement error: Illegal TIMESTAMP WITH LOCAL TIME ZONE literal '1993-20-14 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
@@ -119,7 +118,7 @@ PRAGMA time_zone=UTC
 
 # The value is less than the minimum allowed
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
-INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '0001-01-01 18:00:00' - INTERVAL 1 SECONDS)
+INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '0001-01-01 18:00:00' - INTERVAL '1' SECONDS)
 
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
 INSERT INTO timestamp_t VALUES TIMESTAMPADD(SECOND, -1, TIMESTAMP WITH LOCAL TIME ZONE '0001-01-01 18:00:00')
@@ -127,23 +126,20 @@ INSERT INTO timestamp_t VALUES TIMESTAMPADD(SECOND, -1, TIMESTAMP WITH LOCAL TIM
 statement error: IMESTAMP_WITH_LOCAL_TIME_ZONE out of range
 INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '0001-01-01 17:59:59.999999999')
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-24934 The value '0001-01-01 17:59:59.999999999' must not be rounded up
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
-INSERT INTO timestamp_t VALUES ('0001-01-01 17:59:59.999'::TIMESTAMP WITH LOCAL TIME ZONE)
+INSERT INTO timestamp_t VALUES ('0001-01-01 17:59:59.999999999'::TIMESTAMP WITH LOCAL TIME ZONE)
 
 # TODO https://issues.apache.org/jira/browse/IGNITE-17376
 skipif ignite3
 statement error: Invalid default value for column 'TS'
 CREATE TABLE default_overflow(ts TIMESTAMP WITH LOCAL TIME ZONE DEFAULT '0001-01-01 17:59:59.999999999');
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-21557
-skipif ignite3
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
-INSERT INTO timestamp_t VALUES (CURRENT_TIMESTAMP - INTERVAL 7999 YEARS)
+INSERT INTO timestamp_t VALUES (CURRENT_TIMESTAMP - INTERVAL '7999' YEARS)
 
 # The value is greater than the maximum allowed
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
-INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '9999-12-31 05:59:59' + INTERVAL 1 SECONDS)
+INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '9999-12-31 05:59:59' + INTERVAL '1' SECONDS)
 
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
 INSERT INTO timestamp_t VALUES TIMESTAMPADD(SECOND, 1, TIMESTAMP WITH LOCAL TIME ZONE '9999-12-31 05:59:59')
@@ -154,12 +150,25 @@ INSERT INTO timestamp_t VALUES ('9999-12-31 06:00:00'::TIMESTAMP WITH LOCAL TIME
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
 INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '9999-12-31 06:00:00')
 
+statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '2000-01-01 00:00:00' + INTERVAL '2922000' DAYS)
+
+statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '2000-01-01 00:00:00' - INTERVAL '730500' DAYS)
+
+statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '2000-01-01 00:00:00' + INTERVAL '70128000' HOURS)
+
+statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE '2000-01-01 00:00:00' - INTERVAL '17532000' HOURS)
+
 # TODO https://issues.apache.org/jira/browse/IGNITE-17376
 skipif ignite3
 statement error: Invalid default value for column 'TS'
 CREATE TABLE default_overflow(ts TIMESTAMP WITH LOCAL TIME ZONE DEFAULT '9999-12-31 06:00:00');
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-21557
-skipif ignite3
 statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
-INSERT INTO timestamp_t VALUES (CURRENT_TIMESTAMP + INTERVAL 7999 YEARS)
+INSERT INTO timestamp_t VALUES (CURRENT_TIMESTAMP + INTERVAL '7999' YEARS)
+
+statement error: TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
+INSERT INTO timestamp_t VALUES (CURRENT_TIMESTAMP - INTERVAL '7999' YEARS)

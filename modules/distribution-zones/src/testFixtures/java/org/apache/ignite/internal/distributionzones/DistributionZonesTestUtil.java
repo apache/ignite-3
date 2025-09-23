@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -64,17 +65,21 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
-
 
 /**
  * Utils to manage distribution zones inside tests.
@@ -392,7 +397,7 @@ public class DistributionZonesTestUtil {
             Set<Node> actualNodes = nodesGetter.get();
 
             return Objects.equals(actualNodes, nodes);
-        }, SECONDS.toMillis(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds()) + 2000);
+        }, SECONDS.toMillis(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(colocationEnabled())) + 2000);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
@@ -584,7 +589,7 @@ public class DistributionZonesTestUtil {
             long timeoutMillis
     ) throws InterruptedException, ExecutionException, TimeoutException {
         Set<String> expectedValueNames =
-                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(toSet());
+                expectedValue == null ? null : expectedValue.stream().map(InternalClusterNode::name).collect(toSet());
 
         boolean success = waitForCondition(() -> {
             Set<String> dataNodes = null;
@@ -725,7 +730,7 @@ public class DistributionZonesTestUtil {
 
     /** Returns default distribution zone. */
     public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
-        Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
+        Catalog catalog = catalogService.activeCatalog(timestamp);
 
         requireNonNull(catalog);
 
@@ -756,5 +761,47 @@ public class DistributionZonesTestUtil {
      */
     public static void setZoneAutoAdjustScaleUpToImmediate(CatalogManager catalogManager, String zoneName) {
         alterZone(catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
+    }
+
+    /**
+     * Returns stable partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Stable partition assignments key.
+     */
+    public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
+        if (colocationEnabled()) {
+            return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
+        } else {
+            return RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionGroupId);
+        }
+    }
+
+    /**
+     * Returns pending partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Pending partition assignments key.
+     */
+    public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
+        if (colocationEnabled()) {
+            return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
+        } else {
+            return RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) partitionGroupId);
+        }
+    }
+
+    /**
+     * Returns planned partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Planned partition assignments key.
+     */
+    public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
+        if (colocationEnabled()) {
+            return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
+        } else {
+            return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);
+        }
     }
 }

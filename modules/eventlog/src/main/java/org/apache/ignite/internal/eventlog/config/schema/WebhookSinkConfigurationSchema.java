@@ -19,6 +19,7 @@ package org.apache.ignite.internal.eventlog.config.schema;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Endpoint;
 import org.apache.ignite.configuration.validation.OneOf;
@@ -43,13 +44,14 @@ public class WebhookSinkConfigurationSchema extends SinkConfigurationSchema {
 
     /**
      * When size of a batch is greater than {@link #batchSize} or its lifetime is greater than the given value batch will be sent
-     * to a webhook.
+     * to a webhook, in milliseconds.
      */
     @Value(hasDefault = true)
     @Range(min = 1)
+    @PublicName(legacyNames = "batchSendFrequency")
     public long batchSendFrequencyMillis = 10_000;
 
-    /** Maximum batch size for packet with events, in milliseconds. */
+    /** Maximum batch size for packet with events. */
     @Value(hasDefault = true)
     @Range(min = 1)
     public int batchSize = 1_000;

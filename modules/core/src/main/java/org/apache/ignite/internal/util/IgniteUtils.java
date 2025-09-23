@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,6 +66,7 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
@@ -85,7 +87,6 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
-
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
 
@@ -97,6 +98,9 @@ public class IgniteUtils {
 
     /** Indicates that assertions are enabled. */
     private static final boolean assertionsEnabled = IgniteUtils.class.desiredAssertionStatus();
+
+    /** Alphanumeric with underscore regexp pattern. */
+    private static final Pattern ALPHANUMERIC_UNDERSCORE_PATTERN = Pattern.compile("^[a-zA-Z_0-9]+$");
 
     /**
      * Gets the current monotonic time in milliseconds. This is the amount of milliseconds which passed from an arbitrary moment in the
@@ -122,10 +126,11 @@ public class IgniteUtils {
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
 
-    /**
-     * Root package for JMX MBeans.
-     */
+    /** Root package for JMX MBeans. */
     private static final String JMX_MBEAN_PACKAGE = "org.apache.ignite";
+
+    /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
+    public static final String JMX_METRIC_GROUP_TYPE = "metrics";
 
     /**
      * Get JDK version.
@@ -217,6 +222,17 @@ public class IgniteUtils {
      */
     public static <K, V> HashMap<K, V> newHashMap(int expSize) {
         return new HashMap<>(capacity(expSize));
+    }
+
+    /**
+     * Creates new {@link HashSet} with expected size.
+     *
+     * @param expSize Expected size of the created set.
+     * @param <E> the type of elements maintained by this set.
+     * @return New map.
+     */
+    public static <E> HashSet<E> newHashSet(int expSize) {
+        return new HashSet<>(capacity(expSize));
     }
 
     /**
@@ -827,7 +843,6 @@ public class IgniteUtils {
         }
     }
 
-
     /**
      * Stops workers from given collection and waits for their completion.
      *
@@ -1023,15 +1038,63 @@ public class IgniteUtils {
     }
 
     /**
-     * Produce new MBean name according to received group and name.
+     * Constructs JMX object name with the given properties.
      *
-     * @param group pkg:group=value part of MBean name.
-     * @param name pkg:name=value part of MBean name.
-     * @return new ObjectName.
-     * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
+     * @param nodeName Ignite node name.
+     * @param group Name of the group.
+     * @param name Name of mbean.
+     *
+     * @return JMX object name.
+     * @throws MalformedObjectNameException Thrown in case of any errors.
      */
-    public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
-        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
+    public static ObjectName makeMbeanName(
+            @Nullable String nodeName,
+            @Nullable String group,
+            String name
+    ) throws MalformedObjectNameException {
+        var sb = new StringBuilder(JMX_MBEAN_PACKAGE + ':');
+
+        if (nodeName != null && !nodeName.isEmpty()) {
+            sb.append("nodeName=").append(nodeName).append(',');
+        }
+
+        sb.append("type=").append(JMX_METRIC_GROUP_TYPE).append(',');
+
+        if (group != null && !group.isEmpty()) {
+            sb.append("group=").append(escapeObjectNameValue(group)).append(',');
+
+            if (name.startsWith(group)) {
+                name = name.substring(group.length() + 1);
+            }
+        }
+
+        sb.append("name=").append(escapeObjectNameValue(name));
+
+        return new ObjectName(sb.toString());
+    }
+
+    /**
+     * Escapes the given string to be used as a value in the ObjectName syntax.
+     *
+     * @param s A string to be escape.
+     * @return An escaped string.
+     */
+    private static String escapeObjectNameValue(String s) {
+        if (alphanumericUnderscore(s)) {
+            return s;
+        }
+
+        return '\"' + s.replaceAll("[\\\\\"?*]", "\\\\$0") + '\"';
+    }
+
+    /**
+     * Returns {@code true} when the given string contains only alphanumeric and underscore symbols, {@code false} otherwise.
+     *
+     * @param s String to check.
+     * @return {@code true} if given string contains only alphanumeric and underscore symbols.
+     */
+    public static boolean alphanumericUnderscore(String s) {
+        return ALPHANUMERIC_UNDERSCORE_PATTERN.matcher(s).matches();
     }
 
     /**

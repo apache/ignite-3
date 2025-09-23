@@ -67,6 +67,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.apache.ignite.configuration.annotation.InternalId;
@@ -216,7 +217,9 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 ClassWrapper superClass = classWrapper.requiredSuperClass();
 
                 if (superClass.getAnnotation(ConfigurationRoot.class) != null) {
-                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, ClassName.get(superClass.clazz()));
+                    ClassName superClassSchemaClassName = ClassName.get(superClass.clazz());
+
+                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, superClassSchemaClassName);
                 }
             }
 
@@ -241,14 +244,23 @@ public class ConfigurationProcessor extends AbstractProcessor {
             TypeElement realSchemaClass
     ) {
         ClassName viewClassName = getViewName(schemaClassName);
+        ClassName changeClassName = getChangeName(schemaClassName);
 
-        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName);
+        ConfigurationRoot rootAnnotation = realSchemaClass.getAnnotation(ConfigurationRoot.class);
+        ConfigurationExtension extensionAnnotation = realSchemaClass.getAnnotation(ConfigurationExtension.class);
+
+        ParameterizedTypeName fieldTypeName
+                = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
 
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
                 .initializer(
-                        "new $T($T.class)",
+                        "new $T($S, $T.$L, $T.class, $L)",
                         ROOT_KEY_CLASSNAME,
-                        realSchemaClass
+                        rootAnnotation.rootName(),
+                        ConfigurationType.class,
+                        rootAnnotation.type(),
+                        realSchemaClass,
+                        extensionAnnotation != null && extensionAnnotation.internal()
                 )
                 .build();
 
@@ -258,13 +270,16 @@ public class ConfigurationProcessor extends AbstractProcessor {
     private static void createExtensionKeyField(
             ClassName configInterface,
             Builder configurationClassBuilder,
+            ClassName schemaClassName,
             ClassName superClassSchemaClassName
     ) {
-        ClassName viewClassName = getViewName(superClassSchemaClassName);
+        ClassName viewClassName = getViewName(schemaClassName);
+        ClassName changeClassName = getChangeName(schemaClassName);
 
         ClassName superConfigInterface = getConfigurationInterfaceName(superClassSchemaClassName);
 
-        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName);
+        ParameterizedTypeName fieldTypeName
+                = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
 
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
                 .initializer(
@@ -292,11 +307,16 @@ public class ConfigurationProcessor extends AbstractProcessor {
         // Get configuration types (VIEW, CHANGE and so on)
         TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
 
-        MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
+        MethodSpec.Builder builder = MethodSpec.methodBuilder(fieldName)
                 .addModifiers(PUBLIC, ABSTRACT)
                 .returns(interfaceGetMethodType)
-                .addJavadoc("@see $T#" + field, field.getEnclosingElement())
-                .build();
+                .addJavadoc("@see $T#" + field, field.getEnclosingElement());
+
+        if (field.getAnnotation(Deprecated.class) != null) {
+            builder.addAnnotation(Deprecated.class);
+        }
+
+        MethodSpec interfaceGetMethod = builder.build();
 
         configurationInterfaceBuilder.addMethod(interfaceGetMethod);
     }
@@ -474,6 +494,11 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                     .returns(viewFieldType);
 
+            boolean isDeprecated = field.getAnnotation(Deprecated.class) != null;
+            if (isDeprecated) {
+                getMtdBuilder.addAnnotation(Deprecated.class);
+            }
+
             viewClsBuilder.addMethod(getMtdBuilder.build());
 
             // Read only.
@@ -487,6 +512,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     .addModifiers(PUBLIC, ABSTRACT)
                     .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                     .returns(changeClsName);
+
+            if (isDeprecated) {
+                changeMtdBuilder.addAnnotation(Deprecated.class);
+            }
 
             if (containsAnyAnnotation(field, Value.class, InjectedValue.class)) {
                 if (schemaFieldType.getKind() == TypeKind.ARRAY) {
@@ -502,6 +531,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
                         .addModifiers(PUBLIC, ABSTRACT)
                         .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                         .returns(changeFieldType);
+
+                if (isDeprecated) {
+                    shortChangeMtdBuilder.addAnnotation(Deprecated.class);
+                }
 
                 changeClsBuilder.addMethod(shortChangeMtdBuilder.build());
             }

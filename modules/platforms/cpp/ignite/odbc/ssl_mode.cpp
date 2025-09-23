@@ -18,8 +18,6 @@
 #include "ignite/odbc/ssl_mode.h"
 #include "ignite/odbc/config/config_tools.h"
 
-#include <algorithm>
-
 /** A string token for ssl_mode::DISABLE. */
 const std::string DISABLE_TOKEN{"disable"};
 
@@ -31,27 +29,27 @@ const std::string UNKNOWN_TOKEN{"unknown"};
 
 namespace ignite {
 
-ssl_mode ssl_mode_from_string(std::string_view val, ssl_mode dflt) {
+ssl_mode_t ssl_mode_from_string(const std::string &val, ssl_mode_t dflt) {
     std::string lower_val = normalize_argument_string(val);
 
     if (lower_val == DISABLE_TOKEN)
-        return ssl_mode::DISABLE;
+        return ssl_mode_t::DISABLE;
 
     if (lower_val == REQUIRE_TOKEN)
-        return ssl_mode::REQUIRE;
+        return ssl_mode_t::REQUIRE;
 
     return dflt;
 }
 
-std::string ssl_mode_to_string(ssl_mode val) {
+std::string to_string(ssl_mode_t val) {
     switch (val) {
-        case ssl_mode::DISABLE:
+        case ssl_mode_t::DISABLE:
             return DISABLE_TOKEN;
 
-        case ssl_mode::REQUIRE:
+        case ssl_mode_t::REQUIRE:
             return REQUIRE_TOKEN;
 
-        case ssl_mode::UNKNOWN:
+        case ssl_mode_t::UNKNOWN:
         default:
             return UNKNOWN_TOKEN;
     }

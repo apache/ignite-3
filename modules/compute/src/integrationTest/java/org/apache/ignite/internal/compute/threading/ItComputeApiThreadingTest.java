@@ -21,9 +21,9 @@ import static java.lang.Thread.currentThread;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
@@ -135,7 +135,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Set<ClusterNode> justNonEntryNode() {
-        return Set.of(unwrapIgniteImpl(CLUSTER.node(1)).node());
+        return Set.of(clusterNode(1));
     }
 
     @CartesianTest
@@ -187,14 +187,14 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
             return completedFuture(List.of(
                     MapReduceJob.<Void, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NoOpJob.class).build())
-                            .nodes(taskContext.ignite().clusterNodes())
+                            .nodes(taskContext.ignite().cluster().nodes())
                             .build()
             ));
         }
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 

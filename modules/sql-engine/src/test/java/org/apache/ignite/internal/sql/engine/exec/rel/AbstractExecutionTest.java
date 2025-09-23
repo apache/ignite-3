@@ -23,7 +23,9 @@ import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.time.Clock;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -45,11 +47,13 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
@@ -63,7 +67,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
@@ -80,10 +84,13 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     private QueryTaskExecutorImpl taskExecutor;
 
+    private final List<ExecutionContext<?>> contexts = new ArrayList<>();
+
     @BeforeEach
     public void beforeTest() {
         var failureProcessor = new FailureManager(new NoOpFailureHandler());
-        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
+        var metricManager = new NoOpMetricManager();
+        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor, metricManager);
         taskExecutor.start();
     }
 
@@ -92,6 +99,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
      */
     @AfterEach
     public void afterTest() {
+        contexts.forEach(ExecutionContext::cancel);
+        contexts.clear();
         taskExecutor.stop();
     }
 
@@ -112,7 +121,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     protected ExecutionContext<T> executionContext(int bufferSize, boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
-                    NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
+                    IgniteThreadFactory.create("fake-test-node", "sqlTestExec", log),
                     false,
                     0);
 
@@ -132,21 +141,29 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         FragmentDescription fragmentDesc = getFragmentDescription();
 
-        return new ExecutionContext<>(
+        InternalClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
+        ExecutionContext<T> executionContext = new ExecutionContext<>(
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 taskExecutor,
                 new ExecutionId(randomUUID(), 0),
-                new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
-                "fake-test-node",
+                node,
+                node.name(),
+                node.id(),
                 fragmentDesc,
                 rowHandler(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
-                bufferSize
+                SqlCommon.DEFAULT_TIME_ZONE_ID,
+                bufferSize,
+                Clock.systemUTC(),
+                null
         );
+
+        contexts.add(executionContext);
+
+        return executionContext;
     }
 
     protected FragmentDescription getFragmentDescription() {
@@ -260,7 +277,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                                         return null;
                                 }
                             })
-                            .collect(Collectors.toList()).toArray(new Function[rowType.getFieldCount()])
+                            .collect(Collectors.toList()).toArray(new Function[0])
             );
         }
 

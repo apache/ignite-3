@@ -79,6 +79,7 @@ import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.ConfigOverride;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -104,6 +105,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * corresponding job class to the jobs source set. The integration tests depend on this source set so the job class will be visible and it
  * will be automatically compiled and packed into the ignite-integration-test-jobs-1.0-SNAPSHOT.jar.
  */
+@ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
 

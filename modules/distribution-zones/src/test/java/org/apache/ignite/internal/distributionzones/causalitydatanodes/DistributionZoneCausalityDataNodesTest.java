@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
@@ -43,10 +44,10 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -67,6 +68,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -96,11 +99,11 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -191,16 +194,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     private final ConcurrentHashMap<Integer, CompletableFuture<HybridTimestamp>> dropZoneTimestamps = new ConcurrentHashMap<>();
 
-    private PendingComparableValuesTracker<Long, Void> revisionsTracker;
+    private ExecutorService tempPool;
 
     @BeforeEach
     void beforeEach() {
-        revisionsTracker = new PendingComparableValuesTracker<>(0L);
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener());
-        metaStorageManager.registerRevisionUpdateListener(rev -> {
-            revisionsTracker.update(rev, null);
-            return nullCompletedFuture();
-        });
         metaStorageManager.registerPrefixWatch(
                 new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(UTF_8)),
                 createMetastorageDataNodesListener()
@@ -211,6 +209,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+    }
+
+    @AfterEach
+    void afterEach() throws InterruptedException {
+        if (tempPool != null) {
+            shutdownAndAwaitTermination(tempPool, 1, SECONDS);
+        }
     }
 
     /**
@@ -1019,14 +1024,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     /**
      * Check that data nodes calculation is idempotented.
-     * The current data nodes value which was calculated by data nodes from the meta storage manager and topology augmentation maps equals
-     * to the data nodes value which were calculated by data nodes from the meta storage manager after topology augmentation maps
-     * were cleared.
+     * The current data nodes value which was calculated by data nodes from the meta storage manager equals
+     * to the data nodes value from the data nodes manager and from data nodes history by the corresponding timestamp.
      *
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25027")
     void checkDataNodesRepeatedOnNodeAdded() throws Exception {
         prepareZonesWithTwoDataNodes();
 
@@ -1047,9 +1050,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     /**
      * Check that data nodes calculation is idempotented.
-     * The current data nodes value which was calculated by data nodes from the meta storage manager and topology augmentation maps equals
-     * to the data nodes value which were calculated by data nodes from the meta storage manager after topology augmentation maps
-     * were cleared.
+     * The current data nodes value which was calculated by data nodes from the meta storage manager equals
+     * to the data nodes value from the data nodes manager and from data nodes history by the corresponding timestamp.
      *
      * @throws Exception If failed.
      */
@@ -1180,13 +1182,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             // Change logical topology. NODE_2 is added.
             topologyRevision = putNodeInLogicalTopologyAndGetTimestamp(NODE_2, newTopology);
-            assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision.revision, TIMEOUT));
         } else {
             newTopology.remove(NODE_1);
 
             // Change logical topology. NODE_1 is removed.
             topologyRevision = removeNodeInLogicalTopologyAndGetTimestamp(Set.of(NODE_1), newTopology);
-            assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision.revision, TIMEOUT));
         }
 
         assertEquals(topologyRevision.timestamp, topologyUpdateRevision.get().timestamp);
@@ -1199,13 +1199,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         checkThatDataNodesIsChangedInMetastorage(expectedDataNodesAfterTimersAreExpired);
 
         // Check that data nodes values are idempotent.
-        // Data nodes from the meta storage manager only used to calculate current data nodes because the meta storage are updated and
-        // topology augmentation maps were cleared.
         checkDataNodes(topologyUpdateRevision.get().timestamp, expectedDataNodesOnTopologyUpdateEvent);
 
         // Above, we have waited for data nodes in meta storage to become the same as in expectedDataNodesAfterTimersAreExpired map,
-        // so we use the applied revision and check the value of data nodes in data nodes manager.
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(metaStorageManager.appliedRevision());
+        // so we use the storage revision and check the value of data nodes in data nodes manager.
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(keyValueStorage.revision());
         checkDataNodes(timestamp, expectedDataNodesAfterTimersAreExpired);
     }
 
@@ -1264,6 +1262,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             assertTrue(topologyUpdateRevision.get().revision > 0);
 
+            log.info("Test: logical topology watch listener triggered, rev={}", evt.revision());
+
+            tempPool = Executors.newFixedThreadPool(1);
+
             return CompletableFuture.runAsync(() -> {
                 try {
                     // Check that data nodes values are changed according to scale up and down timers.
@@ -1273,15 +1275,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     // Check that data nodes values are not changed in the meta storage.
                     checkThatDataNodesIsNotChangedInMetastorage(expectedDataNodes.keySet());
 
+                    log.info("Test: topology checked.");
+
                     reached.set(true);
                 } catch (Exception e) {
                     fail();
                 }
-            })
-            .thenRun(() -> {
+            }, tempPool)
+            .thenRunAsync(() -> {
                 latch.countDown();
+
                 log.info("Test: latch counted down.");
-            });
+            }, tempPool);
         };
     }
 
@@ -1312,12 +1317,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     ) throws Exception {
         for (Map.Entry<Integer, Set<String>> entry : expectedDataNodes.entrySet()) {
             int zoneId = entry.getKey();
+            int catalogVersion = catalogManager.latestCatalogVersion();
 
             assertEquals(
                     entry.getValue(),
-                    distributionZoneManager.dataNodes(timestamp, catalogManager.latestCatalogVersion(), zoneId)
+                    distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneId)
                             .get(TIMEOUT, MILLISECONDS),
-                    "zoneId=" + zoneId
+                    "zoneId=" + zoneId + ", ts=" + timestamp + ", catalogVersion=" + catalogVersion
             );
         }
     }
@@ -1326,6 +1332,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             Map<Integer, Set<String>> expectedDataNodes
     ) throws Exception {
         for (Map.Entry<Integer, Set<String>> entry : expectedDataNodes.entrySet()) {
+            log.info("Test: checking the data zone's data nodes in the meta storage, zoneId={}", entry.getKey());
+
             assertValueInStorage(
                     metaStorageManager,
                     zoneDataNodesHistoryKey(entry.getKey()),
@@ -1364,7 +1372,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             LogicalNode node,
             Set<LogicalNode> expectedTopology
     ) throws Exception {
-        Set<String> nodeNames = expectedTopology.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = expectedTopology.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<RevWithTimestamp> revisionFut = new CompletableFuture<>();
 
@@ -1374,7 +1382,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         RevWithTimestamp rwt = revisionFut.get(TIMEOUT, MILLISECONDS);
 
-        assertThat(revisionsTracker.waitFor(rwt.revision), willSucceedFast());
+        try {
+            assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= rwt.revision, TIMEOUT));
+        } catch (AssertionError e) {
+            log.info("Failed to wait for revision: appliedRevision={}, rwt={}", metaStorageManager.appliedRevision(), rwt.revision);
+
+            throw e;
+        }
 
         return rwt;
     }
@@ -1391,7 +1405,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             Set<LogicalNode> nodes,
             Set<LogicalNode> expectedTopology
     ) throws Exception {
-        Set<String> nodeNames = expectedTopology.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = expectedTopology.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<RevWithTimestamp> revisionFut = new CompletableFuture<>();
 
@@ -1399,7 +1413,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         topology.removeNodes(nodes);
 
-        return revisionFut.get(TIMEOUT, MILLISECONDS);
+        RevWithTimestamp rwt = revisionFut.get(TIMEOUT, MILLISECONDS);
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= rwt.revision, TIMEOUT));
+
+        return rwt;
     }
 
     /**
@@ -1410,7 +1428,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @throws Exception If failed.
      */
     private RevWithTimestamp fireTopologyLeapAndGetTimestamp(Set<LogicalNode> nodes) throws Exception {
-        Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = nodes.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<RevWithTimestamp> revisionFut = new CompletableFuture<>();
 
@@ -1428,7 +1446,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         topology.fireTopologyLeap();
 
-        return revisionFut.get(TIMEOUT, MILLISECONDS);
+        RevWithTimestamp rwt = revisionFut.get(TIMEOUT, MILLISECONDS);
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= rwt.revision, TIMEOUT));
+
+        return rwt;
+
     }
 
     /**
@@ -1538,7 +1561,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @return Future with timestamp.
      */
     private CompletableFuture<HybridTimestamp> getZoneDataNodesTimestamp(int zoneId, Set<LogicalNode> nodes) {
-        Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = nodes.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<HybridTimestamp> revisionFut = new CompletableFuture<>();
 
@@ -1575,6 +1598,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             if (topologyRevisions.containsKey(nodeNames)) {
                 topologyRevisions.remove(nodeNames).complete(new RevWithTimestamp(revision, timestamp));
+                log.info("Test: Topology update event, rev=" + revision);
             }
 
             return nullCompletedFuture();

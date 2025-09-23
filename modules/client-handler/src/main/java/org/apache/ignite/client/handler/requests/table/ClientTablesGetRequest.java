@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.IgniteTables;
@@ -30,15 +30,13 @@ public class ClientTablesGetRequest {
     /**
      * Processes the request.
      *
-     * @param out          Packer.
      * @param igniteTables Ignite tables.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
-            ClientMessagePacker out,
+    public static CompletableFuture<ResponseWriter> process(
             IgniteTables igniteTables
     ) {
-        return igniteTables.tablesAsync().thenAccept(tables -> {
+        return igniteTables.tablesAsync().thenApply(tables -> out -> {
             out.packInt(tables.size());
 
             for (var table : tables) {

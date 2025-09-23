@@ -25,14 +25,14 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Handshake start message, contains info about the node.
- * This message is sent from a server to a client at the connection opening.
+ * This message is sent from an acceptor to an initiator at the connection opening.
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START)
 public interface HandshakeStartMessage extends InternalMessage {
-    /** Returns the server node that sends this. */
+    /** Returns the acceptor node that sends this. */
     ClusterNodeMessage serverNode();
 
-    /** ID of the cluster to which the server node belongs ({@code null} if it's not initialized yet. */
+    /** ID of the cluster to which the acceptor node belongs ({@code null} if it's not initialized yet. */
     @Nullable
     UUID serverClusterId();
 

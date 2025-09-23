@@ -43,10 +43,14 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -69,7 +73,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.StringUtils;
@@ -95,6 +98,8 @@ public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
     private static final EnumMap<ColumnType, SqlTypeName> COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP = new EnumMap<>(ColumnType.class);
+
+    private static final Map<Integer, DateTimeFormatter> SQL_TIME_FORMATTERS = new HashMap<>();
 
     public static final DateTimeFormatter SQL_CONFORMANT_DATETIME_FORMATTER = new DateTimeFormatterBuilder()
                 .parseCaseInsensitive()
@@ -125,6 +130,14 @@ public class SqlTestUtils {
 
         for (ColumnType value : ColumnType.values()) {
             assert COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.containsKey(value) : "absent type is " + value;
+        }
+
+        for (int i = 0; i <= 9; i++) {
+            if (i == 0) {
+                SQL_TIME_FORMATTERS.put(i, DateTimeFormatter.ofPattern("HH:mm:ss"));
+            } else {
+                SQL_TIME_FORMATTERS.put(i, DateTimeFormatter.ofPattern("HH:mm:ss." + "S".repeat(i)));
+            }
         }
     }
 
@@ -235,7 +248,7 @@ public class SqlTestUtils {
             precision = ((VarlenNativeType) type).length();
         }
 
-        return generateValueByType(type.spec().asColumnType(), precision, scale);
+        return generateValueByType(type.spec(), precision, scale);
     }
 
     /**
@@ -335,14 +348,14 @@ public class SqlTestUtils {
     }
 
     /**
-     * Generate value for given {@link NativeTypeSpec} based on given base number. Result of invocation always will be the same
+     * Generate value for given {@link ColumnType} based on given base number. Result of invocation always will be the same
      * for the same pair of arguments.
      *
      * @param base Base value to generate result value.
      * @param type Type to generate value.
      * @return Generated value for given type.
      */
-    public static Object generateStableValueByType(int base, NativeTypeSpec type) {
+    public static Object generateStableValueByType(int base, ColumnType type) {
         switch (type) {
             case BOOLEAN:
                 return base % 2 == 0;
@@ -364,7 +377,7 @@ public class SqlTestUtils {
                 return new UUID(base, base);
             case STRING:
                 return "str_" + base;
-            case BYTES:
+            case BYTE_ARRAY:
                 return new byte[]{(byte) base, (byte) (base + 1), (byte) (base + 2)};
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(base);
@@ -372,11 +385,11 @@ public class SqlTestUtils {
                 return LocalTime.of(0, 00, 00).plusSeconds(base);
             case DATETIME:
                 return LocalDateTime.of(
-                        (LocalDate) generateStableValueByType(base, NativeTypeSpec.DATE),
-                        (LocalTime) generateStableValueByType(base, NativeTypeSpec.TIME)
+                        (LocalDate) generateStableValueByType(base, ColumnType.DATE),
+                        (LocalTime) generateStableValueByType(base, ColumnType.TIME)
                 );
             case TIMESTAMP:
-                return ((LocalDateTime) generateStableValueByType(base, NativeTypeSpec.DATETIME))
+                return ((LocalDateTime) generateStableValueByType(base, ColumnType.DATETIME))
                         .atZone(ZoneId.systemDefault())
                         .toInstant();
             default:
@@ -391,16 +404,18 @@ public class SqlTestUtils {
      * @param type Type of value to generate literal.
      * @return String representation of value as a SQL literal.
      */
-    public static String makeLiteral(Object value, ColumnType type) {
+    public static String makeLiteral(Object value, NativeType type) {
         if (value == null) {
             return "NULL";
         }
 
-        switch (type) {
+        switch (type.spec()) {
             case DECIMAL:
                 return "DECIMAL '" + value + "'";
             case TIME:
-                return "TIME '" + value + "'";
+                LocalTime localTime = (LocalTime) value;
+                TemporalNativeType timeType = (TemporalNativeType) type;
+                return "TIME '" + SQL_TIME_FORMATTERS.get(timeType.precision()).format(localTime) + "'";
             case DATE:
                 return "DATE '" + value + "'";
             case TIMESTAMP:
@@ -577,7 +592,58 @@ public class SqlTestUtils {
      * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
      */
     public static void waitUntilRunningQueriesCount(SqlQueryProcessor queryProcessor, Matcher<Integer> matcher) {
-        //noinspection TestOnlyProblems
         Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries().size(), matcher));
+    }
+
+    /**
+     * Trims milliseconds of a source temporal-type object to the target precision.
+     *
+     * @param type Source type.
+     * @param source Source temporal object.
+     * @param precision Target precision.
+     * @return Temporal object with the adjusted number of nanoseconds.
+     */
+    public static Temporal adjustTemporalPrecision(ColumnType type, Temporal source, int precision) {
+        switch (type) {
+            case TIME: {
+                LocalTime time = (LocalTime) source;
+
+                return time.withNano(adjustNanos(time.getNano(), precision));
+            }
+
+            case DATETIME: {
+                LocalDateTime dt = (LocalDateTime) source;
+
+                return dt.withNano(adjustNanos(dt.getNano(), precision));
+            }
+
+            case TIMESTAMP: {
+                Instant dt = (Instant) source;
+
+                return dt.with(ChronoField.NANO_OF_SECOND, adjustNanos(dt.getNano(), precision));
+            }
+
+            default:
+                throw new IllegalStateException("Unexpected type: " + type);
+        }
+    }
+
+    /**
+     * Trims number of nanoseconds according to the specified precision.
+     *
+     * <p>Note: the maximum supported precision is 3.
+     *
+     * @param nanos Number of nanoseconds.
+     * @param precision Desired precision.
+     * @return Adjusted number of nanoseconds.
+     */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static int adjustNanos(int nanos, int precision) {
+        long millis = TimeUnit.NANOSECONDS.toMillis(nanos);
+
+        int d = 3 - Math.min(3, precision);
+        long adjustedMillis = (millis / (long) Math.pow(10, d)) * (long) Math.pow(10, d);
+
+        return (int) TimeUnit.MILLISECONDS.toNanos(adjustedMillis);
     }
 }

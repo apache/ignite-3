@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.function.Predicate.not;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -61,13 +61,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -88,10 +91,10 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -150,6 +153,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final TopologyService topologyService;
 
+    private final NodeProperties nodeProperties;
+
     private final RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider;
 
     private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
@@ -178,6 +183,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             TopologyService topologyService,
+            NodeProperties nodeProperties,
             ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
             RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
@@ -189,6 +195,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.topologyService = topologyService;
+        this.nodeProperties = nodeProperties;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
@@ -220,7 +227,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     /** Updates the local view of the node with new compaction coordinator. */
-    public void updateCoordinator(ClusterNode newCoordinator) {
+    public void updateCoordinator(InternalClusterNode newCoordinator) {
         compactionCoordinatorNodeName = newCoordinator.name();
 
         triggerCompaction(lowWatermark);
@@ -346,28 +353,32 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     });
         }).whenComplete((ignore, ex) -> {
             if (ex != null) {
-                LOG.warn("Catalog compaction iteration has failed [lwm={}].", ex, lwm);
+                if (ExceptionUtils.isOrCausedBy(NodeStoppingException.class, ex)) {
+                    LOG.debug("Catalog compaction iteration has failed [lwm={}].", ex, lwm);
+                } else {
+                    LOG.warn("Catalog compaction iteration has failed [lwm={}].", ex, lwm);
+                }
             }
         });
     }
 
     @TestOnly
     CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
-            Collection<? extends ClusterNode> nodes,
+            Collection<? extends InternalClusterNode> nodes,
             long localMinimumRequiredTime) {
 
         return determineGlobalMinimumRequiredTime(nodes, localMinimumRequiredTime, Int2ObjectMaps.emptyMap());
     }
 
     private CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
-            Collection<? extends ClusterNode> nodes,
+            Collection<? extends InternalClusterNode> nodes,
             long localMinimumRequiredTime,
             Int2ObjectMap<BitSet> localPartitions
     ) {
         CatalogCompactionMinimumTimesRequest request = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesRequest().build();
         List<CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>>> responseFutures = new ArrayList<>(nodes.size() - 1);
 
-        for (ClusterNode node : nodes) {
+        for (InternalClusterNode node : nodes) {
             if (localNodeName.equals(node.name())) {
                 continue;
             }
@@ -408,7 +419,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 }, executor);
     }
 
-    CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends ClusterNode> nodes) {
+    CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends InternalClusterNode> nodes) {
         CatalogCompactionPrepareUpdateTxBeginTimeMessage request = COMPACTION_MESSAGES_FACTORY
                 .catalogCompactionPrepareUpdateTxBeginTimeMessage()
                 .timestamp(timestamp)
@@ -416,7 +427,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         List<CompletableFuture<?>> sendFutures = new ArrayList<>(nodes.size());
 
-        for (ClusterNode node : nodes) {
+        for (InternalClusterNode node : nodes) {
             sendFutures.add(messagingService.send(node, request));
         }
 
@@ -428,7 +439,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Int2IntMap idsWithPartitions = enabledColocation()
+                    Int2IntMap idsWithPartitions = nodeProperties.colocationEnabled()
                             ? catalogManagerFacade.collectZonesWithPartitionsBetween(txBeginTime, nowTs.longValue())
                             : catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
 
@@ -567,14 +578,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
         List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
 
         for (int p = 0; p < partitions; p++) {
-            replicationGroupIds.add(enabledColocation() ? new ZonePartitionId(table.zoneId(), p) : new TablePartitionId(table.id(), p));
+            replicationGroupIds.add(nodeProperties.colocationEnabled() ? new ZonePartitionId(table.zoneId(), p)
+                    : new TablePartitionId(table.id(), p));
         }
 
         return placementDriver.getAssignments(replicationGroupIds, nowTs)
                 .thenAccept(tokenizedAssignments -> {
                     assert tokenizedAssignments.size() == replicationGroupIds.size();
 
-                    if (enabledColocation() && currentCatalog.table(table.id()) == null) {
+                    if (nodeProperties.colocationEnabled() && currentCatalog.table(table.id()) == null) {
                         // Table no longer exists
                         deletedTables.put(table.id(), true);
 
@@ -626,7 +638,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
         Set<String> logicalNodeIds = logicalTopologyNodes
                 .stream()
-                .map(ClusterNode::name)
+                .map(InternalClusterNode::name)
                 .collect(Collectors.toSet());
 
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
@@ -644,7 +656,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
 
         for (int p = 0; p < partitions; p++) {
-            ReplicationGroupId groupReplicationId = enabledColocation()
+            ReplicationGroupId groupReplicationId = nodeProperties.colocationEnabled()
                     ? new ZonePartitionId(id, p) : new TablePartitionId(id, p);
 
             CompletableFuture<?> fut = placementDriver
@@ -661,7 +673,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             return CompletableFutures.nullCompletedFuture();
                         }
 
-                        ReplicationGroupIdMessage groupIdMessage = enabledColocation()
+                        ReplicationGroupIdMessage groupIdMessage = nodeProperties.colocationEnabled()
                                 ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) groupReplicationId)
                                 : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) groupReplicationId);
 
@@ -683,7 +695,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private class CatalogCompactionMessageHandler implements NetworkMessageHandler {
         @Override
-        public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+        public void onReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
             assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
 
             switch (message.messageType()) {
@@ -704,7 +716,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             }
         }
 
-        private void handleMinimumTimesRequest(ClusterNode sender, Long correlationId) {
+        private void handleMinimumTimesRequest(InternalClusterNode sender, Long correlationId) {
             HybridTimestamp lwm = lowWatermark;
             LocalMinTime minLocalTime;
 
@@ -732,7 +744,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             propagateTimeToLocalReplicas(txBeginTime)
                     .exceptionally(ex -> {
-                        LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+                        if (!hasCause(ex, NodeStoppingException.class)) {
+                            LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+                        }
 
                         return null;
                     });

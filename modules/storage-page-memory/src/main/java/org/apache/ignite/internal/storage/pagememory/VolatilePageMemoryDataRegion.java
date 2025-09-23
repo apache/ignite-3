@@ -18,24 +18,33 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 
 /**
  * Implementation of {@link DataRegion} for in-memory case.
  */
 public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryDataRegion.class);
+
     /** Ignite page memory concurrency level. */
     private static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
 
@@ -80,7 +89,8 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
         );
 
-        var pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize, new OffheapReadWriteLock(lockConcLvl));
+        VolatileDataRegionConfiguration cfg = regionConfiguration(this.cfg, pageSize);
+        var pageMemory = new VolatilePageMemory(cfg, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
 
         pageMemory.start();
 
@@ -91,6 +101,38 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         }
 
         this.pageMemory = pageMemory;
+    }
+
+    private static VolatileDataRegionConfiguration regionConfiguration(VolatilePageMemoryProfileConfiguration cfg, int pageSize) {
+        var cfgView = (VolatilePageMemoryProfileView) cfg.value();
+
+        long initSize = cfgView.initSizeBytes();
+        long maxSize = cfgView.maxSizeBytes();
+
+        if (maxSize == UNSPECIFIED_SIZE) {
+            maxSize = StorageEngine.defaultDataRegionSize();
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    cfg.name().value(), cfg.maxSizeBytes().key(), maxSize
+            );
+        }
+
+        if (initSize == UNSPECIFIED_SIZE) {
+            initSize = maxSize;
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    cfg.name().value(), cfg.initSizeBytes().key(), maxSize
+            );
+        }
+
+        return VolatileDataRegionConfiguration.builder()
+                .name(cfgView.name())
+                .pageSize(pageSize)
+                .initSize(initSize)
+                .maxSize(maxSize)
+                .build();
     }
 
     private static FreeListImpl createFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {

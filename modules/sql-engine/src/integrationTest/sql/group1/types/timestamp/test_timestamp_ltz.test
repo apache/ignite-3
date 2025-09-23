@@ -71,23 +71,22 @@ SELECT TIMESTAMP WITH LOCAL TIME ZONE '2008-01-01 00:00:01.999'::VARCHAR
 2008-01-01 00:00:01.999 Europe/Paris
 
 # timestamp with large date
-# actual error message is  000/-12-31 23:00:0
-# statement error: Date literal 'TIMESTAMP WITH LOCAL TIME ZONE '0000-01-01 00:00:01.5'' out of range
-# TODO: https://issues.apache.org/jira/browse/IGNITE-24984
-statement error
-SELECT TIMESTAMP WITH LOCAL TIME ZONE '100000-01-01 00:00:01.5'::VARCHAR
+statement error: Timestamp literal 'TIMESTAMP WITH LOCAL TIME ZONE '100000-01-01 00:00:01.5'' out of range.
+SELECT TIMESTAMP WITH LOCAL TIME ZONE '100000-01-01 00:00:01.5'
+
+statement error: Illegal TIMESTAMP WITH LOCAL TIME ZONE literal '9223372036854775808-01-01 00:00:01.5': not in format 'yyyy-MM-dd HH:mm:ss'
+SELECT TIMESTAMP WITH LOCAL TIME ZONE '9223372036854775808-01-01 00:00:01.5'
 
 query T
 SELECT '2008-01-01 00:00:01.999'::TIMESTAMP WITH LOCAL TIME ZONE::VARCHAR
 ----
 2008-01-01 00:00:01.999 Europe/Paris
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-25045 Result must have specified precision
-# Value must be rounded up.
+# Value must be truncated.
 query T
 SELECT '2008-01-01 00:00:01.969'::TIMESTAMP(2) WITH LOCAL TIME ZONE::VARCHAR
 ----
-2008-01-01 00:00:01.969 Europe/Paris
+2008-01-01 00:00:01.96 Europe/Paris
 
 query T
 SELECT '2008-01-01 00:00:01.9995'::TIMESTAMP(3) WITH LOCAL TIME ZONE::VARCHAR
@@ -249,7 +248,6 @@ INSERT INTO timestamp_ltz_sub_ms VALUES(5, '2008-04-03 00:00:00.9999999'::${type
 statement ok
 INSERT INTO timestamp_ltz_sub_ms VALUES(6, '2008-04-03 00:00:00.999999999'::${type}, '2008-04-03 00:00:00.999999999'::${type}, '2008-04-03 00:00:00.999999999'::${type}, '2008-04-03 00:00:00.999999999'::${type})
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-24934 Make behavior consistent for truncated values
 query TTTT
 SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM timestamp_ltz_sub_ms ORDER BY id ASC
 ----

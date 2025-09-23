@@ -49,6 +49,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -70,6 +75,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -385,9 +391,30 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public String getString(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
+        Object value = getValue(colIdx);
 
-        return val == null ? null : String.valueOf(val);
+        if (value == null) {
+            return null;
+        } else if (value instanceof Instant) {
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
+            assert jdbcMeta != null;
+
+            return Formatters.formatDateTime(localDateTime, colIdx, jdbcMeta);
+        } else if (value instanceof LocalTime) {
+            assert jdbcMeta != null;
+
+            return Formatters.formatTime((LocalTime) value, colIdx, jdbcMeta);
+        } else if (value instanceof LocalDateTime) {
+            assert jdbcMeta != null;
+
+            return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMeta);
+        } else if (value instanceof LocalDate) {
+            return Formatters.formatDate((LocalDate) value);
+        } else if (value instanceof byte[]) {
+            return StringUtils.toHexString((byte[]) value);
+        } else {
+            return String.valueOf(value);
+        }
     }
 
     /** {@inheritDoc} */
@@ -582,7 +609,7 @@ public class JdbcResultSet implements ResultSet {
         if (val instanceof Number) {
             return ((Number) val).floatValue();
         } else if (cls == Boolean.class) {
-            return (float) ((Boolean) val ? 1 : 0);
+            return ((Boolean) val ? 1 : 0);
         } else if (cls == String.class || cls == Character.class) {
             try {
                 return Float.parseFloat(val.toString());
@@ -758,8 +785,9 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == LocalTime.class) {
             return new Date(Time.valueOf((LocalTime) val).getTime());
         } else if (cls == Instant.class) {
-            var odlDate = java.util.Date.from((Instant) val);
-            return new Date(odlDate.getTime());
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+
+            return Date.valueOf(localDateTime.toLocalDate());
         } else if (cls == LocalDateTime.class) {
             return Date.valueOf(((LocalDateTime) val).toLocalDate());
         } else {
@@ -805,8 +833,10 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == LocalDate.class) {
             return new Time(Date.valueOf((LocalDate) val).getTime());
         } else if (cls == Instant.class) {
-            var oldTs = Timestamp.from((Instant) val);
-            return new Time(oldTs.getTime());
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+            LocalTime localTime = localDateTime.toLocalTime();
+
+            return Time.valueOf(localTime);
         } else if (cls == LocalDateTime.class) {
             return Time.valueOf(((LocalDateTime) val).toLocalTime());
         } else {
@@ -852,7 +882,9 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == LocalDate.class) {
             return new Timestamp(Date.valueOf((LocalDate) val).getTime());
         } else if (cls == Instant.class) {
-            return Timestamp.from(((Instant) val));
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+
+            return Timestamp.valueOf(localDateTime);
         } else if (cls == LocalDateTime.class) {
             return Timestamp.valueOf((LocalDateTime) val);
         } else {
@@ -2151,6 +2183,15 @@ public class JdbcResultSet implements ResultSet {
         }
     }
 
+    private LocalDateTime instantWithLocalTimeZone(Instant val) throws SQLException {
+        JdbcConnection connection = (JdbcConnection) stmt.getConnection();
+        ZoneId zoneId = connection.connectionProperties().getConnectionTimeZone();
+        if (zoneId == null) {
+            zoneId = ZoneId.systemDefault();
+        }
+        return LocalDateTime.ofInstant(val, zoneId);
+    }
+
     /**
      * Ensures that result set is positioned on a row.
      *
@@ -2303,5 +2344,90 @@ public class JdbcResultSet implements ResultSet {
 
             return row;
         };
+    }
+
+    private static class Formatters {
+        static final DateTimeFormatter TIME = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+                .toFormatter();
+
+        static final DateTimeFormatter DATE = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.YEAR, 4)
+                .appendLiteral('-')
+                .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+                .appendLiteral('-')
+                .appendValue(ChronoField.DAY_OF_MONTH, 2)
+                .toFormatter();
+
+        static final DateTimeFormatter DATE_TIME = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.YEAR, 4)
+                .appendLiteral('-')
+                .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+                .appendLiteral('-')
+                .appendValue(ChronoField.DAY_OF_MONTH, 2)
+                .appendLiteral(' ')
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+                .toFormatter();
+
+        static String formatTime(LocalTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
+            return formatWithPrecision(TIME, value, colIdx, jdbcMeta);
+        }
+
+        static String formatDateTime(LocalDateTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
+            return formatWithPrecision(DATE_TIME, value, colIdx, jdbcMeta);
+        }
+
+        static String formatDate(LocalDate value) {
+            return DATE.format(value);
+        }
+
+        private static String formatWithPrecision(
+                DateTimeFormatter formatter, 
+                TemporalAccessor value, 
+                int colIdx,
+                JdbcResultSetMetadata jdbcMeta
+        ) throws SQLException {
+
+            StringBuilder sb = new StringBuilder();
+
+            formatter.formatTo(value, sb);
+
+            int precision = jdbcMeta.getPrecision(colIdx);
+            if (precision <= 0) {
+                return sb.toString();
+            }
+
+            assert precision <= 9 : "Precision is out of range. Precision: " + precision + ". Column: " + colIdx;
+
+            // Append nano seconds according to the specified precision.
+            long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
+            long scaled  = nanos / (long) Math.pow(10, 9 - precision);
+
+            sb.append('.');
+            for (int i = 0; i < precision; i++) {
+                sb.append('0');
+            }
+
+            int pos = precision - 1;
+            int start = sb.length() - precision;
+
+            do {
+                int digit = (int) (scaled % 10);
+                char c = (char) ('0' + digit);
+                sb.setCharAt(start + pos, c);
+                scaled /= 10;
+                pos--;
+            } while (scaled != 0 && pos >= 0);
+
+            return sb.toString();
+        }
     }
 }

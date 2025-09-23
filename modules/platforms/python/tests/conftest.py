@@ -19,7 +19,7 @@ import pytest
 
 from tests.util import check_cluster_started, start_cluster_gen, server_addresses_basic
 
-logger = logging.getLogger('pyignite-dbapi')
+logger = logging.getLogger('pyignite_dbapi')
 logger.setLevel(logging.DEBUG)
 
 TEST_PAGE_SIZE = 32

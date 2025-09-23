@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelledInternalException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -30,8 +29,6 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.junit.jupiter.api.Test;
@@ -46,9 +43,8 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
     public void testCancelSingleQuery()  {
         IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(CLUSTER.node(0));
 
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
-                .build();
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(Set.of(SqlQueryType.QUERY));
 
         HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
@@ -96,9 +92,8 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
     public void testCancelMultipleQueries()  {
         IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(CLUSTER.node(0));
 
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
-                .build();
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(Set.of(SqlQueryType.QUERY));
 
         HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
@@ -155,9 +150,8 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
     public void testQueryWontStartWhenHandleIsCancelled() {
         IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(CLUSTER.node(0));
 
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
-                .build();
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(Set.of(SqlQueryType.QUERY));
 
         HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
@@ -193,9 +187,8 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(CLUSTER.node(0));
 
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY, SqlQueryType.DML))
-                .build();
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(Set.of(SqlQueryType.QUERY, SqlQueryType.DML));
 
         HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 

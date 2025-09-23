@@ -20,12 +20,12 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
@@ -52,11 +52,8 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#correlatedVariable(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),
 
-    /** See {@link ExecutionContext#getParameter(String, Type)}. */
-    CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
-
-    /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
-    SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
+    /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
+    SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
     /** See {@link IgniteSqlFunctions#toDateExact(int)}. **/
     TO_DATE_EXACT(IgniteSqlFunctions.class, "toDateExact", int.class),
@@ -121,15 +118,89 @@ public enum IgniteMethod {
 
     /**
      * Conversion of timestamp to string (precision aware).
-     * See {@link IgniteSqlFunctions#unixTimestampToString(long, int)}.
+     * See {@link IgniteSqlDateTimeUtils#unixTimestampToString(long, int)}.
      */
-    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimestampToString", long.class, int.class),
+    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlDateTimeUtils.class, "unixTimestampToString", long.class, int.class),
 
     /**
      * Conversion of time to string (precision aware).
-     * See {@link IgniteSqlFunctions#unixTimeToString(int, int)}.
+     * See {@link IgniteSqlDateTimeUtils#unixTimeToString(int, int)}.
      */
-    UNIX_TIME_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimeToString", int.class, int.class),
+    UNIX_TIME_TO_STRING_PRECISION_AWARE(IgniteSqlDateTimeUtils.class, "unixTimeToString", int.class, int.class),
+
+    /**
+     * Converts a timestamp string to a unix date (unlike the original version, truncation to milliseconds occurs without rounding).
+     * See {@link IgniteSqlDateTimeUtils#timestampStringToUnixDate(String)}.
+     */
+    STRING_TO_TIMESTAMP(IgniteSqlDateTimeUtils.class, "timestampStringToUnixDate", String.class),
+
+    /**
+     * Converts a time string to a unix time (unlike the original version, truncation to milliseconds occurs without rounding).
+     * See {@link IgniteSqlDateTimeUtils#timeStringToUnixDate(String)}.
+     */
+    STRING_TO_TIME(IgniteSqlDateTimeUtils.class, "timeStringToUnixDate", String.class),
+
+    /**
+     * SQL {@code CURRENT_DATE} function.
+     * See {@link IgniteSqlDateTimeUtils#currentDate(DataContext)}.
+     */
+    CURRENT_DATE(IgniteSqlDateTimeUtils.class, "currentDate", DataContext.class),
+
+    /**
+     * SQL CAST({@code varchar} AS TIME FORMAT {@code format}).
+     */
+    TIME_STRING_TO_TIME(IgniteSqlFunctions.class, "toTime", String.class, String.class),
+
+    /**
+     * SQL CAST({@code varchar} AS DATE FORMAT {@code format}).
+     */
+    DATE_STRING_TO_DATE(IgniteSqlFunctions.class, "toDate", String.class, String.class),
+
+    /**
+     * SQL CAST({@code varchar} AS TIMESTAMP FORMAT {@code format}).
+     */
+    TIMESTAMP_STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "toTimestamp", String.class, String.class),
+
+    /**
+     * SQL CAST({@code varchar} AS TIMESTAMP WITH LOCAL TIME ZONE FORMAT {@code format}). The same as
+     * {@link SqlFunctions#timeWithLocalTimeZoneToTimestampWithLocalTimeZone} but accepts date format literal.
+     */
+    TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class,
+            "toTimestampWithLocalTimeZone", String.class, String.class, TimeZone.class),
+
+    /**
+     * SQL CAST({@code TIME} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIME(IgniteSqlFunctions.class, "formatTime", String.class, Integer.class),
+
+    /**
+     * SQL CAST({@code DATE} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_DATE(IgniteSqlFunctions.class, "formatDate", String.class, Integer.class),
+
+    /**
+     * SQL CAST({@code TIMESTAMP} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIMESTAMP(IgniteSqlFunctions.class, "formatTimestamp", String.class, Long.class),
+
+    /**
+     * SQL CAST({@code TIMESTAMP WITH LOCAL TIME ZONE} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class, "formatTimestampWithLocalTimeZone",
+            String.class, Long.class, TimeZone.class),
+
+    /**
+     * Returns the timestamp value truncated to the specified fraction of a second.
+     * See {@link IgniteSqlDateTimeUtils#adjustTimestampMillis(Long, int)}.
+     */
+    ADJUST_TIMESTAMP_MILLIS(IgniteSqlDateTimeUtils.class, "adjustTimestampMillis", Long.class, int.class),
+
+    /**
+     * Returns the time value truncated to the specified fraction of a second.
+     * See {@link IgniteSqlDateTimeUtils#adjustTimeMillis(Integer, int)}.
+     */
+    ADJUST_TIME_MILLIS(IgniteSqlDateTimeUtils.class, "adjustTimeMillis", Integer.class, int.class),
+
     ;
 
     private final Method method;

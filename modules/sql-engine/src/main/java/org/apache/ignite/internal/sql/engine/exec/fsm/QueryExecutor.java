@@ -40,6 +40,8 @@ import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -47,28 +49,27 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryEventsFactory;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -76,11 +77,12 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Executor which accepts requests for query execution and returns cursor to the result of execution.
  */
-public class QueryExecutor implements LifecycleAware {
+public class QueryExecutor implements LifecycleAware, Debuggable {
     private final Cache<String, ParsedResult> queryToParsedResultCache;
     private final ParserService parserService;
     private final Executor executor;
@@ -90,8 +92,7 @@ public class QueryExecutor implements LifecycleAware {
     private final PrepareService prepareService;
     private final CatalogService catalogService;
     private final ExecutionService executionService;
-    private final SqlProperties defaultProperties;
-    private final TransactionTracker transactionTracker;
+    private final TransactionalOperationTracker transactionalOperationTracker;
     private final QueryIdGenerator idGenerator;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -101,6 +102,8 @@ public class QueryExecutor implements LifecycleAware {
     private final EventLog eventLog;
 
     private final QueryEventsFactory eventsFactory;
+
+    private final SqlQueryMetricSource queryMetricSource;
 
     /**
      * Creates executor.
@@ -116,10 +119,10 @@ public class QueryExecutor implements LifecycleAware {
      * @param prepareService Service to submit optimization
      * @param catalogService Catalog service.
      * @param executionService Service to submit query plans for execution.
-     * @param defaultProperties Set of properties to use as defaults.
-     * @param transactionTracker Tracker to track usage of transactions by query.
+     * @param transactionalOperationTracker Tracker to track usage of transactions by query.
      * @param idGenerator Id generator used to provide cluster-wide unique query id.
      * @param eventLog Event log.
+     * @param queryMetricSource Query metric source.
      */
     public QueryExecutor(
             String nodeId,
@@ -133,10 +136,10 @@ public class QueryExecutor implements LifecycleAware {
             PrepareService prepareService,
             CatalogService catalogService,
             ExecutionService executionService,
-            SqlProperties defaultProperties,
-            TransactionTracker transactionTracker,
+            TransactionalOperationTracker transactionalOperationTracker,
             QueryIdGenerator idGenerator,
-            EventLog eventLog
+            EventLog eventLog,
+            SqlQueryMetricSource queryMetricSource
     ) {
         this.queryToParsedResultCache = cacheFactory.create(parsedResultsCacheSize);
         this.parserService = parserService;
@@ -147,10 +150,10 @@ public class QueryExecutor implements LifecycleAware {
         this.prepareService = prepareService;
         this.catalogService = catalogService;
         this.executionService = executionService;
-        this.defaultProperties = defaultProperties;
-        this.transactionTracker = transactionTracker;
+        this.transactionalOperationTracker = transactionalOperationTracker;
         this.idGenerator = idGenerator;
         this.eventLog = eventLog;
+        this.queryMetricSource = queryMetricSource;
         this.eventsFactory = new QueryEventsFactory(nodeId);
     }
 
@@ -159,7 +162,7 @@ public class QueryExecutor implements LifecycleAware {
      *
      * <p>This is a common entry point for both single statement and script execution.
      *
-     * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param properties User query properties.
      * @param txContext Transactional context to use.
      * @param sql Query string.
      * @param cancellationToken Cancellation token.
@@ -171,16 +174,14 @@ public class QueryExecutor implements LifecycleAware {
             QueryTransactionContext txContext,
             String sql,
             @Nullable CancellationToken cancellationToken,
-            Object[] params
+            Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, defaultProperties);
-
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
                 this,
                 idGenerator.next(),
                 sql,
-                properties0,
+                properties,
                 txContext,
                 params
         );
@@ -195,7 +196,7 @@ public class QueryExecutor implements LifecycleAware {
             busyLock.leaveBusy();
         }
 
-        long queryTimeout = properties.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
+        long queryTimeout = properties.queryTimeout();
 
         if (queryTimeout > 0) {
             query.cancel.setTimeout(scheduler, queryTimeout);
@@ -263,7 +264,7 @@ public class QueryExecutor implements LifecycleAware {
         if (IgniteUtils.assertionsEnabled()) {
             int offsetInBatch = 0;
             for (ParsedResultWithNextCursorFuture item : batch) {
-                assert item.parsedQuery.queryType() == SqlQueryType.DDL 
+                assert item.parsedQuery.queryType() == SqlQueryType.DDL
                         : item.parsedQuery.queryType() + " at statement #" + (batchOffset + offsetInBatch);
 
                 offsetInBatch++;
@@ -382,7 +383,7 @@ public class QueryExecutor implements LifecycleAware {
                                     query.moveTo(ExecutionPhase.EXECUTING);
 
                                     AsyncDataCursor<InternalSqlRow> dataCursor = dataCursorIterator.next();
-                                    AsyncSqlCursor<InternalSqlRow> currentCursor = createAndSaveSqlCursor(query, dataCursor); 
+                                    AsyncSqlCursor<InternalSqlRow> currentCursor = createAndSaveSqlCursor(query, dataCursor);
 
                                     if (cursorRef != null) {
                                         cursorRef.complete(currentCursor);
@@ -455,6 +456,7 @@ public class QueryExecutor implements LifecycleAware {
         AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
                 plan.type(),
                 plan.metadata(),
+                plan.partitionAwarenessMetadata(),
                 dataCursor,
                 query.nextCursorFuture
         );
@@ -544,7 +546,7 @@ public class QueryExecutor implements LifecycleAware {
         assert parsedResults != null;
 
         return new MultiStatementHandler(
-                transactionTracker,
+                transactionalOperationTracker,
                 query,
                 query.txContext,
                 parsedResults,
@@ -560,12 +562,14 @@ public class QueryExecutor implements LifecycleAware {
 
         assert old == null : "Query with the same id already registered";
 
-        CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
+        CompletableFuture<Void> queryTerminationFut = query.terminationFuture;
 
         queryTerminationFut.whenComplete((none, ignoredEx) -> {
             runningQueries.remove(query.id);
 
             long finishTime = clockService.current().getPhysical();
+
+            updateMetrics(query);
 
             eventLog.log(IgniteEventType.QUERY_FINISHED.name(),
                     () -> eventsFactory.makeFinishEvent(new QueryInfo(query), EventUser.system(), finishTime));
@@ -618,6 +622,66 @@ public class QueryExecutor implements LifecycleAware {
         ) {
             this.parsedQuery = parsedQuery;
             this.nextCursorFuture = nextCursorFuture;
+        }
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent).app("Running queries:").nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+        for (Query query : runningQueries.values()) {
+            writer.app(childIndent)
+                    .app("queryId=").app(query.id)
+                    .app(", phase=").app(query.currentPhase());
+
+            if (query.parentId != null) {
+                writer.app(", parentId=").app(query.parentId);
+                writer.app(", statement=").app(query.statementNum);
+            }
+
+            writer.app(", createdAt=").app(query.createdAt)
+                    .app(", cancelled=").app(query.cancel.isCancelled())
+                    .app(", failed=").app(query.error.get() != null)
+                    .app(", sql=").app(query.sql)
+                    .nl();
+        }
+
+        if (executionService instanceof Debuggable) {
+            ((Debuggable) executionService).dumpState(writer, indent);
+        }
+    }
+
+    private void updateMetrics(Query query) {
+        boolean individualStatement = query.parsedScript == null;
+        // Ignore 'script' queries from metrics as well, because they act as containers for individual statements.
+        if (!individualStatement) {
+            return;
+        }
+
+        Throwable err = query.error.get();
+
+        if (query.parsedResult == null || query.plan == null) {
+            updateFailureMetrics(err);
+        } else {
+            if (err == null) {
+                queryMetricSource.success();
+            } else {
+                updateFailureMetrics(err);
+            }
+        }
+    }
+
+    private void updateFailureMetrics(Throwable t) {
+        queryMetricSource.failure();
+
+        if (t instanceof QueryCancelledException) {
+            if (QueryCancelledException.TIMEOUT_MSG.equals(t.getMessage())) {
+                queryMetricSource.timedOut();
+            } else {
+                queryMetricSource.cancel();
+            }
         }
     }
 }

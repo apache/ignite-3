@@ -15,39 +15,9 @@
 import pytest
 
 from tests.conftest import TEST_PAGE_SIZE
+from tests.util import create_and_populate_test_table, check_row
 
 TEST_ROWS_NUM = 15
-
-def get_row(index):
-    return (index, f'Value-{index * 2}', index / 2.0)
-
-
-def row_generator(begin, rows_num):
-    for i in range(begin, begin + rows_num):
-        yield get_row(i)
-
-
-def create_and_populate_test_table(cursor, rows_num, table_name, batch_size=1):
-    cursor.execute(f'drop table if exists {table_name}')
-    cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')
-    if batch_size == 1:
-        for i in range(rows_num):
-            cursor.execute(f"insert into {table_name} values (?, ?, ?)", params=get_row(i))
-    else:
-        batch = 0
-        for batch in range(rows_num // batch_size):
-            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
-                               list(row_generator(batch * batch_size, batch_size)))
-        if rows_num % batch_size:
-            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
-                               list(row_generator(batch * batch_size, rows_num % batch_size)))
-
-
-def check_row(i, row):
-    assert len(row) == 3
-    assert row[0] == i
-    assert row[1] == f'Value-{i * 2}'
-    assert row[2] == pytest.approx(i / 2.0)
 
 
 def test_fetchone_table_empty(table_name, cursor, drop_table_cleanup):
@@ -201,7 +171,8 @@ def test_cursor_iterable(table_name, cursor, drop_table_cleanup):
     TEST_PAGE_SIZE + 1,
     TEST_PAGE_SIZE * 2,
     TEST_PAGE_SIZE * 2 + 1,
-    10000,
+    # TODO: IGNITE-26358 Implement Heartbeats
+    # 8000,
 ])
 def test_fetch_table_several_pages(table_name, cursor, drop_table_cleanup, rows_num):
     create_and_populate_test_table(cursor, rows_num, table_name, 1000)

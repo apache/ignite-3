@@ -1,0 +1,272 @@
+# description: Tests for printout of variants of TableModify operator.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
+statement ok
+CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
+
+# insert multiple tuples with literals
+explain plan
+INSERT INTO test_table VALUES (1, 2, 3), (2, 2, 3)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=2)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: INSERT
+          est: (rows=2)
+        TrimExchange
+            distribution: table PUBLIC.TEST_TABLE in zone "Default" by [C1]
+            est: (rows=2)
+          Values
+              fieldNames: [C1, C2, C3]
+              tuples: [[1, 2, 3], [2, 2, 3]]
+              est: (rows=2)
+
+# insert multiple tuples mixed
+explain plan
+INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3), (2, LENGTH(rand_uuid()::VARCHAR), 3)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=2)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=2)
+    Exchange
+        distribution: single
+        est: (rows=2)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: INSERT
+          est: (rows=2)
+        UnionAll
+            est: (rows=2)
+          Exchange
+              distribution: table PUBLIC.TEST_TABLE in zone "Default" by [EXPR$0]
+              est: (rows=1)
+            Project
+                fieldNames: [EXPR$0, EXPR$1, EXPR$2]
+                projection: [1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
+                est: (rows=1)
+              Values
+                  fieldNames: [ZERO]
+                  tuples: [[0]]
+                  est: (rows=1)
+          Exchange
+              distribution: table PUBLIC.TEST_TABLE in zone "Default" by [EXPR$0]
+              est: (rows=1)
+            Project
+                fieldNames: [EXPR$0, EXPR$1, EXPR$2]
+                projection: [2, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
+                est: (rows=1)
+              Values
+                  fieldNames: [ZERO]
+                  tuples: [[0]]
+                  est: (rows=1)
+
+# delete by key complex
+explain plan
+DELETE FROM test_table WHERE c1 in (1, 2, 3)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: DELETE
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            predicate: SEARCH(C1, Sarg[1, 2, 3])
+            fieldNames: [C1]
+            est: (rows=1)
+
+
+# delete with predicate by arbitrary column
+explain plan
+DELETE FROM test_table WHERE c3 in (1, 2, 3)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: DELETE
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            predicate: SEARCH(C3, Sarg[1, 2, 3])
+            fieldNames: [C1]
+            est: (rows=1)
+
+# update with predicate by key simple
+explain plan
+UPDATE test_table SET c2 = 2 WHERE c1 = 1
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: UPDATE
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            predicate: =(C1, 1)
+            fieldNames: [C1, C2, C3, EXPR$0]
+            projection: [C1, C2, C3, 2]
+            est: (rows=1)
+
+# update with predicate by key complex
+explain plan
+UPDATE test_table SET c2 = 2 WHERE c1 in (1, 2, 3)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: UPDATE
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            predicate: SEARCH(C1, Sarg[1, 2, 3])
+            fieldNames: [C1, C2, C3, EXPR$0]
+            projection: [C1, C2, C3, 2]
+            est: (rows=1)
+
+# update with predicate by arbitrary column
+explain plan
+UPDATE test_table SET c2 = 2 WHERE c3 in (1, 2, 3)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: UPDATE
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            predicate: SEARCH(C3, Sarg[1, 2, 3])
+            fieldNames: [C1, C2, C3, EXPR$0]
+            projection: [C1, C2, C3, 2]
+            est: (rows=1)
+
+# merge operator
+explain plan
+MERGE INTO test_table dst
+USING (SELECT c1, c2, c3 FROM test_table) src
+   ON dst.c1 = src.c1 * 2
+ WHEN MATCHED THEN UPDATE SET c2 = src.c2 * 2
+ WHEN NOT MATCHED THEN INSERT VALUES (1, 2, 3)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: MERGE
+          est: (rows=1)
+        Exchange
+            distribution: table PUBLIC.TEST_TABLE in zone "Default" by [$f0]
+            est: (rows=1)
+          Project
+              fieldNames: [$f0, $f1, $f2, C10, C20, C30, $f6]
+              projection: [1, 2, 3, C1, C2, C3, *(C2$0, 2)]
+              est: (rows=1)
+            HashJoin
+                predicate: =(C1, $f3)
+                fieldNames: [C1, C2, C3, C2$0, $f3]
+                type: right
+                est: (rows=1)
+              TableScan
+                  table: PUBLIC.TEST_TABLE
+                  fieldNames: [C1, C2, C3]
+                  est: (rows=1)
+              Exchange
+                  distribution: table PUBLIC.TEST_TABLE in zone "Default" by [$f3]
+                  est: (rows=1)
+                TableScan
+                    table: PUBLIC.TEST_TABLE
+                    fieldNames: [C2, $f3]
+                    projection: [C2, *(C1, 2)]
+                    est: (rows=1)

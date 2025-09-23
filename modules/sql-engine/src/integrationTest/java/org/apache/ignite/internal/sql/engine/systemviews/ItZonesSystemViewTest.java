@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_CONSISTENCY_MODE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -54,12 +54,14 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
         );
 
-        assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, DATA_NODES_AUTO_ADJUST_SCALE_UP, DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "
-                + "DATA_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES").returns(
+        assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, ZONE_QUORUM_SIZE, DATA_NODES_AUTO_ADJUST_SCALE_UP,"
+                + " DATA_NODES_AUTO_ADJUST_SCALE_DOWN, DATA_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES")
+                .returns(
                 catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
-                defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(),
+                DEFAULT_ZONE_QUORUM_SIZE,
+                defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(node.nodeProperties().colocationEnabled()),
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 true,
@@ -69,11 +71,12 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     public void systemViewCustomZone() {
-        sql(createZoneSql(ZONE_NAME, 1, 2, 3, 4, DEFAULT_FILTER));
+        sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
                 1,
+                5,
                 2,
                 3,
                 4,
@@ -87,11 +90,12 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     public void systemViewAlterCustomZone() {
-        sql(createZoneSql(ZONE_NAME, 1, 2, 3, 4, DEFAULT_FILTER));
+        sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
                 1,
+                5,
                 2,
                 3,
                 4,
@@ -100,12 +104,27 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 DEFAULT_CONSISTENCY_MODE.name()
         ).check();
 
-        sql("ALTER ZONE " + ZONE_NAME + " SET REPLICAS = 100");
+        sql("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 100)");
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
                 1,
                 100,
+                2,
+                3,
+                4,
+                DEFAULT_FILTER,
+                false,
+                DEFAULT_CONSISTENCY_MODE.name()
+        ).check();
+
+        sql("ALTER ZONE " + ZONE_NAME + " SET (QUORUM SIZE 20)");
+
+        assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
+                ZONE_NAME,
+                1,
+                100,
+                20,
                 3,
                 4,
                 DEFAULT_FILTER,
@@ -118,11 +137,12 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     public void systemViewRenameCustomZone() {
-        sql(createZoneSql(ZONE_NAME, 1, 2, 3, 4, DEFAULT_FILTER));
+        sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
                 1,
+                5,
                 2,
                 3,
                 4,
@@ -136,6 +156,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
         assertQuery(selectFromZonesSystemView(ALTER_ZONE_NAME)).returns(
                 ALTER_ZONE_NAME,
                 1,
+                5,
                 2,
                 3,
                 4,
@@ -153,7 +174,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     public void systemViewDropCustomZone() {
         assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
 
-        sql(createZoneSql(ZONE_NAME, 1, 2, 3, 4, DEFAULT_FILTER));
+        sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
         assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
 
@@ -170,6 +191,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 ZONE_NAME,
                 1,
                 2,
+                2,
                 3,
                 4,
                 DEFAULT_FILTER,
@@ -177,12 +199,13 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 ConsistencyMode.HIGH_AVAILABILITY.name()
         ).check();
 
-        sql("ALTER ZONE " + ZONE_NAME + " SET REPLICAS = 100");
+        sql("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 100)");
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
                 1,
                 100,
+                2,
                 3,
                 4,
                 DEFAULT_FILTER,
@@ -195,11 +218,12 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     public void systemViewAlterConsistencyMode() {
-        sql(createZoneSql(ZONE_NAME, 1, 2, 3, 4, DEFAULT_FILTER));
+        sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
                 1,
+                5,
                 2,
                 3,
                 4,
@@ -210,12 +234,13 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
 
         assertThrows(
                 SqlException.class,
-                () -> sql("ALTER ZONE " + ZONE_NAME + " SET CONSISTENCY_MODE = 'HIGH_AVAILABILITY'"),
-                "CONSISTENCY_MODE");
+                () -> sql("ALTER ZONE " + ZONE_NAME + " SET (CONSISTENCY MODE 'HIGH_AVAILABILITY')"),
+                "CONSISTENCY MODE");
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
                 1,
+                5,
                 2,
                 3,
                 4,
@@ -247,7 +272,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("PARTITIONS").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("REPLICAS").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("CONSISTENCY_MODE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true)
+                                .nullable(true),
+                        new MetadataMatcher().name("ZONE_QUORUM_SIZE").type(ColumnType.INT32).nullable(true)
                 )
                 .check();
     }
@@ -265,16 +291,25 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 .check();
     }
 
-    private static String createZoneSql(String zoneName, int partitions, int replicas, int scaleUp, int scaleDown, String filter) {
+    private static String createZoneSql(
+            String zoneName,
+            int partitions,
+            int replicas,
+            int quorumSize,
+            int scaleUp,
+            int scaleDown,
+            String filter
+    ) {
         String sqlFormat = "CREATE ZONE %s ("
                 + "PARTITIONS %d, "
                 + "REPLICAS %d, "
+                + "QUORUM SIZE %d, "
                 + "AUTO SCALE UP %d, "
                 + "AUTO SCALE DOWN %d,"
                 + "NODES FILTER '%s') "
                 + "STORAGE PROFILES ['%s']";
 
-        return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter, DEFAULT_STORAGE_PROFILE);
+        return String.format(sqlFormat, zoneName, partitions, replicas, quorumSize, scaleUp, scaleDown, filter, DEFAULT_STORAGE_PROFILE);
     }
 
     private static String createZoneSql(
@@ -309,8 +344,9 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     }
 
     private static String selectFromZonesSystemView(String zoneName) {
-        String sqlFormat = "SELECT ZONE_NAME, PARTITIONS, REPLICAS, DATA_NODES_AUTO_ADJUST_SCALE_UP, DATA_NODES_AUTO_ADJUST_SCALE_DOWN, "
-                + "DATA_NODES_FILTER, IS_DEFAULT_ZONE, CONSISTENCY_MODE FROM SYSTEM.ZONES WHERE ZONE_NAME = '%s'";
+        String sqlFormat = "SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, ZONE_QUORUM_SIZE, "
+                + "DATA_NODES_AUTO_ADJUST_SCALE_UP, DATA_NODES_AUTO_ADJUST_SCALE_DOWN, DATA_NODES_FILTER, IS_DEFAULT_ZONE, "
+                + "CONSISTENCY_MODE FROM SYSTEM.ZONES WHERE ZONE_NAME = '%s'";
 
         return String.format(sqlFormat, zoneName);
     }

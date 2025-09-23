@@ -20,11 +20,11 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -39,8 +40,10 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -55,7 +58,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.network.ClusterNode;
 
 /** Task of building a table index. */
 class IndexBuildTask {
@@ -76,13 +78,15 @@ class IndexBuildTask {
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
 
     private final int batchSize;
 
-    private final ClusterNode node;
+    private final InternalClusterNode node;
 
     private final List<IndexBuildCompletionListener> listeners;
 
@@ -104,10 +108,11 @@ class IndexBuildTask {
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
             Executor executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
-            ClusterNode node,
+            InternalClusterNode node,
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
             boolean afterDisasterRecovery,
@@ -118,6 +123,7 @@ class IndexBuildTask {
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
         this.executor = executor;
         this.busyLock = busyLock;
         this.batchSize = batchSize;
@@ -166,17 +172,18 @@ class IndexBuildTask {
     }
 
     private static boolean ignorable(Throwable throwable) {
-        Throwable unwrapped = unwrapCause(throwable);
-
-        // Following exception can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
-        // build continuation. We just don't want to fill our logs with garbage.
-        return unwrapped instanceof PrimaryReplicaMissException
+        return hasCause(
+                throwable,
+                // Following exception can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
+                // build continuation. We just don't want to fill our logs with garbage.
+                PrimaryReplicaMissException.class,
                 // Following two can be ignored as they mean that replica is closed (either node is stopping or replica is not needed
                 // on this node anymore).
-                || unwrapped instanceof TrackerClosedException
-                || unwrapped instanceof StorageClosedException
+                TrackerClosedException.class,
+                StorageClosedException.class,
                 // Node is stopping, it's ok.
-                || unwrapped instanceof NodeStoppingException;
+                NodeStoppingException.class
+        );
     }
 
     /** Stops index building. */
@@ -204,10 +211,10 @@ class IndexBuildTask {
             return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds, initialOperationTimestamp))
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
-                            Throwable cause = unwrapCause(throwable);
+                            Throwable cause = unwrapRootCause(throwable);
 
                             // Read-write transaction operations have not yet completed, let's try to send the batch again.
-                            if (!(cause instanceof ReplicationTimeoutException)) {
+                            if (!(cause instanceof ReplicationTimeoutException || cause instanceof GroupOverloadedException)) {
                                 return CompletableFuture.<Void>failedFuture(cause);
                             }
                         } else if (indexStorage.getNextRowIdToBuild() == null) {
@@ -252,7 +259,7 @@ class IndexBuildTask {
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds, HybridTimestamp initialOperationTimestamp) {
         boolean finish = rowIds.size() < batchSize;
 
-        ReplicationGroupIdMessage groupIdMessage = enabledColocation()
+        ReplicationGroupIdMessage groupIdMessage = nodeProperties.colocationEnabled()
                 ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId()))
                 : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()));
 

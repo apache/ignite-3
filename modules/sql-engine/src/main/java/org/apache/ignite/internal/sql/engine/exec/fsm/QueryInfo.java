@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import java.time.Instant;
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -44,7 +43,7 @@ public class QueryInfo {
         id = query.id;
         parentId = query.parentId;
         statementNum = query.statementNum;
-        schema = query.properties.get(QueryProperty.DEFAULT_SCHEMA);
+        schema = query.properties.defaultSchema();
         sql = query.sql;
         startTime = query.createdAt;
         phase = query.currentPhase();

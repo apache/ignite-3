@@ -31,19 +31,20 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -85,7 +86,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> List.of("N1"))
                 .collect(Collectors.toList()));
         CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(
-                List.of(new Object[]{1, 1, 1}, new Object[]{2, 2, 1})
+                List.of(new Object[]{1, 1, 1, 1}, new Object[]{2, 2, 1, 1})
         )));
     }
 
@@ -218,6 +219,57 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                         .check(),
                 AssertionError.class,
                 "Collections are not equal (position 1)"
+        );
+    }
+
+    @Test
+    void testResultSetMatcher() {
+        assertQuery("SELECT * FROM t1")
+                .returnSomething()
+                .check();
+
+        // by default returned rows are ordered
+        assertQuery("SELECT * FROM t1")
+                .results(new ListOfListsMatcher(
+                        Matchers.contains(1, 1),
+                        Matchers.contains(2, 2)
+                ))
+                .check();
+
+        // query returns more than expected
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+
+        // query returns less than expected
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2),
+                                Matchers.contains(3, 3)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+
+        // query returns different types
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2L)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
         );
     }
 
@@ -355,4 +407,5 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         }
     }
+
 }

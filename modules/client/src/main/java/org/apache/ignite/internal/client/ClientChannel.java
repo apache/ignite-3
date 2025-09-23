@@ -74,6 +74,13 @@ public interface ClientChannel extends AutoCloseable {
     ProtocolContext protocolContext();
 
     /**
+     * Return shared inflight instance.
+     *
+     * @return Inflights.
+     */
+    ClientTransactionInflights inflights();
+
+    /**
      * Returns endpoint.
      *
      * @return Endpoint.

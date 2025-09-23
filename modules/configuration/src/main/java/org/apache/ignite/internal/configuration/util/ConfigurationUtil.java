@@ -38,7 +38,9 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
@@ -63,8 +65,10 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
+import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -223,7 +227,7 @@ public class ConfigurationUtil {
     public static Map<String, ?> toPrefixMap(Map<String, ? extends Serializable> rawConfig) {
         Map<String, Object> res = new HashMap<>();
 
-        for (Map.Entry<String, ? extends Serializable> entry : rawConfig.entrySet()) {
+        for (Entry<String, ? extends Serializable> entry : rawConfig.entrySet()) {
             List<String> keys = split(entry.getKey());
 
             assert keys instanceof RandomAccess : keys.getClass();
@@ -428,8 +432,8 @@ public class ConfigurationUtil {
      *
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
-    public static void checkConfigurationType(Collection<RootKey<?, ?>> rootKeys, ConfigurationStorage storage) {
-        for (RootKey<?, ?> key : rootKeys) {
+    public static void checkConfigurationType(Collection<RootKey<?, ?, ?>> rootKeys, ConfigurationStorage storage) {
+        for (RootKey<?, ?, ?> key : rootKeys) {
             if (key.type() != storage.type()) {
                 throw new IllegalArgumentException("Invalid root key configuration type [key=" + key
                         + ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
@@ -755,9 +759,7 @@ public class ConfigurationUtil {
      * @param prefixMap Prefix map, constructed from the storage notification data or its subtree.
      */
     public static void compressDeletedEntries(Map<String, ?> prefixMap) {
-        for (Iterator<? extends Map.Entry<String, ?>> it = prefixMap.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<String, ?> entry = it.next();
-
+        for (Entry<String, ?> entry : prefixMap.entrySet()) {
             Object value = entry.getValue();
 
             if (value instanceof Map) {
@@ -768,10 +770,6 @@ public class ConfigurationUtil {
                 if (map.containsKey(NamedListNode.NAME) && map.get(NamedListNode.NAME) == null) {
                     entry.setValue(null);
                 }
-            } else if (value == null) {
-                // If there was a change in the type of polymorphic configuration,
-                // then the fields of the old configuration will be {@code null}, so we can get rid of them.
-                it.remove();
             }
         }
 
@@ -946,6 +944,81 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Removes {@code null} values that correspond to non-deprecated legacy keys from the configuration tree.
+     *
+     * @param roots Super root.
+     * @param prefixMap Mutable prefix map with updates received from the storage.
+     * @see PublicName#legacyNames()
+     */
+    public static void ignoreLegacyKeys(SuperRoot roots, Map<String, ?> prefixMap) {
+        roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
+            /** Map that correspond to current recursive call. */
+            private Map<String, ?> currentMap = prefixMap;
+
+            @Override
+            protected Object doVisitLegacyLeafNode(Field field, String key, Serializable val, boolean isDeprecated) {
+                if (!isDeprecated) {
+                    currentMap.remove(key);
+                }
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitInnerNode(Field field, String key, InnerNode node) {
+                if (!currentMap.containsKey(key)) {
+                    return null;
+                }
+
+                Map<String, ?> prev = currentMap;
+                currentMap = (Map<String, ?>) currentMap.get(key);
+
+                node.traverseChildren(this, true);
+
+                currentMap = prev;
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitLegacyInnerNode(Field field, String key, InnerNode node, boolean isDeprecated) {
+                currentMap.remove(key);
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
+                if (!currentMap.containsKey(key)) {
+                    return null;
+                }
+
+                Map<String, ?> prev = currentMap;
+                currentMap = (Map<String, ? extends Serializable>) currentMap.get(key);
+
+                for (String namedListKey : node.namedListKeys()) {
+                    withTracking(field, node.internalId(namedListKey).toString(), false, false, () -> {
+                        doVisitInnerNode(field, namedListKey, node.getInnerNode(namedListKey));
+
+                        return null;
+                    });
+                }
+
+                currentMap = prev;
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitLegacyNamedListNode(Field field, String key, NamedListNode<?> node, boolean isDeprecated) {
+                currentMap.remove(key);
+
+                return null;
+            }
+        }, true);
+    }
+
+    /**
      * Leaf configuration source.
      */
     public static class LeafConfigurationSource implements ConfigurationSource {
@@ -998,7 +1071,9 @@ public class ConfigurationUtil {
                 return;
             }
 
-            for (Map.Entry<String, ?> entry : map.entrySet()) {
+            assert node instanceof InnerNode : node;
+
+            for (Entry<String, ?> entry : map.entrySet()) {
                 String key = entry.getKey();
                 Object val = entry.getValue();
 
@@ -1010,7 +1085,16 @@ public class ConfigurationUtil {
                 }
 
                 if (val == null) {
-                    node.construct(key, null, true);
+                    try {
+                        // If we received a null value, there are two options:
+                        //  - we changed a type of the polymorphic configuration, and some values must disappear. We'll get an exception.
+                        //  - we deleted deprecated configuration value from configuration storage. The value in tree must be replaced with
+                        //    default in such a case.
+                        ((InnerNode) node).constructDefault(key);
+                    } catch (NoSuchElementException ignore) {
+                        assert ((InnerNode) node).isPolymorphic()
+                                : "Constructing property " + key + " failed in " + node + " and it is not polymorphic.";
+                    }
                 } else if (val instanceof Map) {
                     node.construct(key, new InnerConfigurationSource((Map<String, ?>) val), true);
                 } else {
@@ -1032,9 +1116,9 @@ public class ConfigurationUtil {
          */
         private void descendToNamedListNode(NamedListNode<?> node) {
             // This list must be mutable and RandomAccess.
-            var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
+            var orderedKeys = new ArrayList<>(node.namedListKeys());
 
-            for (Map.Entry<String, ?> entry : map.entrySet()) {
+            for (Entry<String, ?> entry : map.entrySet()) {
                 String internalIdStr = entry.getKey();
 
                 // This is the mapping of internal ids to names. Skip it.
@@ -1118,6 +1202,7 @@ public class ConfigurationUtil {
                     node.construct(oldKey, new LeafConfigurationSource((Serializable) val), true);
                 }
             }
+            orderedKeys.removeIf(Objects::isNull);
 
             node.reorderKeys(orderedKeys.size() > node.size()
                     ? orderedKeys.subList(0, node.size())

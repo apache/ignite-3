@@ -19,8 +19,8 @@ package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.disaster.ItDisasterRecoveryZonePartitionsStatesSystemViewTest.estimatedSize;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -40,17 +39,13 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery system views. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-25105
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     /** Table name. */
     public static final String TABLE_NAME = "TEST_TABLE";
@@ -118,7 +113,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        if (colocationEnabled()) {
+            ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
+        } else {
+            waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        }
 
         int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
 
@@ -136,7 +135,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        if (colocationEnabled()) {
+            ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
+        } else {
+            waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        }
 
         List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).sorted().collect(toList());
 
@@ -161,7 +164,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        if (colocationEnabled()) {
+            ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
+        } else {
+            waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        }
 
         insertPeople(
                 TABLE_NAME,
@@ -176,7 +183,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         // Small wait is specially added so that the follower can execute the replicated "insert" command and the counter is honestly
         // increased.
         assertTrue(waitForCondition(
-                () -> nodeNames.stream().allMatch(nodeName -> estimatedSize(nodeName, TABLE_NAME, 0) >= 2L),
+                () -> nodeNames.stream().allMatch(nodeName -> estimatedSize(nodeName, TABLE_NAME, 0, CLUSTER) >= 2L),
                 10,
                 1_000
         ));
@@ -225,19 +232,5 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
         return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(schemaName, tableName).id();
-    }
-
-    private static long estimatedSize(String nodeName, String tableName, int partitionId) {
-        return CLUSTER.runningNodes()
-                .filter(ignite -> nodeName.equals(ignite.name()))
-                .map(ignite -> {
-                    TableImpl table = unwrapTableImpl(ignite.tables().table(tableName));
-
-                    return table.internalTable().storage().getMvPartition(partitionId);
-                })
-                .filter(Objects::nonNull)
-                .map(MvPartitionStorage::estimatedSize)
-                .findAny()
-                .orElse(-1L);
     }
 }

@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -140,6 +141,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      * @param configuration Deployment configuration.
      * @param cmgManager Cluster management group manager.
      * @param nodeName Node consistent ID.
+     * @param onPathRemoving Consumer to call when a deployment unit path is being removed.
      */
     public DeploymentManagerImpl(
             ClusterService clusterService,
@@ -148,7 +150,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Path workDir,
             DeploymentConfiguration configuration,
             ClusterManagementGroupManager cmgManager,
-            String nodeName
+            String nodeName,
+            Consumer<Path> onPathRemoving
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.configuration = configuration;
@@ -161,7 +164,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         undeployer = new DeploymentUnitAcquiredWaiter(
                 nodeName,
                 deploymentUnitAccessor,
-                unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
+                unit -> {
+                    onPathRemoving.accept(deployer.unitPath(unit.name(), unit.version(), false));
+                    deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING);
+                }
         );
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         unitDownloader = new UnitDownloader(deploymentUnitStore, nodeName, deployer, tracker, messaging);
@@ -405,14 +411,14 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        deployer.initUnitsFolder(workDir.resolve(configuration.location().value()));
+        Path deploymentUnitFolder = workDir.resolve(configuration.location().value());
+        deployer.initUnitsFolder(deploymentUnitFolder);
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();
         failover.registerTopologyChangeCallback(nodeStatusCallback, clusterEventCallback);
         undeployer.start(UNDEPLOYER_DELAY.getSeconds(), TimeUnit.SECONDS);
-
-        return nullCompletedFuture();
+        return new StaticUnitDeployer(deploymentUnitStore, nodeName, deploymentUnitFolder).searchAndDeployStaticUnits();
     }
 
     @Override

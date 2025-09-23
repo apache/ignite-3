@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
@@ -39,13 +40,13 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,8 +66,10 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Mock
     private NetworkMessage message;
 
-    private final ClusterNode sender = new ClusterNodeImpl(randomUUID(), SENDER_CONSISTENT_ID, new NetworkAddress("sender-host", 3000));
-    private final ClusterNode recipient = new ClusterNodeImpl(
+    private final InternalClusterNode sender = new ClusterNodeImpl(
+            randomUUID(), SENDER_CONSISTENT_ID, new NetworkAddress("sender-host", 3000)
+    );
+    private final InternalClusterNode recipient = new ClusterNodeImpl(
             randomUUID(),
             RECIPIENT_CONSISTENT_ID,
             new NetworkAddress("recipient-host", 3000)
@@ -103,11 +106,21 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void switchesResponseHandlingToPoolAfterSendToAnotherMemberByConstantId() {
+    void switchesResponseHandlingToPoolAfterSendToAnotherMemberByConsistentId() {
         testSwitchesResponseHandlingToPoolAfterSendToAnotherMember(
                 sendFuture -> when(messagingService.send(RECIPIENT_CONSISTENT_ID, ChannelType.DEFAULT, message)).thenReturn(sendFuture),
                 () -> wrapper.send(RECIPIENT_CONSISTENT_ID, ChannelType.DEFAULT, message)
         );
+    }
+
+    @Test
+    void switchesResponseHandlingToPoolAfterSendToAnotherMemberByAddress() {
+        UnsupportedOperationException ex = assertThrows(
+                UnsupportedOperationException.class,
+                () -> wrapper.send(recipient.address(), ChannelType.DEFAULT, message)
+        );
+
+        assertThat(ex.getMessage(), is("Sending by network address is not supported by this implementation."));
     }
 
     @Test
@@ -211,7 +224,7 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Test
     void doesNotSwitchResponseHandlingToPoolAfterSendToAnotherMember() {
         testDoesNotSwitchResponseHandlingToPoolAfterSendToItself(
-                sendFuture -> when(messagingService.send(any(ClusterNode.class), any(), any())).thenReturn(sendFuture),
+                sendFuture -> when(messagingService.send(any(InternalClusterNode.class), any(), any())).thenReturn(sendFuture),
                 () -> wrapper.send(sender, message)
         );
     }
@@ -219,7 +232,7 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Test
     void doesNotSwitchResponseHandlingToPoolAfterSendToAnotherMemberWithChannel() {
         testDoesNotSwitchResponseHandlingToPoolAfterSendToItself(
-                sendFuture -> when(messagingService.send(any(ClusterNode.class), any(), any())).thenReturn(sendFuture),
+                sendFuture -> when(messagingService.send(any(InternalClusterNode.class), any(), any())).thenReturn(sendFuture),
                 () -> wrapper.send(sender, ChannelType.DEFAULT, message)
         );
     }
@@ -235,7 +248,8 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Test
     void doesNotSwitchResponseHandlingToPoolAfterRespondToAnotherMember() {
         testDoesNotSwitchResponseHandlingToPoolAfterSendToItself(
-                sendFuture -> when(messagingService.respond(any(ClusterNode.class), any(), any(), anyLong())).thenReturn(sendFuture),
+                sendFuture -> when(messagingService.respond(any(InternalClusterNode.class), any(), any(), anyLong()))
+                        .thenReturn(sendFuture),
                 () -> wrapper.respond(sender, message, 0)
         );
     }
@@ -243,7 +257,8 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Test
     void doesNotSwitchResponseHandlingToPoolAfterRespondToAnotherMemberWithChannel() {
         testDoesNotSwitchResponseHandlingToPoolAfterSendToItself(
-                sendFuture -> when(messagingService.respond(any(ClusterNode.class), any(), any(), anyLong())).thenReturn(sendFuture),
+                sendFuture -> when(messagingService.respond(any(InternalClusterNode.class), any(), any(), anyLong()))
+                        .thenReturn(sendFuture),
                 () -> wrapper.respond(sender, ChannelType.DEFAULT, message, 0)
         );
     }
@@ -267,7 +282,7 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Test
     void doesNotSwitchResponseHandlingToPoolAfterInvokeToAnotherMember() {
         testDoesNotSwitchResponseHandlingToPoolAfterSendToItself(
-                sendFuture -> when(messagingService.invoke(any(ClusterNode.class), any(), any(), anyLong())).thenReturn(sendFuture),
+                sendFuture -> when(messagingService.invoke(any(InternalClusterNode.class), any(), any(), anyLong())).thenReturn(sendFuture),
                 () -> wrapper.invoke(sender, message, 0)
         );
     }
@@ -275,7 +290,7 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Test
     void doesNotSwitchResponseHandlingToPoolAfterInvokeToAnotherMemberWithChannel() {
         testDoesNotSwitchResponseHandlingToPoolAfterSendToItself(
-                sendFuture -> when(messagingService.invoke(any(ClusterNode.class), any(), any(), anyLong())).thenReturn(sendFuture),
+                sendFuture -> when(messagingService.invoke(any(InternalClusterNode.class), any(), any(), anyLong())).thenReturn(sendFuture),
                 () -> wrapper.invoke(sender, ChannelType.DEFAULT, message, 0)
         );
     }

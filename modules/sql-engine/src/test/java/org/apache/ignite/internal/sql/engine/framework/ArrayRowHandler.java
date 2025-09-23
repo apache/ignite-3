@@ -36,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 
@@ -165,7 +164,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
         assert nativeType != null;
 
-        value = TypeUtils.fromInternal(value, NativeTypeSpec.toClass(nativeType.spec(), true));
+        value = TypeUtils.fromInternal(value, nativeType.spec());
 
         assert value != null : nativeType;
 
@@ -206,7 +205,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 builder.appendUuidNotNull((UUID) value);
                 break;
 
-            case BYTES:
+            case BYTE_ARRAY:
                 builder.appendBytesNotNull((byte[]) value);
                 break;
 
@@ -247,7 +246,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
             case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
-            case BYTES: return tuple.bytesValue(fieldIndex);
+            case BYTE_ARRAY: return tuple.bytesValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);

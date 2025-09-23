@@ -31,6 +31,8 @@ public class ZoneDefinition {
 
     private final Integer replicas;
 
+    private final Integer quorumSize;
+
     private final String distributionAlgorithm;
 
     private final Integer dataNodesAutoAdjust;
@@ -50,6 +52,7 @@ public class ZoneDefinition {
             boolean ifNotExists,
             Integer partitions,
             Integer replicas,
+            Integer quorumSize,
             String distributionAlgorithm,
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
@@ -62,6 +65,7 @@ public class ZoneDefinition {
         this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
+        this.quorumSize = quorumSize;
         this.distributionAlgorithm = distributionAlgorithm;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
@@ -118,6 +122,15 @@ public class ZoneDefinition {
     }
 
     /**
+     * Returns quorum size.
+     *
+     * @return Quorum size.
+     */
+    public Integer quorumSize() {
+        return quorumSize;
+    }
+
+    /**
      * Returns distribution algorithm.
      *
      * @return Distribution algorithm.
@@ -127,10 +140,12 @@ public class ZoneDefinition {
     }
 
     /**
-     * Returns timeout in seconds between node added or node left topology event itself and data nodes switch.
+     * Deprecated, should not be used anymore. Returns timeout in seconds between node added or node left topology event itself and data
+     * nodes switch.
      *
      * @return Timeout.
      */
+    @Deprecated
     public Integer dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }
@@ -196,6 +211,7 @@ public class ZoneDefinition {
                 + ", ifNotExists=" + ifNotExists
                 + ", partitions=" + partitions
                 + ", replicas=" + replicas
+                + ", quorumSize=" + quorumSize
                 + ", distributionAlgorithm='" + distributionAlgorithm + '\''
                 + ", dataNodesAutoAdjust=" + dataNodesAutoAdjust
                 + ", dataNodesAutoAdjustScaleUp=" + dataNodesAutoAdjustScaleUp
@@ -218,6 +234,8 @@ public class ZoneDefinition {
 
         private Integer replicas;
 
+        private Integer quorumSize;
+
         private String distributionAlgorithm;
 
         private Integer dataNodesAutoAdjust;
@@ -239,6 +257,7 @@ public class ZoneDefinition {
             ifNotExists = definition.ifNotExists;
             partitions = definition.partitions;
             replicas = definition.replicas;
+            quorumSize = definition.quorumSize;
             distributionAlgorithm = definition.distributionAlgorithm;
             dataNodesAutoAdjust = definition.dataNodesAutoAdjust;
             dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
@@ -301,6 +320,19 @@ public class ZoneDefinition {
         }
 
         /**
+         * Sets quorum size.
+         *
+         * @param quorumSize Quorum size.
+         * @return This builder instance.
+         */
+        public Builder quorumSize(Integer quorumSize) {
+            Objects.requireNonNull(quorumSize, "Quorum size must not be null.");
+
+            this.quorumSize = quorumSize;
+            return this;
+        }
+
+        /**
          * Sets the distribution algorithm.
          *
          * @param distributionAlgorithm Distribution algorithm.
@@ -317,11 +349,13 @@ public class ZoneDefinition {
         }
 
         /**
-         * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
+         * Deprecated, should not be used anymore. Sets timeout in seconds between node added or node left topology event itself and data
+         * nodes switch.
          *
          * @param adjust Timeout.
          * @return This builder instance.
          */
+        @Deprecated
         public Builder dataNodesAutoAdjust(Integer adjust) {
             Objects.requireNonNull(
                     adjust,
@@ -411,6 +445,7 @@ public class ZoneDefinition {
                     ifNotExists,
                     partitions,
                     replicas,
+                    quorumSize,
                     distributionAlgorithm,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,

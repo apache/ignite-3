@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -57,8 +58,8 @@ class Program<ResultT> {
             BiPredicate<Query, Throwable> errorHandler
     ) {
         this.name = name;
-        this.transitions = transitions.stream()
-                .collect(Collectors.toMap(Transition::from, Function.identity()));
+        this.transitions = new EnumMap<>(transitions.stream()
+                .collect(Collectors.toMap(Transition::from, Function.identity())));
         this.terminalPhase = terminalPhase;
         this.result = result;
         this.errorHandler = errorHandler;

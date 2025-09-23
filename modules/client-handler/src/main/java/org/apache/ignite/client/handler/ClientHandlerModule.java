@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.BIND_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
@@ -39,6 +40,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +51,10 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,6 +65,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -75,14 +81,22 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
  */
-public class ClientHandlerModule implements IgniteComponent {
+public class ClientHandlerModule implements IgniteComponent, PlatformComputeTransport {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
     /** Supported server features. */
     private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(EnumSet.of(
             ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
-            ProtocolBitmaskFeature.TX_DIRECT_MAPPING
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
+            ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
+            ProtocolBitmaskFeature.COMPUTE_TASK_ID,
+            ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS,
+            ProtocolBitmaskFeature.TX_DELAYED_ACKS,
+            ProtocolBitmaskFeature.TX_PIGGYBACK,
+            ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
+            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
+            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING
     ));
 
     /** Connection id generator.
@@ -138,6 +152,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final Executor partitionOperationsExecutor;
 
+    private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
+
     @TestOnly
     @SuppressWarnings("unused")
     private volatile ClientInboundMessageHandler handler;
@@ -176,6 +192,7 @@ public class ClientHandlerModule implements IgniteComponent {
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
+            NodeProperties nodeProperties,
             Executor partitionOperationsExecutor
     ) {
         assert igniteTables != null;
@@ -194,6 +211,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert placementDriver != null;
         assert clientConnectorConfiguration != null;
         assert lowWatermark != null;
+        assert nodeProperties != null;
         assert partitionOperationsExecutor != null;
 
         this.queryProcessor = queryProcessor;
@@ -210,7 +228,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clockService, schemaSyncService,
-                lowWatermark);
+                lowWatermark, nodeProperties);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
@@ -330,12 +348,17 @@ public class ClientHandlerModule implements IgniteComponent {
                                 ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                             }
 
-                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, connectionId);
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
+                                    bootstrapFactory.handshakeEventLoopSwitcher(),
+                                    configuration,
+                                    connectionId
+                            );
 
                             //noinspection TestOnlyProblems
                             handler = messageHandler;
 
                             ch.pipeline().addLast(
+                                    new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true),
                                     new ClientMessageDecoder(),
                                     messageHandler
                             );
@@ -379,11 +402,11 @@ public class ClientHandlerModule implements IgniteComponent {
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
-                // TODO IGNITE-21614
+                String address = addresses.length == 0 ? "" : addresses[0];
                 result.completeExceptionally(
                         new IgniteException(
-                                PORT_IN_USE_ERR,
-                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                BIND_ERR,
+                                "Cannot start thin client connector endpoint at address=" + address + ", port=" + port,
                                 bindFut.cause())
                 );
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {
@@ -406,7 +429,11 @@ public class ClientHandlerModule implements IgniteComponent {
         return result;
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, long connectionId) {
+    private ClientInboundMessageHandler createInboundMessageHandler(
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            ClientConnectorView configuration,
+            long connectionId
+    ) {
         return new ClientInboundMessageHandler(
                 igniteTables,
                 txManager,
@@ -424,12 +451,29 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker,
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
-                Map.of()
+                Map.of(),
+                computeExecutors::remove,
+                handshakeEventLoopSwitcher
         );
     }
 
     @TestOnly
     public ClientInboundMessageHandler handler() {
         return handler;
+    }
+
+    @Override
+    public String serverAddress() {
+        return "127.0.0.1:" + localAddress().getPort();
+    }
+
+    @Override
+    public boolean sslEnabled() {
+        return clientConnectorConfiguration.value().ssl().enabled();
+    }
+
+    @Override
+    public CompletableFuture<PlatformComputeConnection> registerComputeExecutorId(String computeExecutorId) {
+        return computeExecutors.computeIfAbsent(computeExecutorId, k -> new CompletableFuture<>());
     }
 }

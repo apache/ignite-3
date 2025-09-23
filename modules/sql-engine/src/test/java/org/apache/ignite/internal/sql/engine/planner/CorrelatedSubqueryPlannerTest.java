@@ -68,9 +68,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
                 + "    OR c>d\n"
                 + " ORDER BY 1;";
 
-        // ToDo: The rules %ScanMerge%Rule disabled for the test due to we have a bug https://issues.apache.org/jira/browse/IGNITE-25001
-        IgniteRel rel = physicalPlan(sql, schema, "FilterTableScanMergeRule", "ProjectTableScanMergeRule",
-                "ProjectTableScanMergeSkipCorrelatedRule");
+        IgniteRel rel = physicalPlan(sql, schema, "FilterTableScanMergeRule");
 
         IgniteFilter filter = findFirstNode(rel, byClass(IgniteFilter.class)
                 .and(f -> RexUtils.hasCorrelation(((Filter) f).getCondition())));

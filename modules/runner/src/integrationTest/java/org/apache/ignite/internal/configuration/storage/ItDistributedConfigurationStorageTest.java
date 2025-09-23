@@ -40,6 +40,7 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -165,7 +167,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
-                    new TestConfigurationValidator()
+                    new TestConfigurationValidator(),
+                    new SystemPropertiesNodeProperties()
             );
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
@@ -175,6 +178,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+
+            MetricManager metricManager = new NoOpMetricManager();
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     new SystemDisasterRecoveryStorage(vaultManager),
@@ -186,7 +192,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -216,7 +223,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    new NoOpMetricManager(),
+                    metricManager,
                     systemConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker

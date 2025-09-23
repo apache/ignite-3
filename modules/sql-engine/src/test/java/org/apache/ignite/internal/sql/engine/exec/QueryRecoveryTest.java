@@ -37,14 +37,14 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
-import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionTracker;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
@@ -59,6 +59,7 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -78,6 +79,11 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
     private static QueryCheckerFactory queryCheckerFactory;
 
     private TestCluster cluster;
+
+    @BeforeAll
+    static void warmUpCluster() throws Exception {
+        TestBuilders.warmupTestCluster();
+    }
 
     @BeforeEach
     void startCluster() {
@@ -213,7 +219,7 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
 
     private static QueryTransactionContext createTxContext(TxType type, boolean implicit) {
         InternalTransaction tx = type.create();
-        QueryTransactionWrapper wrapper = new QueryTransactionWrapperImpl(tx, implicit, NoOpTransactionTracker.INSTANCE);
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapperImpl(tx, implicit, NoOpTransactionalOperationTracker.INSTANCE);
         return new PredefinedTxContext(wrapper);
     }
 
@@ -303,7 +309,6 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
         FailingIterator(Exception ex) {
             this.ex = ex;
         }
-
 
         @Override
         public boolean hasNext() {

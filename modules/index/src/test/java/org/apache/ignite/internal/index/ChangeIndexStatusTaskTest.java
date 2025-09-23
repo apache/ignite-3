@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
@@ -70,6 +69,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -83,6 +83,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
@@ -99,7 +100,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -166,8 +166,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         );
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
-
-        awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
@@ -195,6 +194,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 clockService,
                 indexMetaStorage,
                 new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties(),
                 executor,
                 busyLock
         ) {
@@ -232,7 +232,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         verify(logicalTopologyService).logicalTopologyOnLeader();
         verify(logicalTopologyService).addEventListener(any());
         verify(logicalTopologyService).removeEventListener(any());
-        verify(clusterService.messagingService()).invoke(any(ClusterNode.class), any(), anyLong());
+        verify(clusterService.messagingService()).invoke(any(InternalClusterNode.class), any(), anyLong());
     }
 
     @Test
@@ -310,7 +310,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         CompletableFuture<NetworkMessage> invokeFuture1 = failedFuture(new RecipientLeftException());
         CompletableFuture<NetworkMessage> invokeFuture2 = isNodeFinishedRwTransactionsStartedBeforeResponseFuture(true);
 
-        when(clusterService.messagingService().invoke(any(ClusterNode.class), any(), anyLong()))
+        when(clusterService.messagingService().invoke(any(InternalClusterNode.class), any(), anyLong()))
                 .thenReturn(invokeFuture0, invokeFuture1, invokeFuture2);
 
         clearInvocations(clockWaiter);
@@ -318,7 +318,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(BUILDING, actualIndexStatus());
 
-        verify(clusterService.messagingService(), times(3)).invoke(any(ClusterNode.class), any(), anyLong());
+        verify(clusterService.messagingService(), times(3)).invoke(any(InternalClusterNode.class), any(), anyLong());
         verify(clockWaiter, times(2)).waitFor(any());
     }
 
@@ -327,21 +327,22 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         CompletableFuture<NetworkMessage> invokeFuture0 = isNodeFinishedRwTransactionsStartedBeforeResponseFuture(false);
         CompletableFuture<NetworkMessage> invokeFuture1 = isNodeFinishedRwTransactionsStartedBeforeResponseFuture(true);
 
-        when(clusterService.messagingService().invoke(any(ClusterNode.class), any(), anyLong())).thenReturn(invokeFuture0, invokeFuture1);
+        when(clusterService.messagingService().invoke(any(InternalClusterNode.class), any(), anyLong()))
+                .thenReturn(invokeFuture0, invokeFuture1);
 
         clearInvocations(clockWaiter);
 
         assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(BUILDING, actualIndexStatus());
 
-        verify(clusterService.messagingService(), times(2)).invoke(any(ClusterNode.class), any(), anyLong());
+        verify(clusterService.messagingService(), times(2)).invoke(any(InternalClusterNode.class), any(), anyLong());
         verify(clockWaiter, times(2)).waitFor(any());
     }
 
     @Test
     @MuteFailureManagerLogging // Failure is expected.
     void testFailedSendIsNodeFinishedRwTransactionsStartedBeforeRequest() {
-        when(clusterService.messagingService().invoke(any(ClusterNode.class), any(), anyLong()))
+        when(clusterService.messagingService().invoke(any(InternalClusterNode.class), any(), anyLong()))
                 .thenReturn(failedFuture(new Exception("test")));
 
         clearInvocations(clockWaiter);
@@ -349,7 +350,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         assertThat(task.start(), willThrow(Exception.class, "test"));
         assertEquals(REGISTERED, actualIndexStatus());
 
-        verify(clusterService.messagingService(), times(1)).invoke(any(ClusterNode.class), any(), anyLong());
+        verify(clusterService.messagingService(), times(1)).invoke(any(InternalClusterNode.class), any(), anyLong());
         verify(clockWaiter).waitFor(any());
     }
 
@@ -379,7 +380,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         );
 
         when(topologyService.localMember()).thenReturn(LOCAL_NODE);
-        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong())).thenReturn(responseFuture);
+        when(messagingService.invoke(any(InternalClusterNode.class), any(), anyLong())).thenReturn(responseFuture);
 
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(clusterService.messagingService()).thenReturn(messagingService);

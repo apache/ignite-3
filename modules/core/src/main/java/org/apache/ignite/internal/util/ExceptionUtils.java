@@ -474,6 +474,31 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Unwraps the root cause of the given exception.
+     *
+     * @param e The exception to unwrap.
+     * @return The root cause of the exception, or the exception itself if no cause is found.
+     */
+    public static Throwable unwrapRootCause(Throwable e) {
+        Throwable th = e.getCause();
+
+        if (th == null) {
+            return e;
+        }
+
+        while (th != e) {
+            Throwable t = th;
+            th = t.getCause();
+
+            if (th == t || th == null) {
+                return t;
+            }
+        }
+
+        return e;
+    }
+
+    /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
      * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
      * the original trace identifier and full error code are preserved.
@@ -580,9 +605,8 @@ public final class ExceptionUtils {
      * Creates and returns a copy of an exception that is a cause of the given {@code CompletionException}.
      * If the original exception does not contain a cause, then the original exception will be returned.
      * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
-     * <p>
-     *     For example, this method might be useful when you need to implement sync API over async one.
-     * </p>
+     *
+     * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
      *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
@@ -607,9 +631,8 @@ public final class ExceptionUtils {
      * Creates and returns a copy of an exception that is a cause of the given {@code ExecutionException}.
      * If the original exception does not contain a cause, then the original exception will be returned.
      * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
-     * <p>
-     *     For example, this method might be useful when you need to implement sync API over async one.
-     * </p>
+     *
+     * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
      *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
@@ -731,7 +754,7 @@ public final class ExceptionUtils {
     public static IgniteException wrap(Throwable e) {
         Objects.requireNonNull(e);
 
-        e = ExceptionUtils.unwrapCause(e);
+        e = unwrapCause(e);
 
         if (e instanceof IgniteException) {
             IgniteException iex = (IgniteException) e;

@@ -157,36 +157,34 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"READ ONLY", "READ WRITE"})
-    void openedScriptTransactionRollsBackImplicitly(String txOptions) {
+    void startTransactionWithoutCommitThrowsException(String txOptions) {
+        String expectedError = "Transaction block doesn't have a COMMIT statement at the end.";
         String startTxStatement = format("START TRANSACTION {};", txOptions);
 
         {
-            runScript(startTxStatement);
+            assertThrowsSqlException(RUNTIME_ERR, expectedError, () -> runScript(startTxStatement));
 
-            verifyFinishedTxCount(1);
+            verifyFinishedTxCount(0);
         }
 
         {
-            List<AsyncSqlCursor<InternalSqlRow>> cursors = fetchAllCursors(
-                    runScript(startTxStatement
+            assertThrowsSqlException(
+                    RUNTIME_ERR,
+                    expectedError,
+                    () -> runScript(startTxStatement
                             + "SELECT * FROM TEST;"
-                            + "SELECT * FROM TEST;"
-                    )
+                            + "SELECT * FROM TEST;")
             );
 
-            assertThat(cursors, hasSize(3));
-
-            // The transaction depends on the cursors of the SELECT statement,
-            // so it waits for them to close.
-            assertEquals(1, txManager().pending());
-
-            cursors.forEach(AsyncSqlCursor::closeAsync);
-            verifyFinishedTxCount(2);
+            verifyFinishedTxCount(0);
         }
     }
 
+    /**
+     * The test verifies that changes made inside a transaction block without committing are not applied.
+     */
     @Test
-    void dmlScriptRollsBackImplicitly() throws InterruptedException {
+    void dmlInsideUnfinishedTransactionBlockAreNotApplied() throws InterruptedException {
         AsyncSqlCursor<InternalSqlRow> cur = runScript("START TRANSACTION READ WRITE;"
                 + "INSERT INTO test VALUES(0);"
                 + "INSERT INTO test VALUES(1);"
@@ -213,16 +211,15 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertNotNull(cur);
 
         // Fetch remaining.
-        cursors = fetchAllCursors(cur);
-        assertThat(cursors, hasSize(4));
+        AsyncSqlCursor<InternalSqlRow> cur0 = cur;
 
-        assertEquals(1, txManager().pending());
+        assertThrowsSqlException(
+                RUNTIME_ERR,
+                "Transaction block doesn't have a COMMIT statement at the end",
+                () -> await(cur0.nextResult())
+        );
 
-        // Rollback is performed asynchronously.
-        cursors.forEach(c -> await(c.closeAsync()));
-
-        // 1 COMMIT + 1 ROLLBACK.
-        verifyFinishedTxCount(2);
+        verifyFinishedTxCount(1);
 
         assertTrue(waitForCondition(() -> txManager().lockManager().isEmpty(), 2_000));
 
@@ -259,7 +256,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void ddlInsideExplicitTransactionFails() {
-        String ddlStatement = "CREATE TABLE foo (id INT PRIMARY KEY)";
+        String ddlStatement = "CREATE TABLE foo (id INT PRIMARY KEY);";
 
         {
             InternalTransaction tx = (InternalTransaction) igniteTx().begin();
@@ -275,7 +272,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         {
             assertThrowsSqlException(RUNTIME_ERR, "DDL doesn't support transactions.",
-                    () -> fetchAllCursors(runScript("START TRANSACTION;" + ddlStatement)));
+                    () -> fetchAllCursors(runScript("START TRANSACTION;" + ddlStatement + "COMMIT;")));
 
             verifyFinishedTxCount(2);
         }
@@ -283,7 +280,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void nestedTransactionStartFails() {
-        AsyncSqlCursor<InternalSqlRow> cursor = runScript("START TRANSACTION; SELECT 1; START TRANSACTION;");
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript("START TRANSACTION; SELECT 1; START TRANSACTION; COMMIT;");
 
         AsyncSqlCursor<InternalSqlRow> startTxCur = await(cursor.nextResult());
         assertNotNull(startTxCur);
@@ -296,7 +293,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void dmlFailsOnReadOnlyTransaction() {
         AsyncSqlCursor<InternalSqlRow> cursor = runScript("START TRANSACTION READ ONLY;"
-                + "SELECT 1;"
+                + "SELECT x FROM TABLE(SYSTEM_RANGE(1, 1000000));"
                 + "INSERT INTO test VALUES(0);"
                 + "COMMIT;");
 
@@ -306,7 +303,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertThrowsSqlException(RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                 () -> await(insCur.nextResult()));
 
-        expectQueryCancelled(() -> await(insCur.requestNextAsync(1)));
+        expectQueryCancelled(new DrainCursor(insCur));
 
         verifyFinishedTxCount(1);
     }
@@ -359,7 +356,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertEquals(TxState.ABORTED, tx1.state());
 
         InternalTransaction tx2 = (InternalTransaction) igniteTx().begin();
-        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx2, null, "START TRANSACTION"));
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx2, null, "START TRANSACTION; COMMIT;"));
         assertEquals(0, txManager().pending());
         assertEquals(TxState.ABORTED, tx2.state());
 

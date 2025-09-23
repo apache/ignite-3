@@ -36,6 +36,7 @@ import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.catalog.annotations.Zone;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
 class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
     private CreateZoneImpl createZone;
@@ -44,7 +45,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
 
     private CreateTableImpl createTable;
 
-    private String tableName;
+    private QualifiedName tableName;
 
     private IndexType pkType;
 
@@ -98,8 +99,11 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
         Table table = clazz.getAnnotation(Table.class);
         if (table != null) {
             String tableName = table.value().isEmpty() ? clazz.getSimpleName() : table.value();
-            createTable.name(table.schemaName(), tableName);
-            this.tableName = tableName;
+            String schemaName = table.schemaName();
+            QualifiedName qualifiedName = QualifiedName.of(schemaName, tableName);
+
+            this.tableName = qualifiedName;
+            createTable.name(qualifiedName);
 
             processZone(table);
             processTable(table);
@@ -125,17 +129,18 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
             if (zone.replicas() > 0) {
                 createZone.replicas(zone.replicas());
             }
+            if (zone.quorumSize() > 0) {
+                createZone.quorumSize(zone.quorumSize());
+            }
 
             if (!zone.distributionAlgorithm().isEmpty()) {
                 createZone.distributionAlgorithm(zone.distributionAlgorithm());
             }
 
-            if (zone.dataNodesAutoAdjust() > 0) {
-                createZone.dataNodesAutoAdjust(zone.dataNodesAutoAdjust());
-            }
             if (zone.dataNodesAutoAdjustScaleUp() > 0) {
                 createZone.dataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
             }
+
             if (zone.dataNodesAutoAdjustScaleDown() > 0) {
                 createZone.dataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
             }

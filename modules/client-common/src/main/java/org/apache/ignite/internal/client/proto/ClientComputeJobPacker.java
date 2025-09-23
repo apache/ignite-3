@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.marshalling.Marshaller;
@@ -50,13 +52,41 @@ public final class ClientComputeJobPacker {
         pack(res, marshaller, packer);
     }
 
+    /**
+     * Packs job descriptor and argument.
+     *
+     * @param <T> Job argument type.
+     * @param <R> Job result type.
+     * @param descriptor Job descriptor.
+     * @param arg Job argument.
+     * @param platformComputeSupported Whether platform compute is supported.
+     * @param w Packer.
+     */
+    public static <T, R> void packJob(JobDescriptor<T, R> descriptor, T arg, boolean platformComputeSupported, ClientMessagePacker w) {
+        w.packDeploymentUnits(descriptor.units());
+
+        w.packString(descriptor.jobClassName());
+        w.packInt(descriptor.options().priority());
+        w.packInt(descriptor.options().maxRetries());
+
+        JobExecutorType executorType = descriptor.options().executorType();
+
+        if (platformComputeSupported) {
+            w.packInt(executorType.ordinal());
+        } else if (executorType != JobExecutorType.JAVA_EMBEDDED) {
+            throw new IllegalArgumentException("Custom job executors are not supported by the server: " + executorType);
+        }
+
+        packJobArgument(arg, descriptor.argumentMarshaller(), w);
+    }
+
     /** Packs object in the format: | typeId | value |. */
     private static <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
         ComputeJobDataHolder holder = obj instanceof ComputeJobDataHolder
                 ? (ComputeJobDataHolder) obj
                 : SharedComputeUtils.marshalArgOrResult(obj, marshaller);
 
-        if (holder == null) {
+        if (holder.data() == null) {
             packer.packNil();
             return;
         }

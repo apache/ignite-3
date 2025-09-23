@@ -25,6 +25,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Compute;
+using Ignite.Marshalling;
 using Ignite.Table;
 using Internal.Proto;
 using Microsoft.Extensions.Logging;
@@ -40,9 +41,13 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const string TestReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$TestReceiver";
 
+    private const string EchoReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoReceiver";
+
     private const string EchoArgsReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoArgsReceiver";
 
     private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
+
+    private const string MarshallerReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$MarshallerReceiver";
 
     private const int Count = 100;
 
@@ -50,33 +55,23 @@ public class DataStreamerTests : IgniteTestsBase
 
     private const int DeletedKey = Count + 1;
 
-    private static readonly ReceiverDescriptor<string?, string> TestReceiver = new(TestReceiverClassName);
+    private static readonly ReceiverDescriptor<string, string?, string> TestReceiver = new(TestReceiverClassName);
 
     private static readonly ReceiverDescriptor<object?> TestReceiverNoResults = new(TestReceiverClassName);
 
-    private static readonly ReceiverDescriptor<object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
+    private static readonly ReceiverDescriptor<object, object?, object> EchoReceiver = new(EchoReceiverClassName);
 
-    private static readonly object[] AllSupportedTypes =
-    {
-        true,
-        sbyte.MaxValue,
-        short.MinValue,
-        int.MaxValue,
-        long.MinValue,
-        float.MaxValue,
-        double.MinValue,
-        decimal.One,
-        new BigDecimal(1234, 2),
-        new LocalDate(1234, 5, 6),
-        new LocalTime(12, 3, 4, 567),
-        new LocalDateTime(1234, 5, 6, 7, 8, 9),
-        Instant.FromUnixTimeSeconds(123456),
-        Guid.Empty,
-        "str123",
-        new byte[] { 1, 2, 3 },
-        Period.FromDays(999),
-        Duration.FromSeconds(12345),
-    };
+    [Obsolete("Test that obsolete API still works.")]
+    private static readonly ReceiverDescriptor<object?, object> EchoReceiverObsolete = new(EchoReceiverClassName);
+
+    private static readonly ReceiverDescriptor<object, object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
+
+    private static readonly ReceiverDescriptor<ComputeTests.Nested, ComputeTests.MyArg, ComputeTests.MyResult> MarshallerReceiver
+        = new(
+            MarshallerReceiverClassName,
+            PayloadMarshaller: new ComputeTests.ToStringMarshaller(),
+            ArgumentMarshaller: new JsonMarshaller<ComputeTests.MyArg>(),
+            ResultMarshaller: new JsonMarshaller<ComputeTests.MyResult>());
 
     private static int _unknownKey = 333000;
 
@@ -306,24 +301,24 @@ public class DataStreamerTests : IgniteTestsBase
                         // Receiver without results.
                         case false:
                             await Table.RecordBinaryView.StreamDataAsync(
-                                Array.Empty<IIgniteTuple>().ToAsyncEnumerable(),
-                                t => t,
-                                t => t.ToString()!,
-                                TestReceiverNoResults,
-                                null,
-                                options);
+                                data: Array.Empty<IIgniteTuple>().ToAsyncEnumerable(),
+                                keySelector: t => t,
+                                payloadSelector: t => t.ToString()!,
+                                receiver: TestReceiverNoResults,
+                                receiverArg: null,
+                                options: options);
 
                             break;
 
                         // Receiver with results.
                         case true:
                             await Table.RecordBinaryView.StreamDataAsync(
-                                Array.Empty<IIgniteTuple>().ToAsyncEnumerable(),
-                                t => t,
-                                t => t.ToString()!,
-                                TestReceiver,
-                                null,
-                                options).ToListAsync();
+                                data: Array.Empty<IIgniteTuple>().ToAsyncEnumerable(),
+                                receiver: TestReceiver,
+                                keySelector: t => t,
+                                payloadSelector: t => t.ToString()!,
+                                receiverArg: null,
+                                options: options).ToListAsync();
 
                             break;
                     }
@@ -509,9 +504,9 @@ public class DataStreamerTests : IgniteTestsBase
     {
         IAsyncEnumerable<string> results = TupleView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            TestReceiver,
             keySelector: x => GetTuple(x),
             payloadSelector: x => $"{x}-value{x * 10}",
-            TestReceiver,
             receiverArg: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default);
 
@@ -557,9 +552,9 @@ public class DataStreamerTests : IgniteTestsBase
     {
         IAsyncEnumerable<string> results = PocoView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            TestReceiver,
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
-            TestReceiver,
             receiverArg: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default);
 
@@ -604,9 +599,9 @@ public class DataStreamerTests : IgniteTestsBase
     {
         IAsyncEnumerable<string> results = Table.KeyValueBinaryView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            TestReceiver,
             keySelector: x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), new IgniteTuple()),
             payloadSelector: x => $"{x}-value{x * 10}",
-            TestReceiver,
             receiverArg: GetReceiverArg(Table.Name, "arg1", 22));
 
         var resultSet = await results.ToHashSetAsync();
@@ -650,9 +645,9 @@ public class DataStreamerTests : IgniteTestsBase
     {
         IAsyncEnumerable<string> results = Table.GetKeyValueView<long, Poco>().StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            TestReceiver,
             keySelector: x => new KeyValuePair<long, Poco>(x, null!),
             payloadSelector: x => $"{x}-value{x * 10}",
-            TestReceiver,
             receiverArg: GetReceiverArg(Table.Name, "arg11", 55));
 
         var resultSet = await results.ToHashSetAsync();
@@ -706,9 +701,9 @@ public class DataStreamerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
+                TestReceiver,
                 keySelector: x => GetPoco(x),
                 payloadSelector: _ => string.Empty,
-                TestReceiver,
                 receiverArg: GetReceiverArg("throw", "throw", 1)).ToListAsync());
 
         Assert.AreEqual("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: Test exception: 1", ex.Message);
@@ -728,6 +723,21 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.IsInstanceOf<DataException>(ex.InnerException);
 
         Assert.AreEqual(keySelector ? "key" : "payload", ex.Message);
+    }
+
+    [Test]
+    public void TestReceiverEmptyKey()
+    {
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
+            await TupleView.StreamDataAsync(
+            data: Enumerable.Range(0, 1).ToAsyncEnumerable(),
+            keySelector: _ => new IgniteTuple(),
+            payloadSelector: id => id,
+            receiver: TestReceiverNoResults,
+            receiverArg: "foo"));
+
+        Assert.IsInstanceOf<ArgumentException>(ex.InnerException);
+        Assert.AreEqual("Key column 'KEY' not found in the provided tuple 'IgniteTuple { }'", ex.InnerException!.Message);
     }
 
     [Test]
@@ -805,14 +815,51 @@ public class DataStreamerTests : IgniteTestsBase
             ex.Message);
     }
 
-    [TestCaseSource(nameof(AllSupportedTypes))]
-    public async Task TestEchoReceiverAllDataTypes(object arg)
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    public async Task TestEchoReceiverAllDataTypes(object payload)
     {
-        var res = await PocoView.StreamDataAsync<object, object, object, object>(
+        var res = await PocoView.StreamDataAsync(
+            new[] { payload }.ToAsyncEnumerable(),
+            EchoReceiver,
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            receiverArg: null).SingleAsync();
+
+        if (payload is decimal dec)
+        {
+            payload = new BigDecimal(dec);
+        }
+
+        Assert.AreEqual(payload, res);
+    }
+
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    [Obsolete("Test that obsolete API still works.")]
+    public async Task TestEchoReceiverObsoleteAllDataTypes(object payload)
+    {
+        var res = await PocoView.StreamDataAsync(
+            new[] { payload }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            EchoReceiverObsolete,
+            receiverArg: null).SingleAsync();
+
+        if (payload is decimal dec)
+        {
+            payload = new BigDecimal(dec);
+        }
+
+        Assert.AreEqual(payload, res);
+    }
+
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    public async Task TestEchoArgsReceiverAllDataTypes(object arg)
+    {
+        var res = await PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
+            EchoArgsReceiver,
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
-            EchoArgsReceiver,
             receiverArg: arg).SingleAsync();
 
         if (arg is decimal dec)
@@ -824,13 +871,69 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestEchoReceiverTuple()
+    {
+        var count = 5_000;
+
+        var payload = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        payload["nested"] = new IgniteTuple { ["foo"] = "bar" };
+
+        List<object> res = await PocoView.StreamDataAsync(
+            Enumerable.Range(1, count).Select(_ => payload).ToAsyncEnumerable(),
+            EchoReceiver,
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            receiverArg: null).ToListAsync();
+
+        Assert.AreEqual(count, res.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            Assert.AreEqual(payload, res[i]);
+        }
+    }
+
+    [Test]
+    public async Task TestEchoArgsReceiverTuple()
+    {
+        var arg = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        arg["nested"] = new IgniteTuple { ["foo"] = "bar" };
+
+        var res = await PocoView.StreamDataAsync(
+            new object[] { 1 }.ToAsyncEnumerable(),
+            EchoArgsReceiver,
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x.ToString()!,
+            receiverArg: arg).SingleAsync();
+
+        Assert.AreEqual(arg, res);
+    }
+
+    [Test]
+    public async Task TestMarshallerReceiver()
+    {
+        var payload = new ComputeTests.Nested(Guid.NewGuid(), 1.23m);
+        var arg = new ComputeTests.MyArg(1, "foo", new ComputeTests.Nested(Guid.NewGuid(), 2.2m));
+
+        ComputeTests.MyResult res = await PocoView.StreamDataAsync(
+            new[] { payload }.ToAsyncEnumerable(),
+            MarshallerReceiver,
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            receiverArg: arg).FirstAsync();
+
+        Assert.AreEqual("foo_1", res.Data);
+        Assert.AreEqual(payload, res.Nested);
+    }
+
+    [Test]
     public async Task TestResultConsumerEarlyExit()
     {
         IAsyncEnumerable<string> results = PocoView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            TestReceiver,
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
-            TestReceiver,
             receiverArg: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default with { PageSize = 1 });
 
@@ -852,11 +955,11 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestResultConsumerCancellation()
     {
-        IAsyncEnumerable<string> results = PocoView.StreamDataAsync<int, string, string?, string>(
+        IAsyncEnumerable<string> results = PocoView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
+            TestReceiver,
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
-            TestReceiver,
             receiverArg: GetReceiverArg(Table.Name, "arg1", 22),
             options: DataStreamerOptions.Default with { PageSize = 1 });
 

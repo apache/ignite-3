@@ -27,13 +27,13 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
 public class MessageServiceImpl implements MessageService {
     private final MessagingService messagingSrvc;
 
-    private final String localNodeName;
+    private final InternalClusterNode localNode;
 
     private final QueryTaskExecutor taskExecutor;
 
@@ -54,17 +54,22 @@ public class MessageServiceImpl implements MessageService {
     private volatile Int2ObjectMap<MessageListener> lsnrs;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructors the object.
+     *
+     * @param localNode The local node.
+     * @param messagingSrvc Actual service to send messages over network.
+     * @param taskExecutor An executor to delegate processing of received message.
+     * @param busyLock A lock to synchronize message processing and parent service stop.
+     * @param clockService A clock to propagate updated timestamp.
      */
     public MessageServiceImpl(
-            String localNodeName,
+            InternalClusterNode localNode,
             MessagingService messagingSrvc,
             QueryTaskExecutor taskExecutor,
             IgniteSpinBusyLock busyLock,
             ClockService clockService
     ) {
-        this.localNodeName = localNodeName;
+        this.localNode = localNode;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
         this.busyLock = busyLock;
@@ -85,8 +90,8 @@ public class MessageServiceImpl implements MessageService {
         }
 
         try {
-            if (localNodeName.equals(nodeName)) {
-                onMessage(nodeName, msg);
+            if (localNode.name().equals(nodeName)) {
+                onMessage(localNode, msg);
 
                 return nullCompletedFuture();
             } else {
@@ -120,20 +125,20 @@ public class MessageServiceImpl implements MessageService {
         assert old == null : old;
     }
 
-    private void onMessage(String consistentId, NetworkMessage msg) {
+    private void onMessage(InternalClusterNode sender, NetworkMessage msg) {
         if (msg instanceof CancelOperationRequest) {
             return;
         }
 
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
-            taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(consistentId, msg));
+            taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(sender, msg));
         } else {
-            taskExecutor.execute(() -> onMessageInternal(consistentId, msg));
+            taskExecutor.execute(() -> onMessageInternal(sender, msg));
         }
     }
 
-    private void onMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage msg, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -146,13 +151,13 @@ public class MessageServiceImpl implements MessageService {
                 clockService.updateClock(((TimestampAware) msg).timestamp());
             }
 
-            onMessage(sender.name(), msg);
+            onMessage(sender, msg);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private void onMessageInternal(String consistentId, NetworkMessage msg) {
+    private void onMessageInternal(InternalClusterNode sender, NetworkMessage msg) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -163,7 +168,7 @@ public class MessageServiceImpl implements MessageService {
                     "there is no listener for msgType=" + msg.messageType()
             );
 
-            lsnr.onMessage(consistentId, msg);
+            lsnr.onMessage(sender, msg);
         } finally {
             busyLock.leaveBusy();
         }

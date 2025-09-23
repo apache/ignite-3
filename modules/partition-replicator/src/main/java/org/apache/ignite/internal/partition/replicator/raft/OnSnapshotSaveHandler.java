@@ -58,22 +58,20 @@ public class OnSnapshotSaveHandler {
         long lastAppliedIndex = snapshotInfo.lastAppliedIndex();
         long lastAppliedTerm = snapshotInfo.lastAppliedTerm();
 
-        CompletableFuture<?>[] tableStorageFlushFutures = tableProcessors.stream()
-                .map(processor -> {
-                    processor.lastApplied(lastAppliedIndex, lastAppliedTerm);
+        tableProcessors.forEach(processor -> processor.lastApplied(lastAppliedIndex, lastAppliedTerm));
 
-                    return processor.flushStorage();
-                })
+        txStatePartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+
+        CompletableFuture<?>[] tableStorageFlushFutures = tableProcessors.stream()
+                .map(RaftTableProcessor::flushStorage)
                 .toArray(CompletableFuture<?>[]::new);
 
         // Flush the TX state storage last to guarantee that all data is flushed before the snapshot is saved.
         return allOf(tableStorageFlushFutures)
                 .thenComposeAsync(v -> {
-                    txStatePartitionStorage.snapshotInfo(
-                            VersionedSerialization.toBytes(snapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE),
-                            lastAppliedIndex,
-                            lastAppliedTerm
-                    );
+                    byte[] snapshotInfoBytes = VersionedSerialization.toBytes(snapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE);
+
+                    txStatePartitionStorage.snapshotInfo(snapshotInfoBytes);
 
                     return txStatePartitionStorage.flush();
                 }, partitionOperationsExecutor);

@@ -23,9 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** For {@link TxState} testing. */
 public class TxStateTest {
@@ -123,20 +128,33 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    private static Stream<Arguments> txStateIds() {
+        return Stream.of(
+                arguments(TxState.PENDING, 0),
+                arguments(TxState.FINISHING, 1),
+                arguments(TxState.ABORTED, 2),
+                arguments(TxState.COMMITTED, 3),
+                arguments(TxState.ABANDONED, 4)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("txStateIds")
+    void testId(TxState txState, int expectedId) {
+        assertEquals(expectedId, txState.id());
+    }
+
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("txStateIds")
+    void testFromId(TxState expectedEnumEntry, int id) {
+        assertEquals(expectedEnumEntry, TxState.fromId(id));
+
+    }
+
     @Test
-    void testFromOrdinal() {
-        assertEquals(TxState.PENDING, TxState.fromOrdinal(0));
-
-        assertEquals(TxState.FINISHING, TxState.fromOrdinal(1));
-
-        assertEquals(TxState.ABORTED, TxState.fromOrdinal(2));
-
-        assertEquals(TxState.COMMITTED, TxState.fromOrdinal(3));
-
-        assertEquals(TxState.ABANDONED, TxState.fromOrdinal(4));
-
-        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(5));
+    void testFromIdThrows() {
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromId(5));
     }
 }

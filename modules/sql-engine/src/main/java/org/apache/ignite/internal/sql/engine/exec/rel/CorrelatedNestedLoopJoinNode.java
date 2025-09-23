@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
@@ -138,7 +139,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
         if (idx == 0) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {
@@ -158,7 +159,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 }
             };
         } else if (idx == 1) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {
@@ -180,6 +181,15 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
 
         throw new IndexOutOfBoundsException();
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waitingLeft=").app(waitingLeft)
+                .app(", waitingRight=").app(waitingRight)
+                .app(", state=").app(state);
     }
 
     private void pushLeft(RowT row) throws Exception {

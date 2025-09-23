@@ -27,10 +27,14 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.assertValueOnSpecificNode;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.pendingPartitionAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -38,7 +42,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
@@ -57,6 +60,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +72,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -83,14 +86,8 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.OperationType;
-import org.apache.ignite.internal.metastorage.dsl.Statement;
-import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
@@ -105,11 +102,14 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -119,9 +119,9 @@ import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitio
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -131,7 +131,6 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
-import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -173,6 +172,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     /** ID of the table with name {@link #TABLE_NAME} in zone {@link #zoneId}. */
     private int tableId;
 
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("id", NativeTypes.INT32, false)},
+            new Column[]{
+                    new Column("val", NativeTypes.INT32, false),
+            }
+    );
+
     @Override
     protected int initialNodes() {
         return INITIAL_NODES;
@@ -194,9 +201,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         ZoneParams zoneParams = testMethod.getAnnotation(ZoneParams.class);
 
-        IntStream.range(INITIAL_NODES, zoneParams.nodes()).forEach(i -> cluster.startNode(i));
-        // TODO: IGNITE-22818 Fails with "Race operations took too long"
-        // startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
+        startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
         executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
                         + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
@@ -408,14 +413,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     @Test
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24232
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     @MuteFailureManagerLogging
     void testManualRebalanceRecovery() throws Exception {
         int partId = 0;
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         IgniteImpl node0 = igniteImpl(0);
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
@@ -455,7 +458,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Blocking stable switch to the first phase or reset,
         // so that we'll have force pending assignments unexecuted.
-        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment0));
+        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignment0));
 
         // Init reset:
         // pending = [0, force]
@@ -536,7 +539,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Blocking stable switch to the first phase or reset,
         // so that we'll have force pending assignments unexecuted.
-        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignmentPending));
+        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignmentPending));
 
         // Stop 3. Nodes 0 and 1 survived.
         stopNode(3);
@@ -675,7 +678,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
     }
 
-
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     @MuteFailureManagerLogging
@@ -755,7 +757,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     public void testPlannedIsOverwritten() throws Exception {
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
@@ -797,7 +799,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, 2));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, 2));
 
         Assignments assignmentsPlannedReplaced = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
@@ -871,7 +873,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node1 = igniteImpl(1);
 
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         awaitPrimaryReplica(node0, partId);
 
@@ -943,9 +945,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         stopNode(4);
+
+        // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
+        // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
+        // the race between rebalance and assignments verifications that we do below.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        Assignments assignmentToBlock = Assignments.of(Set.of(Assignment.forPeer(node(1).name())), timestamp);
+        blockRebalanceStableSwitch(partId, assignmentToBlock);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<Void> resetFuture =
@@ -1003,11 +1012,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         Assignments allAssignments = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
+                Assignment.forLearner(node(1).name()),
                 Assignment.forPeer(node(2).name()),
                 Assignment.forPeer(node(3).name()),
                 Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
+                Assignment.forLearner(node(5).name()),
                 Assignment.forPeer(node(6).name())
         ), timestamp);
 
@@ -1038,7 +1047,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(followerNodes.remove(node0IndexInFollowers == -1 ? 0 : node0IndexInFollowers));
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
+        blockMessage(cluster, (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
@@ -1053,7 +1062,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(errors, is(empty()));
 
         // Disable scale down.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         // Now followerNodes has 4 elements - without the leader and two blocked nodes. Stop them all.
         int[] nodesToStop = followerNodes.stream()
@@ -1070,13 +1079,24 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<String> nodesNamesForFinalAssignments = new ArrayList<>(blockedNodes);
         nodesNamesForFinalAssignments.add(leaderName);
 
-        // Unblock raft.
-        blockedNodes.clear();
+        // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
+        // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
+        // the race between rebalance and assignments verifications that we do below.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        Assignments assignmentToBlock = Assignments.of(Set.of(Assignment.forPeer(leaderName)), timestamp);
+        blockRebalanceStableSwitch(partId, assignmentToBlock);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
                 TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
         assertThat(updateFuture, willCompleteSuccessfully());
+
+        // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index
+        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phase target instead of
+        // expected within test leaderName = findLeader(1, partId);
+
+        // Unblock raft.
+        blockedNodes.clear();
 
         // Pending is the one with the most up to date log index.
         Assignments assignmentPending = Assignments.forced(Set.of(Assignment.forPeer(leaderName)), timestamp);
@@ -1092,7 +1112,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
         // Wait for the new stable assignments to take effect.
-        executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
+        executeSql(format("ALTER ZONE %s SET (replicas %d)", zoneName, 3));
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
@@ -1119,7 +1139,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1)
-    void testThoPhaseResetEqualLogIndex() throws Exception {
+    void testTwoPhaseResetEqualLogIndex() throws Exception {
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
@@ -1140,12 +1160,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
         Assignments allAssignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
+                Assignment.forLearner(node(0).name()),
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(2).name()),
                 Assignment.forPeer(node(3).name()),
                 Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
+                Assignment.forLearner(node(5).name()),
                 Assignment.forPeer(node(6).name())
         ), timestamp);
 
@@ -1174,14 +1194,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(blockedNode);
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
+        blockMessage(cluster, (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
         assertThat(errors, is(empty()));
 
+        assertInsertedValuesOnSpecificNodes(table.name(), followerNodes, partId, 10);
+
         // Disable scale down.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         List<String> nodeNamesToStop = new ArrayList<>(followerNodes);
         // Make sure there are 4 elements in this list.
@@ -1193,9 +1215,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         logger().info("Stopping nodes [id={}]", Arrays.toString(nodesToStop));
         stopNodesInParallel(nodesToStop);
 
-        // Unblock raft.
-        blockedNodes.clear();
-
         // Two nodes should have the most up to date data, one falls behind.
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.READ_ONLY);
 
@@ -1203,12 +1222,26 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<String> nodesNamesForFinalAssignments = new ArrayList<>(clusterNodeNames);
         nodesNamesForFinalAssignments.removeAll(nodeNamesToStop);
 
+        String pendingNodeName = getPendingNodeName(nodesNamesForFinalAssignments, blockedNode);
+
+        // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
+        // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
+        // the race between rebalance and assignments verifications that we do below.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        Assignments assignmentsToBlock = Assignments.of(Set.of(Assignment.forPeer(pendingNodeName)), timestamp);
+        blockRebalanceStableSwitch(partId, assignmentsToBlock);
+
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
                 TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
         assertThat(updateFuture, willCompleteSuccessfully());
 
-        String pendingNodeName = getPendingNodeName(nodesNamesForFinalAssignments, blockedNode);
+        // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index
+        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phase target instead of
+        // expected within test leaderName = findLeader(1, partId);
+
+        // Unblock raft.
+        blockedNodes.clear();
 
         // Pending is the one with the most up to date log index.
         Assignments assignmentPending = Assignments.forced(Set.of(Assignment.forPeer(pendingNodeName)), timestamp);
@@ -1224,7 +1257,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
         // Wait for the new stable assignments to take effect.
-        executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
+        executeSql(format("ALTER ZONE %s SET (replicas %d)", zoneName, 3));
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
@@ -1286,8 +1319,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 7, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testAssignmentsChainUpdate() throws Exception {
         int partId = 0;
 
@@ -1337,7 +1368,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertIndexAndTermInLastChainLink(node0, partId);
 
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         // Disable automatic rebalance since we want to restore replica factor.
         setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
@@ -1354,13 +1385,24 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         AtomicBoolean blockedLink = new AtomicBoolean(true);
 
         // Block stable switch to check that we initially add reset phase 1 assignments to the chain.
-        blockMessage((nodeName, msg) -> blockedLink.get() && stableKeySwitchMessage(msg, partId, resetAssignments));
+        blockMessage(
+                cluster,
+                (nodeName, msg) -> blockedLink.get() && stableKeySwitchMessage(msg, partitionGroupId(partId), resetAssignments)
+        );
 
         stopNodesInParallel(1, 2);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+
+        CompletableFuture<Void> updateFuture = TestDisasterRecoveryUtils.resetPartitions(
+                disasterRecoveryManager,
+                zoneName,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                emptySet(),
+                true,
+                -1
+        );
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1430,7 +1472,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         awaitPrimaryReplica(node0, partId);
 
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
@@ -1462,7 +1504,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         AtomicBoolean blockedLink2 = new AtomicBoolean(true);
 
         // Block stable switch to check that we initially add reset phase 1 assignments to the chain.
-        blockMessage((nodeName, msg) -> blockedLink2.get() && stableKeySwitchMessage(msg, partId, link2Assignments));
+        blockMessage(
+                cluster,
+                (nodeName, msg) -> blockedLink2.get() && stableKeySwitchMessage(msg, partitionGroupId(partId), link2Assignments)
+        );
 
         logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{3, 4, 5, 6}));
 
@@ -1497,7 +1542,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {
@@ -1513,7 +1558,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Disable automatic reset since we want to check manual ones.
         setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
@@ -1589,8 +1634,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testGracefulRewritesChainAfterForceReset() throws Exception {
         int partId = 0;
 
@@ -1604,7 +1647,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Disable automatic reset since we want to check manual ones.
         setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         assertRealAssignments(node0, partId, 2, 3, 5);
 
@@ -1647,7 +1690,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(initialAssignments, link2Assignments));
 
         // Return back scale down.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, 1));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, 1));
 
         // Now stop one and check graceful rebalance.
         logger().info("Stopping nodes [ids={}].", 1);
@@ -1669,7 +1712,59 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(finalAssignments));
     }
 
-    private void setDistributionResetTimeout(IgniteImpl node, long timeout) {
+    /**
+     * Lease agreement message should be the first message sent after reset.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25644")
+    @ZoneParams(nodes = 3, replicas = 3, partitions = 1)
+    void testLeaseResendOnManualReset() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(TABLE_NAME);
+
+        ReplicaMeta primaryBeforeReset = awaitPrimaryReplica(node0, partId);
+        logger().info("Primary replica before reset is {}", primaryBeforeReset);
+
+        assertRealAssignments(node0, partId, 0, 1, 2);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        stopNodesInParallel(1, 2);
+
+        // Reset the partition to make it operable.
+        CompletableFuture<?> resetFuture = TestDisasterRecoveryUtils.resetPartitions(
+                node0.disasterRecoveryManager(),
+                zoneName,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                emptySet(),
+                true,
+                -1
+        );
+
+        assertThat(resetFuture, willCompleteSuccessfully());
+
+        ReplicationConfiguration config = node0
+                .clusterConfiguration()
+                .getConfiguration(ReplicationExtensionConfiguration.KEY)
+                .replication();
+        // Should be a new lease after the reset.
+        assertTrue(waitForCondition(() -> {
+            try {
+                ReplicaMeta primaryAfterReset = awaitPrimaryReplica(node0, partId);
+                // We expect that a new lease is issued for the new stable.
+                return primaryAfterReset.getStartTime().compareTo(primaryBeforeReset.getStartTime()) > 0;
+            } catch (ExecutionException | InterruptedException e) {
+                fail(e);
+            }
+            return false;
+        }, config.leaseExpirationIntervalMillis().value() * 2));
+    }
+
+    private static void setDistributionResetTimeout(IgniteImpl node, long timeout) {
         CompletableFuture<Void> changeFuture = node
                 .clusterConfiguration()
                 .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
@@ -1692,18 +1787,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return candidates.get(0);
     }
 
-    private void blockMessage(BiPredicate<String, NetworkMessage> predicate) {
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
-            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
-
-            if (oldPredicate == null) {
-                node.dropMessages(predicate);
-            } else {
-                node.dropMessages(oldPredicate.or(predicate));
-            }
-        });
-    }
-
     private static boolean dataReplicateMessage(
             String nodeName,
             NetworkMessage msg,
@@ -1723,41 +1806,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Block rebalance, so stable won't be switched to specified pending.
      */
     private void blockRebalanceStableSwitch(int partId, Assignments assignment) {
-        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment));
-    }
-
-    private boolean stableKeySwitchMessage(NetworkMessage msg, int partId, Assignments blockedAssignments) {
-        if (msg instanceof WriteActionRequest) {
-            var writeActionRequest = (WriteActionRequest) msg;
-            WriteCommand command = writeActionRequest.deserializedCommand();
-
-            if (command instanceof MultiInvokeCommand) {
-                MultiInvokeCommand multiInvokeCommand = (MultiInvokeCommand) command;
-
-                Statement andThen = multiInvokeCommand.iif().andThen();
-
-                if (andThen instanceof UpdateStatement) {
-                    UpdateStatement updateStatement = (UpdateStatement) andThen;
-                    List<Operation> operations = updateStatement.update().operations();
-
-                    ByteArray stablePartAssignmentsKey = stablePartitionAssignmentsKey(partitionGroupId(partId));
-
-                    for (Operation operation : operations) {
-                        ByteArray opKey = new ByteArray(toByteArray(operation.key()));
-
-                        if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
-                            return blockedAssignments.equals(Assignments.fromBytes(toByteArray(operation.value())));
-                        }
-                    }
-                }
-            }
-        }
-
-        return false;
+        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignment));
     }
 
     private void waitForPartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState) throws InterruptedException {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             waitForZonePartitionState(node0, partId, expectedState);
         } else {
             waitForTablePartitionState(node0, partId, expectedState);
@@ -1798,7 +1851,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
             Map<ZonePartitionId, GlobalPartitionState> map = statesFuture.join();
 
-
             GlobalPartitionState state = map.get(new ZonePartitionId(zoneId, partId));
 
             partitionState.set(state);
@@ -1810,7 +1862,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void assertLocalState(IgniteImpl node0, int partId, LocalPartitionStateEnum state) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             assertZoneLocalState(node0, partId, state);
         } else {
             assertTableLocalState(node0, partId, state);
@@ -1838,7 +1890,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertEquals(state, localPartitionStateByNode.values().iterator().next().state);
     }
-
 
     private String findLeader(int nodeIdx, int partId) {
         IgniteImpl node = igniteImpl(nodeIdx);
@@ -1884,14 +1935,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private PartitionGroupId partitionGroupId(int partId) {
-        return enabledColocation() ? new ZonePartitionId(zoneId, partId) : new TablePartitionId(tableId, partId);
+        return colocationEnabled() ? new ZonePartitionId(zoneId, partId) : new TablePartitionId(tableId, partId);
     }
 
-    private void awaitPrimaryReplica(IgniteImpl node0, int partId) {
+    private ReplicaMeta awaitPrimaryReplica(IgniteImpl node0, int partId) throws ExecutionException, InterruptedException {
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture = node0.placementDriver()
                 .awaitPrimaryReplica(partitionGroupId(partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willSucceedIn(60, SECONDS));
+
+        return awaitPrimaryReplicaFuture.get();
     }
 
     private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
@@ -2081,7 +2134,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         logger().info("Pending is {}", pending);
 
-        return pending.empty() ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
+        // TODO Remove pending.value() == null check https://issues.apache.org/jira/browse/IGNITE-25479
+        return pending.empty() || pending.value() == null ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
     }
 
     private @Nullable Assignments getStableAssignments(IgniteImpl node, int partId) {
@@ -2096,8 +2150,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private @Nullable AssignmentsChain getAssignmentsChain(IgniteImpl node, int partId) {
-        CompletableFuture<Entry> chainFut = node.metaStorageManager()
-                .get(assignmentsChainKey(new TablePartitionId(tableId, partId)));
+        CompletableFuture<Entry> chainFut;
+        if (colocationEnabled()) {
+            chainFut = node.metaStorageManager()
+                    .get(ZoneRebalanceUtil.assignmentsChainKey(new ZonePartitionId(zoneId, partId)));
+        } else {
+            chainFut = node.metaStorageManager()
+                    .get(RebalanceUtil.assignmentsChainKey(new TablePartitionId(tableId, partId)));
+        }
 
         assertThat(chainFut, willCompleteSuccessfully());
 
@@ -2117,46 +2177,31 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         ConsistencyMode consistencyMode() default ConsistencyMode.STRONG_CONSISTENCY;
     }
 
+    private void assertInsertedValuesOnSpecificNodes(
+            String tableName,
+            Collection<String> nodesNames,
+            int partitionId,
+            int offset
+    ) throws Exception {
+        Set<IgniteImpl> nodes = cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(node -> nodesNames.contains(node.name()))
+                .collect(Collectors.toSet());;
 
-    /**
-     * Returns stable partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Stable partition assignments key.
-     */
-    public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionGroupId);
-        }
-    }
+        for (IgniteImpl node : nodes) {
+            Table table = node.tables().table(tableName);
 
-    /**
-     * Returns pending partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Pending partition assignments key.
-     */
-    public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) partitionGroupId);
-        }
-    }
+            for (int i = 0, created = 0; created < ENTRIES; i++) {
+                Tuple key = Tuple.create(of("id", i));
+                if ((unwrapTableImpl(table)).partitionId(key) != partitionId) {
+                    continue;
+                }
 
-    /**
-     * Returns planned partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Planned partition assignments key.
-     */
-    public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);
+                //noinspection AssignmentToForLoopParameter
+                created++;
+
+                assertValueOnSpecificNode(tableName, node, i, i + offset, SCHEMA);
+            }
         }
     }
 }

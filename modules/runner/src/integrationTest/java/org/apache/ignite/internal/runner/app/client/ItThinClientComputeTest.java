@@ -71,11 +71,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -83,7 +82,6 @@ import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -98,6 +96,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.JobTaskStatusMapper;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -148,33 +147,31 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void computeExecuteAsyncWithCancelHandle() {
-        IgniteClient entryNode = client();
         ClusterNode executeNode = node(1);
 
         CancelHandle cancelHandle = CancelHandle.create();
 
         JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, null, cancelHandle.token());
+        CompletableFuture<Void> execution = client().compute().executeAsync(JobTarget.node(executeNode), job, null, cancelHandle.token());
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
+        assertThat(execution, willThrow(ComputeException.class));
     }
 
     @Test
     void computeExecuteWithCancelHandle() {
-        IgniteClient entryNode = client();
         ClusterNode executeNode = node(1);
 
         CancelHandle cancelHandle = CancelHandle.create();
 
         JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() ->  entryNode.compute()
+        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() ->  client().compute()
                 .execute(JobTarget.node(executeNode), job, null, cancelHandle.token()));
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+        assertThat(runFut, willThrow(ComputeException.class));
     }
 
     @Test
@@ -211,16 +208,28 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void cancelComputeExecuteMapReduceAsyncWithCancelHandle() {
-        IgniteClient entryNode = client();
-
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Void> execution = entryNode.compute()
+        CompletableFuture<Void> execution = client().compute()
                 .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), null, cancelHandle.token());
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
+        assertThat(execution, willThrow(ComputeException.class));
+    }
+
+    @Test
+    void cancelComputeSubmitMapReduceAsyncWithCancelHandle() {
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        TaskExecution<Void> taskExec = client().compute()
+                .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), null, cancelHandle.token());
+
+        cancelHandle.cancel();
+
+        assertThat(taskExec.resultAsync(), willThrow(ComputeException.class));
+
+        assertThat(taskExec.stateAsync(), willBe(taskStateWithStatus(TaskStatus.CANCELED)));
     }
 
     @Test
@@ -410,7 +419,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         JobExecution<String> execution = submit(
-                JobTarget.anyNode(client().clusterNodes()), JobDescriptor.builder(ConcatJob.class).build(),
+                JobTarget.anyNode(client().cluster().nodes()), JobDescriptor.builder(ConcatJob.class).build(),
                 "1:2:3.3"
         );
 
@@ -843,9 +852,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteMapReduce() throws Exception {
-        IgniteCompute igniteCompute = client().compute();
         TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(MapReduceNodeNameTask.class).build();
-        TaskExecution<String> execution = igniteCompute.submitMapReduce(taskDescriptor, null);
+        TaskExecution<String> execution = client().compute().submitMapReduce(taskDescriptor, null);
 
         List<Matcher<? super String>> nodeNames = sortedNodes().stream()
                 .map(ClusterNode::name)
@@ -862,9 +870,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteMapReduceWithArgs() {
-        IgniteCompute igniteCompute = client().compute();
         TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(MapReduceArgsTask.class).build();
-        TaskExecution<String> execution = igniteCompute.submitMapReduce(taskDescriptor, "1:2:3.3");
+        TaskExecution<String> execution = client().compute().submitMapReduce(taskDescriptor, "1:2:3.3");
 
         assertThat(execution.resultAsync(), willBe(containsString("1_2_3.3")));
         assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.COMPLETED)));
@@ -873,17 +880,50 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
     <I, M, T> void testExecuteMapReduceExceptionPropagation(Class<? extends MapReduceTask<I, M, T, String>> taskClass) {
-        TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
-        IgniteException cause = getExceptionInTaskExecutionAsync(client().compute().submitMapReduce(taskDescriptor, null));
+        // Task execution doesn't use preferred node name and will use round-robin leading to random node selection
+        try (IgniteClient client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
+            TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
+            IgniteException cause = getExceptionInTaskExecutionAsync(client.compute().submitMapReduce(taskDescriptor, null));
 
-        assertThat(cause.getMessage(), containsString("Custom job error"));
-        assertEquals(TRACE_ID, cause.traceId());
-        assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-        assertInstanceOf(CustomException.class, cause);
-        assertNotNull(cause.getCause());
-        String hint = cause.getCause().getMessage();
+            assertThat(cause.getMessage(), containsString("Custom job error"));
+            assertEquals(TRACE_ID, cause.traceId());
+            assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
+            assertInstanceOf(CustomException.class, cause);
+            assertNotNull(cause.getCause());
+            String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        }
+    }
+
+    @Test
+    void testReceiverResultsObservedImmediately() {
+        int count = 20_000;
+        JobDescriptor<Tuple, Void> jobDescriptor = JobDescriptor.builder(UpsertAllJob.class).build();
+
+        for (int port : getClientPorts()) {
+            try (var client = IgniteClient.builder().addresses("localhost:" + port).build()) {
+                int start = port * count;
+                Tuple arg = Tuple.create().set("start", start).set("count", count);
+
+                client.compute().execute(JobTarget.node(node(0)), jobDescriptor, arg);
+
+                int resCount = 0;
+
+                try (Cursor<Tuple> cursor = client.tables().table(TABLE_NAME).recordView().query(null, null)) {
+                    while (cursor.hasNext()) {
+                        resCount++;
+                        Tuple item = cursor.next();
+
+                        assertEquals("v" + item.intValue(COLUMN_KEY), item.stringValue(COLUMN_VAL));
+                    }
+                }
+
+                assertEquals(count, resCount);
+
+                client.sql().executeScript("DELETE FROM " + TABLE_NAME);
+            }
+        }
     }
 
     private void testEchoArg(Object arg) {
@@ -1004,7 +1044,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceNodeNameTask implements MapReduceTask<String, Object, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, String args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
@@ -1024,7 +1064,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceArgsTask implements MapReduceTask<String, String, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(TaskExecutionContext context, String args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<String, String>builder()
                             .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
                             .nodes(Set.of(node))
@@ -1057,7 +1097,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         @Override
         public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, Object args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
@@ -1100,14 +1140,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     MapReduceJob.<Void, Void>builder()
                             .jobDescriptor(
                                     JobDescriptor.builder(InfiniteMapReduceJob.class).build())
-                            .nodes(taskContext.ignite().clusterNodes())
+                            .nodes(taskContext.ignite().cluster().nodes())
                             .build()
             ));
         }
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Void> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         private static class InfiniteMapReduceJob implements ComputeJob<Void, Void> {
@@ -1115,6 +1155,21 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
                 return new CompletableFuture<>();
             }
+        }
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    private static class UpsertAllJob implements ComputeJob<Tuple, Void> {
+        @Override
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Tuple arg) {
+            int start = arg.intValue("start");
+            int count = arg.intValue("count");
+
+            List<Tuple> tuples = IntStream.range(start, start + count).map(i -> i + 1)
+                    .mapToObj(i -> Tuple.create().set(COLUMN_KEY, i).set(COLUMN_VAL, "v" + i))
+                    .collect(Collectors.toList());
+
+            return context.ignite().tables().table(TABLE_NAME).recordView().upsertAllAsync(null, tuples);
         }
     }
 }

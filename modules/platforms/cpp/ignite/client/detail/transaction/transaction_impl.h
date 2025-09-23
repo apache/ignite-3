@@ -66,7 +66,7 @@ public:
      * avoid conflicts if the same data is accessed after transaction is destructed.
      */
     ~transaction_impl() {
-        sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
+        sync<void>([this](const auto& callback) { rollback_async(std::move(callback)); });
     }
 
     /**
@@ -74,9 +74,9 @@ public:
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    void commit_async(ignite_callback<void> callback) {
+    void commit_async(const ignite_callback<void>& callback) {
         if (set_state(state::COMMITTED))
-            finish(true, std::move(callback));
+            finish(true, callback);
         else
             callback({});
     }
@@ -86,9 +86,9 @@ public:
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    void rollback_async(ignite_callback<void> callback) {
+    void rollback_async(const ignite_callback<void>& callback) {
         if (set_state(state::ROLLED_BACK))
-            finish(false, std::move(callback));
+            finish(false, callback);
         else
             callback({});
     }
@@ -114,12 +114,18 @@ private:
      * @param commit Flag indicating should transaction be committed or rolled back.
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    void finish(bool commit, ignite_callback<void> callback) {
-        auto writer_func = [id = m_id](protocol::writer &writer) { writer.write(id); };
+    void finish(bool commit, const ignite_callback<void> &callback) {
+        auto writer_func = [id = m_id](protocol::writer &writer, auto) { writer.write(id); };
 
-        m_connection->perform_request_wr<void>(
+        auto req_id = m_connection->perform_request_wr<void>(
             commit ? protocol::client_operation::TX_COMMIT : protocol::client_operation::TX_ROLLBACK, writer_func,
-            std::move(callback));
+            callback);
+
+        if (!req_id) {
+            callback(ignite_error{error::code::CONNECTION, ""
+                "Can not perform an operation on transaction as the associated connection is closed."
+                " Transaction is rolled back implicitly"});
+        }
     }
 
     /**

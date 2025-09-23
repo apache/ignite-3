@@ -89,6 +89,9 @@ public class ZonePartitionReplicaImpl implements Replica {
     public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
 
+        raftClient.unsubscribeLeader();
+        raftClient.shutdown();
+
         return nullCompletedFuture();
     }
 

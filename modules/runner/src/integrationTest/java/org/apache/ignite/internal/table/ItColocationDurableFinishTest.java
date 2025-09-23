@@ -21,14 +21,12 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_
 
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.junit.jupiter.api.Disabled;
 
 /**
  * Test resending the finish request from the coordinator when the previous attempts failed for any reason.
  */
 // TODO Remove https://issues.apache.org/jira/browse/IGNITE-22522
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-24774")
 public class ItColocationDurableFinishTest extends ItDurableFinishTest {
     @Override
     void testChangedPrimaryOnFinish() throws Exception {

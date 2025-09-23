@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
+import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -76,7 +77,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -190,7 +191,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         LOG.info("Cluster started.");
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory("Raft-Group-Client", LOG));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", "Raft-Group-Client", LOG));
     }
 
     /**
@@ -490,7 +491,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 raftConfiguration,
                 membersConfiguration,
                 executor,
-                commandsMarshaller
+                commandsMarshaller,
+                throttlingContextHolder()
         );
 
         metaStorageRaftGrpSvc2 = RaftGroupServiceImpl.start(
@@ -500,7 +502,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 raftConfiguration,
                 membersConfiguration,
                 executor,
-                commandsMarshaller
+                commandsMarshaller,
+                throttlingContextHolder()
         );
 
         metaStorageRaftGrpSvc3 = RaftGroupServiceImpl.start(
@@ -510,7 +513,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 raftConfiguration,
                 membersConfiguration,
                 executor,
-                commandsMarshaller
+                commandsMarshaller,
+                throttlingContextHolder()
         );
 
         assertTrue(waitForCondition(

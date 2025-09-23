@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -27,10 +27,10 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
 /** Utilities for working with replicas and replicas manager in tests. */
@@ -63,7 +63,7 @@ public final class ReplicaTestUtils {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
     public static Optional<RaftGroupService> getRaftClient(ReplicaManager replicaManager, int tableOrZoneId, int partId) {
         CompletableFuture<Replica> replicaFut = replicaManager
-                .replica(enabledColocation() ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId));
+                .replica(colocationEnabled() ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId));
 
         if  (replicaFut == null) {
             return Optional.empty();
@@ -112,7 +112,7 @@ public final class ReplicaTestUtils {
      */
     @TestOnly
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
-    public static ClusterNode leaderAssignment(Ignite node, int tableOrZoneId, int partId) {
+    public static InternalClusterNode leaderAssignment(Ignite node, int tableOrZoneId, int partId) {
         return leaderAssignment(getReplicaManager(node), getTopologyService(node), tableOrZoneId, partId);
     }
 
@@ -128,7 +128,7 @@ public final class ReplicaTestUtils {
      */
     @TestOnly
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
-    public static ClusterNode leaderAssignment(
+    public static InternalClusterNode leaderAssignment(
             ReplicaManager replicaManager,
             TopologyService topologyService,
             int tableOrZoneId,

@@ -23,6 +23,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
@@ -45,6 +46,18 @@ public interface IgniteRel extends PhysicalNode {
      * @return New rel.
      */
     IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs);
+
+    /**
+     * Writes attributes of the relation to a given {@link IgniteRelWriter writer}.
+     *
+     * <p>Every rel should include their own attributes while inputs will be processed from outside.
+     *
+     * @param writer Writer to write relation attributes.
+     * @return The same write for chaining.
+     */
+    default IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer;
+    }
 
     /**
      * Get node distribution.

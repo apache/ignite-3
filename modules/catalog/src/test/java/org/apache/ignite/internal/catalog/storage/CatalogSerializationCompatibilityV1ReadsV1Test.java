@@ -33,6 +33,11 @@ public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSeria
     }
 
     @Override
+    protected String dirName() {
+        return "serialization_v1";
+    }
+
+    @Override
     protected boolean expectExactVersion() {
         return true;
     }

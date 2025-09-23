@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
@@ -45,6 +46,7 @@ import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -53,6 +55,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,6 +63,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.SubmissionPublisher;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
@@ -67,9 +73,13 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -98,8 +108,11 @@ import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
+import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -847,6 +860,39 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
+    private static class MarshallerReceiver implements DataStreamerReceiver<Nested, MyArg, MyResult> {
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> payloadMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> argumentMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
+        }
+
+        @Override
+        public CompletableFuture<List<MyResult>> receive(List<Nested> page, DataStreamerReceiverContext ctx, MyArg arg) {
+            List<MyResult> results = new ArrayList<>(page.size());
+
+            for (Nested item : page) {
+                MyResult res = new MyResult();
+                res.data = arg.name + "_" + arg.id;
+                res.nested = item;
+
+                results.add(res);
+            }
+
+            return completedFuture(results);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class PartitionJob implements ComputeJob<Long, Integer> {
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
@@ -862,7 +908,7 @@ public class PlatformTestNodeRunner {
     private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
         @Override
         public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Integer, Void>builder()
                             .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
                             .nodes(Set.of(node))
@@ -873,7 +919,7 @@ public class PlatformTestNodeRunner {
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 
@@ -934,7 +980,7 @@ public class PlatformTestNodeRunner {
         @Override
         public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
             if (arg == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             arg.price = arg.price.add(BigDecimal.ONE);
@@ -989,6 +1035,126 @@ public class PlatformTestNodeRunner {
             var ex = new IgniteException(arg);
 
             return completedFuture(ex.codeAsString());
+        }
+    }
+
+    @SuppressWarnings({"DataFlowIssue", "OptionalGetWithoutIsPresent", "unused"})
+    private static class JobRunnerJob implements ComputeJob<JobInfo, Object> {
+        @Override
+        public @Nullable Marshaller<JobInfo, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(JobInfo.class);
+        }
+
+        @Override
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, JobInfo arg) {
+            JobExecutionOptions jobOpts = JobExecutionOptions.builder()
+                    .executorType(JobExecutorType.valueOf(arg.jobExecutorType))
+                    .build();
+
+            JobDescriptor<Object, Object> jobDesc = JobDescriptor.builder(arg.typeName)
+                    .units(arg.getDeploymentUnits())
+                    .options(jobOpts)
+                    .build();
+
+            ClusterNode targetNode = context.ignite().cluster().nodes()
+                    .stream()
+                    .filter(n -> n.id().equals(arg.nodeId))
+                    .findFirst()
+                    .get();
+
+            JobTarget target = JobTarget.node(targetNode);
+
+            return context.ignite().compute().executeAsync(target, jobDesc, arg.arg);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static class StreamerRunnerJob implements ComputeJob<JobInfo, Object> {
+        @Override
+        public @Nullable Marshaller<JobInfo, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(JobInfo.class);
+        }
+
+        @Override
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, JobInfo arg) {
+            ReceiverExecutionOptions opts = ReceiverExecutionOptions.builder()
+                    .executorType(JobExecutorType.valueOf(arg.jobExecutorType))
+                    .build();
+
+            ReceiverDescriptor<Object> desc = ReceiverDescriptor.builder(arg.typeName)
+                    .units(arg.getDeploymentUnits())
+                    .options(opts)
+                    .build();
+
+            RecordView<Tuple> view = context.ignite().tables().table(TABLE_NAME).recordView();
+
+            Tuple key = Tuple.create().set("key", 1L);
+            CompletableFuture<Void> fut;
+            List<Tuple> results = Collections.synchronizedList(new ArrayList<>());
+
+            try (var publisher = new SubmissionPublisher<Tuple>()) {
+                fut = view.streamData(
+                        publisher,
+                        t -> key,
+                        t -> t,
+                        desc,
+                        new Subscriber<>() {
+                            @Override
+                            public void onSubscribe(Subscription subscription) {
+                                subscription.request(Long.MAX_VALUE);
+                            }
+
+                            @Override
+                            public void onNext(Object item) {
+                                results.add((Tuple) item);
+                            }
+
+                            @Override
+                            public void onError(Throwable throwable) {
+                            }
+
+                            @Override
+                            public void onComplete() {
+                            }
+                        },
+                        null,
+                        null
+                );
+
+                publisher.submit(Tuple.create().set("val", "java-test"));
+            }
+
+            return fut.thenApply(unused -> "Streaming finished: " + results.stream()
+                    .map(Object::toString)
+                    .collect(Collectors.joining(",")));
+        }
+    }
+
+    private static class JobInfo {
+        @JsonProperty
+        String typeName;
+
+        @JsonProperty
+        Object arg;
+
+        @JsonProperty
+        List<String> deploymentUnits;
+
+        @JsonProperty
+        UUID nodeId;
+
+        @JsonProperty
+        String jobExecutorType;
+
+        @SuppressWarnings("DataFlowIssue")
+        List<DeploymentUnit> getDeploymentUnits() {
+            return deploymentUnits.stream().map(u -> {
+                String[] parts = u.split(":");
+                String name = parts[0];
+                String version = parts.length > 1 ? parts[1] : null;
+
+                return new DeploymentUnit(name, version);
+            }).collect(toList());
         }
     }
 }

@@ -86,6 +86,22 @@ public class ProtocolContext {
     }
 
     /**
+     * Gets a value indicating whether all provided features are supported.
+     *
+     * @param features Features.
+     * @return {@code true} if all features are supported.
+     */
+    public boolean allFeaturesSupported(ProtocolBitmaskFeature... features) {
+        for (ProtocolBitmaskFeature feature : features) {
+            if (!this.features.contains(feature)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Check that feature is supported by the server.
      *
      * @param feature Feature.

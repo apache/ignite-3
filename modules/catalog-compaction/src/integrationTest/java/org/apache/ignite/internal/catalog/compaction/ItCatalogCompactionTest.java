@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -46,8 +47,9 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.awaitility.Awaitility;
@@ -101,7 +103,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 + "  },\n"
                 + "  clientConnector.port: {},\n"
                 + "  rest.port: {},\n"
-                + "  compute.threadPoolSize: 1,\n"
                 + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
@@ -164,7 +165,9 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         List<Transaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
-        Collection<ClusterNode> topologyNodes = node0.clusterNodes();
+        Collection<InternalClusterNode> topologyNodes = node0.cluster().nodes().stream()
+                .map(ClusterNodeImpl::fromPublicClusterNode)
+                .collect(toUnmodifiableList());
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
@@ -242,6 +245,27 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         assertTrue(catalogVersion2 < catalogVersion3, "Catalog version should have changed");
 
         expectEarliestCatalogVersion(catalogVersion3 - 1);
+    }
+
+    @Test
+    void droppedZoneCompacted() {
+        String zoneName = "zone1";
+        String tableName = "table1";
+        sql(format(
+                "create zone {} (partitions {}) storage profiles ['{}','{}']",
+                zoneName,
+                10,
+                DEFAULT_AIMEM_PROFILE_NAME,
+                DEFAULT_ROCKSDB_PROFILE_NAME
+        ));
+        sql(format("create table {}(id int primary key) zone {}", tableName, zoneName));
+        sql(format("drop table {}", tableName));
+        sql(format("drop zone {}", zoneName));
+
+        sql(format("alter zone {} set auto scale up {}", "\"Default\"", 10));
+
+        int catalogVersion = getLatestCatalogVersion(node(0));
+        expectEarliestCatalogVersion(catalogVersion - 1);
     }
 
     private InternalTransaction beginTx(Ignite node, boolean readOnly) {

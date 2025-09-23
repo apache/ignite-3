@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core.exception.handler;
 
 import org.apache.ignite.internal.cli.commands.cluster.init.ConfigAsPathExceptionHandler;
 import org.apache.ignite.internal.cli.commands.cluster.init.ConfigParseExceptionHandler;
+import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 
 /**
@@ -30,6 +31,20 @@ public final class DefaultExceptionHandlers extends ExceptionHandlers {
      * Constructor.
      */
     public DefaultExceptionHandlers() {
+        addDefaultHandlers();
+    }
+
+    /**
+     * Constructor with custom default handler.
+     *
+     * @param defaultHandler defaultHandler.
+     */
+    public DefaultExceptionHandlers(ExceptionHandler<Throwable> defaultHandler) {
+        super(defaultHandler);
+        addDefaultHandlers();
+    }
+
+    private void addDefaultHandlers() {
         addExceptionHandler(new FlowInterruptExceptionHandler());
         addExceptionHandler(new TimeoutExceptionHandler());
         addExceptionHandler(new IgniteCliExceptionHandler());
@@ -43,5 +58,6 @@ public final class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new FileNotFoundExceptionHandler());
         addExceptionHandler(new ConfigParseExceptionHandler());
         addExceptionHandler(new ConfigAsPathExceptionHandler());
+        addExceptionHandler(new ConfigurationArgsParseExceptionHandler());
     }
 }

@@ -132,7 +132,6 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
                 10_000
         ));
 
-        // Wait for meta storage to be compacted.
         assertTrue(waitForCondition(() -> ignite.metaStorageManager().getCompactionRevisionLocally() > revisionAfterCreateZone, 1000));
 
         // Check that old revision is not available after compaction.
@@ -176,7 +175,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
         log.info("Test: created the zone with one replica. Changing replica number to 2.");
 
         // Triggering the rebalance.
-        sql("alter zone " + ZONE_NAME + " set replicas=2");
+        sql("alter zone " + ZONE_NAME + " set (replicas 2)");
 
         // Wait for the rebalancing to finish.
         assertValueInStorage(

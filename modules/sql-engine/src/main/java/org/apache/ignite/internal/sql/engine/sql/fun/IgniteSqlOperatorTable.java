@@ -39,6 +39,7 @@ import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.InferTypes;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -57,28 +58,31 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlSingleOperandTypeChecker SAME_SAME =
             new SameFamilyOperandTypeChecker(2);
 
-    private static final SqlSingleOperandTypeChecker NOT_CUSTOM_TYPE =
-            new NotCustomTypeOperandTypeChecker();
+    private static final SqlOperandTypeChecker DATETIME_MATCHING_INTERVAL =
+            new SqlDateTimeIntervalTypeChecker(true);
 
-    private static final SqlSingleOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
+    private static final SqlOperandTypeChecker MATCHING_INTERVAL_DATETIME =
+            new SqlDateTimeIntervalTypeChecker(false);
+
+    private static final SqlOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(OperandTypes.DATETIME_INTERVAL.and(NOT_CUSTOM_TYPE))
-                    .or(OperandTypes.INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
+                    .or(DATETIME_MATCHING_INTERVAL)
+                    .or(MATCHING_INTERVAL_DATETIME);
 
-    private static final SqlSingleOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
+    private static final SqlOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(OperandTypes.DATETIME_INTERVAL.and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL));
 
     private static final SqlSingleOperandTypeChecker DIVISION_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
-                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.INTERVAL_NUMERIC);
 
     public static final SqlSingleOperandTypeChecker MULTIPLY_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
-                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE))
-                    .or(OperandTypes.NUMERIC_INTERVAL.and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.INTERVAL_NUMERIC)
+                    .or(OperandTypes.NUMERIC_INTERVAL);
 
     public static final SqlFunction LENGTH =
             new SqlFunction(
@@ -341,9 +345,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return typeFactory.createTypeWithNullability(type1, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
                             } else if (SqlTypeUtil.isDatetime(type2) && SqlTypeUtil.isInterval(type1)) {
-                                return typeFactory.createTypeWithNullability(type2, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type2, type1, nullable);
                             }
 
                             return null;
@@ -381,7 +385,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return typeFactory.createTypeWithNullability(type1, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
                             }
 
                             return null;
@@ -389,6 +393,24 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     },
                     InferTypes.FIRST_KNOWN,
                     MINUS_OPERATOR_TYPES_CHECKER);
+
+    private static RelDataType deriveDatetimePlusMinusIntervalType(
+            RelDataTypeFactory typeFactory,
+            RelDataType datetimeType,
+            RelDataType intervalType,
+            boolean nullable
+    ) {
+        assert SqlTypeUtil.isDatetime(datetimeType) : "not datetime: " + datetimeType;
+        assert SqlTypeUtil.isInterval(intervalType) : "not interval: " + intervalType;
+
+        if (datetimeType.getSqlTypeName().allowsPrecScale(true, false)
+                && intervalType.getScale() > datetimeType.getPrecision()) {
+            // Using a fraction of a second from an interval as the precision of the expression.
+            datetimeType = typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
+        }
+
+        return typeFactory.createTypeWithNullability(datetimeType, nullable);
+    }
 
     /**
      * Arithmetic division operator, '{@code /}'.
@@ -433,13 +455,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      * {@code EVERY} aggregate function.
      */
     public static final SqlAggFunction EVERY =
-            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN);
 
     /**
      * {@code SOME} aggregate function.
      */
     public static final SqlAggFunction SOME =
-            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN);
 
     /**
      * The <code>CURRENT_TIMESTAMP [(<i>precision</i>)]</code> function.
@@ -519,6 +541,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.ANY_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.SINGLE_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.FILTER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.GROUPING);
 
         definedOperatorsBuilder.add(EVERY);
         definedOperatorsBuilder.add(SOME);
@@ -735,6 +758,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_DATE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIME);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIMESTAMP);
+
+        // Context variable functions
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_USER);
 
         // Ignite specific operators
         definedOperatorsBuilder.add(LENGTH);

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.fakes;
 
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.FakePlacementDriver;
@@ -30,7 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -52,6 +50,8 @@ public class FakeIgnite implements Ignite {
 
     private final IgniteTables tables;
 
+    private final QueryProcessor queryProcessor;
+
     private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
 
     /**
@@ -70,6 +70,7 @@ public class FakeIgnite implements Ignite {
         this.name = name;
         this.compute = new FakeCompute(name, this);
         this.tables = new FakeIgniteTables(compute, placementDriver);
+        this.queryProcessor = new FakeIgniteQueryProcessor(name);
     }
 
     /** {@inheritDoc} */
@@ -79,7 +80,7 @@ public class FakeIgnite implements Ignite {
     }
 
     public QueryProcessor queryEngine() {
-        return new FakeIgniteQueryProcessor();
+        return queryProcessor;
     }
 
     /** {@inheritDoc} */
@@ -100,21 +101,14 @@ public class FakeIgnite implements Ignite {
         return compute;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Collection<ClusterNode> clusterNodes() {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
     @Override
     public IgniteCatalog catalog() {
         return new IgniteCatalogSqlImpl(sql(), tables);
+    }
+
+    @Override
+    public IgniteCluster cluster() {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

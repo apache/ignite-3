@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -94,7 +95,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
         if (idx == 0) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {
@@ -114,7 +115,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 }
             };
         } else if (idx == 1) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {
@@ -136,6 +137,14 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
 
         throw new IndexOutOfBoundsException();
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waitingLeft=").app(waitingLeft)
+                .app(", waitingRight=").app(waitingRight);
     }
 
     private void pushLeft(RowT row) throws Exception {
@@ -315,7 +324,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
                         return;
                     }
-
 
                     if (left == null) {
                         left = leftInBuf.remove();

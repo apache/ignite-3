@@ -27,8 +27,24 @@ public interface QueryTransactionWrapper {
     /** Unwraps transaction. */
     InternalTransaction unwrap();
 
-    /** Commits an implicit transaction, if one has been started. */
-    CompletableFuture<Void> commitImplicit();
+    /**
+     * Finalizes related transaction as a result of successful execution.
+     *
+     * <p>Finalization must be called at the end of every transaction-related operation.
+     *
+     * @return A future representing result of operation.
+     */
+    CompletableFuture<Void> finalise();
+
+    /**
+     * Finalizes related transaction as a result of failed execution.
+     *
+     * <p>Finalization must be called at the end of every transaction-related operation.
+     *
+     * @param error An error occurred during operation processing. Must not be null. 
+     * @return A future representing result of operation.
+     */
+    CompletableFuture<Void> finalise(Throwable error);
 
     /**
      * Returns {@code true} if this transaction was implicitly started by query engine to
@@ -37,7 +53,4 @@ public interface QueryTransactionWrapper {
      * @return {@code true} if transaction was started implicitly by query engine.
      */
     boolean implicit();
-
-    /** Rolls back a transaction. */
-    CompletableFuture<Void> rollback(Throwable cause);
 }

@@ -51,11 +51,6 @@ public class ClientMessagePacker implements AutoCloseable {
     private boolean closed;
 
     /**
-     * Metadata.
-     */
-    private @Nullable Object meta;
-
-    /**
      * Constructor.
      *
      * @param buf Buffer.
@@ -209,6 +204,29 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void setLong(int index, long v) {
         buf.setLong(index, v);
+    }
+
+    /**
+     * Reserve space for int value.
+     *
+     * @return Index of reserved space.
+     */
+    public int reserveInt() {
+        buf.writeByte(Code.INT32);
+        var index = buf.writerIndex();
+
+        buf.writeInt(0);
+        return index;
+    }
+
+    /**
+     * Set int value at reserved index (see {@link #reserveInt()}).
+     *
+     * @param index Index.
+     * @param v Value.
+     */
+    public void setInt(int index, int v) {
+        buf.setInt(index, v);
     }
 
     /**
@@ -530,6 +548,19 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a UUID.
+     *
+     * @param val UUID value.
+     */
+    public void packUuidNullable(@Nullable UUID val) {
+        if (val == null) {
+            packNil();
+        } else {
+            packUuid(val);
+        }
+    }
+
+    /**
      * Writes a bit set.
      *
      * @param val Bit set value.
@@ -782,24 +813,6 @@ public class ClientMessagePacker implements AutoCloseable {
     public void packQualifiedName(QualifiedName name) {
         packString(name.schemaName());
         packString(name.objectName());
-    }
-
-    /**
-     * Gets metadata.
-     *
-     * @return Metadata.
-     */
-    public @Nullable Object meta() {
-        return meta;
-    }
-
-    /**
-     * Sets metadata.
-     *
-     * @param meta Metadata.
-     */
-    public void meta(@Nullable Object meta) {
-        this.meta = meta;
     }
 
     /**

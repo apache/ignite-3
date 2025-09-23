@@ -25,14 +25,11 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
-import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-// TODO: https://issues.apache.org/jira/browse/IGNITE-24943 - remove the mute.
 @ExtendWith(FailureManagerExtension.class)
-@MuteFailureManagerLogging
 class ItBigZoneOperationTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {

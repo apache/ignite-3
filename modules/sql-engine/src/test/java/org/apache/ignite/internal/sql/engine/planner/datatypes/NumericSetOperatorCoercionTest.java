@@ -17,34 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-
 import java.util.List;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.SetOp;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -110,7 +89,6 @@ public class NumericSetOperatorCoercionTest extends BaseTypeCoercionTest {
     void argsIncludesAllTypePairs() {
         checkIncludesAllNumericTypePairs(args());
     }
-
 
     private static Stream<Arguments> args() {
         return Stream.of(
@@ -594,77 +572,5 @@ public class NumericSetOperatorCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofJustType(NativeTypes.DOUBLE))
                         .secondOpMatches(ofJustType(NativeTypes.DOUBLE))
         );
-    }
-
-    /**
-     * Creates a matcher to verify that given relDataType has expected type.
-     *
-     * @param type Expected return type.
-     * @return A matcher.
-     */
-    private static Matcher<RelDataTypeField> ofJustType(NativeType type) {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-        RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
-
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                return SqlTypeUtil.equalSansNullability(typeFactory, ((RelDataTypeField) actual).getType(), sqlType);
-            }
-
-            @Override
-            public void describeMismatch(Object item, Description description) {
-                description.appendText("was ").appendValue(item).appendText(" of type " + ((RelDataTypeField) item).getType());
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(format("Operand of type {}", sqlType));
-            }
-        };
-    }
-
-    private static Matcher<IgniteRel> setOperandsMatcher(Matcher<Object> first, Matcher<Object> second) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                assertThat(actual, instanceOf(SetOp.class));
-                SetOp setOperation = ((SetOp) actual);
-
-                RelNode left = setOperation.getInputs().get(0);
-                RelNode right = setOperation.getInputs().get(1);
-
-                Object leftOp = getOperand(left);
-                Object rightOp = getOperand(right);
-
-                assertThat(leftOp, first);
-                assertThat(rightOp, second);
-
-                return true;
-            }
-
-            @Nullable
-            private Object getOperand(RelNode relNode) {
-                if (relNode instanceof IgniteProject) {
-                    RexNode result = ((IgniteProject) relNode).getProjects().get(0);
-                    assertThat(result, instanceOf(RexCall.class));
-                    return result;
-                } else if (relNode instanceof IgniteTableScan) {
-                    IgniteTableScan tableScan = (IgniteTableScan) relNode;
-                    if (tableScan.projects() != null) {
-                        return tableScan.projects().get(0);
-                    } else {
-                        return relNode.getRowType().getFieldList().get(0);
-                    }
-                } else {
-                    throw new IllegalArgumentException("Unexpected node: " + relNode);
-                }
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
     }
 }

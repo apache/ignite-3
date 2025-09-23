@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -41,8 +43,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -51,12 +52,16 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
 /** Storage engine implementation based on {@link PersistentPageMemory}. */
@@ -115,6 +120,9 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final LogSyncer logSyncer;
 
+    /** For unspecified tasks, i.e. throttling log. */
+    private final ExecutorService commonExecutorService;
+
     /**
      * Constructor.
      *
@@ -126,6 +134,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param commonExecutorService Executor service.
      * @param clock Hybrid Logical Clock.
      */
     public PersistentPageMemoryStorageEngine(
@@ -138,6 +147,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             LogSyncer logSyncer,
+            ExecutorService commonExecutorService,
             HybridClock clock
     ) {
         super(clock);
@@ -152,6 +162,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         this.longJvmPauseDetector = longJvmPauseDetector;
         this.failureManager = failureManager;
         this.logSyncer = logSyncer;
+        this.commonExecutorService = commonExecutorService;
     }
 
     /**
@@ -189,12 +200,13 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     igniteInstanceName,
                     longJvmPauseDetector,
                     failureManager,
-                    engineConfig.checkpoint(),
+                    checkpointConfiguration(engineConfig.checkpoint()),
                     filePageStoreManager,
                     partitionMetaManager,
                     regions.values(),
                     ioRegistry,
                     logSyncer,
+                    commonExecutorService,
                     pageSize
             );
 
@@ -204,11 +216,17 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         }
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storageConfig.profiles().value().stream().forEach(p -> {
-            if (p instanceof PersistentPageMemoryProfileView) {
-                addDataRegion(p.name());
+        for (StorageProfileView storageProfileView : storageConfig.profiles().value()) {
+            if (storageProfileView instanceof PersistentPageMemoryProfileView) {
+                String profileName = storageProfileView.name();
+
+                var storageProfileConfiguration = (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get(profileName);
+
+                assert storageProfileConfiguration != null : profileName;
+
+                addDataRegion(storageProfileConfiguration);
             }
-        });
+        }
 
         // TODO: remove this executor, see https://issues.apache.org/jira/browse/IGNITE-21683
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
@@ -217,11 +235,23 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(igniteInstanceName, "persistent-mv-partition-destruction", LOG)
+                IgniteThreadFactory.create(igniteInstanceName, "persistent-mv-partition-destruction", LOG)
         );
         executor.allowCoreThreadTimeOut(true);
 
         destructionExecutor = executor;
+    }
+
+    /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
+    public static CheckpointConfiguration checkpointConfiguration(PageMemoryCheckpointConfiguration checkpointCfg) {
+        return CheckpointConfiguration.builder()
+                .checkpointThreads(checkpointCfg.value().checkpointThreads())
+                .compactionThreads(checkpointCfg.value().compactionThreads())
+                .intervalMillis(checkpointCfg.intervalMillis()::value)
+                .intervalDeviationPercent(checkpointCfg.intervalDeviationPercent()::value)
+                .readLockTimeoutMillis(checkpointCfg.readLockTimeoutMillis()::value)
+                .logReadLockThresholdTimeoutMillis(checkpointCfg.logReadLockThresholdTimeoutMillis()::value)
+                .build();
     }
 
     @Override
@@ -261,7 +291,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        return new PersistentPageMemoryTableStorage(
+        var tableStorage = new PersistentPageMemoryTableStorage(
                 tableDescriptor,
                 indexDescriptorSupplier,
                 this,
@@ -269,10 +299,14 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 destructionExecutor,
                 failureManager
         );
+
+        dataRegion.addTableStorage(tableStorage);
+
+        return tableStorage;
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
 
         assert filePageStoreManager != null : "Component has not started";
@@ -314,13 +348,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     /**
      * Creates, starts and adds a new data region to the engine.
-     *
-     * @param name Data region name.
      */
-    private void addDataRegion(String name) {
-        PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
-                (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get(name);
-
+    private void addDataRegion(PersistentPageMemoryProfileConfiguration storageProfileConfiguration) {
         int pageSize = engineConfig.pageSizeBytes().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
@@ -336,6 +365,11 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         dataRegion.start();
 
-        regions.put(name, dataRegion);
+        regions.put(storageProfileConfiguration.name().value(), dataRegion);
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return requireNonNull(filePageStoreManager, "Not started").allGroupIdsOnFs();
     }
 }

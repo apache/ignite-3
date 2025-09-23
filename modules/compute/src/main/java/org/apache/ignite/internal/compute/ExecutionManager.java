@@ -26,7 +26,6 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.RESULT_NOT_FOUND_ERR;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -104,17 +103,13 @@ public class ExecutionManager {
     }
 
     /**
-     * Returns job's execution result.
+     * Returns job's execution result on the local node.
      *
      * @param jobId Job id.
      * @return Job's execution result future.
      */
-    public CompletableFuture<?> resultAsync(UUID jobId) {
-        JobExecution<?> execution = remoteExecutions.get(jobId);
-        if (execution != null) {
-            return execution.resultAsync();
-        }
-        execution = localExecutions.get(jobId);
+    public CompletableFuture<?> localResultAsync(UUID jobId) {
+        JobExecution<?> execution = localExecutions.get(jobId);
         if (execution != null) {
             return execution.resultAsync();
         }
@@ -184,12 +179,12 @@ public class ExecutionManager {
     }
 
     @TestOnly
-    Set<UUID> remoteExecutions() {
-        return remoteExecutions.keySet();
+    public Map<UUID, RemoteJobExecution> remoteExecutions() {
+        return remoteExecutions;
     }
 
     @TestOnly
-    Set<UUID> localExecutions() {
-        return localExecutions.keySet();
+    public Map<UUID, CancellableJobExecution<?>> localExecutions() {
+        return localExecutions;
     }
 }

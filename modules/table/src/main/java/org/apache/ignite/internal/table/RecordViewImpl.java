@@ -56,7 +56,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -385,6 +385,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
+    @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        sync(deleteAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
@@ -395,6 +400,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
             return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
         });
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name().toCanonicalForm()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */
@@ -596,14 +606,14 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     }
 
     @Override
-    public <E, V, R1, A> CompletableFuture<Void> streamData(
+    public <E, V, A, R1> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R1> receiver,
             Function<E, R> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R1> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -615,7 +625,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 
-        CompletableFuture<Void> future = DataStreamer.<R, E, V, R1>streamData(
+        CompletableFuture<Void> future = DataStreamer.streamData(
                 publisher,
                 keyFunc,
                 payloadFunc,

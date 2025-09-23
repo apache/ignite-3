@@ -17,18 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuplesNullable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -40,29 +38,25 @@ public class ClientTupleGetAllRequest {
      * Processes the request.
      *
      * @param in        Unpacker.
-     * @param out       Packer.
      * @param tables    Ignite tables.
      * @param resources Resource registry.
      * @param txManager Transaction manager.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            ClockService clockService
+            ClockService clockService,
+            HybridTimestampTracker tsTracker
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
-            return readTuples(in, table, true).thenCompose(keyTuples -> {
-                return table.recordView().getAllAsync(tx, keyTuples).thenAccept(tuples -> {
-                    writeTxMeta(out, clockService, tx);
-                    writeTuplesNullable(out, tuples, TuplePart.KEY_AND_VAL, table.schemaView());
-                });
-            });
-        });
+        // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, true)
+                .thenCompose(req -> req.table().recordView().getAllAsync(req.tx(), req.tuples())
+                        .thenApply(resTuples -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req);
+                            writeTuplesNullable(out, resTuples, TuplePart.KEY_AND_VAL, req.table().schemaView());
+                        }));
     }
 }

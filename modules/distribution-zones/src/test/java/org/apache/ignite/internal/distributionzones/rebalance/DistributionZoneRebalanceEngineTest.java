@@ -65,6 +65,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
@@ -492,7 +493,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 distributionZoneManager,
-                catalogManager
+                catalogManager,
+                new SystemPropertiesNodeProperties()
         );
     }
 
@@ -522,9 +524,14 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 Set<String> expectedNodes = zoneNodes.get(tableDescriptor.zoneId());
 
                 if (expectedNodes != null) {
-                    Set<String> expectedAssignments =
-                            calculateAssignmentForPartition(expectedNodes, j, zoneDescriptor.partitions(), zoneDescriptor.replicas())
-                                    .stream().map(Assignment::consistentId).collect(toSet());
+                    Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                            expectedNodes,
+                            j,
+                            zoneDescriptor.partitions(),
+                            zoneDescriptor.replicas(),
+                            zoneDescriptor.consensusGroupSize()
+                    );
+                    Set<String> expectedAssignments = calculatedAssignments.stream().map(Assignment::consistentId).collect(toSet());
 
                     assertNotNull(actualAssignmentsBytes);
 
@@ -598,8 +605,12 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
         Set<String> initialDataNodes = Set.of("node0");
-        List<Set<Assignment>> initialAssignments =
-                calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
+        List<Set<Assignment>> initialAssignments = calculateAssignments(
+                initialDataNodes,
+                zoneDescriptor.partitions(),
+                zoneDescriptor.replicas(),
+                zoneDescriptor.consensusGroupSize()
+        );
 
         long timestamp = catalog.time();
 

@@ -64,7 +64,7 @@ public class DistributionZoneTimer {
     }
 
     /**
-     * Timestamp when the timer will be applied.
+     * Timestamp when the timer was created.
      *
      * @return Timestamp.
      */

@@ -63,6 +63,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -82,8 +83,10 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -104,7 +107,6 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -262,7 +264,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 mock(FailureProcessor.class),
-                replicationConfiguration
+                new SystemPropertiesNodeProperties(),
+                replicationConfiguration,
+                Runnable::run,
+                mock(MetricManager.class)
         );
 
         ComponentContext componentContext = new ComponentContext();
@@ -387,7 +392,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Set<Assignment> assignments = Set.of();
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
+        String stableAssignmentsPrefix =
+                enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX;
+
+        metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
@@ -398,9 +406,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         }, 10_000));
 
-        assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 2, 1);
+        assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 2, 1, 1);
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
+        metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
@@ -437,7 +445,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             return falseCompletedFuture();
         });
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 2, 1);
+        Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 2, 1, 1);
 
         metaStorageManager.put(
                 fromString((enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX) + grpPart0),
@@ -783,7 +791,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         }
 
         @Override
-        public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+        public CompletableFuture<Set<InternalClusterNode>> validatedNodesOnLeader() {
             return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
         }
     }

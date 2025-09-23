@@ -150,7 +150,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
     {
-        var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options, _recordView.Table.Socket.Configuration);
+        var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options, _recordView.Table.Socket.Configuration.Configuration);
         var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _recordView.Table.QualifiedName);
 
         return new IgniteQueryable<KeyValuePair<TK, TV>>(provider);
@@ -166,18 +166,18 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
+        ReceiverDescriptor<TPayload, TArg, TResult> receiver,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor<TArg, TResult> receiver,
         TArg receiverArg,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
         where TPayload : notnull =>
         _recordView.StreamDataAsync(
             data,
+            receiver,
             src => ToKv(keySelector(src)),
             payloadSelector,
-            receiver,
             receiverArg,
             options,
             cancellationToken);

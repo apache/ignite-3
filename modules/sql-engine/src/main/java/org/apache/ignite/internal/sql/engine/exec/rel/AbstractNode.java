@@ -21,10 +21,13 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Abstract node of execution tree.
@@ -191,5 +194,22 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     @Override
     public Downstream<RowT> downstream() {
         return downstream;
+    }
+
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName());
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent);
+        dumpDebugInfo0(writer);
+        writer.nl();
+
+        if (sources != null) {
+            writer.app(indent).app("Sources: ").nl();
+            Debuggable.dumpState(writer, Debuggable.childIndentation(indent), sources);
+        }
     }
 }

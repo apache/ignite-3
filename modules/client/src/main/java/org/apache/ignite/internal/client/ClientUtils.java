@@ -199,9 +199,12 @@ public class ClientUtils {
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientOperationType.PRIMARY_REPLICAS_GET;
 
-            case ClientOp.SQL_CANCEL_EXEC:
+            case ClientOp.OPERATION_CANCEL:
                 // The request is used to cancel queries initiated with a particular connection,
                 // and these requests are terminated when the connection is lost.
+                return null;
+
+            case ClientOp.SERVER_OP_RESPONSE:
                 return null;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
@@ -217,8 +220,8 @@ public class ClientUtils {
      * @return Logger.
      */
     public static <T> IgniteLogger logger(IgniteClientConfiguration cfg, Class<T> cls) {
-        var loggerFactory = cfg.loggerFactory() == null
-                ? (LoggerFactory) System::getLogger
+        LoggerFactory loggerFactory = cfg.loggerFactory() == null
+                ? System::getLogger
                 : cfg.loggerFactory();
 
         return loggerFactory == null

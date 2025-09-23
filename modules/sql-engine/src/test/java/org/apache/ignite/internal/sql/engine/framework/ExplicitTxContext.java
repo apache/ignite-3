@@ -31,7 +31,7 @@ public class ExplicitTxContext implements QueryTransactionContext {
     private final QueryTransactionWrapper txWrapper;
 
     public static QueryTransactionContext fromTx(InternalTransaction tx) {
-        return new ExplicitTxContext(new QueryTransactionWrapperImpl(tx, false, NoOpTransactionTracker.INSTANCE));
+        return new ExplicitTxContext(new QueryTransactionWrapperImpl(tx, false, NoOpTransactionalOperationTracker.INSTANCE));
     }
 
     private ExplicitTxContext(QueryTransactionWrapper txWrapper) {

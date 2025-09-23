@@ -21,10 +21,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -55,7 +55,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @param exporters Exporters.
      */
-    void start(Iterable<MetricExporter<?>> exporters);
+    void start(Iterable<MetricExporter> exporters);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.
@@ -84,7 +84,7 @@ public interface MetricManager extends IgniteComponent {
      * @param src Metric source.
      * @return Metric set, or {@code null} if already enabled.
      */
-    MetricSet enable(MetricSource src);
+    @Nullable MetricSet enable(MetricSource src);
 
     /**
      * Enable metric source by name. See {@link MetricRegistry#enable(String)}.
@@ -92,7 +92,7 @@ public interface MetricManager extends IgniteComponent {
      * @param srcName Source name.
      * @return Metric set, or {@code null} if already enabled.
      */
-    MetricSet enable(String srcName);
+    @Nullable MetricSet enable(String srcName);
 
     /**
      * Disable metric source. See {@link MetricRegistry#disable(MetricSource)}.
@@ -114,7 +114,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @return Metrics snapshot.
      */
-    IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot();
+    MetricSnapshot metricSnapshot();
 
     /**
      * Gets a collection of metric sources.
@@ -122,4 +122,9 @@ public interface MetricManager extends IgniteComponent {
      * @return collection of metric sources
      */
     Collection<MetricSource> metricSources();
+
+    /**
+     * Returns a collection of currently enabled metric exporters.
+     */
+    Collection<MetricExporter> enabledExporters();
 }

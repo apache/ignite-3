@@ -27,28 +27,31 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -68,7 +71,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
@@ -84,9 +87,10 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ClusterWideNodeFilterValidator;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ClusterWideStorageProfileValidator;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -99,6 +103,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
@@ -118,8 +123,6 @@ import org.jetbrains.annotations.TestOnly;
  *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
-    /** Default time-zone ID. */
-    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
@@ -131,14 +134,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     /** Number of the schemas in cache. */
     private static final int SCHEMA_CACHE_SIZE = 128;
-
-    /** Default properties. */
-    public static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
-            .set(QueryProperty.DEFAULT_SCHEMA, SqlCommon.DEFAULT_SCHEMA_NAME)
-            .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-            .set(QueryProperty.TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
-            .set(QueryProperty.QUERY_TIMEOUT, 0L)
-            .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
 
@@ -202,7 +197,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final TxManager txManager;
 
-    private final TransactionTracker txTracker;
+    private final NodeProperties nodeProperties;
+
+    private final TransactionalOperationTracker txTracker;
 
     private final ScheduledExecutorService commonScheduler;
 
@@ -227,6 +224,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             SqlLocalConfiguration nodeCfg,
             TransactionInflights transactionInflights,
             TxManager txManager,
+            NodeProperties nodeProperties,
             LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler,
             KillCommandHandler killCommandHandler,
@@ -247,8 +245,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
-        this.txTracker = new InflightTransactionTracker(transactionInflights);
+        this.txTracker = new InflightTransactionalOperationTracker(transactionInflights);
         this.txManager = txManager;
+        this.nodeProperties = nodeProperties;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
@@ -257,6 +256,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
+                nodeProperties,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
@@ -265,14 +265,28 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** {@inheritDoc} */
     @Override
     public synchronized CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        var nodeName = clusterSrvc.topologyService().localMember().name();
+        InternalClusterNode localNode = clusterSrvc.topologyService().localMember();
+        String nodeName = localNode.name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureManager));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(
+                nodeName,
+                nodeCfg.execution().threadCount().value(),
+                failureManager,
+                metricManager));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(this::openedCursors);
         metricManager.registerSource(sqlClientMetricSource);
         metricManager.enable(sqlClientMetricSource);
+
+        SqlQueryMetricSource sqlQueryMetricSource = new SqlQueryMetricSource();
+        metricManager.registerSource(sqlQueryMetricSource);
+        metricManager.enable(sqlQueryMetricSource);
+
+        var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
+        var nodeFilterValidator = new ClusterWideNodeFilterValidator(logicalTopologyService);
+
+        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
@@ -281,11 +295,12 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 metricManager,
                 clusterCfg,
                 nodeCfg,
-                sqlSchemaManager
+                sqlSchemaManager,
+                ddlSqlToCommandConverter
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
-                nodeName,
+                localNode,
                 clusterSrvc.messagingService(),
                 taskExecutor,
                 busyLock,
@@ -305,7 +320,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
-                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE, CACHE_FACTORY
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, nodeProperties, TABLE_CACHE_SIZE, CACHE_FACTORY
         );
 
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
@@ -324,7 +339,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
                 () -> logicalTopologyService.localLogicalTopology().version(),
-                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager)
+                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager, nodeProperties),
+                nodeProperties
         );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
@@ -345,6 +361,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
+                nodeProperties,
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
@@ -364,10 +381,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 prepareSvc,
                 catalogManager,
                 executionSrvc,
-                DEFAULT_PROPERTIES,
                 txTracker,
                 new QueryIdGenerator(nodeName.hashCode()),
-                eventLog
+                eventLog,
+                sqlQueryMetricSource
         ));
 
         queriesViewProvider.init(queryExecutor);
@@ -405,6 +422,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             closeAll(services.stream().map(s -> s::stop));
         } catch (Exception e) {
             return failedFuture(e);
+        } finally {
+            // Calling unregisterSource after closeAll ensures that
+            // we are collecting metrics for queries interrupted during node termination,
+            metricManager.unregisterSource(SqlQueryMetricSource.NAME);
         }
 
         return nullCompletedFuture();
@@ -469,9 +490,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        Long queryTimeout = properties0.get(QueryProperty.QUERY_TIMEOUT);
+        String schemaName = properties.defaultSchema();
+        long queryTimeout = properties.queryTimeout();
 
         QueryCancel queryCancel = new QueryCancel();
         if (queryTimeout != 0) {
@@ -485,7 +505,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
         return start.thenCompose(result -> {
-            validateParsedStatement(properties0, result);
+            validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.schemaTimestamp() : clockService.now();
@@ -520,7 +540,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                             .queryId(UUID.randomUUID())
                             // time zone is used in execution phase,
                             // so we may use any time zone for preparation only
-                            .timeZoneId(DEFAULT_TIME_ZONE_ID)
+                            .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                             .defaultSchemaName(schemaName)
                             .operationTime(timestamp)
                             .cancel(queryCancel)
@@ -585,6 +605,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return List.of(queriesViewProvider.get());
     }
 
+    @Override
+    public CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
+        return prepareSvc.invalidateCache(tableNames);
+    }
+
     /** Completes the provided future when the callback is called. */
     public static class PrefetchCallback implements QueryPrefetchCallback {
         private final CompletableFuture<Void> prefetchFuture = new CompletableFuture<>();
@@ -622,5 +647,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         public CancellableOperationType type() {
             return CancellableOperationType.QUERY;
         }
+    }
+
+    @TestOnly
+    @Override
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        queryExecutor.dumpState(writer, indent);
     }
 }

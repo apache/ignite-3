@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -187,7 +188,7 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
         Runnable action = Mockito.mock(Runnable.class);
-        CompletableFuture<Void> f = CompletableFuture.completedFuture(null);
+        CompletableFuture<Void> f = nullCompletedFuture();
 
         {
             NullPointerException err = assertThrows(

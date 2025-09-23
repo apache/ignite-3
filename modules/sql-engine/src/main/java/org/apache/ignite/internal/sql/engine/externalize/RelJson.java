@@ -84,7 +84,6 @@ import org.apache.calcite.rex.RexWindowBounds;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlAggFunction;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
@@ -114,11 +113,9 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -188,7 +185,6 @@ class RelJson {
         register(enumByName, SqlTypeName.class);
         register(enumByName, SqlKind.class);
         register(enumByName, SqlSyntax.class);
-        register(enumByName, SqlExplain.Depth.class);
         register(enumByName, SqlExplainFormat.class);
         register(enumByName, SqlExplainLevel.class);
         register(enumByName, SqlInsertKeyword.class);
@@ -386,13 +382,6 @@ class RelJson {
             if (node.getSqlTypeName().allowsScale()) {
                 map.put("scale", node.getScale());
             }
-            if (node instanceof IgniteCustomType) {
-                // In case of a custom data type we must store its name to correctly
-                // deserialize it because we want to distinguish a custom type from ANY.
-                IgniteCustomType customType = (IgniteCustomType) node;
-                map.put("type", toJson(SqlTypeName.ANY));
-                map.put("customType", customType.getCustomTypeName());
-            }
             return map;
         }
     }
@@ -542,11 +531,10 @@ class RelJson {
                 map.put("func", distribution.function().name());
                 map.put("keys", keys);
 
-                DistributionFunction function = distribution.function();
-
-                if (function.affinity()) {
-                    map.put("zoneId", ((AffinityDistribution) function).zoneId());
-                    map.put("tableId", ((AffinityDistribution) function).tableId());
+                if (distribution.isTableDistribution()) {
+                    map.put("zoneId", distribution.zoneId());
+                    map.put("tableId", distribution.tableId());
+                    map.put("label", distribution.label());
                 }
 
                 return map;
@@ -693,15 +681,19 @@ class RelJson {
 
                 return IgniteDistributions.identity(keys.get(0));
             }
-            case "hash":
-                return IgniteDistributions.hash(keys, DistributionFunction.hash());
-            default: {
-                assert functionName.startsWith("affinity");
+            case "hash": {
+                if (map.get("tableId") == null) {
+                    return IgniteDistributions.hash(keys, DistributionFunction.hash());
+                }
 
                 int tableId = (int) map.get("tableId");
-                Object zoneId = map.get("zoneId");
+                int zoneId = (int) map.get("zoneId");
+                String label = (String) map.get("label");
 
-                return IgniteDistributions.affinity(keys, tableId, zoneId);
+                return IgniteDistributions.affinity(keys, tableId, zoneId, label);
+            }
+            default: {
+                throw new IllegalStateException("Unsupported distribution function: " + functionName);
             }
         }
     }
@@ -730,8 +722,6 @@ class RelJson {
             }
 
             Object fields = map.get("fields");
-            // IgniteCustomType: In case of a custom data type JSON must contain a name of that type.
-            String customType = (String) map.get("customType");
 
             if (fields != null) {
                 return toType(typeFactory, fields);
@@ -753,8 +743,6 @@ class RelJson {
                             toType(typeFactory, map.get("keyType")),
                             toType(typeFactory, map.get("valueType"))
                     );
-                } else if (sqlTypeName == SqlTypeName.ANY && customType != null) {
-                    type = ((IgniteTypeFactory) typeFactory).createCustomType(customType, precision);
                 } else if (precision == null) {
                     type = typeFactory.createSqlType(sqlTypeName);
                 } else if (scale == null) {

@@ -93,7 +93,7 @@ public class ColocationUtils {
                 calc.appendString((String) v);
                 return;
 
-            case BYTES:
+            case BYTE_ARRAY:
                 calc.appendBytes((byte[]) v);
                 return;
 
@@ -112,6 +112,39 @@ public class ColocationUtils {
             case TIMESTAMP:
                 calc.appendTimestamp((Instant) v, ((TemporalNativeType) type).precision());
                 return;
+
+            default:
+                throw new IllegalStateException("Unexpected type: " + type.spec());
+        }
+    }
+
+    /** Generates 32-bit hash from the given value with regard to provided type. */
+    public static int hash(@Nullable Object v, NativeType type) {
+        if (v == null) {
+            return HashCalculator.hashValue(null, 0, 0);
+        }
+
+        switch (type.spec()) {
+            case BOOLEAN:
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case UUID:
+            case STRING:
+            case BYTE_ARRAY:
+            case DATE:
+                return HashCalculator.hashValue(v, 0, 0);
+            case DECIMAL:
+                assert type instanceof DecimalNativeType;
+                return HashCalculator.hashValue(v, ((DecimalNativeType) type).scale(), 0);
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                assert type instanceof TemporalNativeType;
+                return HashCalculator.hashValue(v, 0, ((TemporalNativeType) type).precision());
 
             default:
                 throw new IllegalStateException("Unexpected type: " + type.spec());

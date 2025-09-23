@@ -39,7 +39,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.metastorage.dsl.OperationType.NO_OP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -82,7 +82,6 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -120,11 +119,12 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -236,7 +236,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault),
+                new InMemoryStaleIds(),
                 clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
                 failureProcessor,
@@ -252,6 +252,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         when(cmgManager.startAsync(any())).thenReturn(nullCompletedFuture());
         when(cmgManager.stopAsync(any())).thenReturn(nullCompletedFuture());
+
+        when(cmgManager.clusterState()).thenReturn(nullCompletedFuture());
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -313,7 +315,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 logicalTopologyService,
                 catalogManager,
                 clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
-                clockService
+                clockService,
+                new NoOpMetricManager()
         );
 
         // Preparing the result map.
@@ -923,8 +926,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assert manager != null;
 
-        if (enabledColocation()) {
-            CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(manager);
+        if (colocationEnabled()) {
+            assertThat("Catalog initialization", manager.catalogInitializationFuture(), willCompleteSuccessfully());
+            CatalogZoneDescriptor defaultZone = getDefaultZone(manager, node.clock().nowLong());
 
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.

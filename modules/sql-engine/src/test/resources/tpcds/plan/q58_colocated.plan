@@ -1,0 +1,284 @@
+Limit
+    fetch: 100
+    est: (rows=100)
+  Project
+      fieldNames: [ITEM_ID, SS_ITEM_REV, SS_DEV, CS_ITEM_REV, CS_DEV, WS_ITEM_REV, WS_DEV, AVERAGE]
+      projection: [ITEM_ID, SS_ITEM_REV, *(/(SS_ITEM_REV, /(+(+(SS_ITEM_REV, CS_ITEM_REV), WS_ITEM_REV), 3)), 100), CS_ITEM_REV, *(/(CS_ITEM_REV, /(+(+(SS_ITEM_REV, CS_ITEM_REV), WS_ITEM_REV), 3)), 100), WS_ITEM_REV, *(/(WS_ITEM_REV, /(+(+(SS_ITEM_REV, CS_ITEM_REV), WS_ITEM_REV), 3)), 100), /(+(+(SS_ITEM_REV, CS_ITEM_REV), WS_ITEM_REV), 3)]
+      est: (rows=4847173278)
+    HashJoin
+        predicate: AND(>=(SS_ITEM_REV, *(0.9:DECIMAL(2, 1), WS_ITEM_REV)), <=(SS_ITEM_REV, *(1.1:DECIMAL(2, 1), WS_ITEM_REV)), >=(WS_ITEM_REV, *(0.9:DECIMAL(2, 1), SS_ITEM_REV)), <=(WS_ITEM_REV, *(1.1:DECIMAL(2, 1), SS_ITEM_REV)), >=(SS_ITEM_REV, *(0.9:DECIMAL(2, 1), CS_ITEM_REV)), <=(SS_ITEM_REV, *(1.1:DECIMAL(2, 1), CS_ITEM_REV)), >=(CS_ITEM_REV, *(0.9:DECIMAL(2, 1), SS_ITEM_REV)), <=(CS_ITEM_REV, *(1.1:DECIMAL(2, 1), SS_ITEM_REV)), =(ITEM_ID, ITEM_ID$0$0))
+        fieldNames: [ITEM_ID, SS_ITEM_REV, ITEM_ID$0, CS_ITEM_REV, ITEM_ID$0$0, WS_ITEM_REV]
+        type: inner
+        est: (rows=4847173278)
+      Sort
+          collation: [ITEM_ID ASC, SS_ITEM_REV ASC]
+          est: (rows=191835)
+        ColocatedHashAggregate
+            fieldNames: [ITEM_ID, SS_ITEM_REV]
+            group: [ITEM_ID]
+            aggregation: [SUM(SS_EXT_SALES_PRICE)]
+            est: (rows=191835)
+          Project
+              fieldNames: [ITEM_ID, SS_EXT_SALES_PRICE]
+              projection: [I_ITEM_ID, SS_EXT_SALES_PRICE]
+              est: (rows=959175)
+            HashJoin
+                predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                type: inner
+                est: (rows=959175)
+              MergeJoin
+                  predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=959175)
+                Exchange
+                    distribution: single
+                    est: (rows=2880404)
+                  Sort
+                      collation: [SS_SOLD_DATE_SK ASC]
+                      est: (rows=2880404)
+                    TableScan
+                        table: PUBLIC.STORE_SALES
+                        fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_EXT_SALES_PRICE]
+                        est: (rows=2880404)
+                HashJoin
+                    predicate: =(D_DATE, D_DATE$0)
+                    fieldNames: [D_DATE_SK, D_DATE, D_DATE$0]
+                    type: inner
+                    est: (rows=24012704)
+                  Exchange
+                      distribution: single
+                      est: (rows=73049)
+                    Sort
+                        collation: [D_DATE_SK ASC]
+                        est: (rows=73049)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          fieldNames: [D_DATE_SK, D_DATE]
+                          est: (rows=73049)
+                  ColocatedHashAggregate
+                      group: [D_DATE]
+                      aggregation: []
+                      est: (rows=2191)
+                    Project
+                        fieldNames: [D_DATE]
+                        projection: [D_DATE]
+                        est: (rows=10957)
+                      HashJoin
+                          predicate: =(D_WEEK_SEQ, $f0)
+                          type: inner
+                          est: (rows=10957)
+                        Exchange
+                            distribution: single
+                            est: (rows=73049)
+                          TableScan
+                              table: PUBLIC.DATE_DIM
+                              fieldNames: [D_DATE, D_WEEK_SEQ]
+                              est: (rows=73049)
+                        ReduceSortAggregate
+                            fieldNames: [$f0]
+                            collation: []
+                            group: []
+                            aggregation: [SINGLE_VALUE(_ACC0)]
+                            est: (rows=1)
+                          Exchange
+                              distribution: single
+                              est: (rows=1)
+                            MapSortAggregate
+                                fieldNames: [_ACC0]
+                                collation: []
+                                group: []
+                                aggregation: [SINGLE_VALUE(D_WEEK_SEQ)]
+                                est: (rows=1)
+                              TableScan
+                                  table: PUBLIC.DATE_DIM
+                                  predicate: =(D_DATE, 1998-02-21)
+                                  fieldNames: [D_WEEK_SEQ]
+                                  est: (rows=24325)
+              Exchange
+                  distribution: single
+                  est: (rows=18000)
+                TableScan
+                    table: PUBLIC.ITEM
+                    fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                    est: (rows=18000)
+      HashJoin
+          predicate: AND(>=(CS_ITEM_REV, *(0.9:DECIMAL(2, 1), WS_ITEM_REV)), <=(CS_ITEM_REV, *(1.1:DECIMAL(2, 1), WS_ITEM_REV)), >=(WS_ITEM_REV, *(0.9:DECIMAL(2, 1), CS_ITEM_REV)), <=(WS_ITEM_REV, *(1.1:DECIMAL(2, 1), CS_ITEM_REV)), =(ITEM_ID$0, ITEM_ID))
+          fieldNames: [ITEM_ID, CS_ITEM_REV, ITEM_ID$0, WS_ITEM_REV]
+          type: inner
+          est: (rows=43123065)
+        ColocatedHashAggregate
+            fieldNames: [ITEM_ID, CS_ITEM_REV]
+            group: [ITEM_ID]
+            aggregation: [SUM(CS_EXT_SALES_PRICE)]
+            est: (rows=96007)
+          Project
+              fieldNames: [ITEM_ID, CS_EXT_SALES_PRICE]
+              projection: [I_ITEM_ID, CS_EXT_SALES_PRICE]
+              est: (rows=480035)
+            HashJoin
+                predicate: =(CS_ITEM_SK, I_ITEM_SK)
+                type: inner
+                est: (rows=480035)
+              MergeJoin
+                  predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=480035)
+                Exchange
+                    distribution: single
+                    est: (rows=1441548)
+                  Sort
+                      collation: [CS_SOLD_DATE_SK ASC]
+                      est: (rows=1441548)
+                    TableScan
+                        table: PUBLIC.CATALOG_SALES
+                        fieldNames: [CS_SOLD_DATE_SK, CS_ITEM_SK, CS_EXT_SALES_PRICE]
+                        est: (rows=1441548)
+                HashJoin
+                    predicate: =(D_DATE, D_DATE$0)
+                    fieldNames: [D_DATE_SK, D_DATE, D_DATE$0]
+                    type: inner
+                    est: (rows=24012704)
+                  Exchange
+                      distribution: single
+                      est: (rows=73049)
+                    Sort
+                        collation: [D_DATE_SK ASC]
+                        est: (rows=73049)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          fieldNames: [D_DATE_SK, D_DATE]
+                          est: (rows=73049)
+                  ColocatedHashAggregate
+                      group: [D_DATE]
+                      aggregation: []
+                      est: (rows=2191)
+                    Project
+                        fieldNames: [D_DATE]
+                        projection: [D_DATE]
+                        est: (rows=10957)
+                      HashJoin
+                          predicate: =(D_WEEK_SEQ, $f0)
+                          type: inner
+                          est: (rows=10957)
+                        Exchange
+                            distribution: single
+                            est: (rows=73049)
+                          TableScan
+                              table: PUBLIC.DATE_DIM
+                              fieldNames: [D_DATE, D_WEEK_SEQ]
+                              est: (rows=73049)
+                        ReduceSortAggregate
+                            fieldNames: [$f0]
+                            collation: []
+                            group: []
+                            aggregation: [SINGLE_VALUE(_ACC0)]
+                            est: (rows=1)
+                          Exchange
+                              distribution: single
+                              est: (rows=1)
+                            MapSortAggregate
+                                fieldNames: [_ACC0]
+                                collation: []
+                                group: []
+                                aggregation: [SINGLE_VALUE(D_WEEK_SEQ)]
+                                est: (rows=1)
+                              TableScan
+                                  table: PUBLIC.DATE_DIM
+                                  predicate: =(D_DATE, 1998-02-21)
+                                  fieldNames: [D_WEEK_SEQ]
+                                  est: (rows=24325)
+              Exchange
+                  distribution: single
+                  est: (rows=18000)
+                TableScan
+                    table: PUBLIC.ITEM
+                    fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                    est: (rows=18000)
+        ColocatedHashAggregate
+            fieldNames: [ITEM_ID, WS_ITEM_REV]
+            group: [ITEM_ID]
+            aggregation: [SUM(WS_EXT_SALES_PRICE)]
+            est: (rows=47911)
+          Project
+              fieldNames: [ITEM_ID, WS_EXT_SALES_PRICE]
+              projection: [I_ITEM_ID, WS_EXT_SALES_PRICE]
+              est: (rows=239555)
+            HashJoin
+                predicate: =(WS_ITEM_SK, I_ITEM_SK)
+                type: inner
+                est: (rows=239555)
+              MergeJoin
+                  predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=239555)
+                Exchange
+                    distribution: single
+                    est: (rows=719384)
+                  Sort
+                      collation: [WS_SOLD_DATE_SK ASC]
+                      est: (rows=719384)
+                    TableScan
+                        table: PUBLIC.WEB_SALES
+                        fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_EXT_SALES_PRICE]
+                        est: (rows=719384)
+                HashJoin
+                    predicate: =(D_DATE, D_DATE$0)
+                    fieldNames: [D_DATE_SK, D_DATE, D_DATE$0]
+                    type: inner
+                    est: (rows=24012704)
+                  Exchange
+                      distribution: single
+                      est: (rows=73049)
+                    Sort
+                        collation: [D_DATE_SK ASC]
+                        est: (rows=73049)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          fieldNames: [D_DATE_SK, D_DATE]
+                          est: (rows=73049)
+                  ColocatedHashAggregate
+                      group: [D_DATE]
+                      aggregation: []
+                      est: (rows=2191)
+                    Project
+                        fieldNames: [D_DATE]
+                        projection: [D_DATE]
+                        est: (rows=10957)
+                      HashJoin
+                          predicate: =(D_WEEK_SEQ, $f0)
+                          type: inner
+                          est: (rows=10957)
+                        Exchange
+                            distribution: single
+                            est: (rows=73049)
+                          TableScan
+                              table: PUBLIC.DATE_DIM
+                              fieldNames: [D_DATE, D_WEEK_SEQ]
+                              est: (rows=73049)
+                        ReduceSortAggregate
+                            fieldNames: [$f0]
+                            collation: []
+                            group: []
+                            aggregation: [SINGLE_VALUE(_ACC0)]
+                            est: (rows=1)
+                          Exchange
+                              distribution: single
+                              est: (rows=1)
+                            MapSortAggregate
+                                fieldNames: [_ACC0]
+                                collation: []
+                                group: []
+                                aggregation: [SINGLE_VALUE(D_WEEK_SEQ)]
+                                est: (rows=1)
+                              TableScan
+                                  table: PUBLIC.DATE_DIM
+                                  predicate: =(D_DATE, 1998-02-21)
+                                  fieldNames: [D_WEEK_SEQ]
+                                  est: (rows=24325)
+              Exchange
+                  distribution: single
+                  est: (rows=18000)
+                TableScan
+                    table: PUBLIC.ITEM
+                    fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                    est: (rows=18000)

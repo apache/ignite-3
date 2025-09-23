@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -231,6 +232,12 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     @Override
     public void request(int rowsCnt) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", waiting=").app(waiting);
     }
 
     private void exchangeBuffers() {

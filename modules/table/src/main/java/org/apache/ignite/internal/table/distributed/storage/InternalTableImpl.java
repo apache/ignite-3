@@ -24,7 +24,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -43,7 +42,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -54,6 +53,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -84,24 +84,20 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowPkReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.SingleRowPkReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.SingleRowReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.SwapRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -123,6 +119,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -134,7 +131,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
@@ -214,6 +210,10 @@ public class InternalTableImpl implements InternalTable {
     /** Default read-only transaction timeout. */
     private final Supplier<Long> defaultReadTxTimeout;
 
+    private final boolean colocationEnabled;
+
+    private final TableMetricSource metrics;
+
     /**
      * Constructor.
      *
@@ -251,7 +251,9 @@ public class InternalTableImpl implements InternalTable {
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
-            Supplier<Long> defaultReadTxTimeout
+            Supplier<Long> defaultReadTxTimeout,
+            boolean colocationEnabled,
+            TableMetricSource metrics
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -270,6 +272,8 @@ public class InternalTableImpl implements InternalTable {
         this.streamerReceiverRunner = streamerReceiverRunner;
         this.defaultRwTxTimeout = defaultRwTxTimeout;
         this.defaultReadTxTimeout = defaultReadTxTimeout;
+        this.colocationEnabled = colocationEnabled;
+        this.metrics = metrics;
     }
 
     /** {@inheritDoc} */
@@ -418,9 +422,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
-            IgnitePentaFunction<
-                    Collection<? extends BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest
-                    > fac,
+            ReplicaRequestFactory fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker
     ) {
@@ -441,9 +443,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
-            IgnitePentaFunction<
-                    Collection<? extends BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest
-                    > fac,
+            ReplicaRequestFactory fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker,
             @Nullable Long txStartTs
@@ -484,7 +484,7 @@ public class InternalTableImpl implements InternalTable {
                         actualTx,
                         partitionId,
                         enlistmentConsistencyToken ->
-                                fac.apply(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, false),
+                                fac.create(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, false),
                         false,
                         enlistment,
                         noOpChecker,
@@ -495,7 +495,7 @@ public class InternalTableImpl implements InternalTable {
                         actualTx,
                         partitionId,
                         enlistmentConsistencyToken ->
-                                fac.apply(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, full),
+                                fac.create(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, full),
                         full,
                         noOpChecker
                 );
@@ -660,12 +660,6 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicaRequest request = mapFunc.apply(enlistment.consistencyToken());
 
-        boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
-                || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
-                || request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() != RW_GET
-                || request instanceof MultipleRowPkReplicaRequest && ((MultipleRowPkReplicaRequest) request).requestType() != RW_GET_ALL
-                || request instanceof SwapRowReplicaRequest;
-
         if (full) { // Full transaction retries are handled in postEnlist.
             return replicaSvc.invokeRaw(enlistment.primaryNodeConsistentId(), request).handle((r, e) -> {
                 boolean hasError = e != null;
@@ -681,7 +675,10 @@ public class InternalTableImpl implements InternalTable {
                 return (R) r.result();
             });
         } else {
-            if (write) { // Track only write requests from explicit transactions.
+            ReadWriteReplicaRequest req = (ReadWriteReplicaRequest) request;
+
+            if (req.isWrite()) {
+                // Track only write requests from explicit transactions.
                 if (!tx.remote() && !transactionInflights.addInflight(tx.id(), false)) {
                     int code = TX_ALREADY_FINISHED_ERR;
                     if (tx.isRolledBackWithTimeoutExceeded()) {
@@ -702,8 +699,12 @@ public class InternalTableImpl implements InternalTable {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (!tx.remote() && noWriteChecker.test(res, request)) {
-                        transactionInflights.removeInflight(tx.id());
+                    if (noWriteChecker.test(res, request)) {
+                        if (!tx.remote()) {
+                            transactionInflights.removeInflight(tx.id());
+                        } else {
+                            tx.kill(); // Kill for remote txn has special meaning - no-op enlistment..
+                        }
                     }
 
                     return res;
@@ -764,7 +765,7 @@ public class InternalTableImpl implements InternalTable {
      * @param <T> Operation return type.
      * @return The future.
      */
-    private <T> CompletableFuture<T> postEnlist(
+    private static <T> CompletableFuture<T> postEnlist(
             CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
     ) {
         assert !(autoCommit && full) : "Invalid combination of flags";
@@ -800,7 +801,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Evaluates the single-row request to the cluster for a read-only single-partition transaction.
+     * Evaluates the single-row request to the cluster for a read-only single-partition implicit transaction.
      *
      * @param tx Transaction or {@code null} if it is not started yet.
      * @param row Binary row.
@@ -823,20 +824,18 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
+     * Evaluates the multi-row request to the cluster for a read-only single-partition implicit transaction.
      *
-     * @param tx Transaction or {@code null} if it is not started yet.
      * @param rows Rows.
      * @param op Replica requests factory.
      * @param <R> Result type.
      * @return The future.
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
-            @Nullable InternalTransaction tx,
             Collection<BinaryRowEx> rows,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction actualTx = startImplicitRoTxIfNeeded(tx);
+        InternalTransaction actualTx = txManager.beginImplicitRo(observableTimestampTracker);
 
         int partId = partitionId(rows.iterator().next());
 
@@ -863,7 +862,7 @@ public class InternalTableImpl implements InternalTable {
 
         Function<ReplicaMeta, CompletableFuture<R>> evaluateClo = primaryReplica -> {
             try {
-                ClusterNode node = getClusterNode(primaryReplica);
+                InternalClusterNode node = getClusterNode(primaryReplica);
 
                 return replicaSvc.invoke(node, op.apply(replicationGroupId, enlistmentConsistencyToken(primaryReplica)));
             } catch (Throwable e) {
@@ -906,12 +905,13 @@ public class InternalTableImpl implements InternalTable {
                 return tx.finish(false, clockService.current(), false, false)
                         .handle((ignored, err) -> {
                             if (err != null) {
+                                // Preserve failed state.
                                 e.addSuppressed(err);
                             }
 
                             sneakyThrow(e);
                             return null;
-                        }); // Preserve failed state.
+                        });
             }
 
             return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
@@ -923,7 +923,7 @@ public class InternalTableImpl implements InternalTable {
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         checkTransactionFinishStarted(tx);
 
-        if (isDirectFlowApplicableTx(tx)) {
+        if (isDirectFlowApplicable(tx)) {
             return evaluateReadOnlyPrimaryNode(
                     tx,
                     keyRow,
@@ -958,7 +958,6 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );
@@ -970,7 +969,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
@@ -1019,9 +1018,8 @@ public class InternalTableImpl implements InternalTable {
             return emptyListCompletedFuture();
         }
 
-        if (isDirectFlowApplicableTx(tx) && isSinglePartitionBatch(keyRows)) {
+        if (tx == null && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
-                    tx,
                     keyRows,
                     (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
                             .groupId(serializeReplicationGroupId(groupId))
@@ -1035,6 +1033,8 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx != null && tx.isReadOnly()) {
+            assert !tx.implicit() : "implicit RO getAll not supported";
+
             BinaryRowEx firstRow = keyRows.iterator().next();
 
             return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
@@ -1058,7 +1058,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
@@ -1104,6 +1104,7 @@ public class InternalTableImpl implements InternalTable {
                 .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
+                .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
                 .build();
     }
 
@@ -1169,7 +1170,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> false
         );
@@ -1264,7 +1265,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> false
         );
@@ -1288,7 +1289,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1309,7 +1310,7 @@ public class InternalTableImpl implements InternalTable {
                                 groupId,
                                 enlistmentConsistencyToken,
                                 full),
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponses,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1347,7 +1348,7 @@ public class InternalTableImpl implements InternalTable {
                 .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
-                .skipDelayedAck(tx.remote())
+                .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
                 .build();
     }
 
@@ -1369,7 +1370,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1397,7 +1398,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1423,7 +1424,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> res == null
         );
@@ -1447,7 +1448,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1471,7 +1472,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1497,7 +1498,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> res == null
         );
@@ -1511,7 +1512,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (keyRows0, txo, groupId, enlistmentConsistencyToken, full) ->
                         readWriteMultiRowPkReplicaRequest(RW_DELETE_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full),
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponses,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1544,7 +1545,7 @@ public class InternalTableImpl implements InternalTable {
                                 enlistmentConsistencyToken,
                                 full
                         ),
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponses,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1563,7 +1564,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
@@ -1603,7 +1604,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -1671,7 +1672,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -1942,25 +1943,28 @@ public class InternalTableImpl implements InternalTable {
      * @param rowBatches Row batches.
      * @return Future of collecting results.
      */
-    public static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
-        return collectMultiRowsResponsesWithRestoreOrder(
-                rowBatches,
-                batch -> {
-                    List<BinaryRow> result = new ArrayList<>();
-                    List<BinaryRow> response = (List<BinaryRow>) batch.getCompletedResult();
+    public static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponses(Collection<RowBatch> rowBatches) {
+        return allResultFutures(rowBatches).thenApply(ignored -> {
+            List<BinaryRow> result = new ArrayList<>();
 
-                    assert batch.requestedRows.size() == response.size() :
-                            "Replication response does not fit to request [requestRows=" + batch.requestedRows.size()
-                                    + "responseRows=" + response.size() + ']';
+            for (RowBatch batch : rowBatches) {
+                List<BinaryRow> response = (List<BinaryRow>) batch.getCompletedResult();
 
-                    for (int i = 0; i < response.size(); i++) {
-                        result.add(response.get(i) != null ? null : batch.requestedRows.get(i));
+                assert batch.requestedRows.size() == response.size() :
+                        "Replication response does not fit to request [requestRows=" + batch.requestedRows.size()
+                                + "responseRows=" + response.size() + ']';
+
+                for (int i = 0; i < response.size(); i++) {
+                    if (response.get(i) != null) {
+                        continue;
                     }
 
-                    return result;
-                },
-                true
-        );
+                    result.add(batch.requestedRows.get(i));
+                }
+            }
+
+            return result;
+        });
     }
 
     /**
@@ -2061,7 +2065,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(int partitionIndex) {
+    public CompletableFuture<InternalClusterNode> partitionLocation(int partitionIndex) {
         return partitionMeta(targetReplicationGroupId(partitionIndex), clockService.current()).thenApply(this::getClusterNode);
     }
 
@@ -2077,10 +2081,10 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
-    private ClusterNode getClusterNode(ReplicaMeta replicaMeta) {
+    private InternalClusterNode getClusterNode(ReplicaMeta replicaMeta) {
         UUID leaseHolderId = replicaMeta.getLeaseholderId();
 
-        ClusterNode node = leaseHolderId == null ? null : clusterNodeResolver.getById(leaseHolderId);
+        InternalClusterNode node = leaseHolderId == null ? null : clusterNodeResolver.getById(leaseHolderId);
 
         if (node == null) {
             throw new TransactionException(
@@ -2161,7 +2165,7 @@ public class InternalTableImpl implements InternalTable {
      * @param readTimestamp Read timestamp.
      * @return Cluster node to evaluate read-only request.
      */
-    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, HybridTimestamp readTimestamp) {
+    protected CompletableFuture<InternalClusterNode> evaluateReadOnlyRecipientNode(int partId, HybridTimestamp readTimestamp) {
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
         return awaitPrimaryReplica(replicationGroupId, readTimestamp)
@@ -2233,7 +2237,7 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public final ReplicationGroupId targetReplicationGroupId(int partitionIndex) {
-        if (enabledColocation()) {
+        if (colocationEnabled) {
             return new ZonePartitionId(zoneId, partitionIndex);
         } else {
             return new TablePartitionId(tableId, partitionIndex);
@@ -2367,7 +2371,7 @@ public class InternalTableImpl implements InternalTable {
      * @return True if retrying is possible, false otherwise.
      */
     private static boolean exceptionAllowsImplicitTxRetry(Throwable e) {
-        return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR);
+        return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR, GROUP_OVERLOADED_ERR);
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
@@ -2383,7 +2387,7 @@ public class InternalTableImpl implements InternalTable {
         return replicaMeta.getStartTime().longValue();
     }
 
-    private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
+    private static void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
             throw new TransactionException(
@@ -2393,5 +2397,21 @@ public class InternalTableImpl implements InternalTable {
                             transaction.isReadOnly()
                     ));
         }
+    }
+
+    @FunctionalInterface
+    private interface ReplicaRequestFactory {
+        ReplicaRequest create(
+                Collection<? extends BinaryRow> keyRows,
+                InternalTransaction tx,
+                ReplicationGroupId groupId,
+                Long enlistmentConsistencyToken,
+                Boolean full
+        );
+    }
+
+    @Override
+    public TableMetricSource metrics() {
+        return metrics;
     }
 }

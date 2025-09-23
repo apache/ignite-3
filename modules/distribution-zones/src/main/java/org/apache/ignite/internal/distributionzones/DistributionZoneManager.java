@@ -77,6 +77,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
@@ -108,6 +110,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.TestOnly;
 
@@ -165,6 +168,13 @@ public class DistributionZoneManager extends
     /** Configuration of HA mode. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> partitionDistributionResetTimeoutConfiguration;
 
+    private final MetricManager metricManager;
+
+    /** Mapping from a zone identifier to the corresponding metric source. */
+    private final Map<Integer, ZoneMetricSource> zoneMetricSources = new ConcurrentHashMap<>();
+
+    private final String localNodeName;
+
     /**
      * Constructor.
      */
@@ -176,7 +186,8 @@ public class DistributionZoneManager extends
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            ClockService clockService
+            ClockService clockService,
+            MetricManager metricManager
     ) {
         this(
                 nodeName,
@@ -186,7 +197,9 @@ public class DistributionZoneManager extends
                 new FailureManager(new NoOpFailureHandler()),
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                new SystemPropertiesNodeProperties(),
+                metricManager
         );
     }
 
@@ -210,12 +223,15 @@ public class DistributionZoneManager extends
             FailureProcessor failureProcessor,
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            ClockService clockService
+            ClockService clockService,
+            NodeProperties nodeProperties,
+            MetricManager metricManager
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
+        this.localNodeName = nodeName;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
@@ -226,7 +242,8 @@ public class DistributionZoneManager extends
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager
+                catalogManager,
+                nodeProperties
         );
 
         partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -247,6 +264,8 @@ public class DistributionZoneManager extends
                 this::fireTopologyReduceLocalEvent,
                 partitionDistributionResetTimeoutConfiguration::currentValue
         );
+
+        this.metricManager = metricManager;
     }
 
     @Override
@@ -276,6 +295,8 @@ public class DistributionZoneManager extends
             // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
+
+            registerMetricSourcesOnStart();
 
             return allOf(
                     restoreLogicalTopologyChangeEvent(recoveryRevision),
@@ -394,10 +415,20 @@ public class DistributionZoneManager extends
         }
     }
 
-    private CompletableFuture<?> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
+    private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        return dataNodesManager.onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
+        return dataNodesManager
+                .onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone))
+                .thenRun(() -> {
+                    try {
+                        registerMetricSource(zone);
+                    } catch (Exception e) {
+                        // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
+                        // So, just log the error.
+                        LOG.error("Failed to register a new zone metric source [zoneDescriptor={}]", e, zone);
+                    }
+                });
     }
 
     /**
@@ -728,6 +759,27 @@ public class DistributionZoneManager extends
     }
 
     /**
+     * Registers metric source for the specified zone.
+     *
+     * @param zone Zone descriptor.
+     */
+    private void registerMetricSource(CatalogZoneDescriptor zone) {
+        ZoneMetricSource source = new ZoneMetricSource(metaStorageManager, localNodeName, zone);
+
+        zoneMetricSources.put(zone.id(), source);
+
+        metricManager.registerSource(source);
+        metricManager.enable(source);
+    }
+
+    /**
+     * Registers zone metric sources on node starting.
+     */
+    private void registerMetricSourcesOnStart() {
+        currentZones().forEach(this::registerMetricSource);
+    }
+
+    /**
      * Restore the event of the updating the logical topology from Meta Storage, that has not been completed before restart.
      *
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
@@ -754,6 +806,15 @@ public class DistributionZoneManager extends
     }
 
     private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
+        try {
+            ZoneMetricSource source = zoneMetricSources.remove(parameters.zoneId());
+            if (source != null) {
+                metricManager.unregisterSource(source);
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to unregister zone metric source [dropZoneEvent={}]", e, parameters);
+        }
+
         long causalityToken = parameters.causalityToken();
 
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
@@ -779,6 +840,29 @@ public class DistributionZoneManager extends
         @Override
         protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
             return inBusyLock(busyLock, () -> onUpdateFilterBusy(parameters));
+        }
+
+        @Override
+        protected CompletableFuture<Void> onNameUpdate(AlterZoneEventParameters parameters, String oldName) {
+            return inBusyLock(busyLock, () -> {
+                try {
+                    CatalogZoneDescriptor zoneDescriptor = parameters.zoneDescriptor();
+
+                    // Update metric source name.
+                    ZoneMetricSource source = zoneMetricSources.remove(zoneDescriptor.id());
+                    if (source != null) {
+                        metricManager.unregisterSource(source);
+                    }
+
+                    registerMetricSource(parameters.zoneDescriptor());
+                } catch (Exception e) {
+                    // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
+                    // So, just log the error.
+                    LOG.error("Failed to update zone metric set [alterZoneEvent={}]", e, parameters);
+                }
+
+                return nullCompletedFuture();
+            });
         }
     }
 

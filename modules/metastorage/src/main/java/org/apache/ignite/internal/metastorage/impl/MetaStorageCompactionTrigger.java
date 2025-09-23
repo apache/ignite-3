@@ -51,10 +51,10 @@ import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -144,7 +144,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         config = new MetaStorageCompactionTriggerConfiguration(systemDistributedConfig);
 
         compactionExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
+                IgniteThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
 
         storage.registerCompactionRevisionUpdateListener(this::onCompactionRevisionUpdate);
@@ -305,9 +305,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 .thenComposeAsync(Function.identity(), compactionExecutor)
                 .thenRunAsync(() -> storage.compact(compactionRevision), compactionExecutor)
                 .whenComplete((unused, throwable) -> {
-                    if (throwable == null) {
-                        LOG.info("Metastore compaction completed successfully: [compactionRevision={}]", compactionRevision);
-                    } else {
+                    if (throwable != null) {
                         Throwable cause = unwrapCause(throwable);
 
                         if (!(cause instanceof NodeStoppingException)) {
@@ -324,11 +322,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     }
 
     /** Invoked when a new leader is elected. */
-    private void onLeaderElected(ClusterNode newLeader) {
+    private void onLeaderElected(InternalClusterNode newLeader) {
         inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader));
     }
 
-    private void onLeaderElectedBusy(ClusterNode newLeader) {
+    private void onLeaderElectedBusy(InternalClusterNode newLeader) {
         lock.lock();
 
         try {
@@ -382,12 +380,6 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                                 );
                                 failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
-                        } else {
-                            LOG.info(
-                                    "Metastorage compaction launched during node recovery has been successfully completed: "
-                                            + "[compactionRevision={}]",
-                                    recoveredCompactionRevision
-                            );
                         }
                     });
         }

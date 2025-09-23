@@ -27,10 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -96,7 +96,7 @@ public class IgniteSqlParserSelfTest {
     @Test
     public void testEmptyString() {
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"<EOF>\" at line 0, column 0",
+                "Failed to parse query: Not a statement",
                 () -> IgniteSqlParser.parse("", StatementParseResult.MODE));
     }
 
@@ -111,7 +111,7 @@ public class IgniteSqlParserSelfTest {
                 () -> IgniteSqlParser.parse("--- comment\n;", ScriptParseResult.MODE));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"<EOF>\" at line 1, column 11",
+                "Failed to parse query: Not a statement",
                 () -> IgniteSqlParser.parse("--- comment", ScriptParseResult.MODE));
     }
 
@@ -119,7 +119,7 @@ public class IgniteSqlParserSelfTest {
     public void testCommentedQuery() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"<EOF>\" at line 1, column 11",
+                "Failed to parse query: Not a statement",
                 () -> IgniteSqlParser.parse("-- SELECT 1", StatementParseResult.MODE));
     }
 
@@ -180,11 +180,11 @@ public class IgniteSqlParserSelfTest {
     @ParameterizedTest
     @MethodSource("unsupportedStatements")
     public void testRejectUnsupportedStatements(String stmt, String error) {
-        CalciteContextException err1 = assertThrows(CalciteContextException.class,
+        SqlException err1 = assertThrows(SqlException.class,
                 () -> IgniteSqlParser.parse(stmt, StatementParseResult.MODE));
         assertThat(err1.getMessage(), containsString("Unexpected statement: " + error));
 
-        assertThrows(CalciteContextException.class, () -> IgniteSqlParser.parse(stmt, ScriptParseResult.MODE));
+        assertThrows(SqlException.class, () -> IgniteSqlParser.parse(stmt, ScriptParseResult.MODE));
     }
 
     private static Stream<Arguments> unsupportedStatements() {
@@ -197,12 +197,11 @@ public class IgniteSqlParserSelfTest {
                 Arguments.of("ALTER SESSION RESET identifier", "ALTER SESSION"),
                 Arguments.of("ALTER SESSION RESET ALL", "ALTER SESSION"),
 
-                Arguments.of("DESCRIBE DATABASE db", "DESCRIBE SCHEMA"),
-                Arguments.of("DESCRIBE CATALOG cat", "DESCRIBE SCHEMA"),
-                Arguments.of("DESCRIBE SCHEMA db.cat.s", "DESCRIBE SCHEMA"),
-                Arguments.of("DESCRIBE TABLE db.cat.s.t", "DESCRIBE TABLE"),
-                // TODO https://issues.apache.org/jira/browse/IGNITE-24630 DESCRIBE <statement> is converted to EXPLAIN PLAN FOR
-                // Arguments.of("DESCRIBE STATEMENT SELECT 1", "EXPLAIN PLAN"),
+                Arguments.of("DESCRIBE DATABASE db", "DESCRIBE"),
+                Arguments.of("DESCRIBE CATALOG cat", "DESCRIBE"),
+                Arguments.of("DESCRIBE SCHEMA db.cat.s", "DESCRIBE"),
+                Arguments.of("DESCRIBE TABLE db.cat.s.t", "DESCRIBE"),
+                Arguments.of("DESCRIBE STATEMENT SELECT 1", "DESCRIBE"),
 
                 Arguments.of("UPSERT INTO t (a, b, c) SELECT 1, 2, 3", "UPSERT INTO")
         );

@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -128,7 +129,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
-        return new Downstream<RowT>() {
+        return new Downstream<>() {
             @Override
             public void push(RowT row) throws Exception {
                 AbstractSetOpNode.this.push(row, idx);
@@ -144,6 +145,13 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
                 AbstractSetOpNode.this.onError(e);
             }
         };
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 
     private void flush() throws Exception {

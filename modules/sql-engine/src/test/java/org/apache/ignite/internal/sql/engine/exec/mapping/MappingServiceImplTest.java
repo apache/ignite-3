@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -50,6 +50,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -68,11 +70,12 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.mockito.Mockito;
 
 /**
@@ -80,15 +83,15 @@ import org.mockito.Mockito;
  */
 @SuppressWarnings("ThrowFromFinallyBlock")
 public class MappingServiceImplTest extends BaseIgniteAbstractTest {
-    private static final String ZONE_NAME_1 = "zone1";
-    private static final String ZONE_NAME_2 = "zone2";
+    private static final String ZONE_NAME_1 = "ZONE1";
+    private static final String ZONE_NAME_2 = "ZONE2";
 
     private static final MultiStepPlan PLAN;
     private static final MultiStepPlan PLAN_WITH_SYSTEM_VIEW;
     private static final TestCluster cluster;
     private static final ClockService CLOCK_SERVICE = new TestClockService(new TestHybridClock(System::currentTimeMillis));
     private static final MappingParameters PARAMS = MappingParameters.EMPTY;
-    private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams) -> fragments;
+    private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams, ppMetadata) -> fragments;
     private long topologyVer;
     private boolean topologyChange;
 
@@ -96,24 +99,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // @formatter:off
         cluster = TestBuilders.cluster()
                 .nodes("N1")
-                .addZone()
-                        .name(ZONE_NAME_1)
-                        .end()
-                .addZone()
-                        .name(ZONE_NAME_2)
-                        .end()
-                .addTable()
-                        .name("T1")
-                        .zoneName(ZONE_NAME_1)
-                        .addKeyColumn("ID", NativeTypes.INT32)
-                        .addColumn("VAL", NativeTypes.INT32)
-                        .end()
-                .addTable()
-                        .name("T2")
-                        .zoneName(ZONE_NAME_2)
-                        .addKeyColumn("ID", NativeTypes.INT32)
-                        .addColumn("VAL", NativeTypes.INT32)
-                        .end()
                 .addSystemView(SystemViews.<Object[]>clusterViewBuilder()
                         .name("TEST_VIEW")
                         .addColumn("ID", NativeTypes.INT64, v -> v[0])
@@ -124,6 +109,14 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // @formatter:on
 
         cluster.start();
+
+        //noinspection ConcatenationWithEmptyString
+        cluster.node("N1").initSchema("" 
+                + format("CREATE ZONE {} STORAGE PROFILES ['default'];", ZONE_NAME_1)
+                + format("CREATE ZONE {} STORAGE PROFILES ['default'];", ZONE_NAME_2)
+                + format("CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE {};", ZONE_NAME_1)
+                + format("CREATE TABLE t2 (id INT PRIMARY KEY, val INT) ZONE {};", ZONE_NAME_2)
+        );
 
         try {
             PLAN = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM t1");
@@ -153,7 +146,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> defaultMapping = await(mappingService.map(PLAN, PARAMS));
@@ -164,6 +158,10 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertSame(defaultMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(mappingOnBackups, await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS)));
         assertNotSame(defaultMapping, mappingOnBackups);
+    }
+
+    private static NodeProperties nodeProperties() {
+        return new SystemPropertiesNodeProperties();
     }
 
     @Test
@@ -222,7 +220,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
@@ -253,7 +252,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test.
     // The colocation case is covered by {@link #testCacheInvalidationOnPrimaryZoneExpiration()}.
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testCacheInvalidationOnPrimaryExpiration() {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
@@ -284,7 +283,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
@@ -303,7 +303,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testCacheInvalidationOnPrimaryZoneExpiration() {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
@@ -331,7 +331,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
@@ -364,7 +365,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 cacheSize,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         );
     }
 

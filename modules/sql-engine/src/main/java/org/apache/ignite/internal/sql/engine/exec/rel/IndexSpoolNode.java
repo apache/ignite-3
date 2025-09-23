@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeHashIndex;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeIndex;
@@ -144,6 +145,13 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         }
 
         super.closeInternal();
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 
     private boolean indexReady() {

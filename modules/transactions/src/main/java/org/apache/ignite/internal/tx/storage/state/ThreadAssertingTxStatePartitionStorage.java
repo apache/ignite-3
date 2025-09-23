@@ -184,9 +184,9 @@ public class ThreadAssertingTxStatePartitionStorage implements TxStatePartitionS
     }
 
     @Override
-    public void snapshotInfo(byte[] snapshotInfo, long index, long term) {
+    public void snapshotInfo(byte[] snapshotInfo) {
         assertThreadAllowsToWrite();
 
-        storage.snapshotInfo(snapshotInfo, index, term);
+        storage.snapshotInfo(snapshotInfo);
     }
 }

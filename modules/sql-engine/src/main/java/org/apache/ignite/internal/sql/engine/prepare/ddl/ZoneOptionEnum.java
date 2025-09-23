@@ -28,14 +28,14 @@ public enum ZoneOptionEnum {
     /** Number of replicas. */
     REPLICAS("REPLICAS"),
 
+    /** Quorum size. */
+    QUORUM_SIZE("QUORUM SIZE"),
+
     /** Partition distribution algorithm name. */
     DISTRIBUTION_ALGORITHM("DISTRIBUTION ALGORITHM"),
 
     /** An expression to filter data nodes. */
     DATA_NODES_FILTER("NODES FILTER"),
-
-    /** Data nodes auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST("AUTO ADJUST"),
 
     /** Data nodes scale up auto adjust timeout. */
     DATA_NODES_AUTO_ADJUST_SCALE_UP("AUTO SCALE UP"),

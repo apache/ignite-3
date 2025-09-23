@@ -88,7 +88,7 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
         assertEquals(DECIMAL_PRECISION, typeSystem.getDefaultPrecision(SqlTypeName.DECIMAL));
 
         assertEquals(0, typeSystem.getDefaultPrecision(SqlTypeName.DATE));
-        assertEquals(TIME_PRECISION, typeSystem.getMaxPrecision(SqlTypeName.TIME));
+        assertEquals(0, typeSystem.getDefaultPrecision(SqlTypeName.TIME));
         assertEquals(0, typeSystem.getDefaultPrecision(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE));
         assertEquals(TIMESTAMP_DEFAULT_PRECISION, typeSystem.getDefaultPrecision(SqlTypeName.TIMESTAMP));
         assertEquals(TIMESTAMP_DEFAULT_PRECISION, typeSystem.getDefaultPrecision(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE));
@@ -173,7 +173,6 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
                 )
         );
     }
-
 
     @ParameterizedTest
     @MethodSource("deriveDivideDecimalArgs")

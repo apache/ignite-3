@@ -28,8 +28,16 @@ import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.comple
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.executing;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.queued;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.wrapper.Wrappers.unwrap;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
@@ -37,7 +45,6 @@ import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +58,10 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.ConfigOverride;
+import org.apache.ignite.internal.compute.ComputeComponentImpl;
+import org.apache.ignite.internal.compute.ExecutionManager;
+import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
 import org.apache.ignite.network.ClusterNode;
@@ -61,6 +72,7 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link ComputeController}.
  */
 @MicronautTest
+@ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     private static final String COMPUTE_URL = "/management/v1/compute/";
 
@@ -72,23 +84,16 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        // Cancel all jobs.
-        getJobStates(client).values().stream()
-                .filter(it -> it.finishTime() == null)
-                .map(JobState::id)
-                .forEach(jobId -> cancelJob(client, jobId));
-
-        // Wait for all jobs to complete.
-        await().until(() -> {
-            Collection<JobState> states = getJobStates(client).values();
-
-            for (JobState state : states) {
-                if (state.finishTime() == null) {
-                    return false;
-                }
-            }
-
-            return true;
+        // Cancel all jobs and clear states.
+        CLUSTER.runningNodes().forEach(ignite -> {
+            IgniteComputeImpl compute = unwrap(ignite.compute(), IgniteComputeImpl.class);
+            ExecutionManager executionManager = ((ComputeComponentImpl) compute.computeComponent()).executionManager();
+            executionManager.localStatesAsync().join().stream()
+                    .filter(state -> state.finishTime() == null)
+                    .map(org.apache.ignite.compute.JobState::id)
+                    .forEach(executionManager::cancelAsync);
+            executionManager.localExecutions().clear();
+            executionManager.remoteExecutions().clear();
         });
     }
 
@@ -106,8 +111,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         await().untilAsserted(() -> {
             Map<UUID, JobState> states = getJobStates(client);
 
-            assertThat(states.get(localJobId), executing(localJobId));
-            assertThat(states.get(remoteJobId), executing(remoteJobId));
+            assertThat(states, is(aMapWithSize(2)));
+            assertThat(states, hasEntry(equalTo(localJobId), executing(localJobId)));
+
+            // We can't find an id of the underlying job but we can test that it's a different id
+            assertThat(states, hasKey(not(either(equalTo(localJobId)).or(equalTo(remoteJobId)))));
         });
     }
 

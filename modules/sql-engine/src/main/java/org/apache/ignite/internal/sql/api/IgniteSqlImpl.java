@@ -53,17 +53,16 @@ import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -85,7 +84,7 @@ import org.jetbrains.annotations.TestOnly;
  * Embedded implementation of the Ignite SQL query facade.
  */
 @SuppressWarnings("rawtypes")
-public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
+public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
 
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;
@@ -266,14 +265,24 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return sync(executeBatchAsync(transaction, dmlQuery, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String dmlQuery,
+            BatchedArguments batch
+    ) {
+        return sync(executeBatchAsync(transaction, cancellationToken, dmlQuery, batch));
     }
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        return sync(executeBatchAsync(transaction, dmlStatement, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement dmlStatement,
+            BatchedArguments batch
+    ) {
+        return sync(executeBatchAsync(transaction, cancellationToken, dmlStatement, batch));
     }
 
     /** {@inheritDoc} */
@@ -354,12 +363,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            String schemaName = IgniteNameUtils.parseIdentifier(statement.defaultSchema());
-
             SqlProperties properties = toPropertiesBuilder(statement)
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .set(QueryProperty.DEFAULT_SCHEMA, schemaName)
-                    .build();
+                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                    .allowMultiStatement(false);
 
             result = queryProcessor.queryAsync(
                     properties,
@@ -402,24 +408,35 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return executeBatchAsync(transaction, createStatement(query), batch);
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            BatchedArguments batch
+    ) {
+        return executeBatchAsync(transaction, cancellationToken, createStatement(query), batch);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
 
         try {
-            SqlProperties properties = toPropertiesBuilder(statement).build();
+            SqlProperties properties = toPropertiesBuilder(statement);
 
             return executeBatchCore(
                     queryProcessor,
                     observableTimestampTracker,
                     (InternalTransaction) transaction,
+                    cancellationToken,
                     statement.query(),
                     batch,
                     properties,
@@ -454,6 +471,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             QueryProcessor queryProcessor,
             HybridTimestampTracker observableTimestampTracker,
             @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String query,
             BatchedArguments batch,
             SqlProperties properties,
@@ -462,9 +480,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Function<AsyncSqlCursor<?>, Integer> registerCursor,
             Consumer<Integer> removeCursor) {
 
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
-                .build());
+        SqlProperties properties0 = new SqlProperties(properties)
+                .allowedQueryTypes(EnumSet.of(SqlQueryType.DML));
 
         var counters = new LongArrayList(batch.size());
         CompletableFuture<?> tail = nullCompletedFuture();
@@ -479,7 +496,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, null, query, args)
+                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, cancellationToken, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -567,8 +584,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
 
         try {
-            SqlProperties properties = SqlQueryProcessor.DEFAULT_PROPERTIES;
-
             return executeScriptCore(
                     queryProcessor,
                     observableTimestampTracker,
@@ -577,7 +592,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     query,
                     cancellationToken,
                     arguments,
-                    properties,
+                    new SqlProperties().userName(Commons.SYSTEM_USER_NAME),
                     commonExecutor
             );
         } finally {
@@ -611,9 +626,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Executor executor
     ) {
 
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build());
+        SqlProperties properties0 = new SqlProperties(properties)
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f = queryProcessor.queryAsync(
                 properties0,
@@ -645,11 +660,12 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
     }
 
-    private static SqlProperties.Builder toPropertiesBuilder(Statement statement) {
-        return SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
-                .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
-                .set(QueryProperty.QUERY_TIMEOUT, statement.queryTimeout(TimeUnit.MILLISECONDS));
+    private static SqlProperties toPropertiesBuilder(Statement statement) {
+        return new SqlProperties()
+                .timeZoneId(statement.timeZoneId())
+                .defaultSchema(IgniteNameUtils.parseIdentifier(statement.defaultSchema()))
+                .queryTimeout(statement.queryTimeout(TimeUnit.MILLISECONDS))
+                .userName(Commons.SYSTEM_USER_NAME);
     }
 
     private int registerCursor(AsyncSqlCursor<?> cursor) {
@@ -673,6 +689,15 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private static <T> T sync(CompletableFuture<T> future) {
         return IgniteUtils.getInterruptibly(future);
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        if (classToUnwrap.isAssignableFrom(QueryProcessor.class)) {
+            return classToUnwrap.cast(queryProcessor);
+        }
+
+        return classToUnwrap.cast(this);
     }
 
     private static class ScriptHandler {

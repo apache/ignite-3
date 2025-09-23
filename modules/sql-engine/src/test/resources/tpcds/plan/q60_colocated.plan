@@ -1,0 +1,252 @@
+Sort
+    collation: [I_ITEM_ID ASC, TOTAL_SALES ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      group: [I_ITEM_ID]
+      aggregation: [SUM(TOTAL_SALES)]
+      est: (rows=12398)
+    UnionAll
+        est: (rows=12398)
+      ColocatedSortAggregate
+          fieldNames: [I_ITEM_ID, TOTAL_SALES]
+          collation: [I_ITEM_ID ASC]
+          group: [I_ITEM_ID]
+          aggregation: [SUM(SS_EXT_SALES_PRICE)]
+          est: (rows=7084)
+        Project
+            fieldNames: [I_ITEM_ID, SS_EXT_SALES_PRICE]
+            projection: [I_ITEM_ID, SS_EXT_SALES_PRICE]
+            est: (rows=35419)
+          HashJoin
+              predicate: =(SS_ITEM_SK, I_ITEM_SK)
+              type: inner
+              est: (rows=35419)
+            MergeJoin
+                predicate: =(I_ITEM_ID, I_ITEM_ID$0)
+                fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID$0]
+                type: inner
+                est: (rows=3236760)
+              Exchange
+                  distribution: single
+                  est: (rows=18000)
+                Sort
+                    collation: [I_ITEM_ID ASC]
+                    est: (rows=18000)
+                  TableScan
+                      table: PUBLIC.ITEM
+                      fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                      est: (rows=18000)
+              Sort
+                  collation: [I_ITEM_ID ASC]
+                  est: (rows=1199)
+                ReduceHashAggregate
+                    fieldNames: [I_ITEM_ID]
+                    group: [I_ITEM_ID]
+                    aggregation: []
+                    est: (rows=1199)
+                  Exchange
+                      distribution: single
+                      est: (rows=1199)
+                    MapHashAggregate
+                        fieldNames: [I_ITEM_ID, _GROUP_ID]
+                        group: [I_ITEM_ID]
+                        aggregation: []
+                        est: (rows=1199)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Children')
+                          fieldNames: [I_ITEM_ID]
+                          est: (rows=5994)
+            HashJoin
+                predicate: =(SS_ADDR_SK, CA_ADDRESS_SK)
+                type: inner
+                est: (rows=106362)
+              HashJoin
+                  predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=319405)
+                Exchange
+                    distribution: single
+                    est: (rows=2880404)
+                  TableScan
+                      table: PUBLIC.STORE_SALES
+                      fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_ADDR_SK, SS_EXT_SALES_PRICE]
+                      est: (rows=2880404)
+                Exchange
+                    distribution: single
+                    est: (rows=8100)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: AND(=(D_YEAR, 1998), =(D_MOY, 10))
+                      fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                      est: (rows=8100)
+              Exchange
+                  distribution: single
+                  est: (rows=16650)
+                TableScan
+                    table: PUBLIC.CUSTOMER_ADDRESS
+                    predicate: =(CA_GMT_OFFSET, -5.00)
+                    fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
+                    est: (rows=16650)
+      ColocatedSortAggregate
+          fieldNames: [I_ITEM_ID, TOTAL_SALES]
+          collation: [I_ITEM_ID ASC]
+          group: [I_ITEM_ID]
+          aggregation: [SUM(CS_EXT_SALES_PRICE)]
+          est: (rows=3545)
+        Project
+            fieldNames: [I_ITEM_ID, CS_EXT_SALES_PRICE]
+            projection: [I_ITEM_ID, CS_EXT_SALES_PRICE]
+            est: (rows=17726)
+          HashJoin
+              predicate: =(CS_BILL_ADDR_SK, CA_ADDRESS_SK)
+              type: inner
+              est: (rows=17726)
+            HashJoin
+                predicate: =(CS_ITEM_SK, I_ITEM_SK)
+                type: inner
+                est: (rows=53231)
+              MergeJoin
+                  predicate: =(I_ITEM_ID, I_ITEM_ID$0)
+                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID$0]
+                  type: inner
+                  est: (rows=3236760)
+                Exchange
+                    distribution: single
+                    est: (rows=18000)
+                  Sort
+                      collation: [I_ITEM_ID ASC]
+                      est: (rows=18000)
+                    TableScan
+                        table: PUBLIC.ITEM
+                        fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                        est: (rows=18000)
+                Sort
+                    collation: [I_ITEM_ID ASC]
+                    est: (rows=1199)
+                  ReduceHashAggregate
+                      fieldNames: [I_ITEM_ID]
+                      group: [I_ITEM_ID]
+                      aggregation: []
+                      est: (rows=1199)
+                    Exchange
+                        distribution: single
+                        est: (rows=1199)
+                      MapHashAggregate
+                          fieldNames: [I_ITEM_ID, _GROUP_ID]
+                          group: [I_ITEM_ID]
+                          aggregation: []
+                          est: (rows=1199)
+                        TableScan
+                            table: PUBLIC.ITEM
+                            predicate: =(I_CATEGORY, _UTF-8'Children')
+                            fieldNames: [I_ITEM_ID]
+                            est: (rows=5994)
+              HashJoin
+                  predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=159852)
+                Exchange
+                    distribution: single
+                    est: (rows=1441548)
+                  TableScan
+                      table: PUBLIC.CATALOG_SALES
+                      fieldNames: [CS_SOLD_DATE_SK, CS_BILL_ADDR_SK, CS_ITEM_SK, CS_EXT_SALES_PRICE]
+                      est: (rows=1441548)
+                Exchange
+                    distribution: single
+                    est: (rows=8100)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: AND(=(D_YEAR, 1998), =(D_MOY, 10))
+                      fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                      est: (rows=8100)
+            Exchange
+                distribution: single
+                est: (rows=16650)
+              TableScan
+                  table: PUBLIC.CUSTOMER_ADDRESS
+                  predicate: =(CA_GMT_OFFSET, -5.00)
+                  fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
+                  est: (rows=16650)
+      ColocatedHashAggregate
+          fieldNames: [I_ITEM_ID, TOTAL_SALES]
+          group: [I_ITEM_ID]
+          aggregation: [SUM(WS_EXT_SALES_PRICE)]
+          est: (rows=1769)
+        Project
+            fieldNames: [I_ITEM_ID, WS_EXT_SALES_PRICE]
+            projection: [I_ITEM_ID, WS_EXT_SALES_PRICE]
+            est: (rows=8846)
+          HashJoin
+              predicate: =(WS_BILL_ADDR_SK, CA_ADDRESS_SK)
+              type: inner
+              est: (rows=8846)
+            MergeJoin
+                predicate: =(WS_ITEM_SK, I_ITEM_SK)
+                type: inner
+                est: (rows=26564)
+              HashJoin
+                  predicate: =(I_ITEM_ID, I_ITEM_ID$0)
+                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID$0]
+                  type: inner
+                  est: (rows=3236760)
+                Exchange
+                    distribution: single
+                    est: (rows=18000)
+                  Sort
+                      collation: [I_ITEM_SK ASC]
+                      est: (rows=18000)
+                    TableScan
+                        table: PUBLIC.ITEM
+                        fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                        est: (rows=18000)
+                ReduceHashAggregate
+                    fieldNames: [I_ITEM_ID]
+                    group: [I_ITEM_ID]
+                    aggregation: []
+                    est: (rows=1199)
+                  Exchange
+                      distribution: single
+                      est: (rows=1199)
+                    MapHashAggregate
+                        fieldNames: [I_ITEM_ID, _GROUP_ID]
+                        group: [I_ITEM_ID]
+                        aggregation: []
+                        est: (rows=1199)
+                      TableScan
+                          table: PUBLIC.ITEM
+                          predicate: =(I_CATEGORY, _UTF-8'Children')
+                          fieldNames: [I_ITEM_ID]
+                          est: (rows=5994)
+              HashJoin
+                  predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=79772)
+                Exchange
+                    distribution: single
+                    est: (rows=719384)
+                  Sort
+                      collation: [WS_ITEM_SK ASC]
+                      est: (rows=719384)
+                    TableScan
+                        table: PUBLIC.WEB_SALES
+                        fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_ADDR_SK, WS_EXT_SALES_PRICE]
+                        est: (rows=719384)
+                Exchange
+                    distribution: single
+                    est: (rows=8100)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: AND(=(D_YEAR, 1998), =(D_MOY, 10))
+                      fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                      est: (rows=8100)
+            Exchange
+                distribution: single
+                est: (rows=16650)
+              TableScan
+                  table: PUBLIC.CUSTOMER_ADDRESS
+                  predicate: =(CA_GMT_OFFSET, -5.00)
+                  fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
+                  est: (rows=16650)

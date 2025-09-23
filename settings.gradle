@@ -45,7 +45,6 @@ include(':ignite-client-handler')
 include(':ignite-sql-engine-api')
 include(':ignite-sql-engine')
 include(':ignite-marshaller-common')
-include(':ignite-jacoco-report')
 include(':ignite-configuration')
 include(':ignite-configuration-presentation')
 include(':ignite-core')
@@ -95,8 +94,10 @@ include(':ignite-configuration-root')
 include(':ignite-configuration-system')
 include(':ignite-system-disaster-recovery')
 include(':ignite-system-disaster-recovery-api')
+include(':ignite-compatibility-tests')
+include(':ignite-configuration-storage')
 
-project(":ignite-examples").projectDir = file('examples')
+project(":ignite-examples").projectDir = file('examples/java')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
 project(":ignite-storage-api").projectDir = file('modules/storage-api')
@@ -125,7 +126,6 @@ project(":ignite-client-handler").projectDir = file('modules/client-handler')
 project(":ignite-sql-engine-api").projectDir = file('modules/sql-engine-api')
 project(":ignite-sql-engine").projectDir = file('modules/sql-engine')
 project(":ignite-marshaller-common").projectDir = file('modules/marshaller-common')
-project(":ignite-jacoco-report").projectDir = file('modules/jacoco-report')
 project(":ignite-configuration").projectDir = file('modules/configuration')
 project(":ignite-configuration-presentation").projectDir = file('modules/configuration-presentation')
 project(":ignite-core").projectDir = file('modules/core')
@@ -175,6 +175,59 @@ project(":ignite-configuration-root").projectDir = file('modules/configuration-r
 project(":ignite-configuration-system").projectDir = file('modules/configuration-system')
 project(":ignite-system-disaster-recovery").projectDir = file('modules/system-disaster-recovery')
 project(":ignite-system-disaster-recovery-api").projectDir = file('modules/system-disaster-recovery-api')
+project(':ignite-compatibility-tests').projectDir = file('modules/compatibility-tests')
+project(':ignite-configuration-storage').projectDir = file('modules/configuration-storage')
+
+include(":migration-tools-ignite2-repack")
+include(":migration-tools-ignite3-repack")
+include(":migration-tools-ignite3-slim-repack")
+include(":migration-tools-ai2-test-fixtures")
+include(":migration-tools-commons-tests")
+include(":migration-tools-commons")
+include(":migration-tools-config-converter")
+include(":migration-tools-persistence")
+include(":migration-tools-cli")
+include(":migration-tools-packaging-cli")
+// End 2 End test stuff
+include(":migration-tools-e2e-core")
+include(":migration-tools-e2e-implementations")
+include(":migration-tools-e2e-ai2-runner")
+include(":migration-tools-e2e-ai3-tests")
+
+project(":migration-tools-ignite2-repack").projectDir = file('migration-tools/modules/ignite2-repack')
+project(":migration-tools-ignite3-repack").projectDir = file('migration-tools/modules/ignite3-repack')
+project(":migration-tools-ignite3-slim-repack").projectDir = file('migration-tools/modules/ignite3-slim-repack')
+project(":migration-tools-ai2-test-fixtures").projectDir = file('migration-tools/modules/migration-tools-ai2-test-fixtures')
+project(":migration-tools-commons-tests").projectDir = file('migration-tools/modules/migration-tools-commons-tests')
+project(":migration-tools-commons").projectDir = file('migration-tools/modules/migration-tools-commons')
+project(":migration-tools-config-converter").projectDir = file('migration-tools/modules/migration-tools-config-converter')
+project(":migration-tools-persistence").projectDir = file('migration-tools/modules/migration-tools-persistence')
+project(":migration-tools-cli").projectDir = file('migration-tools/modules/migration-tools-cli')
+project(":migration-tools-packaging-cli").projectDir = file('migration-tools/packaging/cli')
+project(":migration-tools-e2e-core").projectDir = file('migration-tools/tools/e2e-tests-framework/framework-core')
+project(":migration-tools-e2e-implementations").projectDir = file('migration-tools/tools/e2e-tests-framework/implementations')
+project(":migration-tools-e2e-ai2-runner").projectDir = file('migration-tools/tools/e2e-tests-framework/ai2-runner')
+project(":migration-tools-e2e-ai3-tests").projectDir = file('migration-tools/modules/e2e-ai3-tests')
+
+def ignite2Version = properties["ignite2.version"].toString()
+def ignite2Vendor = properties["ignite2.vendor"].toString()
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            version('ignite2', ignite2Version)
+
+            library("ignite2-core", ignite2Vendor, "ignite-core").versionRef('ignite2')
+            library("ignite2-spring", ignite2Vendor, "ignite-spring").versionRef('ignite2')
+            library("ignite2-calcite", "org.apache.ignite", "ignite-calcite").version("2.15.0")
+        }
+        "runtimeApacheIgnite2" {
+            version('ignite2', ignite2Version)
+            library('ignite2-core', "org.apache.ignite", "ignite-core").versionRef('ignite2')
+            library('ignite2-spring', "org.apache.ignite", "ignite-spring").versionRef('ignite2')
+        }
+    }
+}
 
 if (JavaVersion.current() >= JavaVersion.VERSION_17) {
     include(':spring-boot-ignite-client-autoconfigure')

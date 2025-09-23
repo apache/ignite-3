@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.lang.reflect.Type;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -49,10 +51,11 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -76,9 +79,10 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final Map<String, Object> params;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final String originatingNodeName;
+    private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
 
@@ -102,6 +106,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final ZoneId timeZoneId;
 
+    private final String currentUser;
+
     private SharedState sharedState = new SharedState();
 
     /**
@@ -118,20 +124,25 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
      * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
+     * @param clock The clock to use to get the system time.
+     * @param username Authenticated user name or {@code null} for unknown user.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
             ExpressionFactory<RowT> expressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             String originatingNodeName,
+            UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
-            int inBufSize
+            int inBufSize,
+            Clock clock,
+            @Nullable String username
     ) {
         this.expressionFactory = expressionFactory;
         this.executor = executor;
@@ -141,13 +152,15 @@ public class ExecutionContext<RowT> implements DataContext {
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
+        this.originatingNodeId = originatingNodeId;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
+        this.currentUser = username;
 
         assert this.inBufSize > 0 : this.inBufSize;
 
-        Instant nowUtc = Instant.now();
+        Instant nowUtc = Instant.now(clock);
         startTs = nowUtc.toEpochMilli();
         startTsWithTzOffset = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 
@@ -232,9 +245,16 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
+     * Get originating node volatile ID.
+     */
+    public UUID originatingNodeId() {
+        return originatingNodeId;
+    }
+
+    /**
      * Get local node.
      */
-    public ClusterNode localNode() {
+    public InternalClusterNode localNode() {
         return localNode;
     }
 
@@ -283,16 +303,19 @@ public class ExecutionContext<RowT> implements DataContext {
         if (Variable.TIME_ZONE.camelName.equals(name)) {
             return TimeZone.getTimeZone(timeZoneId);
         }
+        if (Variable.USER.camelName.equals(name)) {
+            return currentUser;
+        }
 
         if (name.startsWith("?")) {
-            return getParameter(name, null);
+            return getParameter(name);
         } else {
             return params.get(name);
         }
     }
 
     /** Gets dynamic parameters by name. */
-    public @Nullable Object getParameter(String name, @Nullable Type storageType) {
+    private @Nullable Object getParameter(String name) {
         assert name.startsWith("?") : name;
 
         Object param = params.get(name);
@@ -305,7 +328,17 @@ public class ExecutionContext<RowT> implements DataContext {
             return null;
         }
 
-        return TypeUtils.toInternal(param, storageType == null ? param.getClass() : storageType);
+        NativeType nativeType = NativeTypes.fromObject(param);
+
+        if (nativeType == null) {
+            throw new IllegalArgumentException(format(
+                    "Dynamic parameter of unsupported type: parameterName={}, type={}",
+                    name,
+                    param.getClass()
+            ));
+        }
+
+        return TypeUtils.toInternal(param, nativeType.spec());
     }
 
     /**

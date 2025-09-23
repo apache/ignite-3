@@ -29,8 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A part of exchange which receives batches from remote sources.
@@ -150,6 +154,26 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             assert source != null;
 
             source.reset(context().sharedState());
+        }
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent)
+                .app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+
+        for (String nodeName : srcNodeNames) {
+            RemoteSource<?> source = perNodeBuffers.get(nodeName);
+            writer.app(childIndent)
+                    .app("class=" + source.getClass().getSimpleName())
+                    .app(", nodeName=").app(nodeName)
+                    .app(", state=").app(source.state)
+                    .nl();
         }
     }
 
@@ -367,19 +391,14 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 });
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (context().originatingNodeName().equals(nodeName) && srcNodeNames == null) {
-            this.execute(this::close);
-        } else if (srcNodeNames != null && srcNodeNames.contains(nodeName)) {
-            this.execute(() -> onNodeLeft0(nodeName));
+    /** Notifies the inbox that provided node has left the cluster. */
+    public void onNodeLeft(InternalClusterNode node) {
+        if (srcNodeNames.contains(node.name())) {
+            this.execute(() -> onNodeLeft0(node.name()));
         }
     }
 
-    private void onNodeLeft0(String nodeName) throws Exception {
+    private void onNodeLeft0(String nodeName) {
         if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new NodeLeftException(nodeName);
         }
@@ -523,8 +542,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
 
         /**
-         * Drops all received but not yet processed batches. Accepts the state that should be propagated
-         * to the source on the next {@link #request} invocation.
+         * Drops all received but not yet processed batches. Accepts the state that should be propagated to the source on the next
+         * {@link #request} invocation.
          *
          * @param state State to propagate to the source.
          */
@@ -554,8 +573,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
 
         /**
-         * Requests another several batches from remote source if a count of in-flight batches
-         * is less or equal than half of {@link #IO_BATCH_CNT}.
+         * Requests another several batches from remote source if a count of in-flight batches is less or equal than half of
+         * {@link #IO_BATCH_CNT}.
          */
         void requestNextBatchIfNeeded() throws IgniteInternalCheckedException {
             int maxInFlightCount = Math.max(IO_BATCH_CNT, 1);

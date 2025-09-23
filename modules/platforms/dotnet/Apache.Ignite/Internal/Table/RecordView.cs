@@ -27,7 +27,6 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Buffers;
     using Common;
-    using Ignite.Compute;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
@@ -67,7 +66,7 @@ namespace Apache.Ignite.Internal.Table
             _table = table;
             _ser = ser;
             _sql = sql;
-            _logger = table.Socket.Configuration.LoggerFactory.CreateLogger<RecordView<T>>();
+            _logger = table.Socket.Configuration.Configuration.LoggerFactory.CreateLogger<RecordView<T>>();
         }
 
         /// <summary>
@@ -88,7 +87,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
-            var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration);
+            var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration.Configuration);
             var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.QualifiedName);
 
             if (typeof(T).IsKeyValuePair())
@@ -310,9 +309,9 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
             IAsyncEnumerable<TSource> data,
+            ReceiverDescriptor<TPayload, TArg, TResult> receiver,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
-            ReceiverDescriptor<TArg, TResult> receiver,
             TArg receiverArg,
             DataStreamerOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -338,7 +337,7 @@ namespace Apache.Ignite.Internal.Table
                 SingleWriter = false
             });
 
-            // Stream in background.
+            // Stream in the background.
             var streamTask = Stream();
 
             // Result async enumerable is returned immediately. It will be completed when the streaming completes.
@@ -379,8 +378,12 @@ namespace Apache.Ignite.Internal.Table
                         keyWriter: _ser.Handler,
                         options,
                         resultChannel,
-                        receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                        receiver.DeploymentUnits ?? [],
                         receiver.ReceiverClassName,
+                        receiver.Options ?? ReceiverExecutionOptions.Default,
+                        receiver.PayloadMarshaller,
+                        receiver.ArgumentMarshaller,
+                        receiver.ResultMarshaller,
                         receiverArg,
                         cancellationToken).ConfigureAwait(false);
 
@@ -412,8 +415,12 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 resultChannel: null,
-                receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                receiver.DeploymentUnits ?? [],
                 receiver.ReceiverClassName,
+                receiver.Options ?? ReceiverExecutionOptions.Default,
+                null,
+                null,
+                null,
                 receiverArg,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -553,6 +560,12 @@ namespace Apache.Ignite.Internal.Table
 
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _logger.LogFailedTableOpDebug(e, op);
+
+                throw;
             }
         }
 

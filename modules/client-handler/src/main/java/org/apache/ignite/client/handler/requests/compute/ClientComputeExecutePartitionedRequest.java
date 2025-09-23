@@ -20,18 +20,24 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.packSubmitResult;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJob;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackTaskId;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
-import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
@@ -43,46 +49,54 @@ public class ClientComputeExecutePartitionedRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @param tables Tables.
      * @param cluster Cluster service
+     * @param notificationSender Notification sender.
+     * @param clientContext Client context.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute,
             IgniteTables tables,
             ClusterService cluster,
-            NotificationSender notificationSender
+            NotificationSender notificationSender,
+            ClientContext clientContext
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            out.packInt(table.schemaView().lastKnownSchemaVersion());
+        int tableId = in.unpackInt();
+        int partitionId = in.unpackInt();
 
-            int partitionId = in.unpackInt();
+        Job job = unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+        UUID taskId = unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID));
 
-            // Unpack job
-            List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
-            String jobClassName = in.unpackString();
-            JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-            ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(in);
+        return readTableAsync(tableId, tables).thenCompose(table -> {
+            ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.BROADCAST)
+                    .eventUser(clientContext.userDetails())
+                    .taskId(taskId)
+                    .tableName(table.name())
+                    .clientAddress(clientContext.remoteAddress().toString());
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(
                     table,
                     partitionId,
-                    deploymentUnits,
-                    jobClassName,
-                    options,
-                    args,
+                    job.deploymentUnits(),
+                    job.jobClassName(),
+                    job.options(),
+                    metadataBuilder,
+                    job.arg(),
                     null
             );
 
             sendResultAndState(jobExecutionFut, notificationSender);
 
-            //noinspection DataFlowIssue
             return jobExecutionFut.thenCompose(execution ->
-                    execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()))
+                    execution.idAsync().thenApply(jobId -> out -> {
+                        out.packInt(table.schemaView().lastKnownSchemaVersion());
+
+                        //noinspection DataFlowIssue
+                        packSubmitResult(out, jobId, execution.node());
+                    })
             );
         });
     }

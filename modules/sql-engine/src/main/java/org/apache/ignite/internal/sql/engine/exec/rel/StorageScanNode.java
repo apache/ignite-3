@@ -25,6 +25,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
 
@@ -201,6 +202,13 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 
     /** Subscriber which handle scan's rows. */

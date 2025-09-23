@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.min;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFINITION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -60,6 +60,11 @@ public class CatalogUtils {
 
     /** Default number of distribution zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
+
+    /**
+     * Quorum size for the default zone. Default quorum size for other zones is calculated using replicas count.
+     */
+    public static final int DEFAULT_ZONE_QUORUM_SIZE = 1;
 
     /**
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
@@ -613,7 +618,6 @@ public class CatalogUtils {
         return defaultZone != null ? defaultZone.id() : null;
     }
 
-
     /**
      * Returns the maximum supported precision for given type or {@link #UNSPECIFIED_PRECISION}  if the type does not support precision.
      *
@@ -799,7 +803,20 @@ public class CatalogUtils {
     // In case of enabled colocation the start of each node triggers default zone rebalance. In order to eliminate such excessive rebalances
     // default zone auto adjust scale up timeout is set to 5 seconds. If colocation is disabled tests usually create tables
     // after all nodes already started meaning that tables are created on stable topology and usually doesn't assume any rebalances at all.
-    public static int defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds() {
-        return enabledColocation() ? 5 : 0;
+    public static int defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(boolean colocationEnabled) {
+        return colocationEnabled ? 5 : 0;
+    }
+
+    /**
+     * Calculates default quorum size based on the number of replicas.
+     *
+     * @param replicas Number of replicas.
+     * @return Quorum size.
+     */
+    public static int defaultQuorumSize(int replicas) {
+        if (replicas <= 4) {
+            return min(replicas, 2);
+        }
+        return 3;
     }
 }

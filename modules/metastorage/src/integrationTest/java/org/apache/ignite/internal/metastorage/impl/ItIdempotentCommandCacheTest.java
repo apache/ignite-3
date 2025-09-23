@@ -245,7 +245,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             clockService = new ClockServiceImpl(
                     clock,
                     clockWaiter,
-                    () -> TEST_MAX_CLOCK_SKEW_MILLIS
+                    () -> TEST_MAX_CLOCK_SKEW_MILLIS,
+                    skew -> {}
             );
         }
 
@@ -496,7 +497,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         try {
             return node.raftManager
-                    .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
+                    .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration, true);
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }

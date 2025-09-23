@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.stream.Collectors.toCollection;
+import static java.util.Collections.unmodifiableSet;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -82,35 +81,31 @@ public class TableUtils {
     }
 
     /**
-     * Collects a list of tables that were removed from the catalog and should have been dropped due to a low watermark (if the catalog
-     * version in which the table was removed is less than or equal to the active catalog version of the low watermark).
+     * Collects all IDs of tables that were not dropped or were dropped, but should not have been destroyed yet due to a low watermark
+     * (if the catalog version in which the table was removed were less than or equal to the active catalog version of the low watermark).
+     *
+     * <p>This method scans the Catalog, so it should be used keeping in mind potential concurrent modification to the Catalog.
+     * For instance, it's safe to use it before the node has been started up (namely, before Metastorage watches deployment).
      *
      * @param catalogService Catalog service.
      * @param lowWatermark Low watermark, {@code null} if it has never been updated.
      */
-    static List<DroppedTableInfo> droppedTables(CatalogService catalogService, @Nullable HybridTimestamp lowWatermark) {
-        if (lowWatermark == null) {
-            return List.of();
+    static Set<Integer> aliveTables(CatalogService catalogService, @Nullable HybridTimestamp lowWatermark) {
+        int oldestAliveVersion;
+        if (lowWatermark != null) {
+            oldestAliveVersion = catalogService.activeCatalogVersion(lowWatermark.longValue());
+        } else {
+            oldestAliveVersion = catalogService.earliestCatalogVersion();
         }
 
-        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
-        Catalog lwmCatalog = catalogService.activeCatalog(lowWatermark.longValue());
-
-        Set<Integer> tableIds = lwmCatalog.tables().stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(toCollection(HashSet::new));
-
-        var res = new ArrayList<DroppedTableInfo>();
-
-        for (int catalogVersion = lwmCatalog.version() - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            for (CatalogTableDescriptor table : catalogService.catalog(catalogVersion).tables()) {
-                if (tableIds.add(table.id())) {
-                    res.add(new DroppedTableInfo(table.id(), catalogVersion + 1));
-                }
+        Set<Integer> ids = new HashSet<>();
+        for (int version = oldestAliveVersion; version <= catalogService.latestCatalogVersion(); version++) {
+            for (CatalogTableDescriptor table : catalogService.catalog(version).tables()) {
+                ids.add(table.id());
             }
         }
 
-        return res;
+        return unmodifiableSet(ids);
     }
 
     /**
@@ -119,7 +114,7 @@ public class TableUtils {
      * @param tx Transaction of {@code null}.
      * @return True of direct flow is applicable for the transaction.
      */
-    public static boolean isDirectFlowApplicableTx(@Nullable InternalTransaction tx) {
+    public static boolean isDirectFlowApplicable(@Nullable InternalTransaction tx) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-24218 Remove this method ot use tx == null || tx.direct() instead.
         return tx == null || (tx.implicit() && tx.isReadOnly());
     }

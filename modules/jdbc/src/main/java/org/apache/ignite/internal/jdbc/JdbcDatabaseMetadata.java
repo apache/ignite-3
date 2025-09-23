@@ -67,6 +67,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** Name of TABLE type. */
     public static final String TYPE_TABLE = "TABLE";
 
+    /** Name of system view type. */
+    public static final String TYPE_VIEW = "VIEW";
+
     /** Connection. */
     private final JdbcConnection conn;
 
@@ -854,7 +857,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             tblTypeMatch = true;
         } else {
             for (String type : tblTypes) {
-                if (TYPE_TABLE.equals(type)) {
+                if (TYPE_TABLE.equals(type) || TYPE_VIEW.equals(type)) {
                     tblTypeMatch = true;
 
                     break;
@@ -951,7 +954,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getTableTypes() throws SQLException {
         return new JdbcResultSet(
-                asList(singletonList(TYPE_TABLE)),
+                asList(List.of(TYPE_TABLE, TYPE_VIEW)),
                 asList(new JdbcColumnMeta("TABLE_TYPE", ColumnType.STRING)));
     }
 
@@ -1537,7 +1540,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getSQLStateType() {
-        return DatabaseMetaData.sqlStateSQL99;
+        return sqlStateSQL99;
     }
 
     /** {@inheritDoc} */

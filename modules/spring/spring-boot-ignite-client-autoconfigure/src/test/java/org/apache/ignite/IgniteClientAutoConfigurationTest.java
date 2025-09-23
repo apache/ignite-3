@@ -92,7 +92,6 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
         long heartbeatInterval = 4444;
         long heartbeatTimeout = 5555;
 
-
         ApplicationContextRunner contextRunner = new ApplicationContextRunner()
                 .withPropertyValues(
                         "ignite.client.addresses=127.0.0.1:10800",

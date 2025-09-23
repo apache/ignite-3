@@ -26,10 +26,13 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
@@ -57,7 +60,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
     private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
 
     /** Created {@link ClusterService}s. Needed for resource management. */
-    private List<ClusterService> services = new ArrayList<>();
+    private final List<ClusterService> services = new ArrayList<>();
     /** Created {@link NodeFinder}s. Needed for resource management. */
     private final List<NodeFinder> finders = new ArrayList<>();
 
@@ -78,7 +81,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(ints = {UNSPECIFIED_TTL, MAX_TTL})
-    void testFindNodes(int ttl) {
+    void testFindNodes(int ttl) throws SocketException {
         int nodeCount = 5;
         List<NetworkAddress> addresses = findLocalAddresses(INIT_PORT, INIT_PORT + nodeCount);
 
@@ -118,14 +121,19 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         }
     }
 
-    private static NodeFinder startMulticastNodeFinder(NetworkAddress addr, int ttl) {
+    private static NodeFinder startMulticastNodeFinder(NetworkAddress addr, int ttl) throws SocketException {
+        Set<NetworkAddress> addressesToAdvertise = NetworkInterface.networkInterfaces()
+                .flatMap(NetworkInterface::inetAddresses)
+                .map(address -> new NetworkAddress(address.getHostName(), addr.port()))
+                .collect(Collectors.toUnmodifiableSet());
+
         MulticastNodeFinder finder = new MulticastNodeFinder(
                 MULTICAST_GROUP,
                 MULTICAST_PORT,
                 500,
                 ttl,
                 "test-node",
-                new InetSocketAddress(addr.host(), addr.port())
+                addressesToAdvertise
         );
 
         finder.start();

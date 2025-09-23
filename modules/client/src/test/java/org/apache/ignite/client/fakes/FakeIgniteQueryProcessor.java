@@ -17,19 +17,18 @@
 
 package org.apache.ignite.client.fakes;
 
-import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
-import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.CancellationToken;
@@ -42,7 +41,14 @@ import org.jetbrains.annotations.Nullable;
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     public static final String FAILED_SQL = "SELECT FAIL";
 
+    private final String name;
+
+    Consumer<String> dataAccessListener;
     String lastScript;
+
+    public FakeIgniteQueryProcessor(String name) {
+        this.name = name;
+    }
 
     @Override
     public CompletableFuture<QueryMetadata> prepareSingleAsync(
@@ -63,6 +69,10 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             String qry,
             Object... params
     ) {
+        if (dataAccessListener != null) {
+            dataAccessListener.accept(name);
+        }
+
         if (FAILED_SQL.equals(qry)) {
             return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
         }
@@ -77,8 +87,8 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             }
 
             sb.append(']').append(", ")
-                    .append("defaultSchema=").append(properties.getOrDefault(DEFAULT_SCHEMA, "<not set>")).append(", ")
-                    .append("defaultQueryTimeout=").append(properties.get(QUERY_TIMEOUT));
+                    .append("defaultSchema=").append(properties.defaultSchema()).append(", ")
+                    .append("defaultQueryTimeout=").append(properties.queryTimeout());
 
             lastScript = sb.toString();
         }
@@ -94,5 +104,9 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
+    }
+
+    public void setDataAccessListener(Consumer<String> dataAccessListener) {
+        this.dataAccessListener = dataAccessListener;
     }
 }

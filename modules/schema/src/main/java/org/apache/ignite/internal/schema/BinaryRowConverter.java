@@ -80,19 +80,22 @@ public class BinaryRowConverter implements ColumnsExtractor {
             parser.fetch(columnIndex, stats);
         }
 
-        // Now compose the tuple.
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.estimatedValueSize);
+        var builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.estimatedValueSize);
 
+        Sink builderSink = (index, begin, end) -> {
+            if (begin == end) {
+                builder.appendNull();
+            } else {
+                builder.appendElementBytes(tupleBuffer, begin, end - begin);
+            }
+        };
+
+        // Now compose the tuple.
         for (int elementIndex = 0; elementIndex < dstSchema.elementCount(); elementIndex++) {
             int columnIndex = dstSchema.columnIndex(elementIndex);
-            parser.fetch(columnIndex, (index, begin, end) -> {
-                if (begin == end) {
-                    builder.appendNull();
-                } else {
-                    builder.appendElementBytes(tupleBuffer, begin, end - begin);
-                }
-            });
+            parser.fetch(columnIndex, builderSink);
         }
+
         return new BinaryTuple(dstSchema.elementCount(), builder.build());
     }
 
@@ -131,7 +134,7 @@ public class BinaryRowConverter implements ColumnsExtractor {
                 return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
             case UUID:
                 return builder.appendUuidNotNull((UUID) value);
-            case BYTES:
+            case BYTE_ARRAY:
                 return builder.appendBytesNotNull((byte[]) value);
             case STRING:
                 return builder.appendStringNotNull((String) value);
@@ -193,7 +196,7 @@ public class BinaryRowConverter implements ColumnsExtractor {
             case UUID:
                 builder.appendUuidNotNull(delegate.uuidValue(col));
                 return;
-            case BYTES:
+            case BYTE_ARRAY:
                 builder.appendBytesNotNull(delegate.bytesValue(col));
                 return;
             case STRING:

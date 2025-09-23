@@ -25,7 +25,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -33,11 +36,12 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.api.node.State;
 import org.apache.ignite.internal.rest.node.StateProvider;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class for managing the lifecycle of Ignite components.
  */
-class LifecycleManager implements StateProvider {
+class LifecycleManager implements StateProvider, Debuggable {
     private static final IgniteLogger LOG = Loggers.forClass(LifecycleManager.class);
 
     /** Ignite node name. */
@@ -131,13 +135,13 @@ class LifecycleManager implements StateProvider {
      *
      * @return Future that will be completed when all components start futures will be completed.
      */
-    synchronized CompletableFuture<Void> allComponentsStartFuture() {
+    synchronized CompletableFuture<Void> allComponentsStartFuture(Executor startExecutor) {
         return allOf(allComponentsStartFutures.toArray(CompletableFuture[]::new))
-                .whenComplete((v, e) -> {
+                .whenCompleteAsync((v, e) -> {
                     synchronized (this) {
                         allComponentsStartFutures.clear();
                     }
-                });
+                }, startExecutor);
     }
 
     /**
@@ -177,5 +181,11 @@ class LifecycleManager implements StateProvider {
 
         stopAsync(componentContext, components)
                 .whenComplete(copyStateTo(stopFuture));
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        Debuggable.dumpState(writer, indent, startedComponents);
     }
 }

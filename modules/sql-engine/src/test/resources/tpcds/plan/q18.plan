@@ -1,0 +1,98 @@
+Sort
+    collation: [CA_COUNTRY ASC, CA_STATE ASC, CA_COUNTY ASC, I_ITEM_ID ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      fieldNames: [I_ITEM_ID, CA_COUNTRY, CA_STATE, CA_COUNTY, AGG1, AGG2, AGG3, AGG4, AGG5, AGG6, AGG7]
+      group: [I_ITEM_ID, CA_COUNTRY, CA_STATE, CA_COUNTY]
+      groupSets: [[I_ITEM_ID, CA_COUNTRY, CA_STATE, CA_COUNTY], [I_ITEM_ID, CA_COUNTRY, CA_STATE], [I_ITEM_ID, CA_COUNTRY], [I_ITEM_ID], []]
+      aggregation: [AVG($f4), AVG($f5), AVG($f6), AVG($f7), AVG($f8), AVG($f9), AVG($f10)]
+      est: (rows=31427)
+    Project
+        fieldNames: [I_ITEM_ID, CA_COUNTRY, CA_STATE, CA_COUNTY, $f4, $f5, $f6, $f7, $f8, $f9, $f10]
+        projection: [I_ITEM_ID, CA_COUNTRY, CA_STATE, CA_COUNTY, CAST(CS_QUANTITY):DECIMAL(12, 2), CAST(CS_LIST_PRICE):DECIMAL(12, 2), CAST(CS_COUPON_AMT):DECIMAL(12, 2), CAST(CS_SALES_PRICE):DECIMAL(12, 2), CAST(CS_NET_PROFIT):DECIMAL(12, 2), CAST(C_BIRTH_YEAR):DECIMAL(12, 2), CAST(CD_DEP_COUNT):DECIMAL(12, 2)]
+        est: (rows=53231)
+      HashJoin
+          predicate: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
+          type: inner
+          est: (rows=53231)
+        HashJoin
+            predicate: =(CS_ITEM_SK, I_ITEM_SK)
+            type: inner
+            est: (rows=53231)
+          MergeJoin
+              predicate: =(C_CURRENT_CDEMO_SK, CD_DEMO_SK)
+              fieldNames: [CD_DEMO_SK, C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_ADDR_SK, C_BIRTH_MONTH, C_BIRTH_YEAR, CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_BILL_CDEMO_SK, CS_ITEM_SK, CS_QUANTITY, CS_LIST_PRICE, CS_SALES_PRICE, CS_COUPON_AMT, CS_NET_PROFIT, CD_DEMO_SK$0, CD_GENDER, CD_EDUCATION_STATUS, CD_DEP_COUNT, D_DATE_SK, D_YEAR]
+              type: inner
+              est: (rows=53231)
+            Exchange
+                distribution: single
+                est: (rows=1920800)
+              Sort
+                  collation: [CD_DEMO_SK ASC]
+                  est: (rows=1920800)
+                TableScan
+                    table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                    fieldNames: [CD_DEMO_SK]
+                    est: (rows=1920800)
+            HashJoin
+                predicate: =(CS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+                type: inner
+                est: (rows=53231)
+              Exchange
+                  distribution: single
+                  est: (rows=100000)
+                Sort
+                    collation: [C_CURRENT_CDEMO_SK ASC]
+                    est: (rows=100000)
+                  TableScan
+                      table: PUBLIC.CUSTOMER
+                      predicate: SEARCH(C_BIRTH_MONTH, Sarg[1, 4, 5, 7, 8, 9])
+                      fieldNames: [C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_ADDR_SK, C_BIRTH_MONTH, C_BIRTH_YEAR]
+                      est: (rows=100000)
+              HashJoin
+                  predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=53231)
+                HashJoin
+                    predicate: =(CS_BILL_CDEMO_SK, CD_DEMO_SK)
+                    type: inner
+                    est: (rows=159852)
+                  Exchange
+                      distribution: single
+                      est: (rows=1441548)
+                    TableScan
+                        table: PUBLIC.CATALOG_SALES
+                        fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_BILL_CDEMO_SK, CS_ITEM_SK, CS_QUANTITY, CS_LIST_PRICE, CS_SALES_PRICE, CS_COUPON_AMT, CS_NET_PROFIT]
+                        est: (rows=1441548)
+                  Exchange
+                      distribution: single
+                      est: (rows=212996)
+                    TableScan
+                        table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                        predicate: AND(=(CD_GENDER, _UTF-8'M'), =(CD_EDUCATION_STATUS, _UTF-8'Unknown'))
+                        fieldNames: [CD_DEMO_SK, CD_GENDER, CD_EDUCATION_STATUS, CD_DEP_COUNT]
+                        est: (rows=212996)
+                Exchange
+                    distribution: single
+                    est: (rows=24325)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: =(D_YEAR, 2002)
+                      fieldNames: [D_DATE_SK, D_YEAR]
+                      est: (rows=24325)
+          Exchange
+              distribution: single
+              est: (rows=18000)
+            TableScan
+                table: PUBLIC.ITEM
+                fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                est: (rows=18000)
+        Exchange
+            distribution: single
+            est: (rows=50000)
+          TableScan
+              table: PUBLIC.CUSTOMER_ADDRESS
+              predicate: SEARCH(CA_STATE, Sarg[_UTF-8'AL':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'AR':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'GA':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'MS':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'NC':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'TX':VARCHAR(2) CHARACTER SET "UTF-8", _UTF-8'WV':VARCHAR(2) CHARACTER SET "UTF-8"]:VARCHAR(2) CHARACTER SET "UTF-8")
+              fieldNames: [CA_ADDRESS_SK, CA_COUNTY, CA_STATE, CA_COUNTRY]
+              est: (rows=50000)

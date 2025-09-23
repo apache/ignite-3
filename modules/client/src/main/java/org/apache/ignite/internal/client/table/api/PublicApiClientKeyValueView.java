@@ -184,8 +184,18 @@ public class PublicApiClientKeyValueView<K, V> extends PublicApiClientViewBase<E
     }
 
     @Override
+    public void removeAll(@Nullable Transaction tx) {
+        executeSyncOp(() -> view.removeAll(tx));
+    }
+
+    @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         return executeAsyncOp(() -> view.removeAllAsync(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return executeAsyncOp(() -> view.removeAllAsync(tx));
     }
 
     @Override

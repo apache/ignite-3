@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -59,6 +59,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -89,7 +89,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
-            new NoOpFailureManager()
+            new NoOpFailureManager(),
+            new SystemPropertiesNodeProperties()
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
@@ -112,7 +113,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
@@ -412,7 +413,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage,
                 mock(MvPartitionStorage.class),
-                mock(ClusterNode.class),
+                mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
                 clock.current()
         );

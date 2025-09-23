@@ -19,11 +19,14 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -32,9 +35,14 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -215,8 +223,9 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testDateAndTime() {
-        assertExpression("DATE '2021-01-01' + interval (1) days").returns(LocalDate.parse("2021-01-02")).check();
+        assertExpression("DATE '2021-01-01' + interval '1' days").returns(LocalDate.parse("2021-01-02")).check();
         assertExpression("(DATE '2021-03-01' - DATE '2021-01-01') months").returns(Period.ofMonths(2)).check();
+        assertExpression("(DATE '2021-03-02' - DATE '2021-03-01') hours").returns(Duration.ofHours(24)).check();
         assertExpression("EXTRACT(DAY FROM DATE '2021-01-15')").returns(15L).check();
         assertExpression("FLOOR(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-01-01")).check();
         assertExpression("CEIL(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-02-01")).check();
@@ -287,8 +296,8 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("COMPRESS('')").returns(new byte[]{}).check();
         assertExpression("OCTET_LENGTH(x'01')").returns(1).check();
         assertExpression("OCTET_LENGTH('text')").returns(4).check();
-        assertExpression("CAST(INTERVAL 1 SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
-        assertExpression("CAST(INTERVAL 1 DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
+        assertExpression("CAST(INTERVAL '1' SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
+        assertExpression("CAST(INTERVAL '1' DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
     }
 
     @Test
@@ -396,6 +405,28 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("CURRENT_DATE").check();
         assertExpression("LOCALTIME").check();
         assertExpression("LOCALTIMESTAMP").check();
+    }
+
+    @Test
+    public void testCurrentUser() {
+        IgniteSql sql = igniteSql();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(Commons.SYSTEM_USER_NAME, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)");
+        sql("INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)");
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(Commons.SYSTEM_USER_NAME, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
     }
 
     private QueryChecker assertExpression(String qry) {

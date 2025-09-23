@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -93,7 +92,7 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
 
         assertThat(startAsync(new ComponentContext(), clockWaiter, manager), willCompleteSuccessfully());
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
-        awaitDefaultZoneCreation(manager);
+        assertThat("Catalog initialization", manager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         return manager;
     }

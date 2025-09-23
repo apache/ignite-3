@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
-
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -32,7 +31,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,14 +40,14 @@ import org.junit.jupiter.api.Test;
 class DifferentFamiliesPairTest {
     @Test
     void makeSureAllTypePairsFromDifferentTypeFamiliesAreCovered() {
-        NativeTypeSpec[] allSpecs = NativeTypeSpec.values();
-        Set<IgniteBiTuple<NativeTypeSpec, NativeTypeSpec>> allPairs = new HashSet<>();
+        ColumnType[] allSpecs = NativeType.nativeTypes();
+        Set<IgniteBiTuple<ColumnType, ColumnType>> allPairs = new HashSet<>();
         for (int i = 0; i < allSpecs.length - 1; i++) {
-            NativeTypeSpec firstType = allSpecs[i];
+            ColumnType firstType = allSpecs[i];
             RelDataType firstRelType = relTypeFromTypeSpec(firstType);
 
             for (int j = i + 1; j < allSpecs.length; j++) {
-                NativeTypeSpec secondType = allSpecs[j];
+                ColumnType secondType = allSpecs[j];
                 RelDataType secondRelType = relTypeFromTypeSpec(secondType);
 
                 if (firstRelType.getFamily().equals(secondRelType.getFamily())) {
@@ -60,10 +59,10 @@ class DifferentFamiliesPairTest {
             }
         }
 
-        List<IgniteBiTuple<NativeTypeSpec, NativeTypeSpec>> actualPairs = Stream.of(DifferentFamiliesPair.values())
+        List<IgniteBiTuple<ColumnType, ColumnType>> actualPairs = Stream.of(DifferentFamiliesPair.values())
                 .flatMap(pair -> {
-                    NativeTypeSpec firstSpec = pair.first().spec();
-                    NativeTypeSpec secondSpec = pair.second().spec();
+                    ColumnType firstSpec = pair.first().spec();
+                    ColumnType secondSpec = pair.second().spec();
 
                     return Stream.of(
                             new IgniteBiTuple<>(firstSpec, secondSpec), new IgniteBiTuple<>(secondSpec, firstSpec)
@@ -76,10 +75,10 @@ class DifferentFamiliesPairTest {
         assertThat(allPairs, empty());
     }
 
-    private static RelDataType relTypeFromTypeSpec(NativeTypeSpec spec) {
+    private static RelDataType relTypeFromTypeSpec(ColumnType spec) {
         // Values of precision, scale, and length doesn't matter, because we only interested in type specs and families,
         // and types created from the same spec but different precision/scale/length still belongs to the same family.
-        NativeType type = TypeUtils.columnType2NativeType(spec.asColumnType(), 3, 0, 10);
+        NativeType type = TypeUtils.columnType2NativeType(spec, 3, 0, 10);
 
         return native2relationalType(Commons.typeFactory(), type);
     }

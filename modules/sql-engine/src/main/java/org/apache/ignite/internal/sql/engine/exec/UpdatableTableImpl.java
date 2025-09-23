@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.rowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
@@ -38,8 +38,8 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Static;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -65,6 +65,7 @@ import org.apache.ignite.internal.table.distributed.storage.RowBatch;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table implementation.
@@ -86,6 +87,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final ClockService clockService;
 
+    private final NodeProperties nodeProperties;
+
     private final InternalTable table;
 
     private final ReplicaService replicaService;
@@ -93,8 +96,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private final PartitionExtractor partitionExtractor;
 
     private final TableRowConverter rowConverter;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     private RowSchema rowSchema;
 
@@ -107,6 +108,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             InternalTable table,
             ReplicaService replicaService,
             ClockService clockService,
+            NodeProperties nodeProperties,
             TableRowConverter rowConverter
     ) {
         this.tableId = tableId;
@@ -115,6 +117,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         this.desc = desc;
         this.replicaService = replicaService;
         this.clockService = clockService;
+        this.nodeProperties = nodeProperties;
         this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
         this.rowConverter = rowConverter;
     }
@@ -197,7 +200,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     }
 
     private ReplicationGroupId targetReplicationGroupId(int partitionId) {
-        if (enabledColocation) {
+        if (nodeProperties.colocationEnabled()) {
             return new ZonePartitionId(zoneId, partitionId);
         } else {
             return new TablePartitionId(tableId, partitionId);
@@ -314,6 +317,16 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     /** {@inheritDoc} */
     @Override
+    public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+        assert explicitTx != null;
+
+        BinaryRowEx keyRow = rowConverter.toKeyRow(ectx, key);
+
+        return table.delete(keyRow, explicitTx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public <RowT> CompletableFuture<?> deleteAll(
             ExecutionContext<RowT> ectx,
             List<RowT> rows,
@@ -366,7 +379,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ExecutionContext<RowT> ectx,
             Collection<RowBatch> batches
     ) {
-        return collectRejectedRowsResponsesWithRestoreOrder(batches)
+        return collectRejectedRowsResponses(batches)
                 .thenApply(response -> {
                     if (nullOrEmpty(response)) {
                         return null;

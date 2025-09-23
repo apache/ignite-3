@@ -18,18 +18,18 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 
 class TransactionExpirationRegistry {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionExpirationRegistry.class);
@@ -40,7 +40,7 @@ class TransactionExpirationRegistry {
      */
     private final NavigableMap<Long, Object> txsByExpirationTime = new ConcurrentSkipListMap<>();
 
-    private final ReadWriteLock watermarkLock = new ReentrantReadWriteLock();
+    private final IgniteStripedReadWriteLock watermarkLock = new IgniteStripedReadWriteLock();
 
     /** Watermark at which expiration has already happened (millis since Unix epoch). */
     private volatile long watermark = Long.MIN_VALUE;
@@ -92,7 +92,10 @@ class TransactionExpirationRegistry {
                         if (txOrSet instanceof Set) {
                             txsExpiringAtTs = (Set<InternalTransaction>) txOrSet;
                         } else {
-                            txsExpiringAtTs = new HashSet<>();
+                            // Using a concurrent set because txsByExpirationTime does not guarantee linearization of compute() calls,
+                            // so the set might be accessed/updated concurrently. It's not a problem to use a mutable set here as both
+                            // addition to it and removal from it are idempotent.
+                            txsExpiringAtTs = ConcurrentHashMap.newKeySet();
                             txsExpiringAtTs.add((InternalTransaction) txOrSet);
                         }
 
@@ -161,15 +164,27 @@ class TransactionExpirationRegistry {
 
                 set.remove(tx);
 
-                return set.size() == 1 ? set.iterator().next() : set;
-            } else {
-                InternalTransaction tx0 = (InternalTransaction) txOrSet;
+                int newSize = set.size();
 
-                if (tx0.id().equals(tx.id())) {
+                if (newSize == 0) {
+                    return null;
+                } else if (newSize == 1) {
+                    try {
+                        return set.iterator().next();
+                    } catch (NoSuchElementException e) {
+                        return null;
+                    }
+                } else {
+                    return set;
+                }
+            } else {
+                InternalTransaction registeredTx = (InternalTransaction) txOrSet;
+
+                if (registeredTx.id().equals(tx.id())) {
                     return null;
                 }
 
-                return tx0;
+                return registeredTx;
             }
         });
     }

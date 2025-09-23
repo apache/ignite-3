@@ -25,6 +25,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
@@ -146,23 +147,43 @@ public class PublicApiThreadingIgniteSql implements IgniteSql, Wrapper {
     }
 
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return execUserSyncOperation(() -> sql.executeBatch(transaction, dmlQuery, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String dmlQuery,
+            BatchedArguments batch
+    ) {
+        return execUserSyncOperation(() -> sql.executeBatch(transaction, cancellationToken, dmlQuery, batch));
     }
 
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        return execUserSyncOperation(() -> sql.executeBatch(transaction, dmlStatement, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement dmlStatement,
+            BatchedArguments batch
+    ) {
+        return execUserSyncOperation(() -> sql.executeBatch(transaction, cancellationToken, dmlStatement, batch));
     }
 
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return doAsyncOperation(() -> sql.executeBatchAsync(transaction, query, batch));
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            BatchedArguments batch
+    ) {
+        return doAsyncOperation(() -> sql.executeBatchAsync(transaction, cancellationToken, query, batch));
     }
 
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        return doAsyncOperation(() -> sql.executeBatchAsync(transaction, statement, batch));
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    ) {
+        return doAsyncOperation(() -> sql.executeBatchAsync(transaction, cancellationToken, statement, batch));
     }
 
     @Override
@@ -200,6 +221,6 @@ public class PublicApiThreadingIgniteSql implements IgniteSql, Wrapper {
 
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
-        return classToUnwrap.cast(sql);
+        return Wrappers.unwrap(sql, classToUnwrap);
     }
 }

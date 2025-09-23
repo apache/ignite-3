@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.temporal.ChronoUnit;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
@@ -53,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -66,12 +65,14 @@ import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for test execution runtime used in benchmarking.
  */
 public class TestClusterTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_SIZE = 10_000;
 
     private final ScannableTable table = new ScannableTable() {
         @Override
@@ -79,13 +80,12 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
                 ExecutionContext<RowT> ctx,
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
-                @Nullable BitSet requiredColumns
+                int @Nullable [] requiredColumns
         ) {
-
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
                             DataProvider.fromRow(
-                                    new Object[]{42, UUID.randomUUID().toString()}, 3_333
+                                    new Object[]{42, UUID.randomUUID().toString()}, TABLE_SIZE / CatalogUtils.DEFAULT_PARTITION_COUNT
                             )
                     ), rowFactory::create
             );
@@ -94,7 +94,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         @Override
         public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                @Nullable BitSet requiredColumns) {
+
+                int @Nullable [] requiredColumns) {
 
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
@@ -107,7 +108,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key,
+                int @Nullable [] requiredColumns) {
 
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
@@ -120,7 +122,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                RowFactory<RowT> rowFactory, RowT key,
+                int @Nullable [] requiredColumns) {
             return CompletableFuture.completedFuture(rowFactory.create());
         }
 
@@ -133,15 +136,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     // @formatter:off
     private final TestCluster cluster = TestBuilders.cluster()
             .nodes("N1", "N2")
-            .addTable()
-                .name("T1")
-                .addKeyColumn("ID", NativeTypes.INT32)
-                .addColumn("VAL", NativeTypes.stringOf(64))
-                .addSortedIndex()
-                    .name("SORTED_IDX")
-                    .addColumn("ID", Collation.ASC_NULLS_FIRST)
-                    .end()
-                .end()
             .defaultAssignmentsProvider(tableName -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
                     .mapToObj(part -> List.of(part % 2 == 0 ? "N1" : "N2"))
                     .collect(Collectors.toList())
@@ -171,13 +165,20 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.stop();
     }
 
+    @BeforeEach
+    public void initCluster() {
+        cluster.start();
+
+        cluster.node("N1").initSchema(
+                "CREATE TABLE t1 (id INT, val VARCHAR(64), CONSTRAINT sorted_idx PRIMARY KEY USING SORTED (id))"
+        );
+    }
+
     /**
      * Runs a simple SELECT query.
      */
     @Test
     public void testSimpleQuery() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
         String query = "SELECT * FROM t1";
 
@@ -185,17 +186,15 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan contains full table scan.
         assertInstanceOf(MultiStepPlan.class, plan);
-        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).root()));
+        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).getRel()));
 
-        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
     }
 
     @Test
     public void testSimpleFromCreatedTableByDdl() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         gatewayNode.initSchema(
@@ -206,25 +205,23 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         QueryPlan plan = gatewayNode.prepare(query);
 
-        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
 
         // Ensure the plan contains full table scan.
         assertInstanceOf(MultiStepPlan.class, plan);
-        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).root()));
+        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).getRel()));
     }
 
     @Test
     public void testSelectByKey() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
         String query = "SELECT val, 100 FROM t1 WHERE ID = 1";
 
         QueryPlan plan = gatewayNode.prepare(query);
 
-        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
 
@@ -234,28 +231,24 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSelectRange() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
         String query = "SELECT * FROM t1 WHERE ID > 1";
 
         QueryPlan plan = gatewayNode.prepare(query);
 
-        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
 
         // Ensure the plan uses index.
         assertInstanceOf(MultiStepPlan.class, plan);
-        assertInstanceOf(IgniteIndexScan.class, lastNode(((MultiStepPlan) plan).root()));
-        assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
+        assertInstanceOf(IgniteIndexScan.class, lastNode(((MultiStepPlan) plan).getRel()));
+        assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).getRel())).indexName());
     }
 
     /** Check that already stopped message service correctly process incoming message. */
     @Test
     public void stoppedMessageServiceNotThrowsException() throws Exception {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         TestNode stoppedNode = cluster.node("N2");
@@ -282,8 +275,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     /** Checks the propagation of hybrid logical time from the initiator to other nodes. */
     @Test
     public void testHybridTimestampPropagationFromInitiator() {
-        cluster.start();
-
         TestNode initiator = cluster.node("N1");
 
         HybridClock initiatorClock = initiator.clock();
@@ -305,8 +296,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     /** Checks the propagation of hybrid logical time from other nodes to the initiator. */
     @Test
     public void testHybridTimestampPropagationToInitiator() {
-        cluster.start();
-
         TestNode initiator = cluster.node("N1");
         TestNode otherNode = cluster.node("N2");
 
@@ -319,7 +308,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         AsyncCursor<InternalSqlRow> cur = initiator.executeQuery("SELECT * FROM t1");
 
-        await(cur.requestNextAsync(10_000));
+        await(cur.requestNextAsync(TABLE_SIZE));
 
         assertEquals(otherNodeClock.now().getPhysical(), initiatorClock.now().getPhysical());
 
@@ -336,13 +325,11 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testQuerySystemViews() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         BatchedResult<InternalSqlRow> results = await(
                 gatewayNode.executeQuery("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2")
-                        .requestNextAsync(10_000)
+                        .requestNextAsync(TABLE_SIZE)
         );
         List<List<Object>> rows = convertSqlRows(results.items());
 
@@ -351,8 +338,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testNodeInitSchema() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         gatewayNode.initSchema("CREATE INDEX T1_NEW_HASH_VAK_IDX ON T1 USING HASH (VAL)");
@@ -363,13 +348,11 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testGetCountPlan() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         BatchedResult<InternalSqlRow> results = await(
                 gatewayNode.executeQuery("SELECT 'hello', COUNT(*) FROM t1")
-                        .requestNextAsync(10_000)
+                        .requestNextAsync(TABLE_SIZE)
         );
 
         List<List<Object>> rows = convertSqlRows(results.items());
@@ -378,8 +361,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testExecutionWithDynamicParam() {
-        cluster.start();
-
         TestNode node = cluster.node("N1");
         Object[] params = {1, null};
 
@@ -395,8 +376,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testExecutionWithMissingDynamicParam() {
-        cluster.start();
-
         TestNode node = cluster.node("N1");
 
         SqlTestUtils.assertThrowsSqlException(

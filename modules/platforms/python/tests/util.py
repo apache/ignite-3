@@ -20,6 +20,8 @@ import signal
 import subprocess
 import time
 
+import pytest
+
 import pyignite_dbapi
 
 server_host = os.getenv("IGNITE_CLUSTER_HOST", '127.0.0.1')
@@ -145,3 +147,35 @@ def start_cluster_gen(debug=False):
         yield srv
     finally:
         kill_process_tree(srv.pid)
+
+
+def get_row(index):
+    return index, f'Value-{index * 2}', index / 2.0
+
+
+def row_generator(begin, rows_num):
+    for i in range(begin, begin + rows_num):
+        yield get_row(i)
+
+
+def create_and_populate_test_table(cursor, rows_num, table_name, batch_size=1):
+    cursor.execute(f'drop table if exists {table_name}')
+    cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')
+    if batch_size == 1:
+        for i in range(rows_num):
+            cursor.execute(f"insert into {table_name} values (?, ?, ?)", params=get_row(i))
+    else:
+        batch = 0
+        for batch in range(rows_num // batch_size):
+            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
+                               list(row_generator(batch * batch_size, batch_size)))
+        if rows_num % batch_size:
+            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
+                               list(row_generator(batch * batch_size, rows_num % batch_size)))
+
+
+def check_row(i, row):
+    assert len(row) == 3
+    assert row[0] == i
+    assert row[1] == f'Value-{i * 2}'
+    assert row[2] == pytest.approx(i / 2.0)

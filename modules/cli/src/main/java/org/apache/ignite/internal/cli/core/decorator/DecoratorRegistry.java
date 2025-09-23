@@ -35,6 +35,8 @@ public class DecoratorRegistry {
         store.putAll(decoratorRegistry.store);
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public <T> Decorator<T, TerminalOutput> getDecorator(Class<? extends T> clazz) {
         return (Decorator<T, TerminalOutput>) store.getOrDefault(clazz, new DefaultDecorator<T>());
     }

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -309,7 +310,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         IgniteImpl ignite = unwrapIgniteImpl(node);
 
         return ignite.queryEngine().queryAsync(
-                SqlQueryProcessor.DEFAULT_PROPERTIES,
+                new SqlProperties(),
                 ignite.observableTimeTracker(),
                 null,
                 null,

@@ -1,0 +1,67 @@
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans         http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean class="org.apache.ignite.configuration.IgniteConfiguration">
+        <property name="discoverySpi">
+            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
+                <!-- Initial local port to listen to. -->
+                <property name="localPort" value="40500"/>
+                <!-- Setting up IP finder for this cluster -->
+                <property name="ipFinder">
+                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
+                        <property name="addresses">
+                            <list>
+                                <value>node1.my-company.com</value>
+                                <value>node2.my-company.com</value>
+                            </list>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+
+        <property name="clientConnectorConfiguration">
+            <bean class="org.apache.ignite.configuration.ClientConnectorConfiguration">
+                <property name="port" value="10801"/>
+                <property name="idleTimeout" value="30000"/>
+            </bean>
+        </property>
+
+        <property name="gridLogger">
+            <bean class="org.apache.ignite.logger.log4j2.Log4J2Logger">
+                <constructor-arg type="java.lang.String" value="/etc/configs/log4j2.custom.xml"/>
+            </bean>
+        </property>
+
+        <property name="dataStorageConfiguration">
+            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                <property name="metricsEnabled" value="true"/>
+                <property name="defaultDataRegionConfiguration">
+                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                        <property name="persistenceEnabled" value="true"/>
+                        <property name="initialSize" value="#{1 * 1024 * 1024}"/>
+                        <property name="maxSize" value="#{50 * 1024 * 1024}"/>
+                        <property name="metricsEnabled" value="true"/>
+                        <property name="pageEvictionMode" value="RANDOM_2_LRU"/>
+                    </bean>
+                </property>
+                <property name="storagePath" value="/etc/data/storage"/>
+                <property name="walPath" value="/etc/data/wal"/>
+                <property name="walArchivePath" value="/etc/data/walArchive"/>
+                <property name="maxWalArchiveSize" value="#{5L * 1024 * 1024}"/>
+            </bean>
+        </property>
+
+        <!-- Disable Certificate Validation -->
+        <property name="sslContextFactory">
+            <bean class="org.apache.ignite.ssl.SslContextFactory">
+                <property name="keyAlgorithm" value="Blowfish"/>
+                <property name="keyStoreFilePath" value="keystore/node.jks"/>
+                <property name="keyStorePassword" value="123456"/>
+                <property name="trustManagers">
+                    <bean class="org.apache.ignite.ssl.SslContextFactory" factory-method="getDisabledTrustManager"/>
+                </property>
+            </bean>
+        </property>
+    </bean>
+</beans>

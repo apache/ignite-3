@@ -274,7 +274,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         closure.update(lastCheckpointId, meta);
 
-        checkpointManager.markPartitionAsDirty(tableStorage.dataRegion(), tableStorage.getTableId(), partitionId);
+        checkpointManager.markPartitionAsDirty(
+                tableStorage.dataRegion(),
+                tableStorage.getTableId(),
+                partitionId,
+                meta.partitionGeneration()
+        );
     }
 
     @Override
@@ -505,6 +510,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexMetaTree,
                 gcQueue
         );
+
+        checkpointManager.addCheckpointListener(checkpointListener, tableStorage.dataRegion());
     }
 
     @Override
@@ -512,6 +519,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         return List.of(
+                () -> checkpointManager.removeCheckpointListener(checkpointListener),
                 localState.freeList()::close,
                 localState.versionChainTree()::close,
                 localState.indexMetaTree()::close,
@@ -555,5 +563,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void decrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
+    }
+
+    public int emptyDataPageCountInFreeList() {
+        return renewableState.freeList().emptyDataPages();
     }
 }

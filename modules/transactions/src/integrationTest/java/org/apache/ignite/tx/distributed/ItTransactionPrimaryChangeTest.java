@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
@@ -66,7 +66,6 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
             + "  raft: { responseTimeoutMillis: 30000 },"
-            + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
@@ -112,7 +111,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         int partId = 0;
 
-        var replicationGrp = enabledColocation()
+        var replicationGrp = colocationEnabled()
                 ? new ZonePartitionId(tbl.zoneId(), partId)
                 : new TablePartitionId(tbl.tableId(), partId);
 

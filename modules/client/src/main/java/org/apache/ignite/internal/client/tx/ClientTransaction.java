@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.tx;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
@@ -34,7 +34,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
-import org.apache.ignite.internal.client.WriteContext;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -134,9 +135,7 @@ public class ClientTransaction implements Transaction {
         this.timeout = timeout;
 
         if (cpm != null) {
-            // If mapping is known, assign commit partition.
-            // However, we don't require direct connection to a commit partition primary replica here because where is a guarantee that
-            // commit partition will be assigned to provided value at the txn beginning.
+            // if commit partition is known, we can attempt to do direct mappings in this transaction.
             this.commitTableId = cpm.tableId();
             this.commitPartition = cpm.partition();
         } else {
@@ -146,7 +145,7 @@ public class ClientTransaction implements Transaction {
 
         this.coordId = coordId;
 
-        assert this.coordId != null;
+        assert txId == null || coordId != null;
     }
 
     /**
@@ -219,25 +218,21 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
+        boolean enabled = ch.protocolContext().isFeatureSupported(TX_PIGGYBACK);
+        CompletableFuture<Void> finishFut = enabled ? ch.inflights().finishFuture(txId()) : nullCompletedFuture();
+
+        CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
             w.out().packLong(id);
-            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
-                w.out().packLong(tracker.get().longValue());
-                w.out().packInt(enlisted.size());
-                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
-                    w.out().packInt(entry.getKey().tableId());
-                    w.out().packInt(entry.getKey().partitionId());
-                    w.out().packString(entry.getValue().getNow(null).get1());
-                    w.out().packLong(entry.getValue().getNow(null).get2());
-                }
+
+            if (!isReadOnly && enabled) {
+                packEnlisted(w);
             }
-        }, r -> null);
+        }, r -> null));
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_COMMITTED);
-
-            finishFut.get().complete(null);
-
+            ch.inflights().erase(txId());
+            this.finishFut.get().complete(null);
             return null;
         });
 
@@ -253,32 +248,58 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-            return finishFut.get();
+        enlistPartitionLock.writeLock().lock();
+
+        try {
+            if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
+                return finishFut.get();
+            }
+        } finally {
+            enlistPartitionLock.writeLock().unlock();
         }
 
+        // Don't wait inflights on rollback.
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);
-            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
-                w.out().packInt(enlisted.size());
-                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
-                    w.out().packInt(entry.getKey().tableId());
-                    w.out().packInt(entry.getKey().partitionId());
-                    w.out().packString(entry.getValue().getNow(null).get1());
-                    w.out().packLong(entry.getValue().getNow(null).get2());
-                }
+
+            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_PIGGYBACK)) {
+                packEnlisted(w);
             }
         }, r -> null);
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_ROLLED_BACK);
-
-            finishFut.get().complete(null);
-
+            ch.inflights().erase(txId());
+            this.finishFut.get().complete(null);
             return null;
         });
 
         return mainFinishFut;
+    }
+
+    private void packEnlisted(PayloadOutputChannel w) {
+        int pos = w.out().reserveInt();
+        int cnt = 0;
+        for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
+            IgniteBiTuple<String, Long> info = entry.getValue().getNow(null);
+
+            if (info == null) {
+                continue; // Ignore incomplete enlistments.
+            }
+
+            w.out().packInt(entry.getKey().tableId());
+            w.out().packInt(entry.getKey().partitionId());
+            w.out().packString(info.get1());
+            w.out().packLong(info.get2());
+
+            cnt++;
+        }
+
+        w.out().setInt(pos, cnt);
+
+        if (cnt > 0) {
+            w.out().packLong(tracker.get().longValue());
+        }
     }
 
     /** {@inheritDoc} */
@@ -331,48 +352,49 @@ public class ClientTransaction implements Transaction {
     /**
      * Enlists a write operation in direct mapping.
      *
-     * @param opChannel Operation channge.
-     * @param ctx The context.
-     *
+     * @param ch Channel facade.
+     * @param opChannel Operation channel.
+     * @param pm Partition mapping.
+     * @param trackOperation Denotes if upcoming operation should be tracked. This affects finalization behavior as acknowledge must
+     *         be received for every tracked operation prior to transaction finalization.
      * @return The future.
      */
-    public CompletableFuture<Void> enlistFuture(ClientChannel opChannel, WriteContext ctx) {
-        // Check if direct mapping is applicable.
-        if (ctx.pm != null && ctx.pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
-            if (!enlistPartitionLock.readLock().tryLock()) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
-            }
-
-            checkEnlistPossible();
-
-            boolean[] first = {false};
-
-            TablePartitionId tablePartitionId = new TablePartitionId(ctx.pm.tableId(), ctx.pm.partition());
-
-            CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
-                if (v == null) {
-                    first[0] = true;
-                    return new CompletableFuture<>();
-                } else {
-                    return v;
-                }
-            });
-
-            enlistPartitionLock.readLock().unlock();
-
-            // Re-check after unlock.
-            checkEnlistPossible();
-
-            if (first[0]) {
-                ctx.enlistmentToken = 0L;
-                // For the first request return completed future.
-                return nullCompletedFuture();
-            } else {
-                return fut.thenAccept(tup -> ctx.enlistmentToken = tup.get2());
-            }
+    public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, ClientChannel opChannel, PartitionMapping pm,
+            boolean trackOperation) {
+        if (!enlistPartitionLock.readLock().tryLock()) {
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
         }
 
-        return nullCompletedFuture();
+        checkEnlistPossible();
+
+        boolean[] first = {false};
+
+        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
+            if (v == null) {
+                first[0] = true;
+                return new CompletableFuture<>();
+            } else {
+                return v;
+            }
+        });
+
+        enlistPartitionLock.readLock().unlock();
+
+        // Re-check after unlock.
+        checkEnlistPossible();
+
+        if (trackOperation) {
+            ch.inflights().addInflight(txId);
+        }
+
+        if (first[0]) {
+            // For the first request return completed future.
+            return CompletableFuture.completedFuture(new IgniteBiTuple<>(null, null));
+        } else {
+            return fut;
+        }
     }
 
     /**
@@ -396,9 +418,35 @@ public class ClientTransaction implements Transaction {
         }
     }
 
+    /**
+     * Tries to fail the enlistment.
+     *
+     * @param pm Partition mapping.
+     * @param exception The exception.
+     */
+    public void tryFailEnlist(PartitionMapping pm, Exception exception) {
+        if (!hasCommitPartition()) {
+            return;
+        }
+
+        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.get(tablePartitionId);
+
+        if (fut != null && !fut.isDone()) {
+            fut.completeExceptionally(exception);
+        }
+    }
+
     @TestOnly
     public int enlistedCount() {
         return enlisted.size();
+    }
+
+    /** Fail the transaction. */
+    public void fail() {
+        state.set(STATE_ROLLED_BACK);
+        finishFut.set(nullCompletedFuture());
     }
 
     @Override

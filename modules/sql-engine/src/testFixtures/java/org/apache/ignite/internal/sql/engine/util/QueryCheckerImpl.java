@@ -51,19 +51,18 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.StringDescription;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,7 +87,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
 
-    private ZoneId timeZoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+    private ZoneId timeZoneId = SqlCommon.DEFAULT_TIME_ZONE_ID;
 
     private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
 
@@ -215,6 +214,17 @@ abstract class QueryCheckerImpl implements QueryChecker {
         return this;
     }
 
+    @Override
+    public QueryChecker results(Matcher<List<List<?>>> matcher) {
+        assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
+
+        Objects.requireNonNull(matcher, "matcher");
+
+        resultChecker = new ResultSetMatcher(matcher);
+
+        return this;
+    }
+
     /**
      * Check that return empty result.
      *
@@ -316,15 +326,15 @@ abstract class QueryCheckerImpl implements QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        SqlProperties newProperties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
-                .set(QueryProperty.DEFAULT_SCHEMA, defaultSchema)
-                .build();
-
-        SqlProperties properties = SqlPropertiesHelper.merge(newProperties, SqlQueryProcessor.DEFAULT_PROPERTIES);
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                .allowMultiStatement(false)
+                .timeZoneId(timeZoneId)
+                .defaultSchema(defaultSchema)
+                .userName(Commons.SYSTEM_USER_NAME);
 
         String qry = queryTemplate.createQuery();
+        boolean containExplain = "EXPLAIN ".equalsIgnoreCase(qry.substring(0, 8));
         String queryToLog;
         if (qry.length() < MAX_QUERY_DISPLAY_LENGTH) {
             queryToLog = qry;
@@ -340,7 +350,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
                     observableTimeTracker(),
                     tx,
                     null,
-                    "EXPLAIN PLAN FOR " + qry,
+                    containExplain ? qry : "EXPLAIN PLAN FOR " + qry,
                     params
             );
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
@@ -533,6 +543,30 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
 
             QueryChecker.assertEqualsCollections(expectedResult, rows);
+        }
+    }
+
+    private static class ResultSetMatcher implements ResultChecker {
+        private final Matcher<List<List<?>>> matcher;
+
+        ResultSetMatcher(Matcher<List<List<?>>> matcher) {
+            this.matcher = matcher;
+        }
+
+        @Override
+        public void check(List<List<Object>> rows, boolean ordered) {
+            if (!matcher.matches(rows)) {
+                Description desc = new StringDescription();
+                desc.appendText("Result set does not match ")
+                        .appendText(System.lineSeparator())
+                        .appendText("Expected: ")
+                        .appendDescriptionOf(matcher)
+                        .appendText(System.lineSeparator())
+                        .appendText("     but: ");
+                matcher.describeMismatch(rows, desc);
+
+                throw new AssertionError(desc.toString());
+            }
         }
     }
 

@@ -49,6 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,7 +80,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
 
     private static final String TARGET_CONSISTENT_ID = "target";
 
-    private static final ClusterNode TARGET_NODE = new ClusterNodeImpl(
+    private static final InternalClusterNode TARGET_NODE = new ClusterNodeImpl(
             randomUUID(),
             TARGET_CONSISTENT_ID,
             new NetworkAddress("target", 1234)
@@ -244,7 +244,6 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         doReturn(failedFuture(testException))
                 .when(messagingService)
                 .invoke(eq(SOURCE_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
-
 
         CompletableFuture<List<Path>> downloaded = fileTransferService.download(SOURCE_CONSISTENT_ID, messageFactory.identifier().build(),
                 workDir.resolve("download"));

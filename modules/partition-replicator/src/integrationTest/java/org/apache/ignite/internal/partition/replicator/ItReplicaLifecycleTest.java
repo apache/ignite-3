@@ -24,7 +24,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
@@ -95,7 +97,6 @@ import org.junit.jupiter.api.Timeout;
  * Replica lifecycle test.
  */
 @Timeout(60)
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes1;
@@ -111,7 +112,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -193,6 +194,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     @Test
     void testAlterReplicaTriggerDefaultZone() throws Exception {
         startCluster(3);
+
+        assertEquals(3, cluster.size());
 
         Node node = getNode(0);
 
@@ -311,7 +314,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -341,7 +344,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -542,7 +545,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(1);
 
         Assignment replicaAssignment1 = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 2, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment1.consistentId());
 
@@ -734,6 +737,37 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 .close();
     }
 
+    @Test
+    public void testReplicaStop() throws Exception {
+        startCluster(1);
+
+        Node node = getNode(0);
+
+        String zoneName = "test_zone";
+        int zoneId = createZone(node, zoneName, 1, 1);
+
+        String tableName = "test_table";
+        int tableId = createTable(node, zoneName, tableName);
+        InternalTable internalTable = node.tableManager.table(tableId).internalTable();
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        assertThat(
+                node.partitionReplicaLifecycleManager.stopPartitionInternal(
+                        zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
+                        AFTER_REPLICA_STOPPED,
+                        -1L,
+                        replicaWasStopped -> {}
+                ),
+                willCompleteSuccessfully()
+        );
+
+        // Tables must not be stopped on partition replica stop.
+        verify(internalTable.storage(), never()).close();
+        verify(internalTable.txStateStorage(), never()).close();
+    }
+
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
         return node.resourcesRegistry.resources().get(cursorId);
     }
@@ -788,7 +822,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         verify(internalTable.storage(), never())
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), never())
-                .destroyTxStateStorage(partitionId);
+                .destroyPartitionStorage(partitionId);
     }
 
     private static void checkDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
@@ -797,15 +831,15 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), never())
-                .destroyTxStateStorage(partitionId);
+                .destroyPartitionStorage(partitionId);
     }
 
     @Test
     public void enabledColocationTest() {
-        assertTrue(enabledColocation());
+        assertTrue(colocationEnabled());
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString());
-        assertFalse(enabledColocation());
+        assertFalse(colocationEnabled());
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString());
-        assertTrue(enabledColocation());
+        assertTrue(colocationEnabled());
     }
 }

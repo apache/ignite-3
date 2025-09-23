@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -127,7 +128,7 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override

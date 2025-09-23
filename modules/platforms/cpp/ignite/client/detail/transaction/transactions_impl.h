@@ -19,6 +19,7 @@
 
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
+#include "ignite/client/transaction/transaction_options.h"
 
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
@@ -53,11 +54,12 @@ public:
      * Starts a new transaction asynchronously.
      *
      * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
+     * @param tx_opts Transaction options.
      */
-    IGNITE_API void begin_async(ignite_callback<transaction> callback) {
-        auto writer_func = [this](protocol::writer &writer) {
-            writer.write_bool(false); // readOnly.
-            writer.write(std::int64_t(0)); // timeoutMillis.
+    IGNITE_API void begin_async(transaction_options tx_opts, ignite_callback<transaction> callback) {
+        auto writer_func = [this, &tx_opts](protocol::writer &writer, auto) {
+            writer.write_bool(tx_opts.is_read_only());
+            writer.write(tx_opts.get_timeout_millis());
             writer.write(m_connection->get_observable_timestamp());
         };
 

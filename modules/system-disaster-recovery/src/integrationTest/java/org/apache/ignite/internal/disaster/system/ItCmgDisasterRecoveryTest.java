@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
@@ -162,7 +163,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         cluster.startEmbeddedNode(0);
 
         assertFalse(
-                waitForCondition(() -> restartedIgniteImpl1.clusterNodes().size() > 1, SECONDS.toMillis(3)),
+                waitForCondition(() -> restartedIgniteImpl1.cluster().nodes().size() > 1, SECONDS.toMillis(3)),
                 "Nodes from different clusters were able to establish a connection"
         );
     }
@@ -278,13 +279,12 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         final String zoneName = "TEST_ZONE";
 
-        cluster.node(1).sql().execute(
-                null,
+        cluster.node(1).sql().executeScript(
                 "CREATE ZONE " + zoneName
                         + " (AUTO SCALE UP 0, AUTO SCALE DOWN 0) STORAGE PROFILES ['default']"
         );
 
-        int zoneId = igniteImpl(1).catalogManager().activeCatalog(Long.MAX_VALUE).zone("TEST_ZONE").id();
+        int zoneId = igniteImpl(1).catalogManager().activeCatalog(Long.MAX_VALUE).zone(zoneName).id();
 
         waitTillDataNodesBecome(new int[]{0, 1}, zoneId, igniteImpl(1));
 
@@ -321,23 +321,39 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     private void waitTillDataNodesBecome(int[] expectedDataNodeIndexes, int zoneId, IgniteImpl ignite) throws InterruptedException {
         int catalogVersion = ignite.catalogManager().latestCatalogVersion();
 
-        assertTrue(
-                waitForCondition(
-                        () -> currentDataNodes(ignite, catalogVersion, zoneId).equals(Set.of(nodeNames(expectedDataNodeIndexes))),
-                        SECONDS.toMillis(10)
-                ),
-                "Did not see data nodes to become " + IntStream.of(expectedDataNodeIndexes).boxed().collect(toList()) + " in time"
+        waitForCondition(
+                () -> currentDataNodes(ignite, catalogVersion, zoneId).equals(Set.of(nodeNames(expectedDataNodeIndexes))),
+                SECONDS.toMillis(10)
+        );
+
+        Set<String> dataNodes = currentDataNodes(ignite, catalogVersion, zoneId);
+        assertThat(
+                "Did not see data nodes to become " + IntStream.of(expectedDataNodeIndexes).boxed().collect(toList()) + " in time",
+                dataNodes,
+                is(Set.of(nodeNames(expectedDataNodeIndexes)))
         );
     }
 
     private static Set<String> currentDataNodes(IgniteImpl ignite, int catalogVersion, int zoneId) {
-        long currentRevision = ignite.metaStorageManager().appliedRevision();
-        HybridTimestamp timestamp = ignite.metaStorageManager().timestampByRevisionLocally(currentRevision);
-
         CompletableFuture<Set<String>> dataNodesFuture = ignite.distributionZoneManager()
-                .dataNodes(timestamp, catalogVersion, zoneId);
+                .dataNodes(HybridTimestamp.MAX_VALUE, catalogVersion, zoneId);
 
         assertThat(dataNodesFuture, willCompleteSuccessfully());
         return dataNodesFuture.join();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26262")
+    void repairWorksWhenCmgMajorityIsOnline() throws Exception {
+        startAndInitCluster(3, new int[]{0, 1, 2}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        // After this, CMG majority will still be online.
+        cluster.stopNode(2);
+
+        initiateCmgRepairVia(1, 0, 1);
+
+        IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(restartedIgniteImpl1);
     }
 }

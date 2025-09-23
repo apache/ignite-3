@@ -71,7 +71,8 @@ public class MapReduceAggregates {
             "ANY",
             "AVG",
             "SINGLE_VALUE",
-            "ANY_VALUE"
+            "ANY_VALUE",
+            "GROUPING"
     );
 
     /**
@@ -364,6 +365,8 @@ public class MapReduceAggregates {
                 return createCountAgg(call, reduceArgumentOffset);
             case "AVG":
                 return createAvgAgg(cluster, call, reduceArgumentOffset, input, canBeNull);
+            case "GROUPING":
+                return createGroupingAgg(call, reduceArgumentOffset);
             default:
                 return createSimpleAgg(call, reduceArgumentOffset);
         }
@@ -487,6 +490,28 @@ public class MapReduceAggregates {
         return new MapReduceAgg(argList, call, reduceCall, USE_INPUT_FIELD);
     }
 
+    private static MapReduceAgg createGroupingAgg(AggregateCall call, int reduceArgumentOffset) {
+        IntList argList = IntList.of(reduceArgumentOffset);
+
+        AggregateCall reduceCall = AggregateCall.create(
+                SqlStdOperatorTable.SINGLE_VALUE,
+                call.isDistinct(),
+                call.isApproximate(),
+                call.ignoreNulls(),
+                ImmutableList.of(),
+                argList,
+                // there is no filtering on REDUCE phase
+                -1,
+                null,
+                call.collation,
+                call.type,
+                "GROUPING" + reduceArgumentOffset);
+
+        // For aggregate that use the same aggregate function for both MAP and REDUCE phases
+        // use the result of an aggregate as is.
+        return new MapReduceAgg(argList, call, reduceCall, USE_INPUT_FIELD);
+    }
+
     /**
      * Produces intermediate expressions that modify results of MAP/REDUCE aggregate.
      * For example: after splitting a function into a MAP aggregate and REDUCE aggregate it is necessary to add casts to
@@ -588,7 +613,6 @@ public class MapReduceAggregates {
                 call.collation,
                 reduceSumType,
                 "AVG_SUM" + reduceArgumentOffset);
-
 
         // SUM0(c)
         RelDataType reduceSumCountType = typeSystem.deriveSumType(tf, mapCount0.type);

@@ -20,7 +20,9 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -37,19 +39,22 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.lang.reflect.Field;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -66,6 +71,7 @@ import org.apache.ignite.internal.metastorage.server.ConditionalWatchInhibitor;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
@@ -73,12 +79,17 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
+import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,7 +103,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     private final PartitionGroupId groupId = replicationGroupId(0, 0);
 
@@ -121,7 +132,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.leaseAgreementAcceptanceTimeLimitMillis = 2000")
     private ReplicationConfiguration replicationConfiguration;
 
     private PartitionGroupId replicationGroupId(int objectId, int partId) {
@@ -166,12 +177,14 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         pdMessagingService = mock(MessagingService.class);
         when(pdMessagingService.invoke(anyString(), any(), anyLong())).thenAnswer(inv -> {
             String nodeId = inv.getArgument(0);
+            long timeout = inv.getArgument(2);
 
             LeaseGrantedMessage leaseGrantedMessage = inv.getArgument(1);
 
             if (leaseGrantedMessageHandler != null) {
                 return CompletableFuture.supplyAsync(() -> null)
-                        .thenCompose(unused -> leaseGrantedMessageHandler.apply(nodeId, leaseGrantedMessage));
+                        .thenCompose(unused -> leaseGrantedMessageHandler.apply(nodeId, leaseGrantedMessage))
+                        .orTimeout(timeout, TimeUnit.MILLISECONDS);
             } else {
                 return completedFuture(createLeaseGrantedMessageResponse(true));
             }
@@ -189,7 +202,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         leaseTracker.startTrack(0L);
 
-        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class));
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
 
         assignmentsTracker.startTrack();
 
@@ -202,7 +215,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
                 assignmentsTracker,
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run
         );
     }
 
@@ -415,6 +429,64 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testLeaseAgreementCleanup() throws Exception {
+        CompletableFuture<?> timedOutGroupLgmReceived = new CompletableFuture<>();
+        CompletableFuture<?> removedGroupLgmReceived = new CompletableFuture<>();
+
+        PartitionGroupId timedOutGroup = replicationGroupId(1, 1);
+        PartitionGroupId removedGroup = replicationGroupId(1, 2);
+        byte[] assignmentBytes = Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp);
+
+        leaseGrantedMessageHandler = (n, lgm) -> {
+            if (lgm.groupId().equals(groupId)) {
+                return completedFuture(createLeaseGrantedMessageResponse(true));
+            } else if (lgm.groupId().equals(timedOutGroup)) {
+                timedOutGroupLgmReceived.complete(null);
+
+                // Return a future that will never be completed, to trigger the agreement timeout.
+                return new CompletableFuture<>();
+            } else {
+                removedGroupLgmReceived.complete(null);
+                return new CompletableFuture<>();
+            }
+        };
+
+        metaStorageManager.put(stableAssignmentsKey(groupId), assignmentBytes);
+        metaStorageManager.put(stableAssignmentsKey(timedOutGroup), assignmentBytes);
+        metaStorageManager.put(stableAssignmentsKey(removedGroup), assignmentBytes);
+
+        // Wait for accepted lease for groupId.
+        assertTrue(waitForCondition(
+                () -> getAllLeasesFromMs().stream().anyMatch(l -> l.replicationGroupId().equals(groupId) && l.isAccepted()),
+                5000
+        ));
+
+        assertThat(timedOutGroupLgmReceived, willSucceedFast());
+        assertThat(removedGroupLgmReceived, willSucceedFast());
+
+        metaStorageManager.remove(stableAssignmentsKey(removedGroup));
+
+        LeaseNegotiator leaseNegotiator = getFieldValue(leaseUpdater, "leaseNegotiator");
+        Map<ReplicationGroupId, LeaseAgreement> agreementsMap = getFieldValue(leaseNegotiator, "leaseToNegotiate");
+
+        assertNotNull(agreementsMap);
+
+        Lease timedOutAgreementLease = agreementsMap.get(timedOutGroup).getLease();
+
+        assertTrue(
+                waitForCondition(() -> {
+                    LeaseAgreement t = agreementsMap.get(timedOutGroup);
+                    LeaseAgreement r = agreementsMap.get(removedGroup);
+
+                    // As the old agreements are cleaned up, they can be replaced with new ones.
+                    return (t == null || t.getLease().getStartTime().longValue() > timedOutAgreementLease.getStartTime().longValue())
+                            && r == null;
+                }, 10_000),
+                format("Agreements: timedOutGroup: {}, removedGroup: {}", agreementsMap.get(timedOutGroup), agreementsMap.get(removedGroup))
+        );
+    }
+
+    @Test
     public void testLeasesCleanupOfOneGroupFromMultiple() throws InterruptedException {
         leaseGrantedMessageHandler = (n, lgm) -> completedFuture(createLeaseGrantedMessageResponse(true));
 
@@ -436,6 +508,41 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         }, 20_000));
     }
 
+    @Test
+    public void repeatedConnectionIssuesAreNotReported() {
+        Predicate<LogEvent> pred = logEvent -> logEvent.getMessage().getFormattedMessage()
+                .contains("Lease was not negotiated due to exception");
+
+        LogInspector logInspector = new LogInspector(LeaseNegotiator.class.getName(), pred);
+
+        logInspector.start();
+
+        try {
+            var clusterService = mock(ClusterService.class);
+            var messagingService = mock(MessagingService.class);
+
+            when(messagingService.invoke(anyString(), any(), anyLong()))
+                    .thenAnswer(inv -> failedFuture(new UnresolvableConsistentIdException("test")));
+
+            when(clusterService.messagingService()).thenAnswer(inv -> messagingService);
+
+            var leaseNegotiator = new LeaseNegotiator(clusterService, Runnable::run);
+
+            var startTs = new HybridTimestamp(0, 1);
+            var expirationTs = new HybridTimestamp(1000, 1);
+
+            var lease1 = new Lease("testNode", randomUUID(), startTs, expirationTs, new ZonePartitionId(0, 1));
+            var lease2 = new Lease("testNode", randomUUID(), startTs, expirationTs, new ZonePartitionId(0, 2));
+
+            leaseNegotiator.negotiate(new LeaseAgreement(lease1, false));
+            leaseNegotiator.negotiate(new LeaseAgreement(lease2, false));
+
+            assertEquals(1, logInspector.timesMatched().sum());
+        } finally {
+            logInspector.stop();
+        }
+    }
+
     @Nullable
     private Lease getLeaseFromMs() {
         return getAllLeasesFromMs().stream().findFirst().orElse(null);
@@ -452,7 +559,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return emptyList();
         }
 
-        LeaseBatch leases = LeaseBatch.fromBytes(ByteBuffer.wrap(e.value()).order(ByteOrder.LITTLE_ENDIAN));
+        LeaseBatch leases = LeaseBatch.fromBytes(e.value());
 
         return leases.leases();
     }
@@ -471,5 +578,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         assertNotNull(lease);
         assertTrue(lease.isAccepted());
         assertEquals(leaseholderId, lease.getLeaseholderId());
+    }
+
+    private <T> T getFieldValue(Object o, String fieldName) throws NoSuchFieldException, IllegalAccessException {
+        Field f = o.getClass().getDeclaredField(fieldName);
+        f.setAccessible(true);
+        return (T) f.get(o);
     }
 }

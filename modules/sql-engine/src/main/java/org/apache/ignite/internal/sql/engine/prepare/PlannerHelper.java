@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.FORCE_INDEX;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
@@ -46,6 +48,7 @@ import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
 import org.apache.calcite.rel.rules.MultiJoin;
@@ -85,7 +88,6 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -157,11 +159,19 @@ public final class PlannerHelper {
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
+            RelOptCluster cluster = rel.getCluster();
+            rel = rel.accept(new RelHomogeneousShuttle() {
+                @Override public RelNode visit(RelNode other) {
+                    RelNode next = super.visit(other);
+                    return next.accept(new OutOfRangeLiteralComparisonReductionShuttle(cluster.getRexBuilder()));
+                }
+            });
+
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
-            {
+            if (fastQueryOptimizationEnabled()) {
                 // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
                 // thus if result meets our expectation, then return the result, otherwise discard it and
@@ -193,21 +203,16 @@ public final class PlannerHelper {
 
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
+                    .replace(single())
                     .replace(root.collation == null ? RelCollations.EMPTY : root.collation)
                     .simplify();
 
             result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
-                List<RexNode> projects = new ArrayList<>();
-                RexBuilder rexBuilder = result.getCluster().getRexBuilder();
+                LogicalProject project = (LogicalProject) root.project();
 
-                for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(result, field));
-                }
-
-                result = new IgniteProject(result.getCluster(), desired, result, projects, root.validatedRowType);
+                result = new IgniteProject(result.getCluster(), desired, result, project.getProjects(), project.getRowType());
             }
 
             return result;
@@ -337,7 +342,7 @@ public final class PlannerHelper {
                 planner.cluster(),
                 planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
                 targetTable,
-                Operation.PUT,
+                Operation.INSERT,
                 expressions
         );
     }
@@ -517,7 +522,7 @@ public final class PlannerHelper {
 
         IgniteSelectCount rel = new IgniteSelectCount(
                 planner.cluster(),
-                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE).replace(single()),
                 targetTable,
                 expressions
         );

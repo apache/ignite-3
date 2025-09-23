@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
@@ -62,7 +62,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * // TODO: after switching to zone-based replication
  */
 public class DistributionZoneRebalanceEngineV2 {
-    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -174,9 +174,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
             Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
 
-            Set<String> filteredDataNodes = filterDataNodes(dataNodesWithAttributes, zoneDescriptor).stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
+            Set<String> filteredDataNodes = nodeNames(filterDataNodes(dataNodesWithAttributes, zoneDescriptor));
 
             if (LOG.isInfoEnabled()) {
                 var matchedNodes = new ArrayList<NodeWithAttributes>();
@@ -192,7 +190,7 @@ public class DistributionZoneRebalanceEngineV2 {
                     }
                 }
 
-                if (!filteredOutNodes.isEmpty()) {
+                if (!filteredOutNodes.isEmpty() && !filteredDataNodes.isEmpty()) {
                     LOG.info(
                             "Some data nodes were filtered out because they don't match zone's attributes:"
                                     + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
@@ -206,16 +204,19 @@ public class DistributionZoneRebalanceEngineV2 {
             }
 
             if (filteredDataNodes.isEmpty()) {
+                LOG.info("Rebalance is not triggered because data nodes are empty [zoneId={}, filter={}, storageProfiles={}]",
+                        zoneDescriptor.id(),
+                        zoneDescriptor.filter(),
+                        zoneDescriptor.storageProfiles().profiles()
+                );
+
                 return nullCompletedFuture();
             }
 
             long revision = evt.entryEvent().newEntry().revision();
             HybridTimestamp timestamp = evt.entryEvent().newEntry().timestamp();
 
-            Set<String> aliveNodes = distributionZoneManager.logicalTopology(revision)
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
+            Set<String> aliveNodes = nodeNames(distributionZoneManager.logicalTopology(revision));
 
             return triggerZonePartitionsRebalance(
                     zoneDescriptor,
@@ -263,10 +264,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
-                    Set<String> aliveNodes = distributionZoneManager.logicalTopology(causalityToken)
-                            .stream()
-                            .map(NodeWithAttributes::nodeName)
-                            .collect(toSet());
+                    Set<String> aliveNodes = nodeNames(distributionZoneManager.logicalTopology(causalityToken));
 
                     return triggerZonePartitionsRebalance(
                             zoneDescriptor,
@@ -309,7 +307,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
             return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
         } else {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

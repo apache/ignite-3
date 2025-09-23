@@ -68,17 +68,17 @@ class CreateFromAnnotationsTest {
         ZoneDefinition zoneDefinition = ZoneDefinition.builder("zone_test")
                 .ifNotExists()
                 .partitions(1)
-                .replicas(3)
+                .replicas(5)
+                .quorumSize(2)
                 .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
                 .storageProfiles("default")
                 .consistencyMode("HIGH_AVAILABILITY")
                 .build();
-        Query query2 = new CreateFromDefinitionImpl(null).from(zoneDefinition);
-        String sqlZoneFromDefinition = query2.toString();
+        CreateFromDefinitionImpl query1 = new CreateFromDefinitionImpl(null).from(zoneDefinition);
+        String sqlZoneFromDefinition = query1.toString();
 
         TableDefinition tableDefinition = TableDefinition.builder("pojo_value_test")
                 .ifNotExists()
@@ -88,8 +88,8 @@ class CreateFromAnnotationsTest {
                 .zone(zoneDefinition.zoneName())
                 .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc())
                 .build();
-        CreateFromDefinitionImpl query1 = new CreateFromDefinitionImpl(null).from(tableDefinition);
-        String sqlTableFromDefinition = query1.toString();
+        CreateFromDefinitionImpl query2 = new CreateFromDefinitionImpl(null).from(tableDefinition);
+        String sqlTableFromDefinition = query2.toString();
 
         CreateFromAnnotationsImpl query = createTable().processKeyValueClasses(PojoKey.class, PojoValue.class);
         String sqlFromAnnotations = query.toString();
@@ -102,9 +102,9 @@ class CreateFromAnnotationsTest {
         CreateFromAnnotationsImpl query = createTable().processKeyValueClasses(Integer.class, PojoValue.class);
         assertThat(
                 query.toString(),
-                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_TEST (ID INT, F_NAME VARCHAR, L_NAME VARCHAR, STR VARCHAR,"
@@ -120,9 +120,9 @@ class CreateFromAnnotationsTest {
         CreateFromAnnotationsImpl query = createTable().processKeyValueClasses(PojoKey.class, PojoValue.class);
         assertThat(
                 query.toString(),
-                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_TEST (ID INT, ID_STR VARCHAR(20), F_NAME VARCHAR, L_NAME VARCHAR,"
@@ -137,9 +137,9 @@ class CreateFromAnnotationsTest {
         CreateFromAnnotationsImpl query = createTable().processRecordClass(Pojo.class);
         assertThat(
                 query.toString(),
-                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='STRONG_CONSISTENCY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.POJO_TEST"
@@ -158,7 +158,7 @@ class CreateFromAnnotationsTest {
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS \"zone test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='STRONG_CONSISTENCY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS \"sche ma\".\"pojo test\""
@@ -235,9 +235,9 @@ class CreateFromAnnotationsTest {
             zone = @Zone(
                     value = "zone_test",
                     partitions = 1,
-                    replicas = 3,
+                    replicas = 5,
+                    quorumSize = 2,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -266,9 +266,9 @@ class CreateFromAnnotationsTest {
             zone = @Zone(
                     value = "zone_test",
                     partitions = 1,
-                    replicas = 3,
+                    replicas = 5,
+                    quorumSize = 2,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -306,7 +306,6 @@ class CreateFromAnnotationsTest {
                     partitions = 1,
                     replicas = 3,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -367,14 +366,13 @@ class CreateFromAnnotationsTest {
 
     @SuppressWarnings("unused")
     @Table(
-            value = "pojo test",
-            schemaName = "sche ma",
+            value = "\"pojo test\"",
+            schemaName = "\"sche ma\"",
             zone = @Zone(
                     value = "zone test",
                     partitions = 1,
                     replicas = 3,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",

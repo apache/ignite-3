@@ -233,8 +233,9 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
         }
 
         private void processBatch(Collection<T> batch, int requestedCnt) {
-            assert batch != null;
-            assert batch.size() <= requestedCnt : "Rows more than requested " + batch.size() + " " + requestedCnt;
+            assert batch != null : "Batch is null";
+            assert batch.size() <= requestedCnt : "Got more rows than requested [batchSize=" + batch.size()
+                    + ", requested=" + requestedCnt + "]";
 
             batch.forEach(subscriber::onNext);
 

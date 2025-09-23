@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
-    using Buffers;
     using Common;
     using Ignite.Table;
     using Proto;
@@ -139,7 +138,7 @@ namespace Apache.Ignite.Internal.Table
                 }
                 else
                 {
-                    w.Write(arg.Name.CanonicalName);
+                    w.Write(arg.Name.ObjectName);
                 }
             }
 

@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Marshals/unmarshals objects in accordance with User Object Serialization.
  *
- * @see <a href="https://github.com/gridgain/gridgain-9-ce/blob/iep-67/modules/network/README.md">IEP-67</a>
+ * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-67%3A+Networking+module">IEP-67</a>
  */
 public interface UserObjectMarshaller {
     /**

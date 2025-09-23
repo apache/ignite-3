@@ -554,8 +554,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertTrue(lockManager.queue(key).isEmpty());
 
-
-
         List<List<LockMode>> lockModes = new ArrayList<>();
 
         lockModes.add(List.of(IX, S, SIX));

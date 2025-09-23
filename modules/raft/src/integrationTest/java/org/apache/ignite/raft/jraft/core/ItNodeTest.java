@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -106,9 +107,10 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -319,7 +321,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                 "unit-test",
                 "JRaft-FSMCaller-Disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("unit-test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("unit-test", stripeName, true, logger),
                 1,
                 () -> new ApplyTask(),
                 1,
@@ -2850,7 +2852,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      * - the node is restarted (INSTALLING_SNAPSHOT is stored in memory only)
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24820")
     public void testNodeWillNeverGetOutOfSnapshot() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
         CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
@@ -3679,19 +3680,37 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
     }
 
     @Test
@@ -3971,6 +3990,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     @Test
     public void testChangePeersAndLearnersChaosWithSnapshot() throws Exception {
         // start cluster
@@ -4254,7 +4274,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testLeaseReadAfterSegmentation() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
-        cluster = new TestCluster("unittest", dataPath, peers, 3_000, testInfo);
+        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
 
         for (TestPeer peer : peers) {
             RaftOptions opts = new RaftOptions();
@@ -4288,8 +4308,16 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             Node currentLeader = cluster.getLeader();
 
+            // According to the test scenario new leader might be the same as the previous one since only heartbeats and not vote/prevote
+            // requests are blocked:
+            // 0. Three nodes started [A, B, C].
+            // 1. Node A is a leader.
+            // 2. Heartbeats are blocked, thus A will step down.
+            // 3. New leader will be elected. Any of [A,B,C] might be elected as a new leader.
+            // 4. If [A] will be elected as a new one, corresponding heartbeats being blocked will again leader to [A] step down and thus
+            // it's equivalent to step 3.
             return currentLeader != null && !leader.getNodeId().equals(currentLeader.getNodeId());
-        }, 10_000));
+        }, 20_000));
 
         CompletableFuture<Status> res = new CompletableFuture<>();
 
@@ -4711,8 +4739,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     private void sendTestTaskAndWait(Node node, int start, int amount,
                                      RaftError err) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(amount);
-        MockStateMachine stateMachine = (MockStateMachine) node.getOptions().getFsm();
-        long appliedIndexBeforeRunCommands = stateMachine.getAppliedIndex();
+        MockStateMachine fsm = (MockStateMachine) node.getOptions().getFsm();
+        FSMCaller fsmCaller = ((NodeImpl) node).fsmCaller();
+        long appliedIndexBeforeRunCommands = fsm.getAppliedIndex();
+        long lastAppliedIndexBeforeRunCommands = fsmCaller.getLastAppliedIndex();
         for (int i = start; i < start + amount; i++) {
             ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(err, latch));
@@ -4724,11 +4754,20 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             // This check is needed to avoid a race with snapshots, since the latch may complete before FSMCallerImpl#lastAppliedIndex is
             // updated and the snapshot creation starts.
             assertTrue(
-                    waitForCondition(() -> stateMachine.getAppliedIndex() >= appliedIndexBeforeRunCommands + amount, 1_000),
+                    waitForCondition(() -> fsm.getAppliedIndex() >= appliedIndexBeforeRunCommands + amount, 1_000),
+                    () -> String.format(
+                            "Failed to wait for applied index update on node: "
+                                    + "[node=%s, appliedIndexBeforeRunCommands=%s, amount=%s, appliedIndex=%s]",
+                            fsm.getPeerId(), appliedIndexBeforeRunCommands, amount, fsm.getAppliedIndex()
+                    )
+            );
+
+            assertTrue(
+                    waitForCondition(() -> fsmCaller.getLastAppliedIndex() >= lastAppliedIndexBeforeRunCommands + amount, 1_000),
                     () -> String.format(
                             "Failed to wait for last applied index update on node: "
-                                    + "[node=%s, appliedIndexBeforeRunCommands=%s, lastAppliedIndex=%s, amount=%s]",
-                            stateMachine.getPeerId(), appliedIndexBeforeRunCommands, stateMachine.getAppliedIndex(), amount
+                                    + "[node=%s, lastAppliedIndexBeforeRunCommands=%s, amount=%s, lastAppliedIndex=%s]",
+                            fsm.getPeerId(), lastAppliedIndexBeforeRunCommands, amount, fsmCaller.getLastAppliedIndex()
                     )
             );
         }

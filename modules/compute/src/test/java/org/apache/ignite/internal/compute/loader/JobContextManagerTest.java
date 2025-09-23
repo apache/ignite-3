@@ -99,8 +99,7 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
                 })
                 .collect(Collectors.toList());
 
-
-        JobClassLoader toBeReturned = new JobClassLoader(deploymentUnits, new URL[0], getClass().getClassLoader());
+        JobClassLoader toBeReturned = new JobClassLoader(deploymentUnits, getClass().getClassLoader());
         doReturn(toBeReturned)
                 .when(jobClassLoaderFactory).createClassLoader(deploymentUnits);
 
@@ -128,11 +127,9 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
 
         try (JobClassLoader toBeReturned1 = new JobClassLoader(
                 disposableVersion1,
-                extractUrls(disposableVersion1),
                 getClass().getClassLoader());
                 JobClassLoader toBeReturned2 = new JobClassLoader(
                         disposableVersion2,
-                        extractUrls(disposableVersion2),
                         getClass().getClassLoader())
         ) {
 

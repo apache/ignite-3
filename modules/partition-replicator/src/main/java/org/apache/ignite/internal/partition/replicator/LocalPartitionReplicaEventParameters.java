@@ -27,24 +27,32 @@ public class LocalPartitionReplicaEventParameters extends CausalEventParameters 
     /** Zone partition id. */
     private final ZonePartitionId zonePartitionId;
 
+    private final boolean onRecovery;
+
     /**
      * Constructor.
      *
      * @param zonePartitionId Zone partition id.
      * @param revision Event's revision.
+     * @param onRecovery Flag indicating if this event was produced on node recovery.
      */
-    public LocalPartitionReplicaEventParameters(ZonePartitionId zonePartitionId, long revision) {
+    public LocalPartitionReplicaEventParameters(ZonePartitionId zonePartitionId, long revision, boolean onRecovery) {
         super(revision);
         this.zonePartitionId = zonePartitionId;
+        this.onRecovery = onRecovery;
     }
 
     /**
      * Returns zone partition id.
-     *
-     * @return Zone partition id.
      */
     public ZonePartitionId zonePartitionId() {
         return zonePartitionId;
     }
-}
 
+    /**
+     * Returns a flag indicating if this event was produced on node recovery.
+     */
+    public boolean onRecovery() {
+        return onRecovery;
+    }
+}

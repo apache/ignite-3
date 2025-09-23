@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.IterableTableFunction;
@@ -135,6 +136,12 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
             downstream().end();
         }
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested);
     }
 
     private boolean hasNext() {

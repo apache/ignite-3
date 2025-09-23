@@ -27,7 +27,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
@@ -41,14 +41,14 @@ import org.jetbrains.annotations.Nullable;
 public class ScriptTransactionContext implements QueryTransactionContext {
     private final QueryTransactionContext txContext;
 
-    private final TransactionTracker txTracker;
+    private final TransactionalOperationTracker txTracker;
 
     private volatile @Nullable ScriptTransactionWrapperImpl wrapper;
 
     /** Constructor. */
     public ScriptTransactionContext(
             QueryTransactionContext txContext,
-            TransactionTracker txTracker
+            TransactionalOperationTracker txTracker
     ) {
         this.txContext = txContext;
         this.txTracker = txTracker;
@@ -137,17 +137,10 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         }
     }
 
-    /** Attempts to rollback a script-driven transaction if it has not finished. */
-    public void rollbackUncommitted() {
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
-
-        if (txWrapper != null) {
-            txWrapper.rollbackWhenCursorsClosed();
-        }
-    }
-
     /** Rolls back the script-driven transaction. */
     public void onError(Throwable t) {
+        assert t != null;
+
         QueryTransactionWrapper txWrapper = wrapper;
 
         if (txWrapper == null) {
@@ -155,7 +148,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         }
 
         if (txWrapper != null) {
-            txWrapper.rollback(t);
+            txWrapper.finalise(t);
         }
     }
 }

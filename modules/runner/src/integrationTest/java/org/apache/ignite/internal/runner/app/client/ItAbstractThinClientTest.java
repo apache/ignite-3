@@ -86,32 +86,22 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
      */
     @BeforeAll
     void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws InterruptedException {
-        String node0Name = testNodeName(testInfo, 3344);
-        String node1Name = testNodeName(testInfo, 3345);
+        for (int i = 0; i < nodes(); i++) {
+            String nodeName = testNodeName(testInfo, 3344 + i);
 
-        nodesBootstrapCfg.put(
-                node0Name,
-                "ignite {\n"
-                        + "  network.port: 3344,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "  clientConnector.port: 10800,\n"
-                        + "  rest.port: 10300\n"
-                        + "  compute.threadPoolSize: 1\n"
-                        + "}"
-        );
-
-        nodesBootstrapCfg.put(
-                node1Name,
-                "ignite {\n"
-                        + "  network.port: 3345,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
-                        + "  clientConnector.metricsEnabled: true\n"
-                        + "  clientConnector.port: 10801,\n"
-                        + "  rest.port: 10301\n"
-                        + "  compute.threadPoolSize: 1\n"
-                        + "}"
-        );
+            nodesBootstrapCfg.put(
+                    nodeName,
+                    "ignite {\n"
+                            + "  network.port: " + (3344 + i) + ",\n"
+                            + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
+                            + (i == 1 ? ("  clientConnector.sendServerExceptionStackTraceToClient: true\n"
+                            + "  clientConnector.metricsEnabled: true\n") : "")
+                            + "  clientConnector.port: " + (10800 + i) + ",\n"
+                            + "  rest.port: " + (10300 + i) + "\n"
+                            + "  compute.threadPoolSize: 1\n"
+                            + "}"
+            );
+        }
 
         nodes = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
@@ -134,14 +124,17 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         IgniteSql sql = startedNodes.get(0).sql();
 
-        sql.execute(null,  "CREATE ZONE TEST_ZONE (REPLICAS 1, PARTITIONS " + PARTITIONS + ") STORAGE PROFILES ['"
+        sql.execute(null, "CREATE ZONE TEST_ZONE (REPLICAS " + replicas() + ", PARTITIONS " + PARTITIONS + ") STORAGE PROFILES ['"
                 + DEFAULT_STORAGE_PROFILE + "']");
         sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
                 + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) ZONE TEST_ZONE");
 
-        client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+        client = IgniteClient.builder()
+                .addresses(getClientAddresses().toArray(new String[0]))
+                .operationTimeout(15_000)
+                .build();
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == nodes(), 3000));
     }
 
     /**
@@ -198,6 +191,10 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         return client;
     }
 
+    protected IgniteServer ignite(int idx) {
+        return nodes.get(idx);
+    }
+
     protected Ignite server() {
         return startedNodes.get(0);
     }
@@ -210,8 +207,16 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         return sortedNodes().get(idx);
     }
 
+    protected int replicas() {
+        return 1;
+    }
+
+    protected int nodes() {
+        return 2;
+    }
+
     protected List<ClusterNode> sortedNodes() {
-        return client.clusterNodes().stream()
+        return client.cluster().nodes().stream()
                 .sorted(Comparator.comparing(ClusterNode::name))
                 .collect(toList());
     }

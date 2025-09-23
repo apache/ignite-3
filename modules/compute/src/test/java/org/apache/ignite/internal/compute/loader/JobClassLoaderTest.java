@@ -65,7 +65,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
 
         doReturn(desiredClass).when(parentClassLoader).loadClass(className);
 
-        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], List.of(), parentClassLoader))) {
+        try (TestJobClassLoaderImpl jobClassLoader = spy(new TestJobClassLoaderImpl(new URL[0], List.of(), parentClassLoader))) {
             assertSame(desiredClass, jobClassLoader.loadClass(className));
             verify(jobClassLoader, never()).findClass(className);
         }
@@ -76,8 +76,8 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
     public void loadsOwnClassIfSystemAbsent(String className) throws Exception {
         doThrow(ClassNotFoundException.class).when(parentClassLoader).loadClass(className);
 
-        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], List.of(), parentClassLoader))) {
-            Class<TestJobClassLoader> toBeReturned = TestJobClassLoader.class;
+        try (TestJobClassLoaderImpl jobClassLoader = spy(new TestJobClassLoaderImpl(new URL[0], List.of(), parentClassLoader))) {
+            Class<TestJobClassLoaderImpl> toBeReturned = TestJobClassLoaderImpl.class;
             doReturn(toBeReturned).when(jobClassLoader).findClass(className);
 
             assertSame(toBeReturned, jobClassLoader.loadClass(className));
@@ -90,7 +90,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         DisposableDeploymentUnit unit1 = mock(DisposableDeploymentUnit.class);
         DisposableDeploymentUnit unit2 = mock(DisposableDeploymentUnit.class);
 
-        try (TestJobClassLoader jobClassLoader = new TestJobClassLoader(new URL[0], List.of(unit1, unit2), parentClassLoader)) {
+        try (JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader)) {
             jobClassLoader.close();
             verify(unit1, times(1)).release();
             verify(unit2, times(1)).release();
@@ -104,14 +104,13 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         RuntimeException toBeThrown = new RuntimeException("Expected exception");
         doThrow(toBeThrown).when(unit1).release();
 
-        TestJobClassLoader jobClassLoader = new TestJobClassLoader(new URL[0], List.of(unit1, unit2), parentClassLoader);
+        JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader);
         IgniteException igniteException = assertThrows(IgniteException.class, jobClassLoader::close);
         assertThat(igniteException.getSuppressed(), arrayContaining(toBeThrown));
     }
 
-
-    private static class TestJobClassLoader extends JobClassLoader {
-        TestJobClassLoader(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
+    private static class TestJobClassLoaderImpl extends JobClassLoaderImpl {
+        TestJobClassLoaderImpl(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
             super(units, urls, parent);
         }
 

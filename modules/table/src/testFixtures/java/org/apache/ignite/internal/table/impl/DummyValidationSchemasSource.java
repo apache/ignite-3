@@ -105,7 +105,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
                 length = 0;
                 break;
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 VarlenNativeType varlenNativeType = (VarlenNativeType) nativeType;
                 precision = 0;
                 scale = 0;
@@ -125,7 +125,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
 
         return new CatalogTableColumnDescriptor(
                 column.name(),
-                nativeType.spec().asColumnType(),
+                nativeType.spec(),
                 column.nullable(),
                 precision,
                 scale,

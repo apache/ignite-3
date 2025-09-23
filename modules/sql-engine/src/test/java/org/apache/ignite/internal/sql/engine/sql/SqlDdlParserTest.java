@@ -46,10 +46,10 @@ import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -58,7 +58,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Test suite to verify parsing of the DDL command.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class SqlDdlParserTest extends AbstractParserTest {
     /**
      * Very simple case where only table name and a few columns are presented.
@@ -224,7 +223,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
             );
         }
     }
-
 
     @ParameterizedTest
     @CsvSource(delimiter = ';', value = {
@@ -479,6 +477,50 @@ public class SqlDdlParserTest extends AbstractParserTest {
         );
     }
 
+    @Test
+    public void createTableWithSortedPkAndParticularNullOrdering() {
+        String query = "create table my_table(id1 int, id2 int, val varchar, " 
+                + "primary key using sorted (id1 ASC NULLS FIRST, id2 DESC NULLS LAST))";
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.ifNotExists, is(false));
+
+        SqlNode lastItem = CollectionUtils.last(createTable.columnList());
+
+        assertThat(lastItem, instanceOf((IgniteSqlPrimaryKeyConstraint.class)));
+
+        IgniteSqlPrimaryKeyConstraint pkConstraint = (IgniteSqlPrimaryKeyConstraint) lastItem;
+
+        assertThat(
+                pkConstraint.getColumnList().get(0),
+                ofTypeMatching("\"ID1\" NULLS FIRST", SqlBasicCall.class, bc -> bc.isA(Set.of(SqlKind.NULLS_FIRST))
+                        && bc.getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("ID1"))
+        );
+
+        assertThat(
+                pkConstraint.getColumnList().get(1),
+                ofTypeMatching("\"ID2\" DESC NULLS LAST", SqlBasicCall.class, bc -> bc.isA(Set.of(SqlKind.NULLS_LAST))
+                        && bc.getOperandList().get(0) instanceof SqlBasicCall
+                        && (bc.getOperandList().get(0)).isA(Set.of(SqlKind.DESCENDING))
+                        && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).isSimple() 
+                        && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).getSimple().equals("ID2"))
+        );
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID1\" INTEGER, "
+                + "\"ID2\" INTEGER, "
+                + "\"VAL\" VARCHAR, "
+                + "PRIMARY KEY USING SORTED (\"ID1\" NULLS FIRST, \"ID2\" DESC NULLS LAST))"
+        );
+    }
+
     /**
      * Parsing of CREATE TABLE with primary key index type HASH.
      */
@@ -730,7 +772,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
         expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_SCHEMA\".\"MY_TABLE\" (\"COL\")");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21672")
     @Test
     public void createIndexExplicitNullDirection() {
         var query = "create index my_index on my_table (col1 nulls first, col2 nulls last, col3 desc nulls first)";
@@ -1039,7 +1080,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
      * @return {@code true} in case name in the column declaration equals to the expected one.
      */
     private static <T extends SqlColumnDeclaration> Matcher<T> columnWithName(String name) {
-        return new CustomMatcher<T>("column with name=" + name) {
+        return new CustomMatcher<>("column with name=" + name) {
             /** {@inheritDoc} */
             @Override
             public boolean matches(Object item) {

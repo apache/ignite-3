@@ -101,7 +101,7 @@ public class ComputeUtils {
      */
     public static <T, R> Class<ComputeJob<T, R>> jobClass(JobClassLoader jobClassLoader, String jobClassName) {
         try {
-            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader);
+            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader.classLoader());
         } catch (ClassNotFoundException e) {
             String message = "Cannot load job class by name '" + jobClassName + "'";
             if (jobClassLoader.units().isEmpty()) {
@@ -142,16 +142,20 @@ public class ComputeUtils {
     /**
      * Resolve map reduce task class name to map reduce task class reference.
      *
+     * @param <R> Map reduce task return type.
      * @param taskClassLoader Class loader.
      * @param taskClassName Map reduce task class name.
-     * @param <R> Map reduce task return type.
      * @return Map reduce task class.
      */
-    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(JobClassLoader taskClassLoader, String taskClassName) {
         try {
-            return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader);
+            return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader.classLoader());
         } catch (ClassNotFoundException e) {
-            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
+            String message = "Cannot load task class by name '" + taskClassName + "'.";
+            if (taskClassLoader.units().isEmpty()) {
+                throw new ComputeException(CLASS_INITIALIZATION_ERR, message + " Deployment units list is empty.", e);
+            }
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, message, e);
         }
     }
 

@@ -27,9 +27,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -238,7 +240,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
     private static RaftGroupService metastorageGroupClient(IgniteImpl ignite)
             throws NodeStoppingException {
         PeersAndLearners config = PeersAndLearners.fromConsistentIds(Set.of(ignite.name()));
-        return ignite.raftManager().startRaftGroupService(MetastorageGroupId.INSTANCE, config);
+        return ignite.raftManager().startRaftGroupService(MetastorageGroupId.INSTANCE, config, true);
     }
 
     private static String leaderName(RaftGroupService mgClient0) {
@@ -345,5 +347,21 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         // Subsequent restart should also fail.
         assertThrowsWithCause(() -> cluster.restartNode(1), MetastorageDivergedException.class, "Metastorage has diverged");
+    }
+
+    @Test
+    void repairIsProhibitedWhenMgMajorityIsOnline() throws Exception {
+        startAndInitCluster(3, new int[]{0}, new int[]{0, 1, 2});
+        waitTillClusterStateIsSavedToVaultOnConductor(0);
+
+        // After this, MG majority will still be online.
+        cluster.stopNode(2);
+
+        IgniteImpl node0BeforeRestart = igniteImpl(0);
+
+        waitTillMgHasMajority(node0BeforeRestart);
+
+        Exception ex = assertThrows(Exception.class, () -> initiateMgRepairVia(0, 2, 0));
+        assertThat(ex.getMessage(), containsString("Majority repair is rejected because majority of Metastorage nodes are online"));
     }
 }

@@ -18,7 +18,7 @@
 #include "odbc_connection.h"
 #include "odbc_suite.h"
 
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <gtest/gtest.h>
 
@@ -690,7 +690,7 @@ TEST_F(meta_queries_test, ddl_tables_meta) {
 TEST_F(meta_queries_test, ddl_tables_meta_table_type_list) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR *type_lists[] = {(SQLCHAR *) "'TABLE'", (SQLCHAR *) "TABLE,VIEW"};
+    SQLCHAR *type_lists[] = {(SQLCHAR *) "TABLE", (SQLCHAR *) "TABLE,VIEW"};
     for (auto &type_list : type_lists) {
         SQLCHAR any[] = "%";
         SQLCHAR table[] = "META_QUERIES_TEST";

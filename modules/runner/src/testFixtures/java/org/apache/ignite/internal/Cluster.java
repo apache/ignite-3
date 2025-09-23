@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.Collections.nCopies;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.ClusterConfiguration.assembleConfig;
-import static org.apache.ignite.internal.ClusterConfiguration.configWithOverrides;
+import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
 import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,18 +38,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
@@ -60,25 +60,20 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.ClusterConfiguration.ClientConnectorValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.FailureHandlerValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.NetworkValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.NodeAttributesValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.RestValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.ValueInjector;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -117,6 +112,8 @@ public class Cluster {
 
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = ConcurrentHashMap.newKeySet();
+
+    private List<IgniteServer> metaStorageAndCmgNodes = List.of();
 
     /**
      * Creates a new cluster.
@@ -230,21 +227,26 @@ public class Cluster {
                 .mapToObj(nodeIndex -> startEmbeddedNode(testInfo, nodeIndex, nodeBootstrapConfigTemplate, nodeBootstrapConfigUpdater))
                 .collect(toList());
 
-        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+        metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
                 .mapToObj(nodeRegistrations::get)
                 .map(ServerRegistration::server)
                 .collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
                 .metaStorageNodes(metaStorageAndCmgNodes)
-                .clusterName(clusterConfiguration.clusterName());
+                .clusterName(clusterConfiguration.clusterName())
+                .clusterConfiguration("ignite { metrics: { exporters { log { exporterName = logPush, periodMillis = 10000 } } } }");
 
         initParametersConfigurator.accept(builder);
 
         TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
 
         for (ServerRegistration registration : nodeRegistrations) {
-            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+            try {
+                assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+            } catch (Throwable t) {
+                throw new AssertionError(format("Failed to wait for node registration [node={}]", registration.server.name()), t);
+            }
         }
 
         started = true;
@@ -305,30 +307,28 @@ public class Cluster {
     ) {
         String nodeName = nodeName(nodeIndex);
 
-        String config;
+        String config = nodeBootstrapConfigUpdater.update(format(
+                nodeBootstrapConfigTemplate,
+                port(nodeIndex),
+                seedAddressesString(),
+                clusterConfiguration.baseClientPort() + nodeIndex,
+                httpPort(nodeIndex),
+                clusterConfiguration.baseHttpsPort() + nodeIndex
+        ));
 
         if (testInfo != null && containsOverrides(testInfo, nodeIndex)) {
-            List<ValueInjector> injectors = configValueInjectors(nodeIndex, clusterConfiguration);
-            Map<String, String> configWithOverrides = configWithOverrides(testInfo, nodeIndex, injectors);
-            config = assembleConfig(configWithOverrides);
-        } else {
-            config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
-                    nodeBootstrapConfigTemplate,
-                    port(nodeIndex),
-                    seedAddressesString(),
-                    clusterConfiguration.baseClientPort() + nodeIndex,
-                    httpPort(nodeIndex),
-                    clusterConfiguration.baseHttpsPort() + nodeIndex,
-                    clusterConfiguration.nodeAttributesProvider().apply(nodeIndex),
-                    false
-            ));
+            config = TestIgnitionManager.applyOverridesToConfig(config, configOverrides(testInfo, nodeIndex));
         }
 
-        IgniteServer node = TestIgnitionManager.start(
-                nodeName,
-                config,
-                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName)
-        );
+        IgniteServer node = clusterConfiguration.usePreConfiguredStorageProfiles()
+                ? TestIgnitionManager.start(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName))
+                : TestIgnitionManager.startWithoutPreConfiguredStorageProfiles(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName));
 
         synchronized (igniteServers) {
             setListAtIndex(igniteServers, nodeIndex, node);
@@ -348,16 +348,6 @@ public class Cluster {
         return new ServerRegistration(node, registrationFuture);
     }
 
-    private List<ValueInjector> configValueInjectors(int nodeIndex, ClusterConfiguration clusterConfiguration) {
-        return List.of(
-                new NetworkValueInjector(port(nodeIndex), seedAddressesString()),
-                new ClientConnectorValueInjector(clusterConfiguration.baseClientPort() + nodeIndex),
-                new RestValueInjector(httpPort(nodeIndex), clusterConfiguration.baseHttpsPort() + nodeIndex),
-                new NodeAttributesValueInjector(clusterConfiguration.nodeAttributesProvider().apply(nodeIndex)),
-                new FailureHandlerValueInjector(false)
-        );
-    }
-
     /**
      * Returns node name by index.
      *
@@ -371,25 +361,15 @@ public class Cluster {
         return clusterConfiguration.basePort() + nodeIndex;
     }
 
+    public Path nodeWorkDir(int nodeIndex) {
+        return clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName(nodeIndex));
+    }
+
     /**
      * Returns HTTP port by index.
      */
     public int httpPort(int nodeIndex) {
         return clusterConfiguration.baseHttpPort() + nodeIndex;
-    }
-
-    private static <T> void setListAtIndex(List<T> list, int i, T element) {
-        if (list.size() < i) {
-            list.addAll(nCopies(i - list.size(), null));
-        }
-
-        if (list.size() < i + 1) {
-            list.add(element);
-        } else {
-            T prev = list.set(i, element);
-
-            assert prev == null : String.format("Found previous value %s at index %d", prev, i);
-        }
     }
 
     private String seedAddressesString() {
@@ -415,7 +395,7 @@ public class Cluster {
      * Returns an Ignite server by its index.
      */
     public IgniteServer server(int index) {
-        return igniteServers.get(index);
+        return Objects.requireNonNull(igniteServers.get(index));
     }
 
     /**
@@ -476,7 +456,7 @@ public class Cluster {
      */
     public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
         ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-        assertThat("nodeIndex=" + index, registration.registrationFuture(), willSucceedIn(20, TimeUnit.SECONDS));
+        assertThat("nodeIndex=" + index, registration.registrationFuture(), willCompleteSuccessfully());
         Ignite newIgniteNode = registration.server().api();
 
         assertEquals(newIgniteNode, nodes.get(index));
@@ -506,6 +486,25 @@ public class Cluster {
      */
     public void stopNode(String name) {
         stopNode(nodeIndex(name));
+    }
+
+    /**
+     * Stops a node by index asynchronously.
+     *
+     * @param index Node index in the cluster.
+     */
+    public CompletableFuture<Void> stopNodeAsync(int index) {
+        IgniteServer server = igniteServers.get(index);
+
+        if (server != null) {
+            return server.shutdownAsync().thenRun(() -> {
+                igniteServers.set(index, null);
+
+                nodes.set(index, null);
+            });
+        }
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -590,6 +589,13 @@ public class Cluster {
     }
 
     /**
+     * Returns nodes.
+     */
+    public List<Ignite> nodes() {
+        return nodes;
+    }
+
+    /**
      * Shuts down the cluster by stopping all its nodes.
      */
     public void shutdown() {
@@ -606,7 +612,18 @@ public class Cluster {
         Collections.fill(igniteServers, null);
         Collections.fill(nodes, null);
 
-        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+        // TODO: IGNITE-26085 Allow stopping nodes in any order. Currently, MS nodes stop only at the last one.
+        serversToStop.parallelStream()
+                .filter(igniteServer -> igniteServer != null && !metaStorageAndCmgNodes.contains(igniteServer))
+                .forEach(IgniteServer::shutdown);
+
+        metaStorageAndCmgNodes.parallelStream()
+                .filter(igniteServer -> igniteServer != null && serversToStop.contains(igniteServer))
+                .forEach(IgniteServer::shutdown);
+
+        metaStorageAndCmgNodes = List.of();
+
+        MicronautCleanup.removeShutdownHooks();
 
         LOG.info("Shut the cluster down");
     }
@@ -760,6 +777,39 @@ public class Cluster {
     }
 
     /**
+     * Transfers primary replica of given replication group to the node with given index.
+     *
+     * @param nodeIndex Destination node index.
+     * @param groupId ID of the replication group.
+     */
+    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+        String proposedPrimaryName = node(nodeIndex).name();
+
+        if (!proposedPrimaryName.equals(getPrimaryReplicaName(groupId))) {
+
+            String newPrimaryName = NodeUtils.transferPrimary(
+                    runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
+                    groupId,
+                    proposedPrimaryName
+            );
+
+            assertEquals(proposedPrimaryName, newPrimaryName);
+        }
+    }
+
+    private @Nullable String getPrimaryReplicaName(ReplicationGroupId groupId) {
+        IgniteImpl node = unwrapIgniteImpl(aliveNode());
+
+        CompletableFuture<ReplicaMeta> primary = node.placementDriver()
+                .awaitPrimaryReplica(groupId, node.clockService().now(), 30, SECONDS);
+
+        assertThat(primary, willCompleteSuccessfully());
+
+        @Nullable ReplicaMeta replicaMeta = primary.join();
+        return replicaMeta != null ? replicaMeta.getLeaseholder() : null;
+    }
+
+    /**
      * Returns the ID of the sole partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
      */
@@ -771,7 +821,7 @@ public class Cluster {
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
         CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
 
-        List<? extends ReplicationGroupId> replicationGroupIds = enabledColocation()
+        List<? extends ReplicationGroupId> replicationGroupIds = colocationEnabled()
                 ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
                 : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
 

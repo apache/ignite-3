@@ -44,6 +44,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
@@ -60,9 +61,8 @@ import org.apache.ignite.internal.network.file.messages.FileTransferInitMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInitResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.Identifier;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Implementation of {@link FileTransferService}.
@@ -156,7 +156,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 configuration.value().threadPoolSize(),
                 10, SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+                IgniteThreadFactory.create(nodeName, "file-transfer", LOG)
         );
         executor.allowCoreThreadTimeOut(true);
 
@@ -229,7 +229,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 fileReceiver.cancelTransfersFromSender(member.name());
             }
         });
@@ -418,7 +418,6 @@ public class FileTransferServiceImpl implements FileTransferService {
                 executorService
         );
     }
-
 
     private CompletableFuture<Void> sendFiles(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
         return fileSender.send(targetNodeConsistentId, transferId, paths)

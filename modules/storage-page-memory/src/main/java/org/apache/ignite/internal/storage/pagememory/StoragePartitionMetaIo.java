@@ -296,7 +296,6 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         return new UUID(high, low);
     }
 
-
     /**
      * Sets the primary replica node name first page id.
      *
@@ -320,10 +319,10 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
-     * Sets the estimated size of this partition.
+     * Sets the estimated number of latest entries in the partition.
      *
      * @param pageAddr Page address.
-     * @param estimatedSize Estimated size.
+     * @param estimatedSize Estimated number of latest entries in the partition.
      */
     public void setEstimatedSize(long pageAddr, long estimatedSize) {
         assertPageType(pageAddr);
@@ -332,7 +331,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
-     * Returns the estimated size of this partition.
+     * Returns the estimated number of latest entries in the partition.
      *
      * @param pageAddr Page address.
      */

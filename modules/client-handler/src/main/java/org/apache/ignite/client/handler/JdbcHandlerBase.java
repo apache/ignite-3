@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.SqlQueryType.KILL;
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.TX_CONTROL;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -49,13 +50,13 @@ import org.jetbrains.annotations.Nullable;
  */
 abstract class JdbcHandlerBase {
     /** {@link SqlQueryType}s allowed in JDBC select statements. **/
-    public static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(
+    public static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = EnumSet.of(
             SqlQueryType.QUERY,
             SqlQueryType.EXPLAIN
     );
 
     /** {@link SqlQueryType}s types that return 0 in executeUpdate and execute / getUpdateCount. **/
-    public static final Set<SqlQueryType> ZERO_UPDATE_COUNT_QUERIES = Set.of(DDL, KILL, TX_CONTROL);
+    public static final Set<SqlQueryType> ZERO_UPDATE_COUNT_QUERIES = EnumSet.of(DDL, KILL, TX_CONTROL);
 
     /** Logger. */
     private final IgniteLogger log;

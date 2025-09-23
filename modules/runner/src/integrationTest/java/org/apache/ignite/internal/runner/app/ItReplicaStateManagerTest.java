@@ -21,7 +21,7 @@ import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -92,7 +92,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         // Get the current primary replica.
         HybridTimestamp now = node0.clock().now();
 
-        PartitionGroupId partId = enabledColocation()
+        PartitionGroupId partId = colocationEnabled()
                 ? new ZonePartitionId(tbl.zoneId(), 0)
                 : new TablePartitionId(tbl.tableId(), 0);
 
@@ -108,7 +108,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         // Excluding the current primary from assignments. The replica should stay alive.
         node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
 
-        ByteArray stableAssignmentsKey = enabledColocation()
+        ByteArray stableAssignmentsKey = colocationEnabled()
                 ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
                 : stablePartAssignmentsKey((TablePartitionId) partId);
 
@@ -159,7 +159,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", ZONE_NAME, filter);
     }
 
     private static String filterForNodes(List<IgniteImpl> nodes, @Nullable UUID excludeId) {

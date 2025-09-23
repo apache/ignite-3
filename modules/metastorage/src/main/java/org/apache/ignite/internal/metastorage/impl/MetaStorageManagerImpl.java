@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.NotificationEnqueuedListener;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker.TrackingToken;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
@@ -343,6 +344,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         electionListeners.add(listener);
     }
 
+    /** Registers a notification enqueued listener. */
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        storage.registerNotificationEnqueuedListener(listener);
+    }
+
     private CompletableFuture<?> recover(MetaStorageService service) {
         return inBusyLockAsync(busyLock, () -> {
             service.currentRevisions()
@@ -545,7 +551,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             Peer localPeer,
             MetaStorageInfo metaStorageInfo
     ) {
-        MetaStorageListener raftListener = new MetaStorageListener(storage, clock, clusterTime, this::onConfigurationCommitted);
+        MetaStorageListener raftListener = new MetaStorageListener(
+                storage,
+                clock,
+                clusterTime,
+                this::onConfigurationCommitted,
+                metaStorageMetricSource::onIdempotentCacheSizeChange
+        );
 
         try {
             return raftMgr.startSystemRaftGroupNodeAndWaitNodeReady(
@@ -1176,16 +1188,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             Function<RaftGroupService, CompletableFuture<T>> action
     ) {
         try {
-            RaftGroupService raftGroupService = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, raftClientConfiguration);
+            RaftGroupService raftGroupService = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, raftClientConfiguration, true);
 
             return action.apply(raftGroupService)
-                    .whenComplete((res, ex) -> {
+                    // This callback should be executed asynchronously due to
+                    // its code might be done under a busyLock of the raftGroupService,
+                    // and so, it results in a deadlock on shutting down the service.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-25787
+                    .whenCompleteAsync((res, ex) -> {
                         if (ex != null) {
                             LOG.error("One-off raft group action on {} failed", ex, raftClientConfiguration);
                         }
 
                         raftGroupService.shutdown();
-                    });
+                    }, ioExecutor);
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }

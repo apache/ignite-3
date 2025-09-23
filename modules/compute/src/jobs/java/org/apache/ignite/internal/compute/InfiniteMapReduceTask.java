@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
 import java.util.Map;
@@ -37,14 +38,14 @@ public class InfiniteMapReduceTask implements MapReduceTask<Void, Void, Void, Vo
         return completedFuture(List.of(
                 MapReduceJob.<Void, Void>builder()
                         .jobDescriptor(JobDescriptor.builder(InfiniteMapReduceJob.class).build())
-                        .nodes(taskContext.ignite().clusterNodes())
+                        .nodes(taskContext.ignite().cluster().nodes())
                         .build()
         ));
     }
 
     @Override
     public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Void> results) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private static class InfiniteMapReduceJob implements ComputeJob<Void, Void> {
