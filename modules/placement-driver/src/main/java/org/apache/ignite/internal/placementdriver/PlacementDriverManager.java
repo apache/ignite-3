@@ -29,6 +29,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -125,6 +126,8 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param failureProcessor Failure processor.
      * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      * @param metricManager Metric manager.
+     * @param currentDataNodesProvider Provider of the current data nodes in the cluster.
+     * @param zoneIdByTableIdResolver Resolver of zone id by table id (result may be {@code null}).
      */
     public PlacementDriverManager(
             String nodeName,
@@ -140,7 +143,9 @@ public class PlacementDriverManager implements IgniteComponent {
             NodeProperties nodeProperties,
             ReplicationConfiguration replicationConfiguration,
             Executor throttledLogExecutor,
-            MetricManager metricManager
+            MetricManager metricManager,
+            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider,
+            Function<Integer, Integer> zoneIdByTableIdResolver
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -154,7 +159,13 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService(), clockService);
 
-        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor, nodeProperties);
+        this.assignmentsTracker = new AssignmentsTracker(
+                metastore,
+                failureProcessor,
+                nodeProperties,
+                currentDataNodesProvider,
+                zoneIdByTableIdResolver
+        );
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
@@ -317,6 +328,12 @@ public class PlacementDriverManager implements IgniteComponent {
                     HybridTimestamp timestamp
             ) {
                 return assignmentsTracker.getAssignments(replicationGroupIds, timestamp);
+            }
+
+            @Override
+            public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+                    List<? extends ReplicationGroupId> replicationGroupIds, HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+                return assignmentsTracker.awaitNonEmptyAssignments(replicationGroupIds, clusterTimeToAwait, timeoutMillis);
             }
 
             @Override

@@ -170,6 +170,8 @@ public class DistributionZoneManager extends
 
     private final MetricManager metricManager;
 
+    private final ClockService clockService;
+
     /** Mapping from a zone identifier to the corresponding metric source. */
     private final Map<Integer, ZoneMetricSource> zoneMetricSources = new ConcurrentHashMap<>();
 
@@ -232,6 +234,7 @@ public class DistributionZoneManager extends
         this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
         this.localNodeName = nodeName;
+        this.clockService = clockService;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
@@ -322,6 +325,18 @@ public class DistributionZoneManager extends
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         return nullCompletedFuture();
+    }
+
+    /**
+     * Returns data nodes for the given time.
+     *
+     * @param zoneId Zone id.
+     * @return Data nodes for the current time.
+     */
+    public CompletableFuture<Set<String>> currentDataNodes(int zoneId) {
+        HybridTimestamp current = clockService.current();
+        int catalogVersion = catalogManager.activeCatalogVersion(current.longValue());
+        return dataNodes(current, catalogVersion, zoneId);
     }
 
     /**

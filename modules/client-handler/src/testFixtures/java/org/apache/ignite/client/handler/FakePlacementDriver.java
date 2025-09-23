@@ -130,6 +130,12 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
     }
 
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
+            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+        return failedFuture(new UnsupportedOperationException("awaitNonEmptyAssignments() is not supported in FakePlacementDriver yet."));
+    }
+
     public List<ReplicaMeta> primaryReplicas() {
         return primaryReplicas;
     }
