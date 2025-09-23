@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_ALL_COLUMNS;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -29,7 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -527,11 +530,18 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    default void testComputeEchoJob() {
-        var jarName = "ignite-integration-test-jobs-1.0-SNAPSHOT.jar";
+    default void testComputeEchoJob() throws Exception {
+        File jobsJar = Path.of(
+                getResourcePath(ClientCompatibilityTests.class, ""),
+                "../../../libs/ignite-integration-test-jobs-1.0-SNAPSHOT.jar").toFile();
+
+        DeploymentUnit deployUnit = ClientCompatibilityTestUtils.deployUnit("localhost:10300", List.of(jobsJar), "test-jobs", "1.0");
 
         JobTarget target = JobTarget.anyNode(clusterNodes());
-        JobDescriptor<Object, Object> desc = JobDescriptor.builder(Echo.class).build();
+        JobDescriptor<Object, Object> desc = JobDescriptor
+                .builder(Echo.class)
+                .units(deployUnit)
+                .build();
 
         // TODO: Test different arg and result types.
         String jobArg = "Hello";

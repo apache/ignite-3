@@ -23,6 +23,7 @@ import io.netty.util.ResourceLeakDetector;
 import io.netty.util.ResourceLeakDetector.Level;
 import java.io.File;
 import java.util.List;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.model.DeployMode;
@@ -31,13 +32,16 @@ import org.apache.ignite.rest.client.model.DeployMode;
  * Utils for client compatibility tests.
  */
 class ClientCompatibilityTestUtils {
-    public static void deployUnit(String apiBasePath, List<File> unitFiles) throws Exception {
+    static DeploymentUnit deployUnit(String apiBasePath, List<File> unitFiles, String unitName, String unitVersion)
+            throws Exception {
         // TODO IGNITE-26418 Netty buffer leaks in REST API
         ResourceLeakDetector.setLevel(Level.DISABLED);
 
         DeployUnitClient deployUnitClient = new DeployUnitClient(new ApiClient().setBasePath(apiBasePath));
-        Boolean deployRes = deployUnitClient.deployUnit("test-unit", unitFiles, "1.2.3", DeployMode.ALL, List.of());
+        Boolean deployRes = deployUnitClient.deployUnit(unitName, unitFiles, unitVersion, DeployMode.ALL, List.of());
 
         assertTrue(deployRes);
+
+        return new DeploymentUnit(unitName, unitVersion);
     }
 }
