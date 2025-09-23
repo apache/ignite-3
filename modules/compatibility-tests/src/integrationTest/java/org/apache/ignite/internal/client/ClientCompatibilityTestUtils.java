@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
@@ -28,30 +29,34 @@ import java.util.List;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.rest.client.invoker.ApiClient;
+import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.DeployMode;
 
 /**
  * Utils for client compatibility tests.
  */
 class ClientCompatibilityTestUtils {
-    static DeploymentUnit deployJobs() throws Exception {
+    static final DeploymentUnit JOBS_UNIT = new DeploymentUnit("compat-test-jobs", "1.0");
+
+    static void deployJobs() {
         File jobsJar = Path.of(
                 getResourcePath(ClientCompatibilityTests.class, ""),
                 "../../../libs/ignite-integration-test-jobs-1.0-SNAPSHOT.jar").toFile();
 
-        return deployUnit(List.of(jobsJar), "test-jobs", "1.0");
+        deployUnit(List.of(jobsJar), JOBS_UNIT.name(), JOBS_UNIT.version().render());
     }
 
-    private static DeploymentUnit deployUnit(List<File> unitFiles, String unitName, String unitVersion)
-            throws Exception {
+    private static void deployUnit(List<File> unitFiles, String unitName, String unitVersion){
         // TODO IGNITE-26418 Netty buffer leaks in REST API
         ResourceLeakDetector.setLevel(Level.DISABLED);
 
         DeployUnitClient deployUnitClient = new DeployUnitClient(new ApiClient());
-        Boolean deployRes = deployUnitClient.deployUnit(unitName, unitFiles, unitVersion, DeployMode.ALL, List.of());
 
-        assertTrue(deployRes);
-
-        return new DeploymentUnit(unitName, unitVersion);
+        try {
+            Boolean deployRes = deployUnitClient.deployUnit(unitName, unitFiles, unitVersion, DeployMode.ALL, List.of());
+            assertTrue(deployRes);
+        } catch (ApiException e) {
+            sneakyThrow(e);
+        }
     }
 }

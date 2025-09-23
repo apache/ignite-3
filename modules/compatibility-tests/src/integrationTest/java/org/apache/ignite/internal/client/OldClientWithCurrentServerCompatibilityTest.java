@@ -70,7 +70,7 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir, CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE);
         cluster.startEmbedded(1, true);
 
-        createDefaultTables(cluster.node(0));
+        initTestData(cluster.node(0));
 
         delegate = createTestInstanceWithOldClient(clientVersion);
     }
