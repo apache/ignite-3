@@ -525,7 +525,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
      * Holder for topology snapshots that guarantees monotonically increasing versions.
      */
     class LogicalTopologyHolder {
-        private volatile TopologySnapshot topology = new TopologySnapshot(Long.MIN_VALUE, List.of());
+        private volatile TopologySnapshot topology = new TopologySnapshot(Long.MIN_VALUE, Set.of());
 
         void update(LogicalTopologySnapshot topologySnapshot) {
             synchronized (this) {
@@ -545,19 +545,19 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             return topology;
         }
 
-        private List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
+        private Set<String> deriveNodeNames(LogicalTopologySnapshot topology) {
             return topology.nodes().stream()
                     .map(LogicalNode::name)
-                    .collect(Collectors.toUnmodifiableList());
+                    .collect(Collectors.toUnmodifiableSet());
         }
 
         class TopologySnapshot {
             private final Set<String> nodes;
             private final long version;
 
-            TopologySnapshot(long version, List<String> nodes) {
+            TopologySnapshot(long version, Set<String> nodes) {
                 this.version = version;
-                this.nodes = Set.copyOf(nodes);
+                this.nodes = nodes;
             }
 
             public Set<String> nodes() {
