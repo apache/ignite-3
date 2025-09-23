@@ -610,7 +610,7 @@ public interface ClientCompatibilityTests {
         CompletableFuture<Void> streamFut;
 
         DataStreamerReceiverDescriptor<Tuple, String, Integer> desc = DataStreamerReceiverDescriptor
-                .<Tuple, String, Integer>builder("my-receiver")
+                .<Tuple, String, Integer>builder("org.apache.ignite.internal.compute.EchoReceiver")
                 .units(JOBS_UNIT)
                 .build();
 
@@ -630,6 +630,7 @@ public interface ClientCompatibilityTests {
             }
         }
 
+        // TODO check results.
         streamFut.join();
     }
 
