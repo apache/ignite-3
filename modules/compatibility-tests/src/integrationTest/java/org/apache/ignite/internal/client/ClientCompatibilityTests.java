@@ -540,7 +540,11 @@ public interface ClientCompatibilityTests {
 
         Object jobRes = client().compute().execute(target, desc, arg);
 
-        assertEquals(arg, jobRes);
+        if (arg instanceof byte[]) {
+            assertArrayEquals((byte[]) arg, (byte[]) jobRes);
+        } else {
+            assertEquals(arg, jobRes);
+        }
     }
 
     @Test
