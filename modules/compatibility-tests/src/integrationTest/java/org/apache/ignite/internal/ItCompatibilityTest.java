@@ -35,7 +35,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 class ItCompatibilityTest extends CompatibilityTestBase {
-
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         builder.clusterConfiguration("ignite.eventlog.sinks {"
@@ -80,9 +79,9 @@ class ItCompatibilityTest extends CompatibilityTestBase {
     }
 
     @Test
-    void testAllTypesAndTransactions() {
+    void testCompatibility() {
         // Read old data
-        List<List<Object>> result = sql("SELECT * FROM TEST_ALL_TYPES WHERE ID = 1");
+        List<List<Object>> result = sql("SELECT * FROM TEST_ALL_TYPES");
         assertThat(result, contains(contains(
                 1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
                 "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
