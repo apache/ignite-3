@@ -623,11 +623,23 @@ public interface ClientCompatibilityTests {
     }
 
     static Object[] jobArgs() {
-        // TODO: Test all supported arg and result types.
         return new Object[]{
-                "String arg",
-                123,
-                123.456
+                true,
+                (byte) 1,
+                (short) 2,
+                3,
+                4L,
+                5.5f,
+                6.6d,
+                new BigDecimal("7.7"),
+                LocalDate.now(),
+                LocalTime.now(),
+                LocalDateTime.now(),
+                Instant.ofEpochSecond(123456),
+                UUID.randomUUID(),
+                "test",
+                new byte[]{1, 2, 3, 4},
+                null
         };
     }
 }
