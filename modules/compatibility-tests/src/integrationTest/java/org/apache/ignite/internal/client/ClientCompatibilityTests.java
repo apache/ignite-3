@@ -74,6 +74,8 @@ import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Client compatibility tests. Interface to allow "multiple inheritance" of test methods.
@@ -86,10 +88,6 @@ public interface ClientCompatibilityTests {
 
     default String tableNamePrefix() {
         return "";
-    }
-
-    default DeploymentUnit jobsUnit() {
-        return ClientCompatibilityTestUtils.JOBS_UNIT;
     }
 
     @Test
@@ -530,19 +528,18 @@ public interface ClientCompatibilityTests {
         assertThat(ex.getMessage(), containsString("Cannot load job class by name 'test'"));
     }
 
-    @Test
-    default void testComputeEchoJob() {
+    @ParameterizedTest
+    @MethodSource("jobArgs")
+    default void testComputeEchoJob(Object arg) {
         JobTarget target = JobTarget.anyNode(clusterNodes());
         JobDescriptor<Object, Object> desc = JobDescriptor
                 .builder(Echo.class)
                 .units(ClientCompatibilityTestUtils.JOBS_UNIT)
                 .build();
 
-        // TODO: Test different arg and result types.
-        String jobArg = "Hello";
-        Object jobRes = client().compute().execute(target, desc, jobArg);
+        Object jobRes = client().compute().execute(target, desc, arg);
 
-        assertEquals(jobArg, jobRes);
+        assertEquals(arg, jobRes);
     }
 
     @Test
@@ -622,5 +619,14 @@ public interface ClientCompatibilityTests {
 
     private Table table(String tableName) {
         return client().tables().table(tableName);
+    }
+
+    static Object[] jobArgs() {
+        // TODO: Test all supported arg and result types.
+        return new Object[]{
+                "String arg",
+                123,
+                123.456
+        };
     }
 }
