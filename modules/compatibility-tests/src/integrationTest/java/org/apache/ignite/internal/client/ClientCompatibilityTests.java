@@ -531,12 +531,9 @@ public interface ClientCompatibilityTests {
 
     @ParameterizedTest
     @MethodSource("jobArgs")
-    default void testComputeEchoJob(Object arg) {
+    default void testComputeArgs(Object arg) {
         JobTarget target = JobTarget.anyNode(clusterNodes());
-        JobDescriptor<Object, Object> desc = JobDescriptor
-                .builder("org.apache.ignite.internal.compute.Echo")
-                .units(JOBS_UNIT)
-                .build();
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
 
         Object jobRes = client().compute().execute(target, desc, arg);
 
@@ -545,6 +542,21 @@ public interface ClientCompatibilityTests {
         } else {
             assertEquals(arg, jobRes);
         }
+    }
+
+    @Test
+    default void testComputeExecute() {
+        // TODO
+    }
+
+    @Test
+    default void testComputeExecuteColocated() {
+        // TODO
+    }
+
+    @Test
+    default void testComputeExecutePartitioned() {
+        // TODO
     }
 
     @Test
@@ -645,5 +657,12 @@ public interface ClientCompatibilityTests {
                 new byte[]{1, 2, 3, 4},
                 null
         };
+    }
+
+    private static JobDescriptor<Object, Object> echoJobDescriptor() {
+        return JobDescriptor
+                .builder("org.apache.ignite.internal.compute.Echo")
+                .units(JOBS_UNIT)
+                .build();
     }
 }

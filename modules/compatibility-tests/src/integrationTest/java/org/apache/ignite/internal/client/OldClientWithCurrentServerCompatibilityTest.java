@@ -210,8 +210,8 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
     @Override
     @ParameterizedTest
     @MethodSource("jobArgs")
-    public void testComputeEchoJob(Object arg) {
-        delegate.testComputeEchoJob(arg);
+    public void testComputeArgs(Object arg) {
+        delegate.testComputeArgs(arg);
     }
 
     @Test
