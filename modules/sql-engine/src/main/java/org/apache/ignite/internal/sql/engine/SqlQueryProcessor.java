@@ -252,7 +252,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
+        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
@@ -96,6 +97,7 @@ public class TableAwareReplicaRequestPreProcessor {
 
         assert txTs == null
                 ? request instanceof GetEstimatedSizeRequest || request instanceof ScanCloseReplicaRequest
+                || request instanceof GetEstimatedSizeWithLastModifiedTsRequest
                 || request instanceof BuildIndexReplicaRequest || request instanceof TableWriteIntentSwitchReplicaRequest
                 : opTs.compareTo(txTs) >= 0 :
                 "Invalid request timestamps [request=" + request + ']';
