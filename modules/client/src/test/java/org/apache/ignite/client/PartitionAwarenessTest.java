@@ -752,7 +752,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static void initPrimaryReplicas(@Nullable List<String> replicas) {
         // Lease start time must be the same on both servers.
-        long leaseStartTime = testServer.igniteClock().nowLong();
+        long leaseStartTime = testServer.clock().nowLong();
 
         initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
         initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
