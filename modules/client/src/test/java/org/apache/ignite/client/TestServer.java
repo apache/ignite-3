@@ -150,7 +150,6 @@ public class TestServer implements AutoCloseable {
                 clusterId,
                 securityConfiguration,
                 port,
-                ignite.clock(),
                 true,
                 null
         );
