@@ -218,7 +218,7 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Creates new result set.
      *
-     * @exception SQLException if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     @TestOnly
     JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta, JdbcStatement stmt) throws SQLException {
@@ -345,7 +345,6 @@ public class JdbcResultSet implements ResultSet {
      * Close result set.
      *
      * @param removeFromResources If {@code true} cursor need to be removed from client resources.
-     *
      * @throws SQLException On error.
      */
     void close0(boolean removeFromResources) throws SQLException {
@@ -2226,7 +2225,7 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Get object of given class.
      *
-     * @param colIdx    Column index.
+     * @param colIdx Column index.
      * @param targetCls Class representing the Java data type to convert the designated column to.
      * @return Converted object.
      * @throws SQLException On error.
@@ -2376,20 +2375,28 @@ public class JdbcResultSet implements ResultSet {
             return formatWithPrecision(DATE_TIME, value, colIdx, jdbcMeta);
         }
 
-        static String formatDate(LocalDate value) {
-            return DATE.format(value);
+        static String formatDate(LocalDate value) throws SQLException {
+            try {
+                return DATE.format(value);
+            } catch (Exception e) {
+                throw new SQLException("Cannot convert to string: " + value, SqlStateCode.CONVERSION_FAILED, e);
+            }
         }
 
         private static String formatWithPrecision(
-                DateTimeFormatter formatter, 
-                TemporalAccessor value, 
+                DateTimeFormatter formatter,
+                TemporalAccessor value,
                 int colIdx,
                 JdbcResultSetMetadata jdbcMeta
         ) throws SQLException {
 
             StringBuilder sb = new StringBuilder();
 
-            formatter.formatTo(value, sb);
+            try {
+                formatter.formatTo(value, sb);
+            } catch (Exception e) {
+                throw new SQLException("Cannot convert to string: " + value, SqlStateCode.CONVERSION_FAILED, e);
+            }
 
             int precision = jdbcMeta.getPrecision(colIdx);
             if (precision <= 0) {
@@ -2400,7 +2407,7 @@ public class JdbcResultSet implements ResultSet {
 
             // Append nano seconds according to the specified precision.
             long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
-            long scaled  = nanos / (long) Math.pow(10, 9 - precision);
+            long scaled = nanos / (long) Math.pow(10, 9 - precision);
 
             sb.append('.');
             for (int i = 0; i < precision; i++) {
