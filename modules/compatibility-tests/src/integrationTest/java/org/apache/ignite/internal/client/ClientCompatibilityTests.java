@@ -531,11 +531,7 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testComputeEchoJob() throws Exception {
-        File jobsJar = Path.of(
-                getResourcePath(ClientCompatibilityTests.class, ""),
-                "../../../libs/ignite-integration-test-jobs-1.0-SNAPSHOT.jar").toFile();
-
-        DeploymentUnit deployUnit = ClientCompatibilityTestUtils.deployUnit("http://localhost:10300", List.of(jobsJar), "test-jobs", "1.0");
+        DeploymentUnit deployUnit = ClientCompatibilityTestUtils.deployJobs();
 
         JobTarget target = JobTarget.anyNode(clusterNodes());
         JobDescriptor<Object, Object> desc = JobDescriptor

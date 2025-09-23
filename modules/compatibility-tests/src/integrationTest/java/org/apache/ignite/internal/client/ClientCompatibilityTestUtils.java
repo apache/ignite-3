@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.ResourceLeakDetector.Level;
 import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
@@ -32,12 +34,20 @@ import org.apache.ignite.rest.client.model.DeployMode;
  * Utils for client compatibility tests.
  */
 class ClientCompatibilityTestUtils {
-    static DeploymentUnit deployUnit(String apiBasePath, List<File> unitFiles, String unitName, String unitVersion)
+    static DeploymentUnit deployJobs() throws Exception {
+        File jobsJar = Path.of(
+                getResourcePath(ClientCompatibilityTests.class, ""),
+                "../../../libs/ignite-integration-test-jobs-1.0-SNAPSHOT.jar").toFile();
+
+        return deployUnit(List.of(jobsJar), "test-jobs", "1.0");
+    }
+
+    private static DeploymentUnit deployUnit(List<File> unitFiles, String unitName, String unitVersion)
             throws Exception {
         // TODO IGNITE-26418 Netty buffer leaks in REST API
         ResourceLeakDetector.setLevel(Level.DISABLED);
 
-        DeployUnitClient deployUnitClient = new DeployUnitClient(new ApiClient().setBasePath(apiBasePath));
+        DeployUnitClient deployUnitClient = new DeployUnitClient(new ApiClient());
         Boolean deployRes = deployUnitClient.deployUnit(unitName, unitFiles, unitVersion, DeployMode.ALL, List.of());
 
         assertTrue(deployRes);
