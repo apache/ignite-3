@@ -625,8 +625,7 @@ public interface ClientCompatibilityTests {
                     DataStreamerOptions.builder().pageSize(5).build());
 
             for (int i = 0; i < 100; i++) {
-                Tuple item = Tuple.create().set("a", i).set("b", "b_" + i);
-                publisher.submit(item);
+                publisher.submit(i);
             }
         }
 
