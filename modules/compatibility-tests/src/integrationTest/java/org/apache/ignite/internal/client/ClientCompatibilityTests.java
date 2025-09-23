@@ -735,7 +735,10 @@ public interface ClientCompatibilityTests {
                 .build();
     }
 
-     class TestSubscriber<T> implements Subscriber<T> {
+    /**
+     * Test subscriber.
+     */
+    class TestSubscriber<T> implements Subscriber<T> {
         List<T> items = Collections.synchronizedList(new ArrayList<>());
 
         @Override
