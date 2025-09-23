@@ -36,10 +36,13 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -609,28 +612,37 @@ public interface ClientCompatibilityTests {
 
         CompletableFuture<Void> streamFut;
 
-        DataStreamerReceiverDescriptor<Object, Object, Object> desc = DataStreamerReceiverDescriptor
-                .builder("org.apache.ignite.internal.compute.EchoReceiver")
+        DataStreamerReceiverDescriptor<Integer, Object, Integer> desc = DataStreamerReceiverDescriptor
+                .<Integer, Object, Integer>builder("org.apache.ignite.internal.compute.EchoReceiver")
                 .units(JOBS_UNIT)
                 .build();
 
-        try (var publisher = new SubmissionPublisher<>()) {
+        var subscriber = new TestSubscriber<Integer>();
+        List<Integer> expected = new ArrayList<>();
+
+        try (var publisher = new SubmissionPublisher<Integer>()) {
             streamFut = view.streamData(
                     publisher,
                     desc,
                     x -> Tuple.create().set("id", x),
                     Function.identity(),
-                    "arg",
                     null,
-                    DataStreamerOptions.builder().pageSize(5).build());
+                    subscriber,
+                    DataStreamerOptions.builder().pageSize(3).build());
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 10; i++) {
                 publisher.submit(i);
+                expected.add(i);
             }
         }
 
-        // TODO check results.
         streamFut.join();
+
+        List<Integer> sortedResults = subscriber.items.stream()
+                .sorted()
+                .collect(Collectors.toList());
+
+        assertEquals(expected, sortedResults);
     }
 
     /**
@@ -688,5 +700,27 @@ public interface ClientCompatibilityTests {
                 .builder("org.apache.ignite.internal.compute.Echo")
                 .units(JOBS_UNIT)
                 .build();
+    }
+
+     class TestSubscriber<T> implements Subscriber<T> {
+        List<T> items = Collections.synchronizedList(new ArrayList<>());
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(T item) {
+            items.add(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+        }
+
+        @Override
+        public void onComplete() {
+        }
     }
 }
