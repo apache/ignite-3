@@ -33,10 +33,9 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.DeployMode;
 
 /**
- * Utils for client compatibility tests.
+ * Utility class for deploying jobs.
  */
-class ClientCompatibilityTestUtils {
-
+class DeploymentUtils {
     static void deployJobs() {
         File jobsJar = Path.of(
                 getResourcePath(ClientCompatibilityTests.class, ""),

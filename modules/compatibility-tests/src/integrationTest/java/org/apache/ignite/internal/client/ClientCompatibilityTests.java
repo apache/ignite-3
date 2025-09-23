@@ -607,7 +607,7 @@ public interface ClientCompatibilityTests {
      */
     default void initTestData(Ignite ignite) {
         CompatibilityTestCommon.createDefaultTables(ignite);
-        ClientCompatibilityTestUtils.deployJobs();
+        DeploymentUtils.deployJobs();
     }
 
     default void close() {
