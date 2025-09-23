@@ -193,43 +193,43 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 .clusterTime()
                 .waitFor(clusterTimeToAwait)
                 .thenCompose(ignored -> inBusyLock(busyLock, () -> {
-                                Map<ReplicationGroupId, TokenizedAssignments> assignmentsMap = stableAssignments();
+                    Map<ReplicationGroupId, TokenizedAssignments> assignmentsMap = stableAssignments();
 
-                                Map<Integer, CompletableFuture<TokenizedAssignments>> futures = new HashMap<>();
-                                List<TokenizedAssignments> result = new ArrayList<>(replicationGroupIds.size());
+                    Map<Integer, CompletableFuture<TokenizedAssignments>> futures = new HashMap<>();
+                    List<TokenizedAssignments> result = new ArrayList<>(replicationGroupIds.size());
 
-                                for (int i = 0; i < replicationGroupIds.size(); i++) {
-                                    ReplicationGroupId groupId = replicationGroupIds.get(i);
+                    for (int i = 0; i < replicationGroupIds.size(); i++) {
+                        ReplicationGroupId groupId = replicationGroupIds.get(i);
 
-                                    TokenizedAssignments a = assignmentsMap.get(groupId);
-                                    result.add(a);
+                        TokenizedAssignments a = assignmentsMap.get(groupId);
+                        result.add(a);
 
-                                    if (a.nodes().isEmpty()) {
-                                        futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
+                        if (a.nodes().isEmpty()) {
+                            futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
+                        }
+                    }
+
+                    if (futures.isEmpty()) {
+                        return completedFuture(result);
+                    } else {
+                        return allOf(futures.values())
+                                .handle((unused, ex) -> {
+                                    if (ex == null) {
+                                        // After the waiting, none of non-empty assignments that had been gotten before
+                                        // can become empty again.
+                                        futures.forEach((k, v) -> {
+                                            result.set(k, v.join());
+                                        });
+
+                                        return completedFuture(result);
+                                    } else {
+                                        return checkEmptyAssignmentsReasons(replicationGroupIds, futures, ex);
                                     }
-                                }
-
-                                if (futures.isEmpty()) {
-                                    return completedFuture(result);
-                                } else {
-                                    return allOf(futures.values())
-                                            .handle((unused, ex) -> {
-                                                if (ex == null) {
-                                                    // After the waiting, none of non-empty assignments that had been gotten before
-                                                    // can become empty again.
-                                                    futures.forEach((k, v) -> {
-                                                        result.set(k, v.join());
-                                                    });
-
-                                                    return completedFuture(result);
-                                                } else {
-                                                    return checkEmptyAssignmentsReasons(replicationGroupIds, futures, ex);
-                                                }
-                                            })
-                                            .thenCompose(identity());
-                                }
-                            }))
-                            .thenApply(identity());
+                                })
+                                .thenCompose(identity());
+                    }
+                }))
+                .thenApply(identity());
     }
 
     private CompletableFuture<List<TokenizedAssignments>> checkEmptyAssignmentsReasons(
@@ -275,7 +275,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     }
 
     private CompletableFuture<TokenizedAssignments> nonEmptyAssignmentFuture(ReplicationGroupId groupId, long futureTimeoutMillis) {
-        CompletableFuture<TokenizedAssignments> result = nonEmptyAssignmentsFutures.computeIfAbsent(groupId, gId ->
+        CompletableFuture<TokenizedAssignments> result = nonEmptyAssignmentsFutures.computeIfAbsent(groupId, k ->
                 new CompletableFuture<TokenizedAssignments>()
                         .orTimeout(futureTimeoutMillis, TimeUnit.MILLISECONDS)
         );
