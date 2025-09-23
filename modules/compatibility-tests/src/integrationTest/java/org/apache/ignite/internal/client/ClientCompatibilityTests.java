@@ -660,6 +660,11 @@ public interface ClientCompatibilityTests {
         return client().tables().table(tableName);
     }
 
+    /**
+     * Arguments for job execution tests.
+     *
+     * @return Array of arguments.
+     */
     static Object[] jobArgs() {
         return new Object[]{
                 true,
