@@ -609,16 +609,16 @@ public interface ClientCompatibilityTests {
 
         CompletableFuture<Void> streamFut;
 
-        DataStreamerReceiverDescriptor<Tuple, String, Integer> desc = DataStreamerReceiverDescriptor
-                .<Tuple, String, Integer>builder("org.apache.ignite.internal.compute.EchoReceiver")
+        DataStreamerReceiverDescriptor<Object, Object, Object> desc = DataStreamerReceiverDescriptor
+                .builder("org.apache.ignite.internal.compute.EchoReceiver")
                 .units(JOBS_UNIT)
                 .build();
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<>()) {
             streamFut = view.streamData(
                     publisher,
                     desc,
-                    x -> Tuple.create().set("id", x.intValue("a")),
+                    x -> Tuple.create().set("id", x),
                     Function.identity(),
                     "arg",
                     null,
