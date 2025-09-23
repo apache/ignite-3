@@ -216,6 +216,30 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
 
     @Test
     @Override
+    public void testComputeExecute() {
+        delegate.testComputeExecute();
+    }
+
+    @Test
+    @Override
+    public void testComputeExecuteColocated() {
+        delegate.testComputeExecuteColocated();
+    }
+
+    @Test
+    @Override
+    public void testComputeExecuteBroadcast() {
+        delegate.testComputeExecuteBroadcast();
+    }
+
+    @Test
+    @Override
+    public void testComputeExecuteBroadcastTable() {
+        delegate.testComputeExecuteBroadcastTable();
+    }
+
+    @Test
+    @Override
     public void testStreamer() {
         delegate.testStreamer();
     }
