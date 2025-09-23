@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
@@ -563,8 +564,21 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    default void testComputeExecutePartitioned() {
-        // TODO
+    default void testComputeExecuteBroadcast() {
+        BroadcastJobTarget target = BroadcastJobTarget.nodes(clusterNodes());
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Object jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes);
+    }
+
+    @Test
+    default void testComputeExecuteBroadcastTable() {
+        BroadcastJobTarget target = BroadcastJobTarget.table(TABLE_NAME_TEST);
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Object jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes);
     }
 
     @Test
