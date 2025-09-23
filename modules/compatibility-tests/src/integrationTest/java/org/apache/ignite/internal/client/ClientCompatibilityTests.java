@@ -577,7 +577,7 @@ public interface ClientCompatibilityTests {
         BroadcastJobTarget target = BroadcastJobTarget.table(TABLE_NAME_TEST);
         JobDescriptor<Object, Object> desc = echoJobDescriptor();
 
-        Collection<Object> = client().compute().execute(target, desc, "test");
+        Collection<Object> jobRes = client().compute().execute(target, desc, "test");
         assertEquals("test", jobRes.iterator().next());
     }
 
