@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import java.util.stream.Collectors;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -123,34 +122,14 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    void testOrderBySpecialValues() {
-        {
-            List<Float> values = sql("SELECT f FROM test ORDER BY f")
-                    .stream().flatMap(List::stream).map(Float.class::cast).collect(Collectors.toList());
+    void testOrderBy() {
+        List<Float> floats = sql("SELECT f FROM test ORDER BY f")
+                .stream().flatMap(List::stream).map(Float.class::cast).collect(toList());
+        List<Double> doubles = sql("SELECT d FROM test ORDER BY d")
+                .stream().flatMap(List::stream).map(Double.class::cast).collect(toList());
 
-            assertThat(values, Matchers.contains(
-                    equalTo(Float.NEGATIVE_INFINITY),
-                    equalTo(-1.0f),
-                    equalTo(-0.0f),
-                    equalTo(0.0f),
-                    equalTo(1.0f),
-                    equalTo(Float.POSITIVE_INFINITY),
-                    equalTo(Float.NaN) // NaN first or last depending on DB
-            ));
-        }
-        {
-            List<Double> values = sql("SELECT d FROM test ORDER BY d")
-                    .stream().flatMap(List::stream).map(Double.class::cast).collect(Collectors.toList());
-            assertThat(values, Matchers.contains(
-                    equalTo(Double.NEGATIVE_INFINITY),
-                    equalTo(-1.0d),
-                    equalTo(-0.0d),
-                    equalTo(0.0d),
-                    equalTo(1.0d),
-                    equalTo(Double.POSITIVE_INFINITY),
-                    equalTo(Double.NaN) // NaN first or last depending on DB
-            ));
-        }
+        assertThat(floats, contains(Float.NEGATIVE_INFINITY, -1.0f, -0.0f, 0.0f, 1.0f, Float.POSITIVE_INFINITY, Float.NaN));
+        assertThat(doubles, contains(Double.NEGATIVE_INFINITY, -1.0d, -0.0d, 0.0d, 1.0d, Double.POSITIVE_INFINITY, Double.NaN));
     }
 
     @Test
@@ -186,5 +165,16 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
         assertThat(minRows.get(0), contains(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY));
         assertThat(maxRows.get(0), contains(Float.NaN, Double.NaN));
         assertThat(avgRows.get(0), contains(Double.NaN, Double.NaN));
+    }
+
+    @Test
+    void testGrouping() {
+        List<Float> floats = sql("SELECT f FROM test GROUP BY f")
+                .stream().flatMap(List::stream).map(Float.class::cast).collect(toList());
+        List<Double> doubles = sql("SELECT d FROM test GROUP BY d")
+                .stream().flatMap(List::stream).map(Double.class::cast).collect(toList());
+
+        assertThat(floats, containsInAnyOrder(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, Float.NaN, -1.0f, 1.0f, 0.0f, -0.0f));
+        assertThat(doubles, containsInAnyOrder(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN, -1.0d, 1.0d, 0.0d, -0.0d));
     }
 }
