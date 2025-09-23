@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.jdbc2;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.io.InputStream;
@@ -24,6 +25,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -52,6 +54,7 @@ import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
@@ -595,19 +598,48 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public byte[] getBytes(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+    public byte @Nullable [] getBytes(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getBytes(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public byte[] getBytes(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
+    public byte @Nullable [] getBytes(int colIdx) throws SQLException {
+        Object val = getValue(colIdx);
 
-        return getBytes(colIdx);
+        if (val == null) {
+            return null;
+        }
+
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BYTE_ARRAY:
+                return (byte[]) val;
+            case INT8:
+                return new byte[]{(byte) val};
+            case INT16:
+                return ByteBuffer.allocate(2).putShort((short) val).array();
+            case INT32:
+                return ByteBuffer.allocate(4).putInt((int) val).array();
+            case INT64:
+                return ByteBuffer.allocate(8).putLong((long) val).array();
+            case FLOAT:
+                return ByteBuffer.allocate(4).putFloat(((float) val)).array();
+            case DOUBLE:
+                return ByteBuffer.allocate(8).putDouble(((double) val)).array();
+            case STRING:
+                return ((String) val).getBytes(UTF_8);
+            case UUID: {
+                ByteBuffer buf = ByteBuffer.allocate(16);
+                buf.putLong(((UUID) val).getMostSignificantBits());
+                buf.putLong(((UUID) val).getLeastSignificantBits());
+                return buf.array();
+            }
+            default:
+                throw conversionError("byte[]", val);
+        }
     }
 
     /** {@inheritDoc} */
