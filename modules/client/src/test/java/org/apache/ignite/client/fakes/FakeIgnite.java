@@ -124,4 +124,8 @@ public class FakeIgnite implements Ignite {
     public TxManager txManager() {
         return txMgr;
     }
+
+    public HybridClock clock() {
+        return clock;
+    }
 }

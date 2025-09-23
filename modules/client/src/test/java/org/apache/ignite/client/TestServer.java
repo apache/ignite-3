@@ -151,7 +151,7 @@ public class TestServer implements AutoCloseable {
                 clusterId,
                 securityConfiguration,
                 port,
-                null,
+                ignite.clock(),
                 true,
                 null
         );
@@ -172,7 +172,7 @@ public class TestServer implements AutoCloseable {
             UUID clusterId,
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
-            @Nullable HybridClock clock,
+            @Nullable HybridClock clock, // TODO check if we can remove this parameter
             boolean enableRequestHandling,
             @Nullable BitSet features
     ) {
@@ -361,6 +361,10 @@ public class TestServer implements AutoCloseable {
      */
     public FakeCatalogService catalogService() {
         return catalogService;
+    }
+
+    public HybridClock igniteClock() {
+        return ignite.clock();
     }
 
     /** {@inheritDoc} */
