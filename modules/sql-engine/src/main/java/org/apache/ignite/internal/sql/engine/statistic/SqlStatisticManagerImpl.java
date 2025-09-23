@@ -48,7 +48,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Statistic manager. Provide and manage update of statistics for SQL.
  */
-public class SqlStatisticManagerImpl implements SqlStatisticManager {
+public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
     static final long DEFAULT_TABLE_SIZE = 1L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, 0L);
@@ -66,7 +66,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private final CatalogService catalogService;
     private final LowWatermark lowWatermark;
 
-    private volatile IntConsumer planUpdater;
+    private IntConsumer changesUpdater;
 
     /* Contains all known table id's with statistics. */
     private final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
@@ -81,8 +81,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     }
 
     @Override
-    public void setListener(IntConsumer updater) {
-        this.planUpdater = updater;
+    public void changesNotifier(IntConsumer updater) {
+        this.changesUpdater = updater;
     }
 
     /**
@@ -139,9 +139,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                         return null;
                     }).whenComplete((ignored, ex) -> {
                         if (ex == null) {
-                            if (planUpdater != null) {
-                                planUpdater.accept(tableId);
-                            }
+                            changesUpdater.accept(tableId);
                         }
                     });
 

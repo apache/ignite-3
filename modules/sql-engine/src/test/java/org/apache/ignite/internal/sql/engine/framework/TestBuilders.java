@@ -55,7 +55,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -941,23 +940,15 @@ public class TestBuilders {
     }
 
     private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
-        SqlStatisticManager sqlStatisticManager = new SqlStatisticManager() {
-            @Override
-            public long tableSize(int tableId) {
-                CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
-                long fallbackSize = 10_000;
+        SqlStatisticManager sqlStatisticManager = tableId -> {
+            CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
+            long fallbackSize = 10_000;
 
-                if (descriptor == null) {
-                    return fallbackSize;
-                }
-
-                return tablesSize.getOrDefault(descriptor.name(), 10_000L);
+            if (descriptor == null) {
+                return fallbackSize;
             }
 
-            @Override
-            public void setListener(IntConsumer updater) {
-                throw new UnsupportedOperationException();
-            }
+            return tablesSize.getOrDefault(descriptor.name(), 10_000L);
         };
 
         return new SqlSchemaManagerImpl(

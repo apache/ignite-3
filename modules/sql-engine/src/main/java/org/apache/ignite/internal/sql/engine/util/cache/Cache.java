@@ -88,7 +88,7 @@ public interface Cache<K, V> {
      */
     @Nullable V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
 
-    /** Returns a {@link Set} view of the mappings contained in this map. */
+    /** Returns a {@link Set} view of the mappings contained in this cache. */
     Set<Map.Entry<K, V>> entrySet();
 
     /**

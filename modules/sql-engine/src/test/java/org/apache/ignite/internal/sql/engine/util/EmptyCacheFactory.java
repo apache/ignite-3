@@ -87,7 +87,7 @@ public class EmptyCacheFactory implements CacheFactory {
 
         @Override
         public @Nullable V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-            return remappingFunction.apply(key, null);
+            throw new UnsupportedOperationException();
         }
 
         @Override

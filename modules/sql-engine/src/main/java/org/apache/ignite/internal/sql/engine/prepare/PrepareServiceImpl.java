@@ -93,6 +93,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.statistic.StatisticUpdatesNotifier;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -174,6 +175,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
      * @param clockService Clock service.
      * @param scheduler Scheduler.
+     * @param updNotifier Updates notifier call-back.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -185,9 +187,10 @@ public class PrepareServiceImpl implements PrepareService {
             SqlSchemaManager schemaManager,
             DdlSqlToCommandConverter ddlSqlToCommandConverter,
             ClockService clockService,
-            ScheduledExecutorService scheduler
+            ScheduledExecutorService scheduler,
+            StatisticUpdatesNotifier updNotifier
     ) {
-        return new PrepareServiceImpl(
+        PrepareServiceImpl impl = new PrepareServiceImpl(
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
@@ -200,6 +203,10 @@ public class PrepareServiceImpl implements PrepareService {
                 clockService,
                 scheduler
         );
+
+        updNotifier.changesNotifier(impl::statisticsChanged);
+
+        return impl;
     }
 
     /**
