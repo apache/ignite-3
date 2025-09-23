@@ -645,6 +645,39 @@ public interface ClientCompatibilityTests {
         assertEquals(expected, sortedResults);
     }
 
+    @Test
+    default void testStreamerWithReceiverArg() {
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
+
+        CompletableFuture<Void> streamFut;
+
+        DataStreamerReceiverDescriptor<Integer, String, String> desc = DataStreamerReceiverDescriptor
+                .<Integer, String, String>builder("org.apache.ignite.internal.compute.EchoReceiver")
+                .units(JOBS_UNIT)
+                .build();
+
+        var subscriber = new TestSubscriber<String>();
+
+        try (var publisher = new SubmissionPublisher<Integer>()) {
+            streamFut = view.streamData(
+                    publisher,
+                    desc,
+                    x -> Tuple.create().set("id", x),
+                    Function.identity(),
+                    "arg",
+                    subscriber,
+                    DataStreamerOptions.builder().pageSize(2).build());
+
+            for (int i = 0; i < 10; i++) {
+                publisher.submit(i);
+            }
+        }
+
+        streamFut.join();
+
+        assertEquals("arg", subscriber.items.iterator().next());
+    }
+
     /**
      * Initialize test data in the given Ignite instance.
      */
