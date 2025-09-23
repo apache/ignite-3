@@ -244,6 +244,16 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         delegate.testStreamer();
     }
 
+    @Override
+    public void testStreamerWithReceiver() {
+        delegate.testStreamerWithReceiver();
+    }
+
+    @Override
+    public void testStreamerWithReceiverArg() {
+        delegate.testStreamerWithReceiverArg();
+    }
+
     private static ClientCompatibilityTests createTestInstanceWithOldClient(String igniteVersion)
             throws Exception {
         var loader = OldClientLoader.getIsolatedClassLoader(igniteVersion);
