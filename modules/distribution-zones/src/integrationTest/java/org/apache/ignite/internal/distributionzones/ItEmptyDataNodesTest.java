@@ -66,7 +66,7 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
         sql(format("CREATE TABLE {} (id INT PRIMARY KEY, val INT) ZONE {}", TABLE_NAME, ZONE_NAME));
     }
 
-    private Set<String> currentDataNodes(IgniteImpl node, int zoneId) {
+    private static Set<String> currentDataNodes(IgniteImpl node, int zoneId) {
         CompletableFuture<Set<String>> nodeFut = node.distributionZoneManager().currentDataNodes(zoneId);
         assertThat(nodeFut, willCompleteSuccessfully());
         return nodeFut.join();

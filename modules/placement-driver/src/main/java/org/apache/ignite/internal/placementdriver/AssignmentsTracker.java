@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -193,43 +194,55 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 .clusterTime()
                 .waitFor(clusterTimeToAwait)
                 .thenCompose(ignored -> inBusyLock(busyLock, () -> {
-                    Map<ReplicationGroupId, TokenizedAssignments> assignmentsMap = stableAssignments();
-
-                    Map<Integer, CompletableFuture<TokenizedAssignments>> futures = new HashMap<>();
-                    List<TokenizedAssignments> result = new ArrayList<>(replicationGroupIds.size());
-
-                    for (int i = 0; i < replicationGroupIds.size(); i++) {
-                        ReplicationGroupId groupId = replicationGroupIds.get(i);
-
-                        TokenizedAssignments a = assignmentsMap.get(groupId);
-                        result.add(a);
-
-                        if (a.nodes().isEmpty()) {
-                            futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
-                        }
-                    }
-
-                    if (futures.isEmpty()) {
-                        return completedFuture(result);
-                    } else {
-                        return allOf(futures.values())
-                                .handle((unused, ex) -> {
-                                    if (ex == null) {
-                                        // After the waiting, none of non-empty assignments that had been gotten before
-                                        // can become empty again.
-                                        futures.forEach((k, v) -> {
-                                            result.set(k, v.join());
-                                        });
-
-                                        return completedFuture(result);
-                                    } else {
-                                        return checkEmptyAssignmentsReasons(replicationGroupIds, futures, ex);
-                                    }
-                                })
-                                .thenCompose(identity());
-                    }
+                    long now = coarseCurrentTimeMillis();
+                    return awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, now, timeoutMillis);
                 }))
                 .thenApply(identity());
+    }
+
+    private CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignmentsWithCheckMostRecent(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long startTime,
+            long timeoutMillis
+    ) {
+        Map<ReplicationGroupId, TokenizedAssignments> assignmentsMap = stableAssignments();
+
+        Map<Integer, CompletableFuture<TokenizedAssignments>> futures = new HashMap<>();
+        List<TokenizedAssignments> result = new ArrayList<>(replicationGroupIds.size());
+
+        for (int i = 0; i < replicationGroupIds.size(); i++) {
+            ReplicationGroupId groupId = replicationGroupIds.get(i);
+
+            TokenizedAssignments a = assignmentsMap.get(groupId);
+            result.add(a);
+
+            if (a.nodes().isEmpty()) {
+                if (timeoutMillis > 0) {
+                    futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
+                } else {
+                    // If timeout is zero or less, then this group is failed, the correct exception will be thrown
+                    // in #checkEmptyAssignmentsReasons().
+                    futures.put(i, failedFuture(new TimeoutException()));
+                }
+            }
+        }
+
+        if (futures.isEmpty()) {
+            return completedFuture(result);
+        } else {
+            return allOf(futures.values())
+                    .handle((unused, ex) -> {
+                        if (ex == null) {
+                            // Get the most recent assignments after the waiting.
+                            long now = System.currentTimeMillis();
+                            long newTimeoutMillis = timeoutMillis - (now - startTime);
+                            return awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, startTime, newTimeoutMillis);
+                        } else {
+                            return checkEmptyAssignmentsReasons(replicationGroupIds, futures, ex);
+                        }
+                    })
+                    .thenCompose(identity());
+        }
     }
 
     private CompletableFuture<List<TokenizedAssignments>> checkEmptyAssignmentsReasons(
