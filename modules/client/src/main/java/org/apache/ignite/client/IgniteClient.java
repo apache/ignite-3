@@ -392,7 +392,7 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         /**
          * Sets the client name. Default is {@code null}, which means that Ignite will generate a unique name automatically.
          *
-         * <p>Client name is used for identifying clients in the logs and JMX metrics.
+         * <p>Client name is used for identifying clients in JMX metrics.
          *
          * @param name Client name.
          * @return This instance.

@@ -214,7 +214,7 @@ public interface IgniteClientConfiguration {
     /**
      * Gets the client name. Default is {@code null}, which means that Ignite will generate a unique name automatically.
      *
-     * <p>Client name is used for identifying clients in the logs and JMX metrics.
+     * <p>Client name is used for identifying clients in JMX metrics.
      *
      * @return Client name.
      */
