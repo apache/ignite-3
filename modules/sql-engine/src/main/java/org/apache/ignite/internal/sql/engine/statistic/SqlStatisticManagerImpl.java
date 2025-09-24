@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -135,8 +137,11 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                             return new ActualSize(Math.max(size, 1), currTimestamp);
                         });
                     }).exceptionally(e -> {
-                        LOG.info("Can't calculate size for table [id={}].", e, tableId);
-                        return null;
+                        String errMsg = format("Can't calculate size for table [id={}].", tableId);
+
+                        LOG.warn(errMsg, e);
+
+                        throw new CompletionException(errMsg, e);
                     }).whenComplete((ignored, ex) -> {
                         if (ex == null) {
                             changesUpdater.accept(tableId);

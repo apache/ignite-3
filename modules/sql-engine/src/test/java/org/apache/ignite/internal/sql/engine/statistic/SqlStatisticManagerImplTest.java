@@ -114,6 +114,33 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testEstimationFailure() {
+        int tableId = ThreadLocalRandom.current().nextInt();
+        // Preparing:
+        prepareCatalogWithTable(tableId);
+
+        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
+        when(tableViewInternal.internalTable()).thenReturn(internalTable);
+        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(1L));
+
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        sqlStatisticManager.start();
+
+        // Test:
+        assertEquals(1L, sqlStatisticManager.tableSize(tableId));
+
+        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(2L));
+        sqlStatisticManager.forceUpdateAll();
+
+        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+
+        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Can`t estimate")));
+        sqlStatisticManager.forceUpdateAll();
+
+        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+    }
+
+    @Test
     public void checkModifyTableSize() {
         int tableId = ThreadLocalRandom.current().nextInt();
         long tableSize1 = 999_888_777L;
