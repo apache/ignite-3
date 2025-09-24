@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZipFile;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -32,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -175,22 +173,8 @@ class DeployFiles {
 
         Unit unit = new Unit(entryNode, workDir, id, version, files);
 
-        Path nodeUnitDirectory = unit.getNodeUnitDirectory(entryNode);
-
         for (DeployFile file : files) {
-            if (file.zip()) {
-                try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(file.file()))) {
-                    ZipEntry ze;
-                    while ((ze = zis.getNextEntry()) != null) {
-                        assertTrue(Files.exists(nodeUnitDirectory.resolve(ze.getName())));
-                    }
-                } catch (IOException e) {
-                    fail(e);
-                }
-            } else {
-                Path filePath = nodeUnitDirectory.resolve(file.file().getFileName());
-                assertTrue(Files.exists(filePath));
-            }
+            unit.verify(file, entryNode);
         }
 
         return unit;

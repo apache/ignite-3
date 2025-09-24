@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
@@ -123,7 +122,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
             }
         }
 
-        await().timeout(10, SECONDS).untilAsserted(() -> {
+        await().untilAsserted(() -> {
             MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
             Collection<UnitStatus> statuses = client.toBlocking().retrieve(get, Argument.listOf(UnitStatus.class));
 
@@ -140,7 +139,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         assertThat(response.code(), is(OK.code()));
 
-        await().timeout(10, SECONDS).untilAsserted(() -> {
+        await().untilAsserted(() -> {
             MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
             UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
@@ -236,7 +235,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         assertThat(response.code(), is(OK.code()));
 
-        await().timeout(10, SECONDS).untilAsserted(() -> {
+        await().untilAsserted(() -> {
             MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
             UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
@@ -265,7 +264,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         assertThat(response.code(), is(OK.code()));
 
-        await().timeout(10, SECONDS).untilAsserted(() -> {
+        await().untilAsserted(() -> {
             MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
             UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 

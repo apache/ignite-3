@@ -294,5 +294,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         await().timeout(2, SECONDS)
                 .pollDelay(500, MILLISECONDS)
                 .until(() -> igniteImpl(2).deployment().clusterStatusesAsync(), willBe(List.of(status)));
+
+        IgniteImpl cmg = igniteImpl(0);
+        unit.waitUnitReplica(cmg);
+        unit2.waitUnitReplica(cmg);
     }
 }
