@@ -159,7 +159,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(
+        CatalogTableDescriptor catalogTableDescriptor = new CatalogTableDescriptor(
                 TABLE_ID,
                 -1,
                 -1,
@@ -169,13 +169,10 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 List.of("k1", "k2"),
                 null,
                 DEFAULT_STORAGE_PROFILE
-        ).newDescriptor(
-                TABLE_NAME,
-                INITIAL_TABLE_VERSION + 1,
-                columns,
-                INITIAL_TIMESTAMP,
-                DEFAULT_STORAGE_PROFILE
         );
+        return catalogTableDescriptor.copyBuilder()
+                .tableVersion(INITIAL_TABLE_VERSION + 1)
+                .build();
     }
 
     private void completeCausalityToken(long causalityToken) {

@@ -55,6 +55,7 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -108,13 +109,11 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(fooTable, is(notNullValue()));
 
-        CatalogTableDescriptor bazTable = fooTable.newDescriptor(
-                "baz",
-                fooTable.tableVersion(),
-                fooTable.columns(),
-                fooTable.updateTimestamp(),
-                fooTable.storageProfile()
-        );
+        int tableVersion = fooTable.tableVersion();
+        CatalogTableDescriptor bazTable = fooTable.copyBuilder()
+                .name("baz")
+                .tableVersion(tableVersion + 1)
+                .build();
 
         CatalogSchemaDescriptor updatedSchema = replaceTable(schema, bazTable);
 

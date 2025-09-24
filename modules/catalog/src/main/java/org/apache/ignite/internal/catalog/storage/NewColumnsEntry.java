@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.Builder;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -39,7 +41,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * Describes addition of new columns.
  */
-public class NewColumnsEntry implements UpdateEntry, Fireable {
+public class NewColumnsEntry implements UpdateTable, Fireable {
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
 
@@ -55,6 +57,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     }
 
     /** Returns table id. */
+    @Override
     public int tableId() {
         return tableId;
     }
@@ -80,26 +83,10 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
-        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
+    public Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp) {
+        List<CatalogTableColumnDescriptor> updatedTableColumns = CollectionUtils.concat(table.columns(), descriptors);
 
-        CatalogTableDescriptor newTable = table.newDescriptor(
-                table.name(),
-                table.tableVersion() + 1,
-                CollectionUtils.concat(table.columns(), descriptors),
-                timestamp,
-                table.storageProfile()
-        );
-
-        return new Catalog(
-                catalog.version(),
-                catalog.time(),
-                catalog.objectIdGenState(),
-                catalog.zones(),
-                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
-                defaultZoneIdOpt(catalog)
-        );
+        return table.copyBuilder().columns(updatedTableColumns);
     }
 
     @Override

@@ -130,8 +130,9 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         );
 
         for (int ver = CatalogTableDescriptor.INITIAL_TABLE_VERSION + 1; ver <= tableVersion; ver++) {
-            descriptor = descriptor.newDescriptor(
-                    "test", ver, columns, CatalogManager.INITIAL_TIMESTAMP, DEFAULT_STORAGE_PROFILE);
+            descriptor = descriptor.copyBuilder()
+                    .tableVersion(ver)
+                    .build();
         }
 
         return descriptor;

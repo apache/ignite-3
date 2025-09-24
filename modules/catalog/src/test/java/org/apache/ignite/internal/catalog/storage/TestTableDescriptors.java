@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Random {@link CatalogTableDescriptor}s for testing.
@@ -61,16 +61,26 @@ final class TestTableDescriptors {
         );
 
         list.add(table1);
-        list.add(list.get(0).newDescriptor(
-                table1.name() + "_1", 2,
-                TestTableColumnDescriptors.columns(state).subList(0, 10),
-                hybridTimestamp(1232L),
-                "S1")
+        String name4 = table1.name() + "_1";
+        List<CatalogTableColumnDescriptor> columns4 = TestTableColumnDescriptors.columns(state).subList(0, 10);
+        list.add(list.get(0).copyBuilder()
+                .name(name4)
+                .columns(columns4)
+                .timestamp(HybridTimestamp.hybridTimestamp(1232L))
+                .storageProfile("S1")
+                .tableVersion(2)
+                .build()
         );
+        String name3 = table1.name() + "_2";
+        List<CatalogTableColumnDescriptor> columns3 = TestTableColumnDescriptors.columns(state).subList(0, 20);
         list.add(
-                list.get(list.size() - 1)
-                        .newDescriptor(table1.name() + "_2", 3,
-                                TestTableColumnDescriptors.columns(state).subList(0, 20), hybridTimestamp(21232L), "S1")
+                list.get(list.size() - 1).copyBuilder()
+                        .name(name3)
+                        .columns(columns3)
+                        .timestamp(HybridTimestamp.hybridTimestamp(21232L))
+                        .storageProfile("S1")
+                        .tableVersion(3)
+                        .build()
         );
 
         CatalogTableDescriptor table2 = new CatalogTableDescriptor(
@@ -84,16 +94,25 @@ final class TestTableDescriptors {
         );
 
         list.add(table2);
-        list.add(list.get(list.size() - 1).newDescriptor(
-                table2.name() + "_1", 2,
-                TestTableColumnDescriptors.columns(state).subList(0, 10),
-                hybridTimestamp(4567L), "S2")
+        String name2 = table2.name() + "_1";
+        List<CatalogTableColumnDescriptor> columns2 = TestTableColumnDescriptors.columns(state).subList(0, 10);
+        list.add(list.get(list.size() - 1).copyBuilder()
+                .name(name2)
+                .columns(columns2)
+                .timestamp(HybridTimestamp.hybridTimestamp(4567L))
+                .storageProfile("S2")
+                .tableVersion(2)
+                .build()
         );
-        list.add(list.get(list.size() - 1).newDescriptor(
-                table2.name() + "_2", 3,
-                TestTableColumnDescriptors.columns(state).subList(0, 20),
-                hybridTimestamp(8833L),
-                "S2")
+        String name1 = table2.name() + "_2";
+        List<CatalogTableColumnDescriptor> columns1 = TestTableColumnDescriptors.columns(state).subList(0, 20);
+        list.add(list.get(list.size() - 1).copyBuilder()
+                .name(name1)
+                .columns(columns1)
+                .timestamp(HybridTimestamp.hybridTimestamp(8833L))
+                .storageProfile("S2")
+                .tableVersion(3)
+                .build()
         );
 
         CatalogTableDescriptor table3 = new CatalogTableDescriptor(
@@ -108,12 +127,15 @@ final class TestTableDescriptors {
                 "S3"
         );
         list.add(table3);
-        list.add(list.get(list.size() - 1).newDescriptor(
-                table3.name() + "_1",
-                2,
-                TestTableColumnDescriptors.columns(state),
-                hybridTimestamp(123234L),
-                "S4")
+        String name = table3.name() + "_1";
+        List<CatalogTableColumnDescriptor> columns = TestTableColumnDescriptors.columns(state);
+        list.add(list.get(list.size() - 1).copyBuilder()
+                .name(name)
+                .columns(columns)
+                .timestamp(HybridTimestamp.hybridTimestamp(123234L))
+                .storageProfile("S4")
+                .tableVersion(2)
+                .build()
         );
 
         return list;

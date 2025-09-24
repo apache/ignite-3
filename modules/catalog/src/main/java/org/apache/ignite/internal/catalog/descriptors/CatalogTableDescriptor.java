@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAM
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -170,25 +171,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     }
 
     /**
-     * Creates new table descriptor, using existing one as a template.
-     */
-    public CatalogTableDescriptor newDescriptor(
-            String name,
-            int tableVersion,
-            List<CatalogTableColumnDescriptor> columns,
-            HybridTimestamp timestamp,
-            String storageProfile
-    ) {
-        return copyBuilder()
-                .name(name)
-                .columns(columns)
-                .timestamp(timestamp)
-                .storageProfile(storageProfile)
-                .tableVersion(tableVersion)
-                .build();
-    }
-
-    /**
      * Returns an identifier of a schema this table descriptor belongs to.
      */
     public int schemaId() {
@@ -306,11 +288,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         private int schemaId;
         private int pkIndexId;
         private CatalogTableSchemaVersions schemaVersions;
-        private List<CatalogTableColumnDescriptor> columns;
+        private List<CatalogTableColumnDescriptor> columns = Collections.emptyList();
         private List<String> primaryKeyColumns;
         private List<String> colocationColumns;
         private String storageProfile;
-        private HybridTimestamp timestamp;
+        private HybridTimestamp timestamp = INITIAL_TIMESTAMP;
         private int tableVersion = 0;
 
         private Builder() {}
@@ -460,6 +442,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          */
         public CatalogTableDescriptor build() {
             assert tableVersion == 0 || tableVersion >= schemaVersions.latestVersion();
+
+            if (schemaVersions == null) {
+                schemaVersions = new CatalogTableSchemaVersions(new TableVersion(columns));
+            }
 
             CatalogTableSchemaVersions newSchemaVersions = tableVersion <= schemaVersions.latestVersion()
                     ? schemaVersions

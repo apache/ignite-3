@@ -26,50 +26,40 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrTh
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.Builder;
-import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/** Entry representing a rename of a table. */
-public class RenameTableEntry implements UpdateTable, Fireable {
-    private final int tableId;
-
-    private final String newTableName;
-
-    public RenameTableEntry(int tableId, String newTableName) {
-        this.tableId = tableId;
-        this.newTableName = newTableName;
-    }
-
+/** Interface describing a particular change to a table within the {@link VersionedUpdate group}. */
+interface UpdateTable extends UpdateEntry {
     @Override
-    public int tableId() {
-        return tableId;
+    default Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
+        CatalogTableDescriptor table = tableOrThrow(catalog, tableId());
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
+
+        CatalogTableDescriptor modifiedTable = newTableDescriptor(table, timestamp)
+                .tableVersion(newTableVersion(table))
+                .timestamp(timestamp)
+                .build();
+
+        CatalogSchemaDescriptor modifiedSchemaDescriptor = replaceTable(schema, modifiedTable);
+
+        return new Catalog(
+                catalog.version(),
+                catalog.time(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                replaceSchema(modifiedSchemaDescriptor, catalog.schemas()),
+                defaultZoneIdOpt(catalog)
+        );
     }
 
-    public String newTableName() {
-        return newTableName;
-    }
+    /** Creates updated {@link CatalogTableDescriptor} associated with provided causality token. */
+    CatalogTableDescriptor.Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp);
 
-    @Override
-    public int typeId() {
-        return MarshallableEntryType.RENAME_TABLE.id();
-    }
+    /** Returns table id for a table affected by an update table command. */
+    int tableId();
 
-    @Override
-    public CatalogEvent eventType() {
-        return CatalogEvent.TABLE_ALTER;
-    }
-
-    @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new RenameTableEventParameters(causalityToken, catalogVersion, tableId, newTableName);
-    }
-
-    @Override
-    public Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp) {
-        return table.copyBuilder().name(newTableName);
+    /** Returns a new table version for provided {@link CatalogTableDescriptor}. */
+    default int newTableVersion(CatalogTableDescriptor table) {
+        return table.tableVersion() + 1;
     }
 }
