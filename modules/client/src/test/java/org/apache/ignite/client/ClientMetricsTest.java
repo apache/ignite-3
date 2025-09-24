@@ -166,6 +166,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
     }
 
+    @SuppressWarnings("resource")
     @Test
     public void testRequestsMetrics() throws InterruptedException {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
