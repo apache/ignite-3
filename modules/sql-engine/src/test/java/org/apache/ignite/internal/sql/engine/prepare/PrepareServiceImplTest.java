@@ -551,13 +551,23 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         Awaitility.await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
             int expireSeconds = 2;
-            PrepareService service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, expireSeconds, 1000);
+            PrepareServiceImpl service =
+                    createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, expireSeconds, 1000);
 
             String query = "SELECT * FROM test.t WHERE c = 1";
             QueryPlan p0 = await(service.prepareAsync(parse(query), operationContext().build()));
 
+            // infinitely change statistic
+            IgniteTestUtils.runAsync(() -> {
+                while (true) {
+                    service.statisticsChanged(table.id());
+                    Thread.sleep(100);
+                }
+            });
+
             // Expires if not used
             TimeUnit.SECONDS.sleep(expireSeconds * 2);
+            service.statisticsChanged(table.id());
             QueryPlan p2 = await(service.prepareAsync(parse(query), operationContext().build()));
             assertNotSame(p0, p2);
 

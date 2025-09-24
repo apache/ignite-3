@@ -46,6 +46,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
@@ -247,7 +248,7 @@ public class PrepareServiceImpl implements PrepareService {
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
 
-        planUpdater = new PlanUpdater(clockService, scheduler, cache, schemaManager, plannerTimeout, this::preparePlan);
+        planUpdater = new PlanUpdater(scheduler, cache, plannerTimeout, this::preparePlan, this::directCatalogVersion);
     }
 
     /** {@inheritDoc} */
@@ -598,7 +599,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         logPlan(stmt.parsedResult().originalQuery(), plan);
 
-        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+        int currentCatalogVersion = directCatalogVersion();
 
         if (currentCatalogVersion == catalogVersion) {
             Set<Integer> sources = resolveSources(plan.getRel());
@@ -610,7 +611,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<PlanInfo> preparePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
-        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+        int currentCatalogVersion = directCatalogVersion();
 
         // no need to re-calculate outdated plans
         if (currentCatalogVersion != key.catalogVersion()) {
@@ -821,7 +822,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         logPlan(stmt.parsedResult().originalQuery(), plan);
 
-        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+        int currentCatalogVersion = directCatalogVersion();
 
         if (currentCatalogVersion == catalogVersion) {
             Set<Integer> sources = resolveSources(plan.getRel());
@@ -1053,13 +1054,16 @@ public class PrepareServiceImpl implements PrepareService {
         return new ParameterMetadata(parameterTypes);
     }
 
+    // Although catalog version can evaluate during execution, it`s ok to take actual version for this moment.
+    private int directCatalogVersion() {
+        return schemaManager.catalogVersion(clockService.now().longValue());
+    }
+
     public void statisticsChanged(int tableId) {
         planUpdater.statisticsChanged(tableId);
     }
 
     private static class PlanUpdater {
-        private final ClockService clockService;
-
         private final ScheduledExecutorService planUpdater;
 
         private final AtomicReference<CompletableFuture<PlanInfo>> rePlanningFut = new AtomicReference<>(nullCompletedFuture());
@@ -1068,26 +1072,24 @@ public class PrepareServiceImpl implements PrepareService {
 
         private final Cache<CacheKey, CompletableFuture<PlanInfo>> cache;
 
-        private final SqlSchemaManager schemaManager;
-
         private final long plannerTimeout;
 
         private final PlanPrepare prepare;
 
+        private final IntSupplier catalogVersionSupplier;
+
         PlanUpdater(
-                ClockService clockService,
                 ScheduledExecutorService planUpdater,
                 Cache<CacheKey, CompletableFuture<PlanInfo>> cache,
-                SqlSchemaManager schemaManager,
                 long plannerTimeout,
-                PlanPrepare prepare
+                PlanPrepare prepare,
+                IntSupplier catalogVersionSupplier
         ) {
-            this.clockService = clockService;
             this.planUpdater = planUpdater;
             this.cache = cache;
-            this.schemaManager = schemaManager;
             this.plannerTimeout = plannerTimeout;
             this.prepare = prepare;
+            this.catalogVersionSupplier = catalogVersionSupplier;
         }
 
         /**
@@ -1098,7 +1100,7 @@ public class PrepareServiceImpl implements PrepareService {
         void statisticsChanged(int tableId) {
             Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedEntries = cache.entrySet();
 
-            int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+            int currentCatalogVersion = catalogVersionSupplier.getAsInt();
 
             boolean statChanged = false;
 
@@ -1155,7 +1157,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                             assert info.context != null && info.statement != null;
 
-                            int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+                            int currentCatalogVersion = catalogVersionSupplier.getAsInt();
 
                             if (currentCatalogVersion == key.catalogVersion()) {
                                 SqlQueryType queryType = info.statement.parsedResult().queryType();

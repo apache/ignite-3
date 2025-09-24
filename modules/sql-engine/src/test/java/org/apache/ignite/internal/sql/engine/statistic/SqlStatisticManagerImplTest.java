@@ -116,7 +116,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     public void testEstimationFailure() {
         int tableId = ThreadLocalRandom.current().nextInt();
-        // Preparing:
+
         prepareCatalogWithTable(tableId);
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
@@ -126,7 +126,6 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
         sqlStatisticManager.start();
 
-        // Test:
         assertEquals(1L, sqlStatisticManager.tableSize(tableId));
 
         when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(2L));
