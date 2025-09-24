@@ -121,7 +121,7 @@ public class TcpIgniteClient implements IgniteClient {
         String cfgName = cfg.name();
         clientName = cfgName != null
                 ? cfgName
-                : "client_" + GLOBAL_CONN_ID_GEN.incrementAndGet();
+                : "client_" + GLOBAL_CONN_ID_GEN.incrementAndGet(); // Use underscores for JMX compat.
 
         metrics = new ClientMetricSource(clientName);
         ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
