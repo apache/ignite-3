@@ -65,43 +65,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     private final String storageProfile;
 
     /**
-     * Constructor for new table.
-     *
-     * @param id Table ID.
-     * @param pkIndexId Primary key index ID.
-     * @param name Table name.
-     * @param zoneId Distribution zone ID.
-     * @param columns Table column descriptors.
-     * @param pkCols Primary key column names.
-     * @param storageProfile Storage profile.
-     */
-    public CatalogTableDescriptor(
-            int id,
-            int schemaId,
-            int pkIndexId,
-            String name,
-            int zoneId,
-            List<CatalogTableColumnDescriptor> columns,
-            List<String> pkCols,
-            @Nullable List<String> colocationCols,
-            String storageProfile
-    ) {
-        this(
-                id,
-                schemaId,
-                pkIndexId,
-                name,
-                zoneId,
-                columns,
-                pkCols,
-                colocationCols,
-                new CatalogTableSchemaVersions(new TableVersion(columns)),
-                storageProfile,
-                INITIAL_TIMESTAMP
-        );
-    }
-
-    /**
      * Internal constructor.
      *
      * @param id Table ID.
@@ -113,7 +76,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
      * @param storageProfile Storage profile.
      * @param timestamp Token of the update of the descriptor.
      */
-    CatalogTableDescriptor(
+    private CatalogTableDescriptor(
             int id,
             int schemaId,
             int pkIndexId,
@@ -158,7 +121,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 .timestamp(updateTimestamp())
                 .zoneId(zoneId())
                 .schemaId(schemaId())
-                .pkIndexId(primaryKeyIndexId())
+                .primaryKeyIndexId(primaryKeyIndexId())
                 .schemaVersions(schemaVersions)
                 .columns(columns)
                 .primaryKeyColumns(primaryKeyColumns())
@@ -290,7 +253,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         private CatalogTableSchemaVersions schemaVersions;
         private List<CatalogTableColumnDescriptor> columns = Collections.emptyList();
         private List<String> primaryKeyColumns;
-        private List<String> colocationColumns;
+        @Nullable private List<String> colocationColumns;
         private String storageProfile;
         private HybridTimestamp timestamp = INITIAL_TIMESTAMP;
         private int tableVersion = 0;
@@ -357,13 +320,13 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         }
 
         /**
-         * Sets the {@code pkIndexId} and returns a reference to this Builder enabling method chaining.
+         * Sets the {@code primaryKeyIndexId} and returns a reference to this Builder enabling method chaining.
          *
-         * @param pkIndexId the {@code pkIndexId} to set
+         * @param primaryKeyIndexId the {@code primaryKeyIndexId} to set
          * @return a reference to this Builder
          */
-        public Builder pkIndexId(int pkIndexId) {
-            this.pkIndexId = pkIndexId;
+        public Builder primaryKeyIndexId(int primaryKeyIndexId) {
+            this.pkIndexId = primaryKeyIndexId;
             return this;
         }
 
@@ -406,7 +369,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          * @param colocationColumns the {@code colocationColumns} to set
          * @return a reference to this Builder
          */
-        public Builder colocationColumns(List<String> colocationColumns) {
+        public Builder colocationColumns(@Nullable List<String> colocationColumns) {
             this.colocationColumns = colocationColumns;
             return this;
         }

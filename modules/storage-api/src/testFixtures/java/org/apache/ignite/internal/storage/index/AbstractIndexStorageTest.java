@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
@@ -51,10 +50,12 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -161,17 +162,19 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         int zoneId = catalogId.getAndIncrement();
         int pkIndexId = catalogId.getAndIncrement();
 
-        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                tableId,
-                schemaId,
-                pkIndexId,
-                TABLE_NAME,
-                zoneId,
-                Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(toList()),
-                List.of(pkColumn.name()),
-                null,
-                DEFAULT_STORAGE_PROFILE
-        );
+        List<CatalogTableColumnDescriptor> columns = Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(
+                toList());
+        List<String> pkCols = List.of(pkColumn.name());
+        CatalogTableDescriptor tableDescriptor = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(schemaId)
+                .primaryKeyIndexId(pkIndexId)
+                .name(TABLE_NAME)
+                .zoneId(zoneId)
+                .columns(columns)
+                .primaryKeyColumns(pkCols)
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
 
         when(catalog.table(eq(SCHEMA_NAME), eq(TABLE_NAME))).thenReturn(tableDescriptor);
         when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);

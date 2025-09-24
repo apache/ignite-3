@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.toBytes;
@@ -44,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -105,17 +105,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     @Mock
     private MetaStorageManager metaStorageManager;
 
-    private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-            1,
-            -1,
-            -1,
-            "table1",
-            0,
-            List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)),
-            List.of("k1"),
-            null,
-            DEFAULT_STORAGE_PROFILE
-    );
+    private final CatalogTableDescriptor tableDescriptor;
+
+    {
+        List<CatalogTableColumnDescriptor> columns = List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null));
+        tableDescriptor = CatalogTableDescriptor.builder()
+                .id(1)
+                .schemaId(-1)
+                .primaryKeyIndexId(-1)
+                .name("table1")
+                .zoneId(0)
+                .columns(columns)
+                .primaryKeyColumns(List.of("k1"))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
+    }
 
     private final HybridClock clock = new HybridClockImpl();
 

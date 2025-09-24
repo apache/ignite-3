@@ -153,8 +153,26 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(catalogManager.latestCatalogVersion()).thenReturn(maximumCatalogVersion);
         for (int catalogVersion = minimumCatalogVersion; catalogVersion <= maximumCatalogVersion; catalogVersion++) {
             List<CatalogTableDescriptor> catalogDescriptors = new ArrayList<>();
-            catalogDescriptors.add(new CatalogTableDescriptor(catalogVersion, 1, 1, "", 1, List.of(), List.of(), null, ""));
-            catalogDescriptors.add(new CatalogTableDescriptor(catalogVersion + 1, 1, 1, "", 1, List.of(), List.of(), null, ""));
+            catalogDescriptors.add(CatalogTableDescriptor.builder()
+                    .id(catalogVersion)
+                    .schemaId(1)
+                    .primaryKeyIndexId(1)
+                    .name("")
+                    .zoneId(1)
+                    .columns(List.of())
+                    .primaryKeyColumns(List.of())
+                    .storageProfile("")
+                    .build());
+            catalogDescriptors.add(CatalogTableDescriptor.builder()
+                    .id(catalogVersion + 1)
+                    .schemaId(1)
+                    .primaryKeyIndexId(1)
+                    .name("")
+                    .zoneId(1)
+                    .columns(List.of())
+                    .primaryKeyColumns(List.of())
+                    .storageProfile("")
+                    .build());
 
             Catalog catalog = mock(Catalog.class);
             when(catalogManager.catalog(catalogVersion)).thenReturn(catalog);
@@ -244,7 +262,16 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         // it's not created TABLE, so size will be as default value.
         assertEquals(DEFAULT_TABLE_SIZE, sqlStatisticManager.tableSize(tableId));
 
-        CatalogTableDescriptor catalogDescriptor = new CatalogTableDescriptor(tableId, 1, 1, "", 1, List.of(), List.of(), null, "");
+        CatalogTableDescriptor catalogDescriptor = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(1)
+                .primaryKeyIndexId(1)
+                .name("")
+                .zoneId(1)
+                .columns(List.of())
+                .primaryKeyColumns(List.of())
+                .storageProfile("")
+                .build();
         tableCreateCapture.getValue().notify(new CreateTableEventParameters(-1, 0, catalogDescriptor));
         // now table is created and size should be actual.
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
@@ -304,7 +331,16 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(catalogManager.latestCatalogVersion()).thenReturn(1);
         Catalog catalog = mock(Catalog.class);
         when(catalogManager.catalog(1)).thenReturn(catalog);
-        CatalogTableDescriptor catalogDescriptor = new CatalogTableDescriptor(tableId, 1, 1, "", 1, List.of(), List.of(), null, "");
+        CatalogTableDescriptor catalogDescriptor = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(1)
+                .primaryKeyIndexId(1)
+                .name("")
+                .zoneId(1)
+                .columns(List.of())
+                .primaryKeyColumns(List.of())
+                .storageProfile("")
+                .build();
         when(catalog.tables()).thenReturn(List.of(catalogDescriptor));
     }
 }

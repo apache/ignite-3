@@ -17,30 +17,30 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 class CatalogTableDescriptorTest {
     @Test
     void toStringContainsTypeAndFields() {
-        var descriptor = new CatalogTableDescriptor(
-                1,
-                2,
-                3,
-                "table1",
-                4,
-                List.of(new CatalogTableColumnDescriptor("pkCol", ColumnType.STRING, false, 0, 0, 10, null)),
-                List.of("pkCol"),
-                null,
-                DEFAULT_STORAGE_PROFILE
-        );
+        List<CatalogTableColumnDescriptor> columns = List.of(new CatalogTableColumnDescriptor("pkCol", ColumnType.STRING, false, 0, 0, 10, null));
+        var descriptor = CatalogTableDescriptor.builder()
+                .id(1)
+                .schemaId(2)
+                .primaryKeyIndexId(3)
+                .name("table1")
+                .zoneId(4)
+                .columns(columns)
+                .primaryKeyColumns(List.of("pkCol"))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
 
         String toString = descriptor.toString();
 

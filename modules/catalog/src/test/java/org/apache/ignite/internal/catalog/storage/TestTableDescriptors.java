@@ -48,90 +48,81 @@ final class TestTableDescriptors {
     private static List<CatalogTableDescriptor> tablesV0(TestDescriptorState state) {
         List<CatalogTableDescriptor> list = new ArrayList<>();
 
-        CatalogTableDescriptor table1 = new CatalogTableDescriptor(
-                state.id(),
-                state.id(),
-                state.id(),
-                state.name("TABLE"),
-                100,
-                TestTableColumnDescriptors.columns(state),
-                List.of("C0"),
-                null,
-                "S1"
-        );
+        CatalogTableDescriptor table1 = CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(100)
+                .columns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(List.of("C0"))
+                .colocationColumns(null)
+                .storageProfile("S1")
+                .build();
 
         list.add(table1);
-        String name4 = table1.name() + "_1";
-        List<CatalogTableColumnDescriptor> columns4 = TestTableColumnDescriptors.columns(state).subList(0, 10);
-        list.add(list.get(0).copyBuilder()
-                .name(name4)
-                .columns(columns4)
+        list.add(table1.copyBuilder()
+                .name(table1.name() + "_1")
+                .columns(TestTableColumnDescriptors.columns(state).subList(0, 10))
                 .timestamp(HybridTimestamp.hybridTimestamp(1232L))
                 .storageProfile("S1")
                 .tableVersion(2)
                 .build()
         );
-        String name3 = table1.name() + "_2";
-        List<CatalogTableColumnDescriptor> columns3 = TestTableColumnDescriptors.columns(state).subList(0, 20);
         list.add(
                 list.get(list.size() - 1).copyBuilder()
-                        .name(name3)
-                        .columns(columns3)
+                        .name(table1.name() + "_2")
+                        .columns(TestTableColumnDescriptors.columns(state).subList(0, 20))
                         .timestamp(HybridTimestamp.hybridTimestamp(21232L))
                         .storageProfile("S1")
                         .tableVersion(3)
                         .build()
         );
 
-        CatalogTableDescriptor table2 = new CatalogTableDescriptor(
-                state.id(),
-                state.id(),
-                state.id(),
-                state.name("TABLE"),
-                101,
-                TestTableColumnDescriptors.columns(state), List.of("C4"), null,
-                "S2"
-        );
+        CatalogTableDescriptor table2 = CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(101)
+                .columns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(List.of("C4"))
+                .storageProfile("S2")
+                .build();
 
         list.add(table2);
-        String name2 = table2.name() + "_1";
-        List<CatalogTableColumnDescriptor> columns2 = TestTableColumnDescriptors.columns(state).subList(0, 10);
-        list.add(list.get(list.size() - 1).copyBuilder()
-                .name(name2)
-                .columns(columns2)
+        list.add(table2.copyBuilder()
+                .name(table2.name() + "_1")
+                .columns(TestTableColumnDescriptors.columns(state).subList(0, 10))
                 .timestamp(HybridTimestamp.hybridTimestamp(4567L))
                 .storageProfile("S2")
                 .tableVersion(2)
                 .build()
         );
-        String name1 = table2.name() + "_2";
-        List<CatalogTableColumnDescriptor> columns1 = TestTableColumnDescriptors.columns(state).subList(0, 20);
         list.add(list.get(list.size() - 1).copyBuilder()
-                .name(name1)
-                .columns(columns1)
+                .name(table2.name() + "_2")
+                .columns(TestTableColumnDescriptors.columns(state).subList(0, 20))
                 .timestamp(HybridTimestamp.hybridTimestamp(8833L))
                 .storageProfile("S2")
                 .tableVersion(3)
                 .build()
         );
 
-        CatalogTableDescriptor table3 = new CatalogTableDescriptor(
-                state.id(),
-                state.id(),
-                state.id(),
-                state.name("TABLE"),
-                102,
-                TestTableColumnDescriptors.columns(state),
-                List.of("C1", "C2", "C3"),
-                List.of("C2", "C3"),
-                "S3"
-        );
+        CatalogTableDescriptor table3 = CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(102)
+                .columns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(List.of("C1", "C2", "C3"))
+                .colocationColumns(List.of("C2", "C3"))
+                .storageProfile("S3")
+                .build();
         list.add(table3);
-        String name = table3.name() + "_1";
-        List<CatalogTableColumnDescriptor> columns = TestTableColumnDescriptors.columns(state);
-        list.add(list.get(list.size() - 1).copyBuilder()
-                .name(name)
-                .columns(columns)
+        list.add(table3.copyBuilder()
+                .name(table3.name() + "_1")
+                .columns(TestTableColumnDescriptors.columns(state))
                 .timestamp(HybridTimestamp.hybridTimestamp(123234L))
                 .storageProfile("S4")
                 .tableVersion(2)

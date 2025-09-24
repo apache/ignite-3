@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -122,9 +120,16 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("k2", ColumnType.STRING, false, 0, 0, 0, null),
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
-        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DEFAULT_STORAGE_PROFILE
-        );
+        CatalogTableDescriptor tableDescriptor = CatalogTableDescriptor.builder()
+                .id(TABLE_ID)
+                .schemaId(-1)
+                .primaryKeyIndexId(-1)
+                .name(TABLE_NAME)
+                .zoneId(0)
+                .columns(columns)
+                .primaryKeyColumns(List.of("k1", "k2"))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
 
         Catalog catalog = mock(Catalog.class);
         when(catalogService.catalog(CATALOG_VERSION_1)).thenReturn(catalog);
@@ -159,17 +164,16 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        CatalogTableDescriptor catalogTableDescriptor = new CatalogTableDescriptor(
-                TABLE_ID,
-                -1,
-                -1,
-                TABLE_NAME,
-                0,
-                columns,
-                List.of("k1", "k2"),
-                null,
-                DEFAULT_STORAGE_PROFILE
-        );
+        CatalogTableDescriptor catalogTableDescriptor = CatalogTableDescriptor.builder()
+                .id(TABLE_ID)
+                .schemaId(-1)
+                .primaryKeyIndexId(-1)
+                .name(TABLE_NAME)
+                .zoneId(0)
+                .columns(columns)
+                .primaryKeyColumns(List.of("k1", "k2"))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
         return catalogTableDescriptor.copyBuilder()
                 .tableVersion(INITIAL_TABLE_VERSION + 1)
                 .build();
