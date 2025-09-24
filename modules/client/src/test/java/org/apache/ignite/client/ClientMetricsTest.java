@@ -276,13 +276,12 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(0, metrics().streamerItemsQueued());
     }
 
-    @SuppressWarnings("ConfusingArgumentToVarargsMethod")
     @Test
     public void testAllMetricsAreRegistered() throws Exception {
-        Constructor<ClientMetricSource> ctor = ClientMetricSource.class.getDeclaredConstructor(null);
+        Constructor<ClientMetricSource> ctor = ClientMetricSource.class.getDeclaredConstructor(String.class);
         ctor.setAccessible(true);
 
-        ClientMetricSource source = ctor.newInstance();
+        ClientMetricSource source = ctor.newInstance("testAllMetricsAreRegistered");
         MetricSet metricSet = source.enable();
         assertNotNull(metricSet);
 
