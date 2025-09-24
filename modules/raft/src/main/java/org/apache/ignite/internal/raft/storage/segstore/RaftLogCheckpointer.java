@@ -33,8 +33,8 @@ import org.apache.ignite.internal.thread.IgniteThread;
  * <p>A checkpoint is triggered by the {@link SegmentFileManager} when segment file rollover occurs. Upon rollover, the following happens:
  *
  * <ol>
- *     <li>{@code SegmentFileManager} notifies the Checkpointer by providing the segment file that got full and the {@link IndexMemTable}
- *     for this file;</li>
+ *     <li>{@code SegmentFileManager} notifies the Checkpointer by providing the segment file that got full and the
+ *     {@link ImmutableIndexMemTable} for this file;</li>
  *     <li>Checkpointer adds a task to the tail of the {@link CheckpointQueue}. If the queue is full, the caller thread is blocked until
  *     free space is available in the queue.</li>
  *     <li>Checkpoint thread polls the head of the queue and performs the following actions:
@@ -82,7 +82,7 @@ class RaftLogCheckpointer {
         }
     }
 
-    void onRollover(SegmentFile segmentFile, IndexMemTable indexMemTable) {
+    void onRollover(SegmentFile segmentFile, ImmutableIndexMemTable indexMemTable) {
         try {
             queue.add(segmentFile, indexMemTable);
         } catch (InterruptedException e) {
@@ -105,7 +105,7 @@ class RaftLogCheckpointer {
 
                     queue.removeHead();
 
-                    indexFile.syncAndMove();
+                    indexFile.syncAndRename();
                 } catch (InterruptedException | ClosedByInterruptException e) {
                     // Interrupt is called on stop.
                     return;

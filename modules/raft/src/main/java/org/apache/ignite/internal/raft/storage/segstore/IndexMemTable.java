@@ -23,16 +23,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-/**
- * Mutable index memtable.
- *
- * <p>This class represents an in-memory index of the current segment file used by a {@link SegmentFileManager}. Index is
- * essentially a mapping from {@code [groupId, logIndex]} to the offset in the segment file where the corresponding log entry is stored.
- *
- * <p>It is expected that entries for each {@code groupId} are written by one thread, therefore concurrent writes to the same
- * {@code groupId} are not safe. However, reads from multiple threads are safe in relation to the aforementioned writes.
- */
-class IndexMemTable {
+class IndexMemTable implements MutableIndexMemTable, ImmutableIndexMemTable {
     private static class Stripe {
         /** Map from group ID to SegmentInfo. */
         private final ConcurrentMap<Long, SegmentInfo> memTable = new ConcurrentHashMap<>();
@@ -48,7 +39,8 @@ class IndexMemTable {
         }
     }
 
-    void appendSegmentFileOffset(long groupId, long logIndex, int segmentFileOffset) {
+    @Override
+    public void appendSegmentFileOffset(long groupId, long logIndex, int segmentFileOffset) {
         // File offset can be less than 0 (it's treated as an unsigned integer) but never 0, because of the file header.
         assert segmentFileOffset != 0 : String.format("Segment file offset must not be 0 [groupId=%d]", groupId);
 
@@ -57,20 +49,25 @@ class IndexMemTable {
         segmentInfo.addOffset(logIndex, segmentFileOffset);
     }
 
-    /**
-     * Returns the offset in the segment file where the log entry with the given {@code logIndex} is stored or {@code 0} if the log entry
-     * was not found in the memtable.
-     */
-    int getSegmentFileOffset(long groupId, long logIndex) {
+    @Override
+    public int getSegmentFileOffset(long groupId, long logIndex) {
         SegmentInfo segmentInfo = stripe(groupId).memTable.get(groupId);
 
         return segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
     }
 
+    @Override
+    public ImmutableIndexMemTable makeImmutable() {
+        return this;
+    }
+
     /**
-     * Returns the number of Raft Group IDs stored in this memtable.
+     * {@inheritDoc}
+     *
+     * <p>This method is not thread-safe wrt concurrent writes, because it is expected to be used when no writes are happening anymore.
      */
-    int numGroups() {
+    @Override
+    public int numGroups() {
         int result = 0;
 
         for (Stripe stripe : stripes) {
@@ -81,9 +78,12 @@ class IndexMemTable {
     }
 
     /**
-     * Returns an iterator over all {@code Group ID -> SegmentInfo} entries in this memtable.
+     * {@inheritDoc}
+     *
+     * <p>This method is not thread-safe wrt concurrent writes, because it is expected to be used when no writes are happening anymore.
      */
-    Iterator<Entry<Long, SegmentInfo>> iterator() {
+    @Override
+    public Iterator<Entry<Long, SegmentInfo>> iterator() {
         return new SegmentInfoIterator();
     }
 

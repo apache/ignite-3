@@ -133,14 +133,14 @@ class SegmentInfo {
     /**
      * Returns the inclusive lower bound of log indices stored in this memtable.
      */
-    long minLogIndex() {
+    long firstLogIndex() {
         return logIndexBase;
     }
 
     /**
      * Returns the non-inclusive upper bound of log indices stored in this memtable.
      */
-    long maxLogIndex() {
+    long lastLogIndex() {
         return logIndexBase + segmentFileOffsets.size();
     }
 

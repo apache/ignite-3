@@ -31,7 +31,7 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 
 /**
- * File manager responsible for persisting {@link IndexMemTable}s to index files.
+ * File manager responsible for persisting {@link ImmutableIndexMemTable}s to index files.
  *
  * <p>When a checkpoint is triggered on segment file rollover, the current index memtable is scheduled for being saved to a file. The
  * format of this file is as follows:
@@ -68,11 +68,11 @@ import java.util.Map.Entry;
  * +-------------------------------------------------------------------------+-----+
  * </pre>
  *
- * @see IndexMemTable
+ * @see ImmutableIndexMemTable
  * @see SegmentFileManager
  */
 class IndexFileManager {
-    static final int MAGIC_NUMBER = 0xCAFEBABE;
+    static final int MAGIC_NUMBER = 0x6BF0A76A;
 
     static final int FORMAT_VERSION = 1;
 
@@ -91,7 +91,7 @@ class IndexFileManager {
     /**
      * Current index file index (used to generate index file names).
      *
-     * <p>No synchronized access is needed because this field is only updated by the checkpoint thread.
+     * <p>No synchronized access is needed because this field is only used by the checkpoint thread.
      */
     private int curFileIndex = 0;
 
@@ -102,9 +102,9 @@ class IndexFileManager {
     /**
      * Saves the given index memtable to a file.
      *
-     * <p>The files is saved into a temporary location and it is expected to be later renamed using {@link IndexFile#syncAndMove}.
+     * <p>The file is saved into a temporary location and is expected to be later renamed using {@link IndexFile#syncAndRename}.
      */
-    IndexFile saveIndexMemtable(IndexMemTable indexMemTable) throws IOException {
+    IndexFile saveIndexMemtable(ImmutableIndexMemTable indexMemTable) throws IOException {
         String fileName = indexFileName(curFileIndex++, 0);
 
         Path path = baseDir.resolve(fileName + ".tmp");
@@ -122,7 +122,7 @@ class IndexFileManager {
         return new IndexFile(fileName, path);
     }
 
-    private static byte[] header(IndexMemTable indexMemTable) {
+    private static byte[] header(ImmutableIndexMemTable indexMemTable) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);
@@ -148,8 +148,8 @@ class IndexFileManager {
                     .putLong(groupId)
                     .putInt(0) // Flags.
                     .putInt(payloadOffset)
-                    .putLong(segmentInfo.minLogIndex())
-                    .putLong(segmentInfo.maxLogIndex());
+                    .putLong(segmentInfo.firstLogIndex())
+                    .putLong(segmentInfo.lastLogIndex());
 
             payloadOffset += payloadSize(segmentInfo);
         }

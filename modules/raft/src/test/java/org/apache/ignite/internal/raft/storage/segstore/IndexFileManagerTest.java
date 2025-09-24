@@ -52,17 +52,17 @@ class IndexFileManagerTest extends IgniteAbstractTest {
         assertThat(indexFile2.name(), is("index-0000000002-0000000000.bin"));
         assertThat(indexFile2.path(), is(workDir.resolve("index-0000000002-0000000000.bin.tmp")));
 
-        indexFile0.syncAndMove();
+        indexFile0.syncAndRename();
 
         assertThat(indexFile0.name(), is("index-0000000000-0000000000.bin"));
         assertThat(indexFile0.path(), is(workDir.resolve("index-0000000000-0000000000.bin")));
 
-        indexFile1.syncAndMove();
+        indexFile1.syncAndRename();
 
         assertThat(indexFile1.name(), is("index-0000000001-0000000000.bin"));
         assertThat(indexFile1.path(), is(workDir.resolve("index-0000000001-0000000000.bin")));
 
-        indexFile2.syncAndMove();
+        indexFile2.syncAndRename();
 
         assertThat(indexFile2.name(), is("index-0000000002-0000000000.bin"));
         assertThat(indexFile2.path(), is(workDir.resolve("index-0000000002-0000000000.bin")));

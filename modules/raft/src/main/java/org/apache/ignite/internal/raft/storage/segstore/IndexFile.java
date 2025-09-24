@@ -27,6 +27,8 @@ import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Represents an index file create by an {@link IndexFileManager}.
+ *
+ * <p>Not thread-safe.
  */
 class IndexFile {
     private static final IgniteLogger LOG = Loggers.forClass(IndexFile.class);
@@ -40,7 +42,7 @@ class IndexFile {
         this.path = path;
     }
 
-    void syncAndMove() throws IOException {
+    void syncAndRename() throws IOException {
         fsyncFile(path);
 
         path = atomicMoveFile(path, path.getParent().resolve(name), LOG);
@@ -54,7 +56,7 @@ class IndexFile {
     /**
      * Returns the current path to the index file.
      *
-     * <p>The file is originally created as a temporary file until it gets renamed by calling {@link #syncAndMove}.
+     * <p>The file is originally created as a temporary file until it gets renamed by calling {@link #syncAndRename}.
      */
     Path path() {
         return path;
