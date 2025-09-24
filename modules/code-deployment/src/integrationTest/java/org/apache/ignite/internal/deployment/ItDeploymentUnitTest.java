@@ -295,21 +295,4 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
                 .pollDelay(500, MILLISECONDS)
                 .until(() -> igniteImpl(2).deployment().clusterStatusesAsync(), willBe(List.of(status)));
     }
-
-    @Test
-    public void testZipAndFileDeploy() {
-        String id = "test";
-
-        Unit unit = files.deployAndVerify(
-                id, Version.parseVersion("1.1.0"), false, List.of(files.smallFile(), files.flatZipFile()),
-                new NodesToDeploy(List.of(igniteImpl(1).name())),
-                igniteImpl(0)
-        );
-
-        UnitStatuses status = buildStatus(id, unit);
-
-        await().timeout(2, SECONDS)
-                .pollDelay(500, MILLISECONDS)
-                .until(() -> igniteImpl(2).deployment().clusterStatusesAsync(), willBe(List.of(status)));
-    }
 }

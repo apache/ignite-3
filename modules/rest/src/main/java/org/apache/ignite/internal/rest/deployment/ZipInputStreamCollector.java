@@ -17,19 +17,15 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.zip.ZipInputStream;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitZipException;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Advanced implementation of {@link InputStreamCollector} that automatically detects and handles ZIP content.
@@ -42,33 +38,21 @@ import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
 public class ZipInputStreamCollector implements InputStreamCollector {
     private static final byte[] ZIP_MAGIC_HEADER = {0x50, 0x4b, 0x03, 0x04};
 
-    /**
-     * The delegate collector that handles regular (non-ZIP) content.
-     * All streams that are not identified as ZIP archives are forwarded to this collector.
-     */
-    private final InputStreamCollector delegate;
+    private ZipInputStream zis;
 
-    /**
-     * Collection of detected ZIP input streams that require special processing.
-     * These streams will be handled by the ZipDeploymentUnit for automatic extraction.
-     */
-    private final Map<String, ZipInputStream> zipContent = new HashMap<>();
-
-    /**
-     * Constructor.
-     */
-    public ZipInputStreamCollector(InputStreamCollector delegate) {
-        this.delegate = delegate;
-    }
+    private IgniteException e;
 
     @Override
     public void addInputStream(String filename, InputStream is) {
         InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
 
+        if (zis != null) {
+            e = new DeploymentUnitZipException("Deployment unit with unzip supports only single zip file.");
+            return;
+        }
+
         if (isZip(result)) {
-            zipContent.put(filename, new ZipInputStream(result));
-        } else {
-            delegate.addInputStream(filename, result);
+            zis = new ZipInputStream(result);
         }
     }
 
@@ -84,14 +68,16 @@ public class ZipInputStreamCollector implements InputStreamCollector {
 
     @Override
     public void close() throws Exception {
-        List<AutoCloseable> toClose = new ArrayList<>(zipContent.size() + 1);
-        toClose.add(delegate);
-        toClose.addAll(zipContent.values());
-        closeAll(toClose);
+        if (zis != null) {
+            zis.close();
+        }
     }
 
     @Override
     public DeploymentUnit toDeploymentUnit() {
-        return new ZipDeploymentUnit(delegate.toDeploymentUnit(), zipContent);
+        if (e != null) {
+            throw e;
+        }
+        return new ZipDeploymentUnit(zis);
     }
 }

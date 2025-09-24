@@ -17,12 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -34,18 +29,14 @@ import java.util.zip.ZipInputStream;
  * ZIP archives while maintaining support for regular file content.
  */
 public class ZipDeploymentUnit implements DeploymentUnit {
-    /** The deployment unit containing regular (non-ZIP) content. */
-    private final DeploymentUnit notZippedContent;
-
     /** Collection of ZIP input streams that require extraction during processing. */
-    private final Map<String, ZipInputStream> zipContent;
+    private final ZipInputStream zis;
 
     /**
      * Constructor.
      */
-    public ZipDeploymentUnit(DeploymentUnit notZippedContent, Map<String, ZipInputStream> zipContent) {
-        this.notZippedContent = notZippedContent;
-        this.zipContent = zipContent;
+    public ZipDeploymentUnit(ZipInputStream zis) {
+        this.zis = zis;
     }
 
     /**
@@ -62,25 +53,20 @@ public class ZipDeploymentUnit implements DeploymentUnit {
      */
     @Override
     public <T> void process(DeploymentUnitProcessor<T> processor, T arg) throws IOException {
-        notZippedContent.process(processor, arg);
         processor.processContentWithUnzip(this, arg);
     }
 
     /**
      * Returns the collection of ZIP input streams that require extraction during processing.
      */
-    public Map<String, ZipInputStream> zipContent() {
-        return zipContent;
+    public ZipInputStream zis() {
+        return zis;
     }
-
     /**
      * Closes this deployment unit and releases all associated resources.
      */
     @Override
     public void close() throws Exception {
-        List<AutoCloseable> toClose = new ArrayList<>(zipContent.size() + 1);
-        toClose.add(notZippedContent);
-        toClose.addAll(zipContent.values());
-        closeAll(toClose);
+        zis.close();
     }
 }

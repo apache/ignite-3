@@ -64,21 +64,18 @@ public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Pa
 
     @Override
     public void processContentWithUnzip(ZipDeploymentUnit unit, Path unitFolder) throws IOException {
-        for (Entry<String, ZipInputStream> e : unit.zipContent().entrySet()) {
-            ZipInputStream zis = e.getValue();
-            String name = e.getKey();
-            Path zipUnitFolder = unitFolder.resolve(name);
-            ZipEntry ze;
-            while ((ze = zis.getNextEntry()) != null) {
-                Path entryPath = zipUnitFolder.resolve(ze.getName());
+        ZipInputStream zis = unit.zis();
+        Path zipUnitFolder = unitFolder;
+        ZipEntry ze;
+        while ((ze = zis.getNextEntry()) != null) {
+            Path entryPath = zipUnitFolder.resolve(ze.getName());
 
-                if (ze.isDirectory()) {
-                    Files.createDirectories(entryPath);
-                } else {
-                    Path unitFileFolder = entryPath.getParent();
-                    Files.createDirectories(unitFileFolder);
-                    doDeploy(unitFileFolder, entryPath.getFileName().toString(), zis);
-                }
+            if (ze.isDirectory()) {
+                Files.createDirectories(entryPath);
+            } else {
+                Path unitFileFolder = entryPath.getParent();
+                Files.createDirectories(unitFileFolder);
+                doDeploy(unitFileFolder, entryPath.getFileName().toString(), zis);
             }
         }
     }

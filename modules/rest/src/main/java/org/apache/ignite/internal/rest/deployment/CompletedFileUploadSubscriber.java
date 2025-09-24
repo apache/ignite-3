@@ -40,8 +40,7 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
     private Throwable ex;
 
     public CompletedFileUploadSubscriber(boolean unzip) {
-        InputStreamCollector isCollector = new InputStreamCollectorImpl();
-        this.collector = unzip ? new ZipInputStreamCollector(isCollector) : isCollector;
+        this.collector = unzip ? new ZipInputStreamCollector() : new InputStreamCollectorImpl();
     }
 
     @Override
@@ -75,7 +74,12 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
         if (ex != null) {
             result.completeExceptionally(ex);
         } else {
-            result.complete(collector.toDeploymentUnit());
+            try {
+                DeploymentUnit deploymentUnit = collector.toDeploymentUnit();
+                result.complete(deploymentUnit);
+            } catch (Exception e) {
+                result.completeExceptionally(e);
+            }
         }
     }
 

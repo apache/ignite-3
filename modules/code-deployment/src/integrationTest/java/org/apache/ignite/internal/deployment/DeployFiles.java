@@ -182,7 +182,7 @@ class DeployFiles {
                 try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(file.file()))) {
                     ZipEntry ze;
                     while ((ze = zis.getNextEntry()) != null) {
-                        assertTrue(Files.exists(nodeUnitDirectory.resolve(file.file().getFileName()).resolve(ze.getName())));
+                        assertTrue(Files.exists(nodeUnitDirectory.resolve(ze.getName())));
                     }
                 } catch (IOException e) {
                     fail(e);
@@ -234,11 +234,14 @@ class DeployFiles {
 
     private static DeploymentUnit fromFiles(List<DeployFile> files) {
         Map<String, InputStream> map = new HashMap<>();
-        Map<String, ZipInputStream> zips = new HashMap<>();
+        ZipInputStream zis = null;
         try {
             for (DeployFile file : files) {
                 if (file.zip()) {
-                    zips.put(file.file().getFileName().toString(), new ZipInputStream(Files.newInputStream(file.file())));
+                    if (zis != null) {
+                        fail("Only single zip file deploy is supported.");
+                    }
+                    zis = new ZipInputStream(Files.newInputStream(file.file()));
                 } else {
                     map.put(file.file().getFileName().toString(), Files.newInputStream(file.file()));
                 }
@@ -246,6 +249,14 @@ class DeployFiles {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return new ZipDeploymentUnit(new DeploymentUnitImpl(map), zips);
+
+        if (zis != null) {
+            if (!map.isEmpty()) {
+                fail("Mixed zip and plain files deploy is not supported.");
+            }
+            return new ZipDeploymentUnit(zis);
+        } else {
+            return new DeploymentUnitImpl(map);
+        }
     }
 }

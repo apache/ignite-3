@@ -571,6 +571,9 @@ public class ErrorGroups {
 
         /** Deployment unit is unavailable for computing. */
         public static final int UNIT_UNAVAILABLE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Deployment unit zip deploy error. */
+        public static final int UNIT_ZIP_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /**

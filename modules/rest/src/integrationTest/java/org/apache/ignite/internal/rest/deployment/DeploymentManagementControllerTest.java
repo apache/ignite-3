@@ -245,7 +245,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         });
 
         Path workDir0 = CLUSTER.nodeWorkDir(0);
-        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version).resolve(zipFile.getFileName());
+        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
 
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
             ZipEntry ze;
@@ -279,40 +279,6 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         assertTrue(Files.exists(nodeUnitDirectory.resolve(zipFile.getFileName())));
     }
 
-    @Test
-    public void deployZipWithCommonFiles() {
-        String id = UNIT_ID;
-        String version = "1.1.1";
-        HttpResponse<Object> response = deploy(id, version, true, zipFile, smallFile);
-
-        assertThat(response.code(), is(OK.code()));
-
-        await().timeout(10, SECONDS).untilAsserted(() -> {
-            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
-            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
-
-            assertThat(status.id(), is(id));
-            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
-        });
-
-        Path workDir0 = CLUSTER.nodeWorkDir(0);
-        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
-
-        assertTrue(Files.exists(nodeUnitDirectory.resolve(smallFile.getFileName())));
-
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
-            ZipEntry ze;
-            while ((ze = zis.getNextEntry()) != null) {
-                assertTrue(
-                        Files.exists(nodeUnitDirectory.resolve(zipFile.getFileName()).resolve(ze.getName())),
-                        "File " + ze.getName() + " does not exist"
-                );
-            }
-        } catch (IOException e) {
-            fail(e);
-        }
-    }
-
     private HttpResponse<Object> deployZip(String id, String version) {
         return deploy(id, version, true, zipFile);
     }
@@ -333,12 +299,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         }
 
         MutableHttpRequest<MultipartBody> post = HttpRequest
-                .POST("units/" + id + "/" + version, body)
+                .POST("units/" + (unzip ? "zip/" : "") + id + "/" + version, body)
                 .contentType(MediaType.MULTIPART_FORM_DATA);
-
-        if (unzip) {
-            post.uri(builder -> builder.queryParam("unzipUnits", true));
-        }
 
         return client.toBlocking().exchange(post);
     }

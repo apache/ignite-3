@@ -65,24 +65,40 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             String unitVersion,
             Publisher<CompletedFileUpload> unitContent,
             Optional<InitialDeployMode> deployMode,
-            Optional<List<String>> initialNodes,
-            Optional<Boolean> unzipUnits
+            Optional<List<String>> initialNodes
     ) {
-        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(unzipUnits.orElse(false));
+        return doDeploy(unitId, unitVersion, unitContent, deployMode, initialNodes, false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> deployZip(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent,
+            Optional<InitialDeployMode> deployMode, Optional<List<String>> initialNodes) {
+        return doDeploy(unitId, unitVersion, unitContent, deployMode, initialNodes, true);
+    }
+
+    private CompletableFuture<Boolean> doDeploy(
+            String unitId,
+            String unitVersion,
+            Publisher<CompletedFileUpload> unitContent,
+            Optional<InitialDeployMode> deployMode,
+            Optional<List<String>> initialNodes,
+            boolean zip
+    ) {
+        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(zip);
         unitContent.subscribe(subscriber);
 
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
                 .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
 
         return subscriber.result().thenCompose(deploymentUnit ->
-            deployment.deployAsync(unitId, parseVersion(unitVersion), deploymentUnit, nodesToDeploy)
-                    .whenComplete((unitStatus, throwable) -> {
-                        try {
-                            deploymentUnit.close();
-                        } catch (Exception e) {
-                            LOG.error("Failed to close subscriber", e);
-                        }
-                    })
+                deployment.deployAsync(unitId, parseVersion(unitVersion), deploymentUnit, nodesToDeploy)
+                        .whenComplete((unitStatus, throwable) -> {
+                            try {
+                                deploymentUnit.close();
+                            } catch (Exception e) {
+                                LOG.error("Failed to close subscriber", e);
+                            }
+                        })
         );
     }
 
