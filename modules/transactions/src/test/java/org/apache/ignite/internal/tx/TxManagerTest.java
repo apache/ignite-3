@@ -164,6 +164,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
 
+    private TransactionInflights transactionInflights;
+
     @BeforeEach
     public void setup() {
         clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -178,7 +180,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+        transactionInflights = new TransactionInflights(placementDriver, clockService);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
@@ -833,6 +835,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
+
+        transactionInflights.track(tx.id(), false);
 
         return tx;
     }

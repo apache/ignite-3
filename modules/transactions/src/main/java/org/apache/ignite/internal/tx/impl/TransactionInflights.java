@@ -87,10 +87,15 @@ public class TransactionInflights {
     }
 
     /**
-     * Track the given transaction start.
+     * Track the given transaction until finish. Tracking is used for:
+     * <ul>
+     *     <li>resources cleanup for RO transactions</li>
+     *     <li>unlock only path for RW-R transactions</li>
+     *     <li>force cleanup path on recovery</li>
+     * </ul>
      *
      * @param txId The transaction id.
-     * @param readOnly
+     * @param readOnly {@code True} if a read-only transaction.
      * @return {@code True} if the was registered and is in active state.
      */
     public boolean track(UUID txId, boolean readOnly) {
@@ -174,7 +179,7 @@ public class TransactionInflights {
     ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                tuple0 = new ReadWriteTxContext(placementDriver, clockService, true); // No writes enlisted.
+                tuple0 = new ReadWriteTxContext(placementDriver, clockService, true); // No writes enlisted, can go with unlock only.
             }
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";

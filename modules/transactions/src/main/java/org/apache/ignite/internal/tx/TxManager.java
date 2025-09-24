@@ -176,6 +176,7 @@ public interface TxManager extends IgniteComponent {
      * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
      * @param commitIntent {@code true} if a commit requested.
      * @param timeoutExceeded {@code true} if a timeout exceeded.
+     * @param recovery {@code true} if finished by recovery.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
@@ -184,6 +185,7 @@ public interface TxManager extends IgniteComponent {
             @Nullable ReplicationGroupId commitPartition,
             boolean commitIntent,
             boolean timeoutExceeded,
+            boolean recovery,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
