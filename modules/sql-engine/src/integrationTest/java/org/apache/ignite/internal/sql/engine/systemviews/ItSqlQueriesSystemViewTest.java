@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
@@ -140,7 +141,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
         {
             long tsBefore = clockService.now().getPhysical();
 
-            List<List<Object>> res = sql(initiator, null, schema, null, query);
+            List<List<Object>> res = sql(initiator, (Transaction) null, schema, null, query);
 
             long tsAfter = clockService.now().getPhysical();
 
@@ -170,7 +171,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
         // Verify script query info.
         {
             String sql = "SELECT * FROM SYSTEM.SQL_QUERIES WHERE TYPE=?";
-            List<List<Object>> res = sql(initiator, null, null, null, sql, SCRIPT_QUERY_TYPE);
+            List<List<Object>> res = sql(initiator, sql, SCRIPT_QUERY_TYPE);
 
             assertThat(res, hasSize(1));
 
