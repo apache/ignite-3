@@ -23,13 +23,9 @@ import java.util.zip.ZipInputStream;
 /**
  * A specialized implementation of {@link DeploymentUnit} that handles ZIP-compressed deployment content.
  * 
- * <p>This class represents a deployment unit that contains both regular (uncompressed) content and 
- * ZIP-compressed archives that require extraction during processing. It extends the basic deployment 
- * unit functionality to handle mixed content types, providing automatic extraction capabilities for 
- * ZIP archives while maintaining support for regular file content.
+ * <p>This class represents a deployment unit that contains ZIP-compressed archive that require extraction during processing.
  */
 public class ZipDeploymentUnit implements DeploymentUnit {
-    /** Collection of ZIP input streams that require extraction during processing. */
     private final ZipInputStream zis;
 
     /**
@@ -40,7 +36,7 @@ public class ZipDeploymentUnit implements DeploymentUnit {
     }
 
     /**
-     * Processes the deployment unit content using a two-phase approach for mixed content types.
+     * Processes the deployment unit zip content.
      * 
      * <p>This method implements the {@link DeploymentUnit} processing contract with specialized 
      * handling for ZIP content.
@@ -57,14 +53,12 @@ public class ZipDeploymentUnit implements DeploymentUnit {
     }
 
     /**
-     * Returns the collection of ZIP input streams that require extraction during processing.
+     * Returns the ZIP input streams that require extraction during processing.
      */
     public ZipInputStream zis() {
         return zis;
     }
-    /**
-     * Closes this deployment unit and releases all associated resources.
-     */
+
     @Override
     public void close() throws Exception {
         zis.close();

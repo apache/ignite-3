@@ -30,24 +30,21 @@ import org.apache.ignite.lang.IgniteException;
 /**
  * Advanced implementation of {@link InputStreamCollector} that automatically detects and handles ZIP content.
  *
- * <p>This decorator implementation wraps another {@link InputStreamCollector} and provides intelligent
- * handling of mixed content types. It automatically detects ZIP archives among the added input streams
- * and separates them from regular file content, creating a {@link ZipDeploymentUnit} that can handle
- * both types of content appropriately.
+ * <p>This decorator implementation automatically detects ZIP archive and throws exception in case when provided more than one archive.
  */
 public class ZipInputStreamCollector implements InputStreamCollector {
     private static final byte[] ZIP_MAGIC_HEADER = {0x50, 0x4b, 0x03, 0x04};
 
     private ZipInputStream zis;
 
-    private IgniteException e;
+    private IgniteException igniteException;
 
     @Override
     public void addInputStream(String filename, InputStream is) {
         InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
 
         if (zis != null) {
-            e = new DeploymentUnitZipException("Deployment unit with unzip supports only single zip file.");
+            igniteException = new DeploymentUnitZipException("Deployment unit with unzip supports only single zip file.");
             return;
         }
 
@@ -75,8 +72,8 @@ public class ZipInputStreamCollector implements InputStreamCollector {
 
     @Override
     public DeploymentUnit toDeploymentUnit() {
-        if (e != null) {
-            throw e;
+        if (igniteException != null) {
+            throw igniteException;
         }
         return new ZipDeploymentUnit(zis);
     }

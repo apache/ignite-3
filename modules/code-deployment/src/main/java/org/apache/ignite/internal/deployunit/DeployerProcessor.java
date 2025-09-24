@@ -48,10 +48,9 @@ import java.util.zip.ZipInputStream;
  * <p>Type parameters:
  * <ul>
  *     <li>{@code Path} - the argument type representing the target deployment directory</li>
- *     <li>{@code Void} - the return type (no meaningful return value)</li>
  * </ul>
  */
-public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Path> {
+public class DeployerProcessor implements DeploymentUnitProcessor<Path> {
     /** Suffix used for temporary files during the deployment process. */
     private static final String TMP_SUFFIX = ".tmp";
 
