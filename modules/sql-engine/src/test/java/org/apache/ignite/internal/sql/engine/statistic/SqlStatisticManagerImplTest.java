@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.DEFAULT_TABLE_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,8 +34,10 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -50,6 +53,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -114,7 +118,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testEstimationFailure() {
+    public void testEstimationFailure() throws Exception {
         int tableId = ThreadLocalRandom.current().nextInt();
 
         prepareCatalogWithTable(tableId);
@@ -124,17 +128,21 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(1L));
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        sqlStatisticManager.changesNotifier(k -> {});
         sqlStatisticManager.start();
 
         assertEquals(1L, sqlStatisticManager.tableSize(tableId));
 
         when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(2L));
         sqlStatisticManager.forceUpdateAll();
+        sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
 
         assertEquals(2L, sqlStatisticManager.tableSize(tableId));
 
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Can`t estimate")));
+        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.failedFuture(
+                new CompletionException(new IgniteCheckedException(INTERNAL_ERR, "Test exception"))));
         sqlStatisticManager.forceUpdateAll();
+        sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
 
         assertEquals(2L, sqlStatisticManager.tableSize(tableId));
     }
