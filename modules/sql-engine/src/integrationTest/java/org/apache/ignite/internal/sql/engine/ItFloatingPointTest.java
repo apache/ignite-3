@@ -169,6 +169,16 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
 
     @Test
     void testGrouping() {
+        sql("INSERT INTO test VALUES (?, ?, ?)", 8, Float.POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
+        sql("INSERT INTO test VALUES (?, ?, ?)", 9, Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
+        sql("INSERT INTO test VALUES (?, ?, ?)", 10, Float.NaN, Double.NaN);
+        sql("INSERT INTO test VALUES (?, ?, ?)", 11, -1.0f, -1.0d);
+        sql("INSERT INTO test VALUES (?, ?, ?)", 12, 1.0f, 1.0d);
+        sql("INSERT INTO test VALUES (?, ?, ?)", 13, -0.0f, -0.0d);
+        sql("INSERT INTO test VALUES (?, ?, ?)", 14, +0.0f, +0.0d);
+
+        assertEquals(14, sql("SELECT f FROM test GROUP BY f").get(0).get(0));
+
         List<Float> floats = sql("SELECT f FROM test GROUP BY f")
                 .stream().flatMap(List::stream).map(Float.class::cast).collect(toList());
         List<Double> doubles = sql("SELECT d FROM test GROUP BY d")
