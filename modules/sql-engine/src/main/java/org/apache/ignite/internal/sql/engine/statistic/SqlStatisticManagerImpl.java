@@ -137,15 +137,15 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                             return new ActualSize(Math.max(size, 1), currTimestamp);
                         });
                     }).handle((res, err) -> {
-                       if (err != null) {
-                           LOG.warn(format("Can't calculate size for table [id={}].", tableId), err);
+                        if (err != null) {
+                            LOG.warn(format("Can't calculate size for table [id={}].", tableId), err);
 
-                           return null;
-                       } else {
-                           changesUpdater.accept(tableId);
+                            return null;
+                        } else {
+                            changesUpdater.accept(tableId);
 
-                           return res;
-                       }
+                            return res;
+                        }
                     });
 
             latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
