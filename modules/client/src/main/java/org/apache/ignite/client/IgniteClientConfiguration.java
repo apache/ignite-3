@@ -210,4 +210,13 @@ public interface IgniteClientConfiguration {
      * @return Cache size, in number of entries.
      */
     int sqlPartitionAwarenessMetadataCacheSize();
+
+    /**
+     * Gets the client name. Default is {@code null}, which means that Ignite will generate a unique name automatically.
+     *
+     * <p>Client name is used for identifying clients in the logs and JMX metrics.
+     *
+     * @return Client name.
+     */
+    @Nullable String name();
 }
