@@ -18,11 +18,21 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
 
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Tests to make sure sql engine can recover execution when run on unstable topology.
@@ -43,6 +53,10 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
+    private static final Pattern NODE_NAME_PATTERN = Pattern.compile(".*?=\\[(?<nodeName>.*?)=\\{.*");
+
+    private int additionalNodesCount = 0; 
+
     @Override
     protected int initialNodes() {
         return 1;
@@ -52,17 +66,23 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
     public void dropTables() {
         dropAllTables();
         dropAllZonesExceptDefaultOne();
+
+        while (additionalNodesCount > 0) {
+            CLUSTER.stopNode(additionalNodesCount--);
+        }
     }
 
-    @Test
-    public void ensureLostOfNodeDoesntCausesQueryToFail() {
-        CLUSTER.startNode(1, DATA_NODE_BOOTSTRAP_CFG_TEMPLATE);
-        CLUSTER.startNode(2, DATA_NODE_BOOTSTRAP_CFG_TEMPLATE);
-        CLUSTER.startNode(3, DATA_NODE_BOOTSTRAP_CFG_TEMPLATE);
+    @ParameterizedTest
+    @EnumSource(TxType.class)
+    void ensureLostOfNodeDoesntCausesQueryToFail(TxType txType) {
+        startAdditionalNode();
+        startAdditionalNode();
+        startAdditionalNode();
 
         sql("CREATE ZONE my_zone ("
                 + "partitions 1, "
                 + "replicas 3, "
+                + "auto scale down off, "
                 + "nodes filter '$[?(@.role == \"data\")]') "
                 + "storage profiles ['default']");
 
@@ -71,23 +91,79 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
                 .returns(1000L)
                 .check();
 
-        Ignite gateway = CLUSTER.node(0); 
+        Ignite gateway = CLUSTER.node(0);
 
-        assertQuery(gateway, "SELECT count(*) FROM my_table WHERE val > -1")
+        txType.runInTx(gateway, tx -> assertQuery(gateway, tx, "SELECT count(*) FROM my_table WHERE val > -1")
                 .matches(matches(".*TableScan.*"))
                 .returns(1000L)
-                .check();
+                .check());
 
-        // The choice of node to stop depends on current mapping algorithm which sorts
-        // nodes by name and chooses the first one among all options, therefore we stop
-        // 1th node -- the first data node. This invariant is fragile, but without
-        // EXPLAIN MAPPING FOR <query> it seems there is no other options to derive
-        // information about execution nodes for particular query.
-        CLUSTER.stopNode(1);
+        List<List<Object>> mapping = sql(gateway, "EXPLAIN MAPPING FOR SELECT count(*) FROM my_table WHERE val > -1");
 
-        assertQuery(gateway, "SELECT count(*) FROM my_table WHERE val > -1")
+        String nodeName = extractAnyNode(mapping);
+
+        assertThat(nodeName, notNullValue());
+
+        CLUSTER.stopNode(nodeName);
+
+        txType.runInTx(gateway, tx -> assertQuery(gateway, tx, "SELECT count(*) FROM my_table WHERE val > -1")
                 .matches(matches(".*TableScan.*"))
                 .returns(1000L)
-                .check();
+                .check());
+    }
+
+    private static @Nullable String extractAnyNode(List<List<Object>> explainMappingResult) {
+        if (explainMappingResult.size() != 1 || explainMappingResult.get(0).size() != 1) {
+            return null;
+        }
+
+        String result = explainMappingResult.get(0).get(0).toString();
+
+        Matcher matcher = NODE_NAME_PATTERN.matcher(result.replace("\n", ""));
+
+        if (matcher.matches()) {
+            return matcher.group("nodeName");
+        }
+
+        return null;
+    }
+
+    private void startAdditionalNode() {
+        CLUSTER.startNode(++additionalNodesCount, DATA_NODE_BOOTSTRAP_CFG_TEMPLATE);
+    }
+
+    enum TxType {
+        IMPLICIT {
+            @Override
+            void runInTx(Ignite node, Consumer<@Nullable InternalTransaction> action) {
+                action.accept(null);
+            }
+        },
+
+        RO {
+            @Override
+            void runInTx(Ignite node, Consumer<@Nullable InternalTransaction> action) {
+                node.transactions().runInTransaction(
+                        tx -> {
+                            action.accept((InternalTransaction) tx);
+                        },
+                        new TransactionOptions().readOnly(true)
+                );
+            }
+        },
+
+        RW {
+            @Override
+            void runInTx(Ignite node, Consumer<@Nullable InternalTransaction> action) {
+                node.transactions().runInTransaction(
+                        tx -> {
+                            action.accept((InternalTransaction) tx);
+                        },
+                        new TransactionOptions().readOnly(false)
+                );
+            }
+        };
+
+        abstract void runInTx(Ignite node, Consumer<@Nullable InternalTransaction> action); 
     }
 }
