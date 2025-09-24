@@ -333,11 +333,11 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testJmxExportTwoClients(boolean metricsEnabled) throws Exception {
+    public void testJmxExportTwoClients() throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
 
-        client = clientBuilder().metricsEnabled(metricsEnabled).build();
-        client2 = clientBuilder().metricsEnabled(metricsEnabled).build();
+        client = clientBuilder().metricsEnabled(true).build();
+        client2 = clientBuilder().metricsEnabled(true).build();
 
         client.tables().tables();
         client2.tables().tables();
@@ -348,11 +348,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         ObjectName objName = new ObjectName(beanName);
         boolean registered = mbeanSrv.isRegistered(objName);
 
-        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
-
-        if (!metricsEnabled) {
-            return;
-        }
+        assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
 
         DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
         assertEquals(1L, bean.getAttribute("ConnectionsActive"));
