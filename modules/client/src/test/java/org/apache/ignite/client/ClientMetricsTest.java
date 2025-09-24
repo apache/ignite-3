@@ -305,10 +305,10 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     @ValueSource(booleans = {true, false})
     public void testJmxExport(boolean metricsEnabled) throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
-        client = clientBuilder().metricsEnabled(metricsEnabled).build();
+        client = clientBuilder().metricsEnabled(metricsEnabled).name("testJmxExport").build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:type=metrics,name=client";
+        String beanName = "org.apache.ignite:type=metrics,name=testJmxExport";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
@@ -336,30 +336,26 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     public void testJmxExportTwoClients() throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
 
+        // Client names are auto-generated, unless explicitly specified.
         client = clientBuilder().metricsEnabled(true).build();
         client2 = clientBuilder().metricsEnabled(true).build();
 
         client.tables().tables();
         client2.tables().tables();
 
-        String beanName = "org.apache.ignite:type=metrics,name=client";
-        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+        for (var name : new String[]{client.name(), client2.name()}) {
+            String beanName = "org.apache.ignite:type=metrics,name=" + name;
+            MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
-        ObjectName objName = new ObjectName(beanName);
-        boolean registered = mbeanSrv.isRegistered(objName);
+            ObjectName objName = new ObjectName(beanName);
+            boolean registered = mbeanSrv.isRegistered(objName);
 
-        assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
+            assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
 
-        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
-        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
-        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
-
-        MBeanInfo beanInfo = bean.getMBeanInfo();
-        MBeanAttributeInfo[] attributes = beanInfo.getAttributes();
-        MBeanAttributeInfo attribute = attributes[0];
-        assertEquals("ConnectionsActive", attribute.getName());
-        assertEquals("Currently active connections", attribute.getDescription());
-        assertEquals("java.lang.Long", attribute.getType());
+            DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+            assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+            assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+        }
     }
 
     private Table oneColumnTable() {

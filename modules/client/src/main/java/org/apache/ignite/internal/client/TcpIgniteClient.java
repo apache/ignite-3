@@ -243,7 +243,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return "thin-client";
+        return clientName;
     }
 
     /** {@inheritDoc} */
