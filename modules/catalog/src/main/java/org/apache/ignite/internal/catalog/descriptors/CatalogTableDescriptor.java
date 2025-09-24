@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -107,6 +107,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
+
+        TableVersion latestTableVersion = Objects.requireNonNull(schemaVersions.get(schemaVersions.latestVersion()));
+        if (!Objects.equals(latestTableVersion.columns(), columns)) {
+            throw new IllegalArgumentException("Latest schema version columns do not match descriptor definition columns.");
+        }
     }
 
     /**
@@ -251,7 +256,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         private int schemaId;
         private int pkIndexId;
         private CatalogTableSchemaVersions schemaVersions;
-        private List<CatalogTableColumnDescriptor> columns = Collections.emptyList();
+        private List<CatalogTableColumnDescriptor> columns;
         private List<String> primaryKeyColumns;
         @Nullable private List<String> colocationColumns;
         private String storageProfile;
@@ -385,18 +390,16 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             return this;
         }
 
-
         /**
          * Sets the {@code tableVersion} and returns a reference to this Builder enabling method chaining.
          *
-         * @param tableVersion the {@code tableVersion} to set
-         * @return a reference to this Builder
+         * @param tableVersion the {@code tableVersion} to set.
+         * @return a reference to this Builder.
          */
         public Builder tableVersion(int tableVersion) {
             this.tableVersion = tableVersion;
             return this;
         }
-
 
         /**
          * Returns a {@code CatalogTableDescriptor} built from the parameters previously set.
@@ -404,13 +407,25 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          * @return a {@code CatalogTableDescriptor} built with parameters of this {@code CatalogTableDescriptor.Builder}
          */
         public CatalogTableDescriptor build() {
-            assert tableVersion == 0 || tableVersion >= schemaVersions.latestVersion();
+            Objects.requireNonNull(columns, "No columns defined.");
 
             if (schemaVersions == null) {
+                // in case we are creating a new table from scratch, if schema version is not defined we make a default one
                 schemaVersions = new CatalogTableSchemaVersions(new TableVersion(columns));
             }
 
-            CatalogTableSchemaVersions newSchemaVersions = tableVersion <= schemaVersions.latestVersion()
+            if (tableVersion == 0) {
+                tableVersion = schemaVersions.latestVersion();
+            } else if (tableVersion < schemaVersions.latestVersion()) {
+                throw new IllegalArgumentException(format(
+                        "Table version {} should not be less than a previous version {}.",
+                        tableVersion,
+                        schemaVersions.latestVersion()
+                ));
+            }
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-26501
+            CatalogTableSchemaVersions newSchemaVersions = tableVersion == schemaVersions.latestVersion()
                     ? schemaVersions
                     : schemaVersions.append(new TableVersion(columns), tableVersion);
 

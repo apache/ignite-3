@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.storage;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 

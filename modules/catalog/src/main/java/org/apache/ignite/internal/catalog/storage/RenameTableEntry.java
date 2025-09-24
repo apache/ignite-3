@@ -17,14 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.Builder;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
