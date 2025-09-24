@@ -67,10 +67,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ClientMetricsTest extends BaseIgniteAbstractTest {
     private TestServer server;
     private IgniteClient client;
+    private IgniteClient client2;
 
     @AfterEach
     public void afterEach() throws Exception {
-        closeAll(client, server);
+        closeAll(client2, client, server);
     }
 
     @Test
@@ -306,6 +307,40 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().metricsEnabled(metricsEnabled).build();
         client.tables().tables();
+
+        String beanName = "org.apache.ignite:type=metrics,name=client";
+        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+        ObjectName objName = new ObjectName(beanName);
+        boolean registered = mbeanSrv.isRegistered(objName);
+
+        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
+
+        if (!metricsEnabled) {
+            return;
+        }
+
+        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+
+        MBeanInfo beanInfo = bean.getMBeanInfo();
+        MBeanAttributeInfo[] attributes = beanInfo.getAttributes();
+        MBeanAttributeInfo attribute = attributes[0];
+        assertEquals("ConnectionsActive", attribute.getName());
+        assertEquals("Currently active connections", attribute.getDescription());
+        assertEquals("java.lang.Long", attribute.getType());
+    }
+
+    @Test
+    public void testJmxExportTwoClients(boolean metricsEnabled) throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+
+        client = clientBuilder().metricsEnabled(metricsEnabled).build();
+        client2 = clientBuilder().metricsEnabled(metricsEnabled).build();
+
+        client.tables().tables();
+        client2.tables().tables();
 
         String beanName = "org.apache.ignite:type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
