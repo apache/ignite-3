@@ -626,6 +626,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             @Nullable ReplicationGroupId commitPartition,
             boolean commitIntent,
             boolean timeout,
+            boolean recovery,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
@@ -698,7 +699,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         enlistedGroups,
                         txId,
                         finishingStateMeta.txFinishFuture(),
-                        txContext.isNoWrites()
+                        txContext.isNoWrites() && !recovery
                 )
         ).whenComplete((unused, throwable) -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
