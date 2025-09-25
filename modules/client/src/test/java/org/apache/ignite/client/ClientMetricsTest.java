@@ -277,12 +277,13 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(0, metrics().streamerItemsQueued());
     }
 
+    @SuppressWarnings("ConfusingArgumentToVarargsMethod")
     @Test
     public void testAllMetricsAreRegistered() throws Exception {
-        Constructor<ClientMetricSource> ctor = ClientMetricSource.class.getDeclaredConstructor(String.class);
+        Constructor<ClientMetricSource> ctor = ClientMetricSource.class.getDeclaredConstructor(null);
         ctor.setAccessible(true);
 
-        ClientMetricSource source = ctor.newInstance("testAllMetricsAreRegistered");
+        ClientMetricSource source = ctor.newInstance();
         MetricSet metricSet = source.enable();
         assertNotNull(metricSet);
 
@@ -308,7 +309,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().metricsEnabled(metricsEnabled).name("testJmxExport").build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:type=metrics,name=testJmxExport";
+        String beanName = "org.apache.ignite:nodeName=testJmxExport,type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
@@ -344,7 +345,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client2.tables().tables();
 
         for (var clientName : new String[]{client.name(), client2.name()}) {
-            String beanName = "org.apache.ignite:type=metrics,name=" + clientName;
+            String beanName = "org.apache.ignite:nodeName=" + clientName + ",type=metrics,name=client";
             MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
             ObjectName objName = new ObjectName(beanName);
@@ -372,7 +373,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client.tables().tables();
         client2.tables().tables();
 
-        String beanName = "org.apache.ignite:type=metrics,name=" + clientName;
+        String beanName = "org.apache.ignite:nodeName=" + clientName + ",type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
@@ -385,7 +386,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
 
         // Error is logged, but the client is functional.
-        loggerFactory2.waitForLogContains("MBean for metric set can't be created [name=testJmxExportTwoClientsSameName].", 3_000);
+        loggerFactory2.waitForLogContains("MBean for metric set can't be created [name=client].", 3_000);
         loggerFactory1.assertLogDoesNotContain("MBean for metric set can't be created");
     }
 
