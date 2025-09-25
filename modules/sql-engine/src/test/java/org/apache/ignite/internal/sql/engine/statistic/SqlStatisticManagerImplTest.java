@@ -37,6 +37,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -75,6 +77,9 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private LowWatermark lowWatermark;
+
+    private static final CatalogTableColumnDescriptor pkCol =
+            new CatalogTableColumnDescriptor("pkCol", ColumnType.STRING, false, 0, 0, 10, null);
 
     @Test
     public void checkDefaultTableSize() {
@@ -159,8 +164,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                     .primaryKeyIndexId(1)
                     .name("")
                     .zoneId(1)
-                    .columns(List.of())
-                    .primaryKeyColumns(List.of())
+                    .columns(List.of(pkCol))
+                    .primaryKeyColumns(List.of(pkCol.name()))
                     .storageProfile("")
                     .build());
             catalogDescriptors.add(CatalogTableDescriptor.builder()
@@ -169,8 +174,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                     .primaryKeyIndexId(1)
                     .name("")
                     .zoneId(1)
-                    .columns(List.of())
-                    .primaryKeyColumns(List.of())
+                    .columns(List.of(pkCol))
+                    .primaryKeyColumns(List.of(pkCol.name()))
                     .storageProfile("")
                     .build());
 
@@ -268,8 +273,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(1)
                 .name("")
                 .zoneId(1)
-                .columns(List.of())
-                .primaryKeyColumns(List.of())
+                .columns(List.of(pkCol))
+                .primaryKeyColumns(List.of(pkCol.name()))
                 .storageProfile("")
                 .build();
         tableCreateCapture.getValue().notify(new CreateTableEventParameters(-1, 0, catalogDescriptor));
@@ -337,8 +342,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(1)
                 .name("")
                 .zoneId(1)
-                .columns(List.of())
-                .primaryKeyColumns(List.of())
+                .columns(List.of(pkCol))
+                .primaryKeyColumns(List.of(pkCol.name()))
                 .storageProfile("")
                 .build();
         when(catalog.tables()).thenReturn(List.of(catalogDescriptor));
