@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -126,28 +125,24 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(internalTable.estimatedSize()).thenReturn(
                 CompletableFuture.completedFuture(1L),
-                CompletableFuture.completedFuture(2L)
+                CompletableFuture.completedFuture(2L),
+                CompletableFuture.failedFuture(new IgniteCheckedException(INTERNAL_ERR, "Test exception"))
         );
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
-        sqlStatisticManager.changesNotifier(k -> {});
         sqlStatisticManager.start();
-
-        assertEquals(1L, sqlStatisticManager.tableSize(tableId));
 
         sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
 
-        sqlStatisticManager.forceUpdateAll();
-        sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
+        // table size 1
+        assertEquals(1L, sqlStatisticManager.tableSize(tableId));
 
+        // table size 2
         assertEquals(2L, sqlStatisticManager.tableSize(tableId));
 
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture
-                .failedFuture(new IgniteCheckedException(INTERNAL_ERR, "Test exception")));
-        sqlStatisticManager.forceUpdateAll();
-        sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
-
+        // exceptionable table size
         assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+        verify(internalTable, times(3)).estimatedSize();
     }
 
     @Test
