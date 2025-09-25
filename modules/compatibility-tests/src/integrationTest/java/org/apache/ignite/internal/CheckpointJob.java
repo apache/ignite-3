@@ -18,6 +18,7 @@
 package org.apache.ignite.internal;
 
 import static java.lang.Thread.sleep;
+import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.CompletableFuture;
@@ -51,7 +52,7 @@ class CheckpointJob implements ComputeJob<Boolean, Void> {
                 compactor.cancel();
             }
 
-            return checkpointManager.forceCheckpoint("test").futureFor(CheckpointState.FINISHED).thenApply(ignored -> {
+            return checkpointManager.forceCheckpoint("test").futureFor(CheckpointState.FINISHED).thenRun(() -> {
                 if (!shouldCancelCompaction) {
                     try {
                         waitForCompaction(checkpointManager);
@@ -59,8 +60,6 @@ class CheckpointJob implements ComputeJob<Boolean, Void> {
                         throw new RuntimeException(e);
                     }
                 }
-
-                return null;
             });
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -88,12 +87,18 @@ class CheckpointJob implements ComputeJob<Boolean, Void> {
 
         DataStorageManager dataStorageManager = (DataStorageManager) dataStorageMgrField.get(igniteImpl);
 
-        PersistentPageMemoryStorageEngine engine = (PersistentPageMemoryStorageEngine) dataStorageManager
-                .engineByStorageProfile("default_aipersist");
-        assert engine != null;
+        PersistentPageMemoryStorageEngine engine = unwrapNullable(dataStorageManager
+                .engineByStorageProfile("default_aipersist"), PersistentPageMemoryStorageEngine.class);
+
+        if (engine == null) {
+            throw new IllegalStateException("PersistentPageMemoryStorageEngine not found");
+        }
 
         CheckpointManager checkpointManager = engine.checkpointManager();
-        assert checkpointManager != null;
+
+        if (checkpointManager == null) {
+            throw new IllegalStateException("CheckpointManager is null");
+        }
 
         return checkpointManager;
     }

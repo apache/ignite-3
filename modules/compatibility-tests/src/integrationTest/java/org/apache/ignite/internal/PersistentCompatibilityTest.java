@@ -44,9 +44,8 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -63,8 +62,10 @@ import org.junit.jupiter.params.provider.ValueSource;
  * <p>
  * The tests have to ensure that aipersist-based tables work correctly:
  * <ul>
- * <li> All data written in v1 can be read in v2 # including overwritten versions. </li>
- * <li> Deleted data cannot be read # updates that are rolled back cannot be read. </li>
+ * <li> All data written in v1 can be read in v2. </li>
+ * <li> Including overwritten versions. </li>
+ * <li> Deleted data cannot be read. </li>
+ * <li> Updates that are rolled back cannot be read. </li>
  * </ul>
  *
  * <p>
@@ -80,7 +81,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
@@ -92,6 +92,15 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
 
     /** Delta files are not compacted before updating the cluster, and new ones created after. */
     private static final String TABLE_WITH_NEW_DELTA_FILES = "TEST_WITH_NEW_DELTA_FILES";
+
+    private static final int UNCHANGED_ROW_ID = 1;
+    private static final int DELETED_ROW_ID = 2;
+    private static final int UPDATED_ROW_ID = 3;
+    private static final int ROLLED_BACK_ROW_ID = 4;
+
+    private static final String UNCHANGED_ROW_VALUE = "unchanged_value";
+    private static final String ORIGINAL_ROW_VALUE = "original_value";
+    private static final String UPDATED_ROW_VALUE = "updated_value";
 
     @Inject
     @Client(NODE_URL + "/management/v1/deployment")
@@ -111,19 +120,20 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
             createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
             createAndPopulateTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
 
-            // Newly allocated pages are written straight to the page files, we need to avoid this.
-            doCheckpoint(false);
+            // Newly allocated pages are written straight to the page files.
+            // We need to do an initial checkpoint so subsequent modifications of the rows go to delta files.
+            doCheckpointWithCompaction();
 
             prepareTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
 
             // Checkpoint for TABLE_WITHOUT_DELTA_FILES and compact all delta files.
-            doCheckpoint(false);
+            doCheckpointWithCompaction();
 
             prepareTable(baseIgnite, TABLE_WITH_DELTA_FILES);
             prepareTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
 
             // Checkpoint for TABLE_WITH_DELTA_FILES and TABLE_WITH_NEW_DELTA_FILES, cancels compaction to leave delta files.
-            doCheckpoint(true);
+            doCheckpointWithoutCompaction();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -131,39 +141,56 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
 
     private static void createAndPopulateTable(Ignite baseIgnite, String tableName) {
         sql(baseIgnite, "CREATE TABLE " + tableName + " (id INT PRIMARY KEY, name VARCHAR)");
-        sql(baseIgnite, "INSERT INTO " + tableName + " (id, name) VALUES (1, 'test'), (2, 'deleted_row'), (3, 'original_value')");
+        insertRow(baseIgnite, tableName, UNCHANGED_ROW_ID, UNCHANGED_ROW_VALUE);
+        insertRow(baseIgnite, tableName, DELETED_ROW_ID, "deleted_value");
+        insertRow(baseIgnite, tableName, UPDATED_ROW_ID, ORIGINAL_ROW_VALUE);
+        insertRow(baseIgnite, tableName, ROLLED_BACK_ROW_ID, ORIGINAL_ROW_VALUE);
     }
 
     private static void prepareTable(Ignite baseIgnite, String tableName) {
-        sql(baseIgnite, "DELETE FROM " + tableName + " WHERE id = 2");
+        sql(baseIgnite, "DELETE FROM " + tableName + " WHERE id = " + DELETED_ROW_ID);
+
+        updateRow(baseIgnite, null, tableName, UPDATED_ROW_ID, UPDATED_ROW_VALUE);
 
         Transaction tx = baseIgnite.transactions().begin();
-        baseIgnite.sql().execute(tx, "UPDATE " + tableName + " SET name = 'rolled_back_value' WHERE id = 3").close();
+        updateRow(baseIgnite, tx, tableName, ROLLED_BACK_ROW_ID, UPDATED_ROW_VALUE);
         tx.rollback();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {TABLE_WITH_DELTA_FILES, TABLE_WITHOUT_DELTA_FILES})
-    void testNewVersion(String tableName) throws IOException {
+    void testNewVersion(String tableName) {
         checkRows(tableName);
     }
 
     @Test
     void testNewVersionWithNewDeltaFiles() throws IOException {
-        sql("INSERT INTO " + TABLE_WITH_NEW_DELTA_FILES + " (id, name) VALUES (4, 'new_row')");
-        sql("UPDATE " + TABLE_WITH_NEW_DELTA_FILES + " SET name = 'updated_value' WHERE id = 1");
+        String newRowValue = "new_row";
 
-        doCheckpoint(true);
+        insertRow(node(0), TABLE_WITH_NEW_DELTA_FILES, 5, newRowValue);
+
+        updateRow(node(0), null, TABLE_WITH_NEW_DELTA_FILES, UNCHANGED_ROW_ID, UPDATED_ROW_VALUE);
+
+        doCheckpointWithoutCompaction();
 
         List<List<Object>> rows = sql("select * from " + TABLE_WITH_NEW_DELTA_FILES + " order by id");
 
-        assertThat(rows.size(), is(3));
-        assertThat(rows.get(0).get(1), is("updated_value"));
-        assertThat(rows.get(1).get(1), is("original_value"));
-        assertThat(rows.get(2).get(1), is("new_row"));
+        assertThat(rows.size(), is(4));
+        assertThat(rows.get(0).get(1), is(UPDATED_ROW_VALUE));
+        assertThat(rows.get(1).get(1), is(UPDATED_ROW_VALUE));
+        assertThat(rows.get(2).get(1), is(ORIGINAL_ROW_VALUE));
+        assertThat(rows.get(3).get(1), is(newRowValue));
     }
 
-    private void doCheckpoint(boolean cancelCompaction) throws IOException {
+    private void doCheckpointWithCompaction() throws IOException {
+        doCheckpoint(false);
+    }
+
+    private void doCheckpointWithoutCompaction() throws IOException {
+        doCheckpoint(true);
+    }
+
+    private void doCheckpoint(boolean cancelCompaction) {
         try (IgniteClient client = cluster.createClient()) {
             JobDescriptor<Boolean, Void> job = JobDescriptor.builder(CheckpointJob.class)
                     .units(new DeploymentUnit(CheckpointJob.class.getName(), "1.0.0")).build();
@@ -197,13 +224,9 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     }
 
     private HttpResponse<Object> deploy(String id, String version, File file) {
-        MultipartBody body = null;
-
-        if (file != null) {
-            Builder builder = MultipartBody.builder();
-            builder.addPart("unitContent", file);
-            body = builder.build();
-        }
+        Builder builder = MultipartBody.builder();
+        builder.addPart("unitContent", file);
+        MultipartBody body = builder.build();
 
         MutableHttpRequest<MultipartBody> post = HttpRequest.POST("units/" + id + "/" + version, body)
                 .contentType(MediaType.MULTIPART_FORM_DATA);
@@ -211,11 +234,20 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
         return deploymentClient.toBlocking().exchange(post);
     }
 
+    private static void insertRow(Ignite baseIgnite, String tableName, int id, String name) {
+        sql(baseIgnite, "INSERT INTO " + tableName + " (id, name) VALUES (?, ?)", id, name);
+    }
+
+    private static void updateRow(Ignite baseIgnite, @Nullable Transaction tx, String tableName, int id, String value) {
+        sql(baseIgnite, tx, "UPDATE " + tableName + " SET name = ? WHERE id = ?", value, id);
+    }
+
     private void checkRows(String tableName) {
         List<List<Object>> rows = sql("select * from " + tableName + " order by id");
 
-        assertThat(rows.size(), is(2));
-        assertThat(rows.get(0).get(1), is("test"));
-        assertThat(rows.get(1).get(1), is("original_value"));
+        assertThat(rows.size(), is(3));
+        assertThat(rows.get(0).get(1), is(UNCHANGED_ROW_VALUE));
+        assertThat(rows.get(1).get(1), is(UPDATED_ROW_VALUE));
+        assertThat(rows.get(2).get(1), is(ORIGINAL_ROW_VALUE));
     }
 }
