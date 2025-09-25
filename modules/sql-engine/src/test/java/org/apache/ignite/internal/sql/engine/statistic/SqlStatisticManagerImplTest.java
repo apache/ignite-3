@@ -34,7 +34,6 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -139,8 +138,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(2L, sqlStatisticManager.tableSize(tableId));
 
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.failedFuture(
-                new CompletionException(new IgniteCheckedException(INTERNAL_ERR, "Test exception"))));
+        when(internalTable.estimatedSize()).thenReturn(CompletableFuture
+                .failedFuture(new IgniteCheckedException(INTERNAL_ERR, "Test exception")));
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
 
