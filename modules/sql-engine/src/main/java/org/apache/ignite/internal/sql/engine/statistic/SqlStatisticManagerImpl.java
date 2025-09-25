@@ -148,7 +148,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                                 return v;
                             }
 
-                            return new ActualSize(Math.max(res.keyLong(), 1), res.value());
+                            return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
                         });
                     }).exceptionally(e -> {
                         LOG.info("Can't calculate size for table [id={}].", e, tableId);
