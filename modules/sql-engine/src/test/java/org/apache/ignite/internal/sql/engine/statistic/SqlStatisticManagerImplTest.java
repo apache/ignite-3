@@ -193,7 +193,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(internalTable.estimatedSizeWithLastUpdate())
                 .thenReturn(CompletableFuture.completedFuture(LongObjectImmutablePair.of(tableSize, HybridTimestamp.MAX_VALUE)));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor);
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor);
         sqlStatisticManager.start();
 
         sqlStatisticManager.forceUpdateAll();
