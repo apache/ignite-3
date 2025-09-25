@@ -63,7 +63,6 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -75,8 +74,6 @@ import org.mockito.internal.stubbing.answers.ThrowsException;
  */
 public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
-    // getBytes is not implemented yet
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
     @ParameterizedTest
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
@@ -84,19 +81,11 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         super.wasNullPositional(columnType);
     }
 
-    // getBytes is not implemented yet
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
     @ParameterizedTest
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullNamed(ColumnType columnType) throws SQLException {
         super.wasNullNamed(columnType);
-    }
-
-    @Test
-    @Override
-    public void getUnknownColumn() throws SQLException {
-        super.getUnknownColumn();
     }
 
     @Test
