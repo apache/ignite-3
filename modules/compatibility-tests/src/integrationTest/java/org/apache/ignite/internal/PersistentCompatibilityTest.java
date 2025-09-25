@@ -44,6 +44,8 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -81,6 +83,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
+@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
