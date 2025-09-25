@@ -71,7 +71,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         String selectQuery = "select * from t";
 
-        insert(0, 499);
+        insert(0, milestone1 - 1);
 
         sql(selectQuery);
 
@@ -97,7 +97,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         sql(selectQuery);
 
-        insert(0, 499);
+        insert(0, milestone1 - 1);
 
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().join();
@@ -109,7 +109,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         long milestone2 = computeNextMilestone(milestone1, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-        insert(500, 999);
+        insert(milestone1, milestone1 + milestone2 - 1);
 
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().join();
@@ -119,6 +119,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    // copy-paste from private method: PartitionModificationCounter.computeNextMilestone
+    // if implementation will changes, it need to be changed too
     private static long computeNextMilestone(
             long currentSize,
             double staleRowsFraction,
