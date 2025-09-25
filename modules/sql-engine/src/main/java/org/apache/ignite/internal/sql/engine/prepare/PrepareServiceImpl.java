@@ -482,21 +482,17 @@ public class PrepareServiceImpl implements PrepareService {
     ) {
         CompletableFuture<PlanInfo> fut = prepareQueryCacheAware(parsedResult, ctx, false);
 
-        return fut.exceptionally(ex -> {
-            LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
+        return fut.handle((info, err) -> {
+            if (err != null) {
+                LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), err);
 
-            return null;
-        }).whenComplete((info, ex) -> {
-            if (ex == null) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Query re-planned into: " + info.queryPlan);
-                }
-
+                return null;
+            } else {
                 key.invalidated();
 
                 cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
-            } else {
-                LOG.warn("Failed to re-planning query: " + info.statement.parsedResult().originalQuery(), ex);
+
+                return info;
             }
         });
     }
@@ -712,22 +708,18 @@ public class PrepareServiceImpl implements PrepareService {
     ) {
         CompletableFuture<PlanInfo> fut = prepareDmlCacheAware(parsedResult, ctx, false);
 
-        return fut.exceptionally(ex -> {
-            LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
+        return fut.handle((info, err) -> {
+           if (err != null) {
+               LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), err);
 
-            return null;
-        }).whenComplete((info, ex) -> {
-            if (ex == null) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Query re-planned into: " + info.queryPlan);
-                }
+               return null;
+           } else {
+               key.invalidated();
 
-                key.invalidated();
+               cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
 
-                cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
-            } else {
-                LOG.warn("Failed to re-planning query: " + info.statement.parsedResult().originalQuery(), ex);
-            }
+               return info;
+           }
         });
     }
 
