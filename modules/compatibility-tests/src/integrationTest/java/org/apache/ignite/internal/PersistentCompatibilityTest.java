@@ -55,15 +55,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Legend: v1 is original version, v2 is current version (version from main branch).
+ *
  * <p>
  * It is supposed that data is written in v1, then the storage is flushed and the node is stopped, its binary is replaced with v2, the node
  * is started.
+ *
  * <p>
  * The tests have to ensure that aipersist-based tables work correctly:
  * <ul>
  * <li> All data written in v1 can be read in v2 # including overwritten versions. </li>
  * <li> Deleted data cannot be read # updates that are rolled back cannot be read. </li>
  * </ul>
+ *
  * <p>
  * Variations:
  * <ul>
