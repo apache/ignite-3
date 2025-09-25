@@ -60,7 +60,7 @@ public class ZipInputStreamCollector implements InputStreamCollector {
             } catch (IOException e) {
                 LOG.warn("Failed to close non-zip input stream.", e);
             }
-            ensureIgniteException("Provided file is not a zip archive: " + filename);
+            ensureIgniteException("Only zip file is supported.");
         }
     }
 
