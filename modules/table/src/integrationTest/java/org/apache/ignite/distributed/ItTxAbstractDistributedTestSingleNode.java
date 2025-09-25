@@ -198,10 +198,15 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
     public void testImplicitTransactionTimeout() {
         var rv = accounts.recordView();
 
-        Transaction tx = igniteTransactions.begin();
+        // Default tx timeout is 30 sec, default implicit transaction retry timeout is also 30 sec.
+        // If the tx has expired (see TransactionExpirationRegistry) by the time we hit another implicit transaction retry,
+        // the S lock from tx will be released together with the tx rollback and the upsert will succeed.
+        // Increasing the tx timeout to solve it.
+        Transaction tx = igniteTransactions.begin(new TransactionOptions().timeoutMillis(TimeUnit.SECONDS.toMillis(40)));
 
         assertNull(rv.get(tx, makeKey(1)));
 
+        // Run upsert in an implicit transaction. Keeps retrying for 30 sec internally in case the transaction fails.
         CompletableFuture<Void> implicitOpFut = runAsync(() -> rv.upsert(null, makeValue(1, 1.)));
 
         assertFalse(implicitOpFut.isDone());
