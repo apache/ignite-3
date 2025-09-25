@@ -83,6 +83,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
+// In older versions ThreadAssertingStorageEngine doesn't implement wrapper interface, so it's not possible to cast it to
+// PersistentPageMemoryStorageEngine
 @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
