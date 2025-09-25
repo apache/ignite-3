@@ -106,8 +106,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
 
-        int currentCatalogVersion = catalogService.latestCatalogVersion();
-
         // Need to have all known tables for all available history of catalog.
         int earliestVersion = catalogService.earliestCatalogVersion();
         int latestVersion = catalogService.latestCatalogVersion();
