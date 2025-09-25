@@ -430,6 +430,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
+        transactionInflights.track(tx.id(), false);
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 

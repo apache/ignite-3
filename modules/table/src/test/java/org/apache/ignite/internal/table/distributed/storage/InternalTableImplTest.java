@@ -149,7 +149,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+                .thenReturn(nullCompletedFuture());
 
         lenient().when(replicaService.invoke(anyString(), any())).then(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
