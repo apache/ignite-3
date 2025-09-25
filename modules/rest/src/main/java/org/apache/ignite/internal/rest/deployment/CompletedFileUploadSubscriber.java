@@ -78,12 +78,19 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
                 DeploymentUnit deploymentUnit = collector.toDeploymentUnit();
                 result.complete(deploymentUnit);
             } catch (Exception e) {
-                result.completeExceptionally(e);
+                suppressException(e);
+                try {
+                    collector.close();
+                } catch (Exception e2) {
+                    suppressException(e2);
+                }
+                result.completeExceptionally(ex);
             }
         }
     }
 
     private void suppressException(Throwable t) {
+        LOG.warn("Deployment unit subscriber error: ", t);
         if (ex == null) {
             ex = t;
         } else {

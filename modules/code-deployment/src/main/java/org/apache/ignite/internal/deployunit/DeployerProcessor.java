@@ -67,7 +67,7 @@ public class DeployerProcessor implements DeploymentUnitProcessor<Path> {
         ZipEntry ze;
         while ((ze = zis.getNextEntry()) != null) {
             if (ze.isDirectory()) {
-                //To support empty dirs
+                // To support empty dirs.
                 Path entryPath = unitFolder.resolve(ze.getName());
                 Files.createDirectories(entryPath);
             } else {

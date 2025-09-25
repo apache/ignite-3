@@ -25,6 +25,8 @@ import java.util.zip.ZipInputStream;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitZipException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -33,6 +35,7 @@ import org.apache.ignite.lang.IgniteException;
  * <p>This decorator implementation automatically detects ZIP archive and throws exception in case when provided more than one archive.
  */
 public class ZipInputStreamCollector implements InputStreamCollector {
+    private static final IgniteLogger LOG = Loggers.forClass(ZipInputStreamCollector.class);
     private static final byte[] ZIP_MAGIC_HEADER = {0x50, 0x4b, 0x03, 0x04};
 
     private ZipInputStream zis;
@@ -44,14 +47,26 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
 
         if (zis != null) {
-            igniteException = new DeploymentUnitZipException("Deployment unit with unzip supports only single zip file.");
+            ensureIgniteException("Deployment unit with unzip supports only single zip file.");
             return;
         }
 
         if (isZip(result)) {
             zis = new ZipInputStream(result);
         } else {
-            igniteException = new DeploymentUnitZipException("Only zip file is supported.");
+            // We don't need the stream anymore, and it is not a zip, so we close it to avoid resource leak.
+            try {
+                is.close();
+            } catch (IOException e) {
+                LOG.warn("Failed to close non-zip input stream.", e);
+            }
+            ensureIgniteException("Provided file is not a zip archive: " + filename);
+        }
+    }
+
+    private void ensureIgniteException(String message) {
+        if (igniteException == null) {
+            igniteException = new DeploymentUnitZipException(message);
         }
     }
 
