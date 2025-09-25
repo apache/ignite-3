@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
 import java.util.zip.ZipInputStream;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitZipException;
