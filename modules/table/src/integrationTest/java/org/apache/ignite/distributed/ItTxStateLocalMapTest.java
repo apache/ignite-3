@@ -124,22 +124,22 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testUpsert(boolean commit) {
-        testTransaction(tx -> table.recordView().upsert(tx, makeValue(1, 1)), true, commit);
+        testTransaction(tx -> table.recordView().upsert(tx, makeValue(1, 1)), true, commit, false);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testGet(boolean commit) {
-        testTransaction(tx -> table.recordView().get(tx, makeKey(1)), false, commit);
+        testTransaction(tx -> table.recordView().get(tx, makeKey(1)), false, commit, true);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testUpdateAll(boolean commit) {
-        testTransaction(tx -> table.recordView().upsertAll(tx, List.of(makeValue(1, 1), makeValue(2, 2))), true, commit);
+        testTransaction(tx -> table.recordView().upsertAll(tx, List.of(makeValue(1, 1), makeValue(2, 2))), true, commit, false);
     }
 
-    private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit) {
+    private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit, boolean read) {
         InternalClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
         UUID coordinatorId = coord.id();
 
@@ -160,17 +160,27 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
             tx.rollback();
         }
 
-        checkLocalTxStateOnNodes(
-                tx.id(),
-                new TxStateMeta(
-                        commit ? COMMITTED : ABORTED,
-                        coordinatorId,
-                        tx.commitPartition(),
-                        commit ? testCluster.clockServices.get(coord.name()).now() : null,
-                        null,
-                        null
-                )
-        );
+        if (read) {
+            HybridTimestamp now1 = testCluster.clockServices.get(coord.name()).now();
+            HybridTimestamp now2 = testCluster.clockServices.get(coord.name()).now();
+
+            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(commit ? COMMITTED : ABORTED, coordinatorId, tx.commitPartition(),
+                    commit ? testCluster.clockServices.get(coord.name()).now() : null, null, null), List.of(0));
+            checkLocalTxStateOnNodes(tx.id(), null, IntStream.range(1, NODES).boxed().collect(toList()));
+        } else {
+            checkLocalTxStateOnNodes(
+                    tx.id(),
+                    new TxStateMeta(
+                            commit ? COMMITTED : ABORTED,
+                            coordinatorId,
+                            tx.commitPartition(),
+                            commit ? testCluster.clockServices.get(coord.name()).now() : null,
+                            null,
+                            null
+                    )
+            );
+        }
+
     }
 
     private void checkLocalTxStateOnNodes(UUID txId, TxStateMeta expected) {
