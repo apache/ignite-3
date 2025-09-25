@@ -124,7 +124,10 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(1L));
+        when(internalTable.estimatedSize()).thenReturn(
+                CompletableFuture.completedFuture(1L),
+                CompletableFuture.completedFuture(2L)
+        );
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
         sqlStatisticManager.changesNotifier(k -> {});
@@ -132,7 +135,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(1L, sqlStatisticManager.tableSize(tableId));
 
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(2L));
+        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
+
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
 
