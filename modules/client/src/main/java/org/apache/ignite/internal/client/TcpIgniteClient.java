@@ -133,18 +133,16 @@ public class TcpIgniteClient implements IgniteClient {
         cluster = new ClientCluster(ch);
     }
 
-    @SuppressWarnings("DataFlowIssue")
     @Nullable
     private MetricManager initMetricManager(IgniteClientConfiguration cfg) {
         if (!cfg.metricsEnabled()) {
             return null;
         }
 
-        var metricManager = new MetricManagerImpl(ClientUtils.logger(cfg, MetricManagerImpl.class));
+        var metricManager = new MetricManagerImpl(ClientUtils.logger(cfg, MetricManagerImpl.class), clientName);
 
         metricManager.registerSource(metrics);
         metricManager.enable(metrics);
-        metricManager.configure(null, null, clientName);
         metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         return metricManager;
