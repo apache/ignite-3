@@ -45,6 +45,7 @@ import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
 import org.junit.jupiter.params.Parameter;
 import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -70,7 +71,7 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir, CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE);
         cluster.startEmbedded(1, true);
 
-        createDefaultTables(cluster.node(0));
+        initTestData(cluster.node(0));
 
         delegate = createTestInstanceWithOldClient(clientVersion);
     }
@@ -206,10 +207,51 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         delegate.testComputeMissingJob();
     }
 
+    @Override
+    @ParameterizedTest
+    @MethodSource("jobArgs")
+    public void testComputeArgs(Object arg) {
+        delegate.testComputeArgs(arg);
+    }
+
+    @Test
+    @Override
+    public void testComputeExecute() {
+        delegate.testComputeExecute();
+    }
+
+    @Test
+    @Override
+    public void testComputeExecuteColocated() {
+        delegate.testComputeExecuteColocated();
+    }
+
+    @Test
+    @Override
+    public void testComputeExecuteBroadcast() {
+        delegate.testComputeExecuteBroadcast();
+    }
+
+    @Test
+    @Override
+    public void testComputeExecuteBroadcastTable() {
+        delegate.testComputeExecuteBroadcastTable();
+    }
+
     @Test
     @Override
     public void testStreamer() {
         delegate.testStreamer();
+    }
+
+    @Override
+    public void testStreamerWithReceiver() {
+        delegate.testStreamerWithReceiver();
+    }
+
+    @Override
+    public void testStreamerWithReceiverArg() {
+        delegate.testStreamerWithReceiverArg();
     }
 
     private static ClientCompatibilityTests createTestInstanceWithOldClient(String igniteVersion)
