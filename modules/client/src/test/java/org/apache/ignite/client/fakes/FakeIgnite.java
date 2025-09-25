@@ -74,6 +74,7 @@ public class FakeIgnite implements Ignite {
      * Creates a new instance of {@link FakeIgnite} with the given {@code name} and custom {@code clock}.
      *
      * @param name Name.
+     * @param clock Hybrid clock.
      */
     public FakeIgnite(String name, HybridClock clock) {
         this.clock = clock;
