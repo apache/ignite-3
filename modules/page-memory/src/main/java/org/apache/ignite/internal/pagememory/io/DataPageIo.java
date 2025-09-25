@@ -1143,13 +1143,13 @@ public class DataPageIo extends PageIo {
 
         int payloadSize = Math.min(rowSize - written, getFreeSpace(pageAddr));
 
-        int remain = rowSize - written - payloadSize;
+        int remaining = rowSize - written - payloadSize;
         int headerSize = row.headerSize();
 
-        // We need page header to be located entirely on the very first page in chain.
+        // We need row header to be located entirely on the very first page in chain.
         // So we force moving it to the next page if it could not fit entirely on this page.
-        if (remain > 0 && remain < headerSize) {
-            payloadSize -= headerSize - remain;
+        if (remaining > 0 && remaining < headerSize) {
+            payloadSize -= headerSize - remaining;
         }
 
         int fullEntrySize = getPageEntrySize(payloadSize, SHOW_PAYLOAD_LEN | SHOW_LINK | SHOW_ITEM);
