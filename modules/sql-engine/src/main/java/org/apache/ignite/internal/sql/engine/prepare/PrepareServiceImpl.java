@@ -709,17 +709,17 @@ public class PrepareServiceImpl implements PrepareService {
         CompletableFuture<PlanInfo> fut = prepareDmlCacheAware(parsedResult, ctx, false);
 
         return fut.handle((info, err) -> {
-           if (err != null) {
-               LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), err);
+            if (err != null) {
+                LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), err);
 
-               return null;
-           } else {
-               key.invalidated();
+                return null;
+            } else {
+                key.invalidated();
 
-               cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
+                cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
 
-               return info;
-           }
+                return info;
+            }
         });
     }
 
