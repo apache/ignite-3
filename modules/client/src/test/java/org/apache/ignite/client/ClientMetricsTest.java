@@ -362,9 +362,12 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     public void testJmxExportTwoClientsSameName() throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
 
+        var loggerFactory1 = new TestLoggerFactory("client1");
+        var loggerFactory2 = new TestLoggerFactory("client2");
+
         String clientName = "testJmxExportTwoClientsSameName";
-        client = clientBuilder().metricsEnabled(true).name(clientName).build();
-        client2 = clientBuilder().metricsEnabled(true).name(clientName).build();
+        client = clientBuilder().metricsEnabled(true).name(clientName).loggerFactory(loggerFactory1).build();
+        client2 = clientBuilder().metricsEnabled(true).name(clientName).loggerFactory(loggerFactory2).build();
 
         client.tables().tables();
         client2.tables().tables();
@@ -380,6 +383,10 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
         assertEquals(1L, bean.getAttribute("ConnectionsActive"));
         assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+
+        // Error is logged, but the client is functional.
+        loggerFactory2.waitForLogContains("MBean for metric set can't be created [name=testJmxExportTwoClientsSameName].", 3_000);
+        loggerFactory1.assertLogDoesNotContain("MBean for metric set can't be created");
     }
 
     private Table oneColumnTable() {
