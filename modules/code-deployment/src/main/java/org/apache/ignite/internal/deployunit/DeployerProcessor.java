@@ -64,17 +64,14 @@ public class DeployerProcessor implements DeploymentUnitProcessor<Path> {
     @Override
     public void processContentWithUnzip(ZipDeploymentUnit unit, Path unitFolder) throws IOException {
         ZipInputStream zis = unit.zis();
-        Path zipUnitFolder = unitFolder;
         ZipEntry ze;
         while ((ze = zis.getNextEntry()) != null) {
-            Path entryPath = zipUnitFolder.resolve(ze.getName());
-
             if (ze.isDirectory()) {
+                //To support empty dirs
+                Path entryPath = unitFolder.resolve(ze.getName());
                 Files.createDirectories(entryPath);
             } else {
-                Path unitFileFolder = entryPath.getParent();
-                Files.createDirectories(unitFileFolder);
-                doDeploy(unitFileFolder, entryPath.getFileName().toString(), zis);
+                doDeploy(unitFolder, ze.getName(), zis);
             }
         }
     }

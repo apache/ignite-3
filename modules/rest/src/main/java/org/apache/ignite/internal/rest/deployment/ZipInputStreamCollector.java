@@ -50,6 +50,8 @@ public class ZipInputStreamCollector implements InputStreamCollector {
 
         if (isZip(result)) {
             zis = new ZipInputStream(result);
+        } else {
+            igniteException = new DeploymentUnitZipException("Only zip file is supported.");
         }
     }
 

@@ -40,19 +40,16 @@ public class InputStreamCollectorImpl implements InputStreamCollector {
      */
     private final Map<String, InputStream> content = new HashMap<>();
 
-    /** {@inheritDoc} */
     @Override
     public void addInputStream(String filename, InputStream is) {
         content.put(filename, is);
     }
 
-    /** {@inheritDoc} */
     @Override
     public DeploymentUnit toDeploymentUnit() {
         return new DeploymentUnitImpl(content);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         closeAll(content.values());

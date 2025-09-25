@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZipFile;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.fillDummyFile;
 import static org.awaitility.Awaitility.await;
@@ -37,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
@@ -59,6 +61,7 @@ import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
+import org.apache.ignite.internal.rest.matcher.ProblemMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -276,6 +279,24 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
 
         assertTrue(Files.exists(nodeUnitDirectory.resolve(zipFile.getFileName())));
+    }
+
+    @Test
+    public void testDeployFileAsZip() {
+        String id = UNIT_ID;
+        String version = "1.1.1";
+
+        assertThrowsProblem(
+                () -> deploy(id, version, true, smallFile),
+                HttpStatus.BAD_REQUEST,
+                ProblemMatcher.isProblem().withDetail("Only zip file is supported.")
+        );
+
+        assertThrowsProblem(
+                () -> deploy(id, version, true, zipFile, zipFile),
+                HttpStatus.BAD_REQUEST,
+                ProblemMatcher.isProblem().withDetail("Deployment unit with unzip supports only single zip file.")
+        );
     }
 
     private HttpResponse<Object> deployZip(String id, String version) {
