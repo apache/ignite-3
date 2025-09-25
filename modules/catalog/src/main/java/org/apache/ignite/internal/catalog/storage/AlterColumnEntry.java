@@ -18,15 +18,8 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.Builder;
@@ -34,7 +27,6 @@ import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -83,39 +75,13 @@ public class AlterColumnEntry implements UpdateTable, Fireable {
     }
 
     @Override
-    public Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp) {
+    public Builder newTableDescriptor(CatalogTableDescriptor table) {
         List<CatalogTableColumnDescriptor> updatedTableColumns = table.columns().stream()
                 .map(source -> source.name().equals(column.name()) ? column : source)
                 .collect(toList());
 
         return table.copyBuilder()
-                .columns(updatedTableColumns)
-                .timestamp(timestamp);
-    }
-
-    @Override
-    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
-        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
-
-        List<CatalogTableColumnDescriptor> updatedTableColumns = table.columns().stream()
-                .map(source -> source.name().equals(column.name()) ? column : source)
-                .collect(toList());
-
-        CatalogTableDescriptor newTable = table.copyBuilder()
-                .tableVersion(table.tableVersion() + 1)
-                .columns(updatedTableColumns)
-                .timestamp(timestamp)
-                .build();
-
-        return new Catalog(
-                catalog.version(),
-                catalog.time(),
-                catalog.objectIdGenState(),
-                catalog.zones(),
-                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
-                defaultZoneIdOpt(catalog)
-        );
+                .columns(updatedTableColumns);
     }
 
     @Override

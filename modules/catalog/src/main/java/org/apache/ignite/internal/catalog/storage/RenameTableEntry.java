@@ -23,7 +23,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /** Entry representing a rename of a table. */
 public class RenameTableEntry implements UpdateTable, Fireable {
@@ -61,7 +60,7 @@ public class RenameTableEntry implements UpdateTable, Fireable {
     }
 
     @Override
-    public Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp) {
+    public Builder newTableDescriptor(CatalogTableDescriptor table) {
         return table.copyBuilder().name(newTableName);
     }
 }

@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
@@ -121,6 +122,12 @@ class CatalogTableDescriptorTest {
         assertThrows(NullPointerException.class, () -> {
             baseBuilder
                     .columns(null)
+                    .build();
+        }, "No columns defined.");
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            baseBuilder
+                    .columns(Collections.emptyList())
                     .build();
         }, "No columns defined.");
 

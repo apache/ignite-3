@@ -28,7 +28,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -76,7 +75,7 @@ public class DropColumnsEntry implements UpdateTable, Fireable {
     }
 
     @Override
-    public Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp) {
+    public Builder newTableDescriptor(CatalogTableDescriptor table) {
         List<CatalogTableColumnDescriptor> updatedTableColumns = table.columns().stream()
                 .filter(col -> !columns.contains(col.name()))
                 .collect(toList());

@@ -25,7 +25,6 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -74,7 +73,7 @@ public class NewColumnsEntry implements UpdateTable, Fireable {
     }
 
     @Override
-    public Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp) {
+    public Builder newTableDescriptor(CatalogTableDescriptor table) {
         List<CatalogTableColumnDescriptor> updatedTableColumns = CollectionUtils.concat(table.columns(), descriptors);
 
         return table.copyBuilder().columns(updatedTableColumns);

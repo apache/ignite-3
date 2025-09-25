@@ -110,7 +110,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
 
         TableVersion latestTableVersion = Objects.requireNonNull(schemaVersions.get(schemaVersions.latestVersion()));
         if (!Objects.equals(latestTableVersion.columns(), columns)) {
-            throw new IllegalArgumentException("Latest schema version columns do not match descriptor definition columns.");
+            throw new IllegalArgumentException(format(
+                    "Latest schema version columns do not match descriptor definition columns. Schema columns: {}, table columns: {}.",
+                    latestTableVersion.columns(),
+                    columns
+            ));
         }
     }
 
@@ -263,12 +267,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         private HybridTimestamp timestamp = INITIAL_TIMESTAMP;
         private int tableVersion = 0;
 
-        private Builder() {}
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
         /**
          * Sets the {@code id} and returns a reference to this Builder enabling method chaining.
          *
@@ -408,6 +406,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          */
         public CatalogTableDescriptor build() {
             Objects.requireNonNull(columns, "No columns defined.");
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("No columns defined.");
+            }
 
             if (schemaVersions == null) {
                 // in case we are creating a new table from scratch, if schema version is not defined we make a default one

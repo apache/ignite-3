@@ -35,7 +35,7 @@ interface UpdateTable extends UpdateEntry {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId());
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        CatalogTableDescriptor modifiedTable = newTableDescriptor(table, timestamp)
+        CatalogTableDescriptor modifiedTable = newTableDescriptor(table)
                 .tableVersion(newTableVersion(table))
                 .timestamp(timestamp)
                 .build();
@@ -52,8 +52,15 @@ interface UpdateTable extends UpdateEntry {
         );
     }
 
-    /** Creates updated {@link CatalogTableDescriptor} associated with provided causality token. */
-    CatalogTableDescriptor.Builder newTableDescriptor(CatalogTableDescriptor table, HybridTimestamp timestamp);
+    /**
+     * Creates updated version of {@link CatalogTableDescriptor}.
+     * The table version and casuality token would be incremented automatically.
+     *
+     * @param table previous table descriptor definition.
+     *
+     * @return builder with the updated fields for this table descriptor, created with {@link CatalogTableDescriptor#copyBuilder()}
+     **/
+    CatalogTableDescriptor.Builder newTableDescriptor(CatalogTableDescriptor table);
 
     /** Returns table id for a table affected by an update table command. */
     int tableId();
