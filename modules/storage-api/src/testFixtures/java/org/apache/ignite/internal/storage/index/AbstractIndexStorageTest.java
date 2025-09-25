@@ -162,8 +162,9 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         int zoneId = catalogId.getAndIncrement();
         int pkIndexId = catalogId.getAndIncrement();
 
-        List<CatalogTableColumnDescriptor> columns = Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(
-                toList());
+        List<CatalogTableColumnDescriptor> columns = Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream())
+                .map(CatalogUtils::fromParams)
+                .collect(toList());
         List<String> pkCols = List.of(pkColumn.name());
         CatalogTableDescriptor tableDescriptor = CatalogTableDescriptor.builder()
                 .id(tableId)
