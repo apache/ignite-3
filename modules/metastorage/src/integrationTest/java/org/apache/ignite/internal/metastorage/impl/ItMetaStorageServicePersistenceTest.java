@@ -29,7 +29,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.TestMetasStorageUtils;
@@ -92,7 +91,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
                 followerNode.name(),
                 service,
                 new IgniteSpinBusyLock(),
-                new HybridClockImpl(),
+                server.options().getClock(),
                 followerNode.id()
         );
 
@@ -148,7 +147,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     }
 
     @Override
-    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
+    public RaftGroupListener createListener(ClusterService service, RaftServer server, Path listenerPersistencePath) {
         String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
@@ -165,7 +164,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
             return s;
         });
 
-        HybridClock clock = new HybridClockImpl();
+        HybridClock clock = server.options().getClock();
         return new MetaStorageListener(storage, clock, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock));
     }
 
