@@ -75,11 +75,13 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     private static final int STRIPES = 10;
 
+    private static final String NODE_NAME = "test";
+
     private SegmentFileManager fileManager;
 
     @BeforeEach
     void setUp() throws IOException {
-        fileManager = new SegmentFileManager(workDir, FILE_SIZE, STRIPES);
+        fileManager = new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES);
 
         fileManager.start();
     }
@@ -92,8 +94,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     @Test
     void testConstructorInvariants() {
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(workDir, 0, 1));
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(workDir, 1, 1));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 0, 1));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 1, 1));
     }
 
     @Test

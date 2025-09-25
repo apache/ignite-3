@@ -60,6 +60,8 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     private static final long GROUP_ID = 1000;
 
+    private static final String NODE_NAME = "test";
+
     private SegstoreLogStorage logStorage;
 
     private SegmentFileManager segmentFileManager;
@@ -69,7 +71,7 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        segmentFileManager = new SegmentFileManager(workDir, SEGMENT_SIZE, 1);
+        segmentFileManager = new SegmentFileManager(NODE_NAME, workDir, SEGMENT_SIZE, 1);
 
         logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
 
