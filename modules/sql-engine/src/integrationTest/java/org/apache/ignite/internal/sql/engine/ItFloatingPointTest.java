@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -123,9 +124,17 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
 
     @Test
     void testOrderBy() {
-        List<Float> floats = sql("SELECT f FROM test ORDER BY f")
+        List<Float> floats = sql("SELECT /*+ NO_INDEX */ f FROM test ORDER BY f")
                 .stream().flatMap(List::stream).map(Float.class::cast).collect(toList());
-        List<Double> doubles = sql("SELECT d FROM test ORDER BY d")
+        List<Double> doubles = sql("SELECT /*+ NO_INDEX */ d FROM test ORDER BY d")
+                .stream().flatMap(List::stream).map(Double.class::cast).collect(toList());
+
+        assertThat(floats, contains(Float.NEGATIVE_INFINITY, -1.0f, -0.0f, 0.0f, 1.0f, Float.POSITIVE_INFINITY, Float.NaN));
+        assertThat(doubles, contains(Double.NEGATIVE_INFINITY, -1.0d, -0.0d, 0.0d, 1.0d, Double.POSITIVE_INFINITY, Double.NaN));
+
+        floats = sql("SELECT /*+ FORCE_INDEX(test_f_idx) */ f FROM test ORDER BY f")
+                .stream().flatMap(List::stream).map(Float.class::cast).collect(toList());
+        doubles = sql("SELECT /*+ FORCE_INDEX(test_d_idx) */ d FROM test ORDER BY d")
                 .stream().flatMap(List::stream).map(Double.class::cast).collect(toList());
 
         assertThat(floats, contains(Float.NEGATIVE_INFINITY, -1.0f, -0.0f, 0.0f, 1.0f, Float.POSITIVE_INFINITY, Float.NaN));
@@ -169,6 +178,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
 
     @Test
     void testGrouping() {
+        // Insert more data.
         sql("INSERT INTO test VALUES (?, ?, ?)", 8, Float.POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
         sql("INSERT INTO test VALUES (?, ?, ?)", 9, Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
         sql("INSERT INTO test VALUES (?, ?, ?)", 10, Float.NaN, Double.NaN);
@@ -177,7 +187,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
         sql("INSERT INTO test VALUES (?, ?, ?)", 13, -0.0f, -0.0d);
         sql("INSERT INTO test VALUES (?, ?, ?)", 14, +0.0f, +0.0d);
 
-        assertEquals(14, sql("SELECT f FROM test GROUP BY f").get(0).get(0));
+        assertThat(sql("SELECT * FROM test"), hasSize(14));
 
         List<Float> floats = sql("SELECT f FROM test GROUP BY f")
                 .stream().flatMap(List::stream).map(Float.class::cast).collect(toList());
