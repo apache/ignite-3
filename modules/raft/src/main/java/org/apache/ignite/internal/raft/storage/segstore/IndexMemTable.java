@@ -23,7 +23,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-class IndexMemTable implements MutableIndexMemTable, ImmutableIndexMemTable {
+class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
     private static class Stripe {
         /** Map from group ID to SegmentInfo. */
         private final ConcurrentMap<Long, SegmentInfo> memTable = new ConcurrentHashMap<>();
@@ -57,7 +57,7 @@ class IndexMemTable implements MutableIndexMemTable, ImmutableIndexMemTable {
     }
 
     @Override
-    public ImmutableIndexMemTable makeImmutable() {
+    public ReadModeIndexMemTable transitionToReadMode() {
         return this;
     }
 

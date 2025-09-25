@@ -108,7 +108,7 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     // TODO: Multi-threaded visibility should probably be revised in https://issues.apache.org/jira/browse/IGNITE-26282.
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
-    private MutableIndexMemTable memTable;
+    private WriteModeIndexMemTable memTable;
 
     private final RaftLogCheckpointer checkpointer;
 
@@ -247,7 +247,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
             SegmentFile newFile = allocateNewSegmentFile(++curFileIndex);
 
-            checkpointer.onRollover(observedSegmentFile, memTable.makeImmutable());
+            checkpointer.onRollover(observedSegmentFile, memTable.transitionToReadMode());
 
             memTable = new IndexMemTable(stripes);
 

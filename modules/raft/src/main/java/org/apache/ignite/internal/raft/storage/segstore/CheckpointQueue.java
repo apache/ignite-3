@@ -41,7 +41,7 @@ class CheckpointQueue {
     static class Entry {
         private final SegmentFile segmentFile;
 
-        private final ImmutableIndexMemTable memTable;
+        private final ReadModeIndexMemTable memTable;
 
         @Nullable
         private volatile Entry next;
@@ -49,7 +49,7 @@ class CheckpointQueue {
         @Nullable
         private volatile Entry prev;
 
-        Entry(SegmentFile segmentFile, ImmutableIndexMemTable memTable) {
+        Entry(SegmentFile segmentFile, ReadModeIndexMemTable memTable) {
             this.segmentFile = segmentFile;
             this.memTable = memTable;
         }
@@ -58,7 +58,7 @@ class CheckpointQueue {
             return segmentFile;
         }
 
-        ImmutableIndexMemTable memTable() {
+        ReadModeIndexMemTable memTable() {
             return memTable;
         }
     }
@@ -101,7 +101,7 @@ class CheckpointQueue {
     /**
      * Adds a new entry to the queue, blocking if the queue is full.
      */
-    void add(SegmentFile segmentFile, ImmutableIndexMemTable memTable) throws InterruptedException {
+    void add(SegmentFile segmentFile, ReadModeIndexMemTable memTable) throws InterruptedException {
         var newEntry = new Entry(segmentFile, memTable);
 
         lock.lock();

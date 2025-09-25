@@ -56,8 +56,8 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
     void testAddPeekRemove(
             @Mock SegmentFile segmentFile1,
             @Mock SegmentFile segmentFile2,
-            @Mock ImmutableIndexMemTable memTable1,
-            @Mock ImmutableIndexMemTable memTable2
+            @Mock ReadModeIndexMemTable memTable1,
+            @Mock ReadModeIndexMemTable memTable2
     ) throws InterruptedException {
         queue.add(segmentFile1, memTable1);
         queue.add(segmentFile2, memTable2);
@@ -85,7 +85,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
     void testBlockingPeek(
             @InjectExecutorService(threadCount = 1) ExecutorService executor,
             @Mock SegmentFile segmentFile,
-            @Mock ImmutableIndexMemTable memTable
+            @Mock ReadModeIndexMemTable memTable
     ) throws InterruptedException {
         CompletableFuture<Entry> peekFuture = supplyAsync(() -> {
             try {
@@ -109,7 +109,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
     void testBlockingAdd(
             @InjectExecutorService(threadCount = 1) ExecutorService executor,
             @Mock SegmentFile segmentFile,
-            @Mock ImmutableIndexMemTable memTable
+            @Mock ReadModeIndexMemTable memTable
     ) throws InterruptedException {
         for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
             queue.add(segmentFile, memTable);
@@ -143,9 +143,9 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
             @Mock SegmentFile segmentFile1,
             @Mock SegmentFile segmentFile2,
             @Mock SegmentFile segmentFile3,
-            @Mock ImmutableIndexMemTable memTable1,
-            @Mock ImmutableIndexMemTable memTable2,
-            @Mock ImmutableIndexMemTable memTable3
+            @Mock ReadModeIndexMemTable memTable1,
+            @Mock ReadModeIndexMemTable memTable2,
+            @Mock ReadModeIndexMemTable memTable3
     ) throws InterruptedException {
         queue.add(segmentFile1, memTable1);
         queue.add(segmentFile2, memTable2);
@@ -172,7 +172,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
 
         RunnableX producerTask = () -> {
             for (int i = 0; i < numEntries; i++) {
-                ImmutableIndexMemTable mockTable = mock(ImmutableIndexMemTable.class);
+                ReadModeIndexMemTable mockTable = mock(ReadModeIndexMemTable.class);
 
                 when(mockTable.getSegmentFileOffset(anyLong(), anyLong())).thenReturn(i);
 
@@ -201,7 +201,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
 
         RunnableX producerTask = () -> {
             for (int i = 0; i < numEntries; i++) {
-                ImmutableIndexMemTable mockTable = mock(ImmutableIndexMemTable.class);
+                ReadModeIndexMemTable mockTable = mock(ReadModeIndexMemTable.class);
 
                 when(mockTable.getSegmentFileOffset(anyLong(), anyLong())).thenReturn(i);
 

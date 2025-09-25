@@ -31,7 +31,7 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 
 /**
- * File manager responsible for persisting {@link ImmutableIndexMemTable}s to index files.
+ * File manager responsible for persisting {@link ReadModeIndexMemTable}s to index files.
  *
  * <p>When a checkpoint is triggered on segment file rollover, the current index memtable is scheduled for being saved to a file. The
  * format of this file is as follows:
@@ -68,7 +68,7 @@ import java.util.Map.Entry;
  * +-------------------------------------------------------------------------+-----+
  * </pre>
  *
- * @see ImmutableIndexMemTable
+ * @see ReadModeIndexMemTable
  * @see SegmentFileManager
  */
 class IndexFileManager {
@@ -104,7 +104,7 @@ class IndexFileManager {
      *
      * <p>The file is saved into a temporary location and is expected to be later renamed using {@link IndexFile#syncAndRename}.
      */
-    IndexFile saveIndexMemtable(ImmutableIndexMemTable indexMemTable) throws IOException {
+    IndexFile saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
         String fileName = indexFileName(curFileIndex++, 0);
 
         Path path = baseDir.resolve(fileName + ".tmp");
@@ -122,7 +122,7 @@ class IndexFileManager {
         return new IndexFile(fileName, path);
     }
 
-    private static byte[] header(ImmutableIndexMemTable indexMemTable) {
+    private static byte[] header(ReadModeIndexMemTable indexMemTable) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);

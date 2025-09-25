@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import java.util.Iterator;
+import java.util.Map.Entry;
+
 /**
- * Mutable index memtable.
+ * Immutable version of an index memtable used by the {@link RaftLogCheckpointer}.
  *
- * <p>This class represents an in-memory index of the current segment file used by a {@link SegmentFileManager}. Index is
- * essentially a mapping from {@code [groupId, logIndex]} to the offset in the segment file where the corresponding log entry is stored.
- *
- * <p>It is expected that entries for each {@code groupId} are written by one thread, therefore concurrent writes to the same
- * {@code groupId} are not safe. However, reads from multiple threads are safe in relation to the aforementioned writes.
+ * @see WriteModeIndexMemTable
  */
-interface MutableIndexMemTable {
+interface ReadModeIndexMemTable {
     /**
      * Returns the offset in the segment file where the log entry with the given {@code logIndex} is stored or {@code 0} if the log entry
      * was not found in the memtable.
@@ -34,16 +33,12 @@ interface MutableIndexMemTable {
     int getSegmentFileOffset(long groupId, long logIndex);
 
     /**
-     * Appends a new segment file offset to the memtable.
-     *
-     * @param groupId Raft group ID.
-     * @param logIndex Raft log index.
-     * @param segmentFileOffset Offset in the segment file.
+     * Returns an iterator over all {@code Group ID -> SegmentInfo} entries in this memtable.
      */
-    void appendSegmentFileOffset(long groupId, long logIndex, int segmentFileOffset);
+    Iterator<Entry<Long, SegmentInfo>> iterator();
 
     /**
-     * Returns the immutable version of this memtable.
+     * Returns the number of Raft Group IDs stored in this memtable.
      */
-    ImmutableIndexMemTable makeImmutable();
+    int numGroups();
 }
