@@ -123,7 +123,7 @@ public class TcpIgniteClient implements IgniteClient {
                 ? cfgName
                 : "client_" + GLOBAL_CONN_ID_GEN.incrementAndGet(); // Use underscores for JMX compat.
 
-        metrics = new ClientMetricSource(clientName);
+        metrics = new ClientMetricSource();
         ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
         tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         transactions = new ClientTransactions(ch);
@@ -133,6 +133,7 @@ public class TcpIgniteClient implements IgniteClient {
         cluster = new ClientCluster(ch);
     }
 
+    @SuppressWarnings("DataFlowIssue")
     @Nullable
     private MetricManager initMetricManager(IgniteClientConfiguration cfg) {
         if (!cfg.metricsEnabled()) {
@@ -143,6 +144,7 @@ public class TcpIgniteClient implements IgniteClient {
 
         metricManager.registerSource(metrics);
         metricManager.enable(metrics);
+        metricManager.configure(null, null, clientName);
         metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         return metricManager;

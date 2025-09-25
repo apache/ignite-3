@@ -30,8 +30,8 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
     /**
      * Constructor.
      */
-    ClientMetricSource(String name) {
-        super(name);
+    ClientMetricSource() {
+        super("client");
     }
 
     /**
