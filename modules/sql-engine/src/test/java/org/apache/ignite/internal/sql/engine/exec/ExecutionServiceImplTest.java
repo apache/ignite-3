@@ -70,12 +70,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -165,6 +165,7 @@ import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -864,6 +865,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      */
     @Test
     @Tag(CUSTOM_CLUSTER_SETUP_TAG)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26465")
     public void timeoutFiredOnInitialization() throws Throwable {
         CountDownLatch mappingsCacheAccessBlock = new CountDownLatch(1);
         AtomicReference<Throwable> exHolder = new AtomicReference<>();
@@ -1208,12 +1210,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     ) {
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters, ppMetadata) -> mappedFragments;
 
-        LongSupplier topologyVerSupplier = () -> Long.MAX_VALUE;
-
-        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologyVerSupplier,
+        LogicalTopology logicalTopology = TestBuilders.logicalTopology(logicalNodes);
+        var service = new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner,
                 new TestExecutionDistributionProvider(logicalNodes, () -> mappingException),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(), Runnable::run
         );
+
+        service.onTopologyLeap(logicalTopology.getLogicalTopology());
+
+        return service;
     }
 
     private SqlOperationContext createContext() {

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.InvalidNodeConfigurationException;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -148,10 +149,19 @@ public class CmgRaftService implements ManuallyCloseable {
         return raftService.run(command, RaftCommandRunner.NO_TIMEOUT)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
-                        throw new JoinDeniedException(((ValidationErrorResponse) response).reason());
+                        var validationErrorResponse = (ValidationErrorResponse) response;
+
+                        if (validationErrorResponse.isInvalidNodeConfig()) {
+                            var invalidNodeConfigurationException = new InvalidNodeConfigurationException(validationErrorResponse.reason());
+
+                            // TODO: IGNITE-26433 Use dedicated error code for JoinDeniedException
+                            throw new JoinDeniedException("JoinRequest command failed", invalidNodeConfigurationException);
+                        } else {
+                            throw new JoinDeniedException(validationErrorResponse.reason());
+                        }
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
-                    }  else {
+                    } else {
                         LOG.info("JoinRequest command executed successfully");
                     }
                 });

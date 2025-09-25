@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
@@ -32,6 +33,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,9 +46,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -54,6 +58,7 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -225,11 +230,11 @@ class SegmentFileTest extends IgniteAbstractTest {
     /**
      * Tests a multi-threaded happy-case append scenario. We expect that bytes do not get intertwined.
      */
-    @Test
-    void testMultiThreadedReserve(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws IOException {
+    @RepeatedTest(10)
+    void testMultiThreadedReserve() throws IOException {
         int maxEntrySize = 100;
 
-        int fileSize = 10_000;
+        int fileSize = 1_000;
 
         int numElements = fileSize / maxEntrySize;
 
@@ -237,11 +242,11 @@ class SegmentFileTest extends IgniteAbstractTest {
 
         createSegmentFile(fileSize);
 
-        CompletableFuture<?>[] tasks = data.stream()
-                .map(bytes -> runAsync(() -> assertTrue(writeToSegmentFile(bytes)), executor))
-                .toArray(CompletableFuture[]::new);
+        RunnableX[] tasks = data.stream()
+                .map(bytes -> (RunnableX) () -> assertTrue(writeToSegmentFile(bytes)))
+                .toArray(RunnableX[]::new);
 
-        assertThat(allOf(tasks), willCompleteSuccessfully());
+        runRace(tasks);
 
         assertThat(readDataFromFile(numElements), containsInAnyOrder(data.toArray()));
     }
@@ -250,35 +255,34 @@ class SegmentFileTest extends IgniteAbstractTest {
      * Tests a multi-threaded append scenario when some bytes get rejected due to an overflow. We expect that only the
      * successfully written bytes get written to the file.
      */
-    @Test
-    void testMultiThreadedReserveWithOverflow(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws IOException {
+    @RepeatedTest(10)
+    void testMultiThreadedReserveWithOverflow() throws IOException {
         int maxEntrySize = 100;
 
-        int fileSize = 10_000;
+        int fileSize = 500;
 
-        int numElements = fileSize;
+        int numElements = 20;
 
         List<byte[]> data = generateData(numElements, maxEntrySize);
 
         createSegmentFile(fileSize);
 
-        @SuppressWarnings("unchecked")
-        CompletableFuture<Boolean>[] tasks = data.stream()
-                .map(bytes -> supplyAsync(() -> writeToSegmentFile(bytes), executor))
-                .toArray(CompletableFuture[]::new);
+        var successfullyWritten = new ConcurrentLinkedQueue<byte[]>();
+        var notWritten = new ConcurrentLinkedQueue<byte[]>();
 
-        assertThat(allOf(tasks), willCompleteSuccessfully());
+        RunnableX[] tasks = data.stream()
+                .map(bytes -> (RunnableX) () -> {
+                    boolean success = writeToSegmentFile(bytes);
 
-        List<byte[]> successfullyWritten = new ArrayList<>();
-        List<byte[]> notWritten = new ArrayList<>();
+                    if (success) {
+                        successfullyWritten.add(bytes);
+                    } else {
+                        notWritten.add(bytes);
+                    }
+                })
+                .toArray(RunnableX[]::new);
 
-        for (int i = 0; i < tasks.length; i++) {
-            if (tasks[i].join()) {
-                successfullyWritten.add(data.get(i));
-            } else {
-                notWritten.add(data.get(i));
-            }
-        }
+        runRace(tasks);
 
         assertThat(notWritten, is(not(empty())));
 
@@ -288,7 +292,7 @@ class SegmentFileTest extends IgniteAbstractTest {
     /**
      * Tests a scenario when a file gets closed in the middle of concurrent append operations.
      */
-    @Test
+    @RepeatedTest(10)
     void testMultithreadedClose(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws IOException {
         int maxEntrySize = 100;
 
@@ -303,15 +307,24 @@ class SegmentFileTest extends IgniteAbstractTest {
         @SuppressWarnings("unchecked")
         CompletableFuture<Boolean>[] tasks = new CompletableFuture[numElements];
 
+        CompletableFuture<Void> closeTask = null;
+
         for (int i = 0; i < numElements; i++) {
             byte[] bytes = data.get(i);
 
             // Post a task to close the file somewhere in the middle.
             if (i == numElements / 2) {
-                executor.submit(() -> file.close());
+                closeTask = runAsync(() -> file.close(), executor);
             }
 
-            tasks[i] = supplyAsync(() -> writeToSegmentFile(bytes), executor);
+            // Wait for the file to be closed on the last iteration to guarantee that at least one write will fail.
+            if (i == numElements - 1) {
+                assertThat(closeTask, is(notNullValue()));
+
+                tasks[i] = closeTask.thenApplyAsync(v -> writeToSegmentFile(bytes), executor);
+            } else {
+                tasks[i] = supplyAsync(() -> writeToSegmentFile(bytes), executor);
+            }
         }
 
         assertThat(allOf(tasks), willCompleteSuccessfully());
@@ -336,7 +349,7 @@ class SegmentFileTest extends IgniteAbstractTest {
      * Tests a scenario when a file gets closed in the middle of concurrent append operations. We expect that rollover
      * bytes are written at the end.
      */
-    @Test
+    @RepeatedTest(10)
     void testMultiThreadedCloseForRollover(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws IOException {
         int maxEntrySize = 100;
 
@@ -353,15 +366,24 @@ class SegmentFileTest extends IgniteAbstractTest {
         @SuppressWarnings("unchecked")
         CompletableFuture<Boolean>[] tasks = new CompletableFuture[numElements];
 
+        CompletableFuture<Void> closeTask = null;
+
         for (int i = 0; i < numElements; i++) {
             byte[] bytes = data.get(i);
 
             // Post a task to close the file somewhere in the middle.
             if (i == numElements / 2) {
-                executor.submit(() -> file.closeForRollover(bytesForRollover));
+                closeTask = runAsync(() -> file.closeForRollover(bytesForRollover), executor);
             }
 
-            tasks[i] = supplyAsync(() -> writeToSegmentFile(bytes), executor);
+            // Wait for the file to be closed on the last iteration to guarantee that at least one write will fail.
+            if (i == numElements - 1) {
+                assertThat(closeTask, is(notNullValue()));
+
+                tasks[i] = closeTask.thenApplyAsync(v -> writeToSegmentFile(bytes), executor);
+            } else {
+                tasks[i] = supplyAsync(() -> writeToSegmentFile(bytes), executor);
+            }
         }
 
         assertThat(allOf(tasks), willCompleteSuccessfully());

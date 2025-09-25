@@ -17,7 +17,9 @@
 
 package org.apache.ignite.compute;
 
+import java.util.Collection;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,4 +48,11 @@ public interface JobExecutionContext {
      * @return Partition associated with this job.
      */
     @Nullable Partition partition();
+
+    /**
+     * Collection of deployment units associated with this job execution.
+     *
+     * @return Collection of deployment units for this job execution.
+     */
+    Collection<DeploymentUnitInfo> deploymentUnits();
 }

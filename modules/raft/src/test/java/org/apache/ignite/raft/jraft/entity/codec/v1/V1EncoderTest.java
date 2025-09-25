@@ -20,6 +20,7 @@ package org.apache.ignite.raft.jraft.entity.codec.v1;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -44,6 +45,18 @@ class V1EncoderTest {
         byte[] bytes = V1Encoder.INSTANCE.encode(logEntry);
 
         LogEntry decodedEntry = V1Decoder.INSTANCE.decode(bytes);
+
+        assertEquals(logEntry, decodedEntry);
+    }
+
+    @ParameterizedTest
+    @FieldSource("ENTRIES")
+    void testEncodeDecodeByteBuffer(LogEntry logEntry) {
+        ByteBuffer buf = ByteBuffer.allocate(V1Encoder.INSTANCE.size(logEntry)).order(ByteOrder.LITTLE_ENDIAN);
+
+        V1Encoder.INSTANCE.encode(buf, logEntry);
+
+        LogEntry decodedEntry = V1Decoder.INSTANCE.decode(buf.array());
 
         assertEquals(logEntry, decodedEntry);
     }
