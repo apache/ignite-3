@@ -161,12 +161,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         }
 
         if (read) {
-            HybridTimestamp now1 = testCluster.clockServices.get(coord.name()).now();
-            HybridTimestamp now2 = testCluster.clockServices.get(coord.name()).now();
-
-            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(commit ? COMMITTED : ABORTED, coordinatorId, tx.commitPartition(),
-                    commit ? testCluster.clockServices.get(coord.name()).now() : null, null, null), List.of(0));
-            checkLocalTxStateOnNodes(tx.id(), null, IntStream.range(1, NODES).boxed().collect(toList()));
+            checkLocalTxStateOnNodes(tx.id(), null);
         } else {
             checkLocalTxStateOnNodes(
                     tx.id(),
@@ -180,7 +175,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                     )
             );
         }
-
     }
 
     private void checkLocalTxStateOnNodes(UUID txId, TxStateMeta expected) {

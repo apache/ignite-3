@@ -755,22 +755,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             if (unlock) {
                                 return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
                                         .thenAccept(ignored -> {
-                                            TxStateMeta updatedMeta = updateTxMeta(txId, old ->
-                                                    new TxStateMeta(
-                                                            verifiedCommit ? COMMITTED : ABORTED,
-                                                            localNodeId,
-                                                            old == null ? null : old.commitPartitionId(),
-                                                            commitTimestamp, // Don't needed for fast finish.
-                                                            old == null ? null : old.tx(),
-                                                            old == null ? null : old.initialVacuumObservationTimestamp(),
-                                                            System.currentTimeMillis(),
-                                                            old == null ? null : old.isFinishedDueToTimeout()
-                                                    ));
+                                            // Don't keep useless state.
+                                            txStateVolatileStorage.updateMeta(txId, old -> null);
 
-                                            assert isFinalState(updatedMeta.txState()) :
-                                                    "Unexpected transaction state [id=" + txId + ", state=" + updatedMeta.txState() + "].";
+                                            TxStateMeta meta = new TxStateMeta(
+                                                    verifiedCommit ? COMMITTED : ABORTED,
+                                                    localNodeId,
+                                                    null,
+                                                    commitTimestamp,
+                                                    null,
+                                                    null,
+                                                    System.currentTimeMillis(),
+                                                    null
+                                            );
 
-                                            txFinishFuture.complete(updatedMeta);
+                                            txFinishFuture.complete(meta);
                                         });
                             }
 
