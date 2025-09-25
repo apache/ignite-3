@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -38,14 +39,19 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                 + "CREATE INDEX test_f_idx on test (f);"
                 + "CREATE INDEX test_d_idx on test (d);"
         );
+    }
 
-        sql("INSERT INTO test VALUES (?, ?, ?)", 1, Float.POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 2, Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 3, Float.NaN, Double.NaN);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 4, -1.0f, -1.0d);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 5, 1.0f, 1.0d);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 6, -0.0f, -0.0d);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 7, +0.0f, +0.0d);
+    @BeforeEach
+    void resetTableState() {
+        sqlScript("DELETE * FROM test;"
+                + "INSERT INTO test VALUES (1, '-Infinity'::FLOAT, '-Infinity'::DOUBLE)"
+                + "INSERT INTO test VALUES (2, 'Infinity'::FLOAT, 'Infinity'::DOUBLE)"
+                + "INSERT INTO test VALUES (3, 'NaN'::FLOAT, 'NaN'::DOUBLE)"
+                + "INSERT INTO test VALUES (4, -0.0::FLOAT, -0.0::DOUBLE)"
+                + "INSERT INTO test VALUES (5, 0.0::FLOAT, 0.0::DOUBLE)"
+                + "INSERT INTO test VALUES (6, -1.0::FLOAT, -1.0::DOUBLE)"
+                + "INSERT INTO test VALUES (7, 1.0::FLOAT, 1.0::DOUBLE)"
+        );
     }
 
     @Override
@@ -179,13 +185,14 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     @Test
     void testGrouping() {
         // Insert more data.
-        sql("INSERT INTO test VALUES (?, ?, ?)", 8, Float.POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 9, Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 10, Float.NaN, Double.NaN);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 11, -1.0f, -1.0d);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 12, 1.0f, 1.0d);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 13, -0.0f, -0.0d);
-        sql("INSERT INTO test VALUES (?, ?, ?)", 14, +0.0f, +0.0d);
+        sqlScript("INSERT INTO test VALUES (8, '-Infinity'::FLOAT, '-Infinity'::DOUBLE)"
+                + "INSERT INTO test VALUES (9, 'Infinity'::FLOAT, 'Infinity'::DOUBLE)"
+                + "INSERT INTO test VALUES (10, 'NaN'::FLOAT, 'NaN'::DOUBLE)"
+                + "INSERT INTO test VALUES (11, -0.0::FLOAT, -0.0::DOUBLE)"
+                + "INSERT INTO test VALUES (12, 0.0::FLOAT, 0.0::DOUBLE)"
+                + "INSERT INTO test VALUES (13, -1.0::FLOAT, -1.0::DOUBLE)"
+                + "INSERT INTO test VALUES (14, 1.0::FLOAT, 1.0::DOUBLE)"
+        );
 
         assertThat(sql("SELECT * FROM test"), hasSize(14));
 
