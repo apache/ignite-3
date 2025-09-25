@@ -249,6 +249,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         // After table drop we still obtain the same value from a cache.
         tableDropCapture.getValue().notify(new DropTableEventParameters(-1, catalogVersionAfterDrop, tableId));
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        assertEquals(1L, sqlStatisticManager.droppedTables.size());
 
         // After LWM has been changed data in case is removed and we get default value.
         when(catalogManager.activeCatalogVersion(catalogVersionBeforeDrop)).thenReturn(catalogVersionAfterDrop);
@@ -256,6 +257,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .notify(new ChangeLowWatermarkEventParameters(HybridTimestamp.hybridTimestamp(catalogVersionBeforeDrop)));
 
         assertEquals(DEFAULT_TABLE_SIZE, sqlStatisticManager.tableSize(tableId));
+        // After LWM dropped tables are also cleared.
+        assertEquals(0L, sqlStatisticManager.droppedTables.size());
     }
 
     @SuppressWarnings("PMD.UseNotifyAllInsteadOfNotify")

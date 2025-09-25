@@ -21,8 +21,10 @@ import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -69,6 +71,9 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
 
     /* Contains all known table id's with statistics. */
     final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
+
+    /* Contain dropped tables, can`t update statistic for such case. */
+    Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;
     static final long INITIAL_DELAY = 5_000;
@@ -122,6 +127,11 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private void update() {
         for (Map.Entry<Integer, ActualSize> ent : tableSizeMap.entrySet()) {
             Integer tableId = ent.getKey();
+
+            if (droppedTables.contains(tableId)) {
+                continue;
+            }
+
             TableViewInternal tableView = tableManager.cachedTable(tableId);
 
             if (tableView == null) {
@@ -161,6 +171,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         int catalogVersion = parameters.catalogVersion();
 
         destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId));
+        droppedTables.add(tableId);
     }
 
     private void onTableCreate(CreateTableEventParameters parameters) {
@@ -172,6 +183,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
 
         events.forEach(event -> tableSizeMap.remove(event.tableId()));
+        events.forEach(event -> droppedTables.remove(event.tableId()));
     }
 
     /** Timestamped size. */
