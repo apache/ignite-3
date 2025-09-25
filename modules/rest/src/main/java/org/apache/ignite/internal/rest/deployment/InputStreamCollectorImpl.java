@@ -23,13 +23,13 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
-import org.apache.ignite.internal.deployunit.DeploymentUnitImpl;
+import org.apache.ignite.internal.deployunit.FilesDeploymentUnit;
 
 /**
  * Standard implementation of {@link InputStreamCollector} for collecting regular file content.
  *
  * <p>This implementation provides a straightforward approach to collecting input streams and
- * converting them into a standard {@link DeploymentUnitImpl}. It maintains an internal map
+ * converting them into a standard {@link FilesDeploymentUnit}. It maintains an internal map
  * of filename-to-stream associations and creates deployment units containing regular
  * (non-compressed) file content.
  */
@@ -47,7 +47,7 @@ public class InputStreamCollectorImpl implements InputStreamCollector {
 
     @Override
     public DeploymentUnit toDeploymentUnit() {
-        return new DeploymentUnitImpl(content);
+        return new FilesDeploymentUnit(content);
     }
 
     @Override

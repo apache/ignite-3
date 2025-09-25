@@ -55,7 +55,7 @@ public class DeployerProcessor implements DeploymentUnitProcessor<Path> {
     private static final String TMP_SUFFIX = ".tmp";
 
     @Override
-    public void processContent(DeploymentUnitImpl unit, Path unitFolder) throws IOException {
+    public void processContent(FilesDeploymentUnit unit, Path unitFolder) throws IOException {
         for (Entry<String, InputStream> e : unit.content().entrySet()) {
             doDeploy(unitFolder, e.getKey(), e.getValue());
         }

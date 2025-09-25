@@ -30,11 +30,8 @@ import java.util.Map;
  * represented as a mapping from file name to its corresponding {@link InputStream}. This implementation is designed for straightforward
  * deployment scenarios where the content does not require compression or special extraction handling.
  *
- * <p>The {@code DeploymentUnitImpl} is the primary implementation used for most deployment operations
- * in the Apache Ignite code deployment system. It provides a simple and efficient way to package and deploy code artifacts, configuration
- * files, resources, and other deployment assets to Ignite cluster nodes.
  */
-public class DeploymentUnitImpl implements DeploymentUnit {
+public class FilesDeploymentUnit implements DeploymentUnit {
     /**
      * The deployment unit content represented as a mapping from file names to their input streams. Each entry represents a file within the
      * deployment unit.
@@ -44,7 +41,7 @@ public class DeploymentUnitImpl implements DeploymentUnit {
     /**
      * Constructor.
      */
-    public DeploymentUnitImpl(Map<String, InputStream> content) {
+    public FilesDeploymentUnit(Map<String, InputStream> content) {
         this.content = content;
     }
 

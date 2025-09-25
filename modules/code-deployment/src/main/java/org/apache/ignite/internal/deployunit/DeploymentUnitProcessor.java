@@ -41,7 +41,7 @@ public interface DeploymentUnitProcessor<T> {
      * @param arg the argument to be used during processing
      * @throws IOException if an I/O error occurs during processing
      */
-    void processContent(DeploymentUnitImpl unit, T arg) throws IOException;
+    void processContent(FilesDeploymentUnit unit, T arg) throws IOException;
 
     /**
      * Processes the content of a ZIP-based deployment unit with automatic extraction.
