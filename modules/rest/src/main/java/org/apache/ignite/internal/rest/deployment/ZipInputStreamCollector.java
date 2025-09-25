@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
 import java.util.zip.ZipInputStream;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitZipException;
@@ -44,29 +45,30 @@ public class ZipInputStreamCollector implements InputStreamCollector {
 
     @Override
     public void addInputStream(String filename, InputStream is) {
-        InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
-
-        if (zis != null) {
-            ensureIgniteException("Deployment unit with unzip supports only single zip file.");
+        if (zis != null || igniteException != null) {
+            // We don't need the stream anymore, so we close it to avoid resource leak.
+            safeClose(is);
+            if (igniteException == null) {
+                igniteException = new DeploymentUnitZipException("Deployment unit with unzip supports only single zip file.");
+            }
             return;
         }
+
+        InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
 
         if (isZip(result)) {
             zis = new ZipInputStream(result);
         } else {
-            // We don't need the stream anymore, and it is not a zip, so we close it to avoid resource leak.
-            try {
-                is.close();
-            } catch (IOException e) {
-                LOG.warn("Failed to close non-zip input stream.", e);
-            }
-            ensureIgniteException("Only zip file is supported.");
+            safeClose(result);
+            igniteException = new DeploymentUnitZipException("Only zip file is supported.");
         }
     }
 
-    private void ensureIgniteException(String message) {
-        if (igniteException == null) {
-            igniteException = new DeploymentUnitZipException(message);
+    private static void safeClose(InputStream is) {
+        try {
+            is.close();
+        } catch (IOException e) {
+            LOG.warn("Failed to close non-zip input stream.", e);
         }
     }
 
