@@ -343,8 +343,8 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client.tables().tables();
         client2.tables().tables();
 
-        for (var name : new String[]{client.name(), client2.name()}) {
-            String beanName = "org.apache.ignite:type=metrics,name=" + name;
+        for (var clientName : new String[]{client.name(), client2.name()}) {
+            String beanName = "org.apache.ignite:type=metrics,name=" + clientName;
             MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
             ObjectName objName = new ObjectName(beanName);
@@ -356,6 +356,30 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
             assertEquals(1L, bean.getAttribute("ConnectionsActive"));
             assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
         }
+    }
+
+    @Test
+    public void testJmxExportTwoClientsSameName() throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+
+        String clientName = "testJmxExportTwoClientsSameName";
+        client = clientBuilder().metricsEnabled(true).name(clientName).build();
+        client2 = clientBuilder().metricsEnabled(true).name(clientName).build();
+
+        client.tables().tables();
+        client2.tables().tables();
+
+        String beanName = "org.apache.ignite:type=metrics,name=" + clientName;
+        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+        ObjectName objName = new ObjectName(beanName);
+        boolean registered = mbeanSrv.isRegistered(objName);
+
+        assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
+
+        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
     }
 
     private Table oneColumnTable() {
