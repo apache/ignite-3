@@ -536,7 +536,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(service.cache.size(), is(2));
         service.statisticsChanged(table1.id());
 
-        assertThat(service.cache.entrySet().stream().filter(e -> e.getKey().needInvalidate()).count(), is(1L));
+        assertThat(service.cache.entrySet().stream().filter(e -> e.getValue().join().needInvalidate()).count(), is(1L));
     }
 
     @Test

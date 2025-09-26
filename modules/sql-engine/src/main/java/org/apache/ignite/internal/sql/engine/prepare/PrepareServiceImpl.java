@@ -488,7 +488,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                 return null;
             } else {
-                key.invalidated();
+                info.invalidated();
 
                 cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
 
@@ -714,7 +714,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                 return null;
             } else {
-                key.invalidated();
+                info.invalidated();
 
                 cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
 
@@ -1105,7 +1105,7 @@ public class PrepareServiceImpl implements PrepareService {
                     PlanInfo info = fut.join();
 
                     if (info.sources.contains(tableId)) {
-                        ent.getKey().invalidate();
+                        info.invalidate();
                         statChanged = true;
                     }
                 }
@@ -1134,18 +1134,16 @@ public class PrepareServiceImpl implements PrepareService {
                     recalculatePlans = false;
 
                     for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
-                        if (!ent.getKey().needInvalidate()) {
-                            continue;
-                        }
-
                         CacheKey key = ent.getKey();
                         CompletableFuture<PlanInfo> fut = cache.get(key);
 
                         // can be evicted
-                        if (fut != null) {
-                            assert isCompletedSuccessfully(fut);
-
+                        if (fut != null && isCompletedSuccessfully(fut)) {
                             PlanInfo info = fut.join();
+
+                            if (!info.needInvalidate()) {
+                                continue;
+                            }
 
                             assert info.context != null && info.statement != null;
 
@@ -1175,7 +1173,7 @@ public class PrepareServiceImpl implements PrepareService {
                                 rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
 
                             } else {
-                                key.invalidated();
+                                info.invalidated();
                             }
                         }
                     }
@@ -1326,6 +1324,7 @@ public class PrepareServiceImpl implements PrepareService {
         @Nullable private final ValidStatement<ValidationResult> statement;
         @Nullable private final PlanningContext context;
         private final Set<Integer> sources;
+        private volatile boolean needToInvalidate;
 
         PlanInfo(
                 QueryPlan plan,
@@ -1344,6 +1343,18 @@ public class PrepareServiceImpl implements PrepareService {
             this.statement = null;
             this.context = null;
             this.sources = Collections.emptySet();
+        }
+
+        void invalidate() {
+            needToInvalidate = true;
+        }
+
+        void invalidated() {
+            needToInvalidate = false;
+        }
+
+        boolean needInvalidate() {
+            return needToInvalidate;
         }
     }
 }

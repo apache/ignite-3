@@ -41,8 +41,6 @@ public class CacheKey {
 
     private int hashCode = 0;
 
-    private volatile boolean needToInvalidate;
-
     /**
      * Constructor.
      *
@@ -69,18 +67,6 @@ public class CacheKey {
 
     int catalogVersion() {
         return catalogVersion;
-    }
-
-    void invalidate() {
-        needToInvalidate = true;
-    }
-
-    void invalidated() {
-        needToInvalidate = false;
-    }
-
-    boolean needInvalidate() {
-        return needToInvalidate;
     }
 
     /** {@inheritDoc} */
