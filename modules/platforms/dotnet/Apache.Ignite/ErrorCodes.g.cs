@@ -433,6 +433,9 @@ namespace Apache.Ignite
 
             /// <summary> ZoneNotFound error. </summary>
             public const int ZoneNotFound = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> EmptyDataNodes error. </summary>
+            public const int EmptyDataNodes = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> Network errors. </summary>
@@ -652,6 +655,9 @@ namespace Apache.Ignite
 
             /// <summary> PrimaryReplicaAwait error. </summary>
             public const int PrimaryReplicaAwait = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> EmptyAssignments error. </summary>
+            public const int EmptyAssignments = (GroupCode << 16) | (3 & 0xFFFF);
         }
 
         /// <summary> CriticalWorkers errors. </summary>

@@ -75,34 +75,4 @@ public class AssignmentsTestUtils {
             return totalPartitionSize == zone.partitions() * zone.replicas();
         }, 10_000));
     }
-
-    /**
-     * Returns a future that completes when the Default Zone's primary replicas have been elected.
-     */
-    // TODO: remove this method after https://issues.apache.org/jira/browse/IGNITE-25283 has been fixed.
-    public static void awaitAssignmentsStabilizationOnDefaultZone(Ignite node) throws InterruptedException {
-        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
-
-        Catalog catalog = igniteImpl.catalogManager().catalog(igniteImpl.catalogManager().latestCatalogVersion());
-
-        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-        assertNotNull(defaultZone);
-
-        assertTrue(waitForCondition(() -> {
-            HybridTimestamp timestamp = igniteImpl.clock().now();
-
-            int totalPartitionSize = 0;
-
-            for (int p = 0; p < defaultZone.partitions(); p++) {
-                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver()
-                        .getAssignments(new ZonePartitionId(defaultZone.id(), p), timestamp);
-
-                assertThat(assignmentsFuture, willCompleteSuccessfully());
-
-                totalPartitionSize += assignmentsFuture.join().nodes().size();
-            }
-
-            return totalPartitionSize == defaultZone.partitions() * defaultZone.replicas();
-        }, 10_000));
-    }
 }

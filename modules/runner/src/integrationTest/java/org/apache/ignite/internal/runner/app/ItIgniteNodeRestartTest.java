@@ -595,7 +595,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nodeProperties,
                 clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication(),
                 threadPoolsManager.commonScheduler(),
-                metricManager
+                metricManager,
+                zoneId -> completedFuture(Set.of()),
+                zoneId -> null
         );
 
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,

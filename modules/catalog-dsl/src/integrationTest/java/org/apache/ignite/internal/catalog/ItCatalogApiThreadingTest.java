@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.lang.Thread.currentThread;
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync;
@@ -26,7 +25,6 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.POJO_RECORD_TABLE_NAME;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -42,7 +40,6 @@ import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -51,13 +48,6 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
     @Override
     protected int initialNodes() {
         return 1;
-    }
-
-    @BeforeAll
-    void waitForDefaultZoneStabilization() throws InterruptedException {
-        if (colocationEnabled()) {
-            awaitAssignmentsStabilizationOnDefaultZone(node(0));
-        }
     }
 
     @AfterEach

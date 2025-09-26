@@ -182,7 +182,13 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                     return trueCompletedFuture();
                 });
 
-        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
+        assignmentsTracker = new AssignmentsTracker(
+                metaStorageManager,
+                mock(FailureProcessor.class),
+                new SystemPropertiesNodeProperties(),
+                zoneId -> completedFuture(Set.of()),
+                zoneId -> null
+        );
         assignmentsTracker.startTrack();
 
         leaseUpdater = new LeaseUpdater(
