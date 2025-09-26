@@ -248,7 +248,7 @@ public class PrepareServiceImpl implements PrepareService {
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
 
-        planUpdater = new PlanUpdater(scheduler, cache, plannerTimeout, this::preparePlan, this::directCatalogVersion);
+        planUpdater = new PlanUpdater(scheduler, cache, plannerTimeout, this::recalculatePlan, this::directCatalogVersion);
     }
 
     /** {@inheritDoc} */
@@ -598,7 +598,7 @@ public class PrepareServiceImpl implements PrepareService {
         int currentCatalogVersion = directCatalogVersion();
 
         if (currentCatalogVersion == catalogVersion) {
-            Set<Integer> sources = resolveSources(plan.getRel());
+            IntSet sources = resolveSources(plan.getRel());
 
             return PlanInfo.createRefreshable(plan, stmt, ctx, sources);
         }
@@ -606,7 +606,7 @@ public class PrepareServiceImpl implements PrepareService {
         return PlanInfo.create(plan);
     }
 
-    private CompletableFuture<PlanInfo> preparePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
+    private CompletableFuture<PlanInfo> recalculatePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
         int currentCatalogVersion = directCatalogVersion();
 
         // no need to re-calculate outdated plans
@@ -817,7 +817,7 @@ public class PrepareServiceImpl implements PrepareService {
         int currentCatalogVersion = directCatalogVersion();
 
         if (currentCatalogVersion == catalogVersion) {
-            Set<Integer> sources = resolveSources(plan.getRel());
+            IntSet sources = resolveSources(plan.getRel());
 
             return PlanInfo.createRefreshable(plan, stmt, ctx, sources);
         }
@@ -918,7 +918,7 @@ public class PrepareServiceImpl implements PrepareService {
         return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
-    private static Set<Integer> resolveSources(IgniteRel rel) {
+    private static IntSet resolveSources(IgniteRel rel) {
         IntSet tables = new IntOpenHashSet();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
@@ -1323,14 +1323,14 @@ public class PrepareServiceImpl implements PrepareService {
         private final QueryPlan queryPlan;
         @Nullable private final ValidStatement<ValidationResult> statement;
         @Nullable private final PlanningContext context;
-        private final Set<Integer> sources;
+        private final IntSet sources;
         private volatile boolean needToInvalidate;
 
         private PlanInfo(
                 QueryPlan plan,
                 @Nullable ValidStatement<ValidationResult> statement,
                 @Nullable PlanningContext context,
-                Set<Integer> sources
+                IntSet sources
         ) {
             this.queryPlan = plan;
             this.statement = statement;
@@ -1354,13 +1354,13 @@ public class PrepareServiceImpl implements PrepareService {
                 QueryPlan plan,
                 ValidStatement<ValidationResult> statement,
                 PlanningContext context,
-                Set<Integer> sources
+                IntSet sources
         ) {
             return new PlanInfo(plan, statement, context, sources);
         }
 
         static PlanInfo create(QueryPlan plan) {
-            return new PlanInfo(plan, null, null, Collections.emptySet());
+            return new PlanInfo(plan, null, null, IntSet.of());
         }
     }
 }
