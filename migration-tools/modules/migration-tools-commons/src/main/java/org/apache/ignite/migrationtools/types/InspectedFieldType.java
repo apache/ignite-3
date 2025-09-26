@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.migrationtools.tablemanagement;
+package org.apache.ignite.migrationtools.types;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.jetbrains.annotations.Nullable;
-
-/** {@link TableTypeRegistry} implementation based on a in-memory map. */
-public class TableTypeRegistryMapImpl implements TableTypeRegistry {
-    private final Map<String, TableTypeDescriptor> hints = new HashMap<>();
-
-    @Override
-    public @Nullable TableTypeDescriptor typesForTable(String tableName) {
-        return hints.get(tableName);
-    }
-
-    @Override
-    public void registerTypesForTable(String tableName, TableTypeDescriptor tableDescriptor) {
-        this.hints.putIfAbsent(tableName, tableDescriptor);
-    }
+/** InspectedFieldTypeEnum. */
+public enum InspectedFieldType {
+    PRIMITIVE,
+    ARRAY,
+    POJO_ATTRIBUTE,
+    NESTED_POJO_ATTRIBUTE,
 }

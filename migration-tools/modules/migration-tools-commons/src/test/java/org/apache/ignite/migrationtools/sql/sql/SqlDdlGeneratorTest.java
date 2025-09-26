@@ -17,6 +17,7 @@
 
 package org.apache.ignite.migrationtools.sql.sql;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Map.entry;
 import static org.apache.ignite.migrationtools.sql.SqlDdlGenerator.EXTRA_FIELDS_COLUMN_NAME;
 import static org.apache.ignite.migrationtools.sql.sql.SqlDdlGeneratorTest.ColumnRecord.nonKey;
@@ -50,19 +51,24 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.collections4.IterableUtils;
+import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.examples.model.Organization;
 import org.apache.ignite.examples.model.Person;
 import org.apache.ignite.migrationtools.sql.SqlDdlGenerator;
+import org.apache.ignite.migrationtools.sql.SqlDdlGenerator.GenerateTableResult;
+import org.apache.ignite.migrationtools.tablemanagement.TableTypeDescriptor;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistryMapImpl;
 import org.apache.ignite.migrationtools.tests.models.ComplexKeyIntStr;
+import org.apache.ignite.migrationtools.tests.models.InterceptingFieldsModel;
 import org.apache.ignite.migrationtools.tests.models.SimplePojo;
 import org.apache.ignite3.catalog.ColumnSorted;
 import org.apache.ignite3.catalog.definitions.ColumnDefinition;
 import org.apache.ignite3.catalog.definitions.TableDefinition;
 import org.assertj.core.api.SoftAssertions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -71,8 +77,6 @@ import org.junit.jupiter.params.provider.FieldSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class SqlDdlGeneratorTest {
-    // TODO: Need to create tests to check if the module is populating the typehints correctly.
-
     private static final List<Named<Boolean>> EXTRA_FIELDS_ENABLED_ARG = List.of(
             named("No extra fields support", false),
             named("With extra fields support", true)
@@ -208,8 +212,20 @@ class SqlDdlGeneratorTest {
         };
     }
 
-    private static void testCacheConfig(CacheConfiguration<?, ?> cacheCfg, boolean allowExtraFields, List<ColumnRecord> asserts) {
-        var tableDef = generateTableDef(cacheCfg, allowExtraFields);
+    private static void testCacheConfig(
+            CacheConfiguration<?, ?> cacheCfg,
+            boolean allowExtraFields,
+            List<ColumnRecord> asserts,
+            Map.Entry<String, String> typeHints,
+            @Nullable Map<String, String> expectedKeyColumMappings,
+            @Nullable Map<String, String> expectedValColumMappings
+    ) {
+        SqlDdlGenerator gen = new SqlDdlGenerator(new TableTypeRegistryMapImpl(), allowExtraFields);
+        GenerateTableResult res = gen.generate(cacheCfg);
+
+        assertThat(res.typeHints()).isEqualTo(typeHints);
+
+        TableDefinition tableDef = res.tableDefinition();
         Stream<ColumnRecord> allowFieldsCol = (allowExtraFields)
                 ? Stream.of(new ColumnRecord(EXTRA_FIELDS_COLUMN_NAME, "VARBINARY", true, false))
                 : Stream.empty();
@@ -236,6 +252,18 @@ class SqlDdlGeneratorTest {
                 .containsExactlyInAnyOrderElementsOf(expectedColumns);
 
         sa.assertAll();
+
+        TableTypeDescriptor tableTypeDescriptor = res.tableTypeDescriptor();
+
+        // Check key mappings;
+        assertThat(tableTypeDescriptor.keyFieldNameForColumn())
+                .describedAs("Key column mappings")
+                .isEqualTo(expectedKeyColumMappings);
+
+        // Check val mappings;
+        assertThat(tableTypeDescriptor.valFieldNameForColumn())
+                .describedAs("Val column mappings")
+                .isEqualTo(expectedValColumMappings);
     }
 
     private static <K, V> Collector<Map.Entry<K, V>, ?, LinkedHashMap<K, V>> linkedMapCollector() {
@@ -256,16 +284,29 @@ class SqlDdlGeneratorTest {
             Class valType,
             String valDef
     ) {
+        String keyTypeName = ClassUtils.primitiveToWrapper(keyType).getName();
+        String valTypeName = ClassUtils.primitiveToWrapper(valType).getName();
+
         var cacheCfg = configWithIndexType(keyType, valType);
-        testCacheConfig(cacheCfg, false, List.of(
-                primaryKey("ID", keyDef),
-                nonKey("VAL", valDef, false)));
+        testCacheConfig(
+                cacheCfg,
+                false,
+                List.of(
+                    primaryKey("ID", keyDef),
+                    nonKey("VAL", valDef, false)
+                ),
+                entry(keyTypeName, valTypeName),
+                emptyMap(),
+                emptyMap()
+        );
     }
 
     @ParameterizedTest
     @MethodSource("provideCacheConfigSupplier")
-    void testTableDefWithComplexKeyAndSimplePojo(BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
-            boolean allowExtraFields) {
+    void testTableDefWithComplexKeyAndSimplePojo(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
         var cacheCfg = cacheConfigSupplier.apply(ComplexKeyIntStr.class, SimplePojo.class);
         {
             QueryEntity qe = cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
@@ -275,25 +316,56 @@ class SqlDdlGeneratorTest {
             aliases.put("affinityStr", "AFFINITY_STR");
         }
 
-        testCacheConfig(cacheCfg, allowExtraFields, List.of(
-                primaryKey("id", "INT"),
-                primaryKey("AFFINITY_STR", "VARCHAR"),
-                nonKey("name", "VARCHAR", true),
-                nonKey("amount", "INT", false),
-                nonKey("decimalAmount", "DECIMAL", true)));
+        // TODO: This is wrong, we are not doing the aliasses.
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                List.of(
+                    primaryKey("id", "INT"),
+                    primaryKey("AFFINITY_STR", "VARCHAR"),
+                    nonKey("name", "VARCHAR", true),
+                    nonKey("amount", "INT", false),
+                    nonKey("decimalAmount", "DECIMAL", true)
+                ),
+                entry(ComplexKeyIntStr.class.getName(), SimplePojo.class.getName()),
+                Map.ofEntries(
+                        entry("id", "id"),
+                        entry("AFFINITY_STR", "affinityStr")
+                ),
+                Map.ofEntries(
+                        entry("name", "name"),
+                        entry("amount", "amount"),
+                        entry("decimalAmount", "decimalAmount")
+                )
+        );
     }
 
     @ParameterizedTest
     @MethodSource("provideCacheConfigSupplier")
-    void testTableDefWithOrganizationPojo(BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
-            boolean allowExtraFields) {
+    void testTableDefWithOrganizationPojo(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
         var cacheCfg = cacheConfigSupplier.apply(int.class, Organization.class);
-        testCacheConfig(cacheCfg, allowExtraFields, List.of(
-                primaryKey("KEY", "INT"),
-                nonKey("id", "BIGINT", true),
-                nonKey("name", "VARCHAR", true),
-                nonKey("type", "VARCHAR", true),
-                nonKey("lastUpdated", "TIMESTAMP", true)));
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                List.of(
+                    primaryKey("KEY", "INT"),
+                    nonKey("id", "BIGINT", true),
+                    nonKey("name", "VARCHAR", true),
+                    nonKey("type", "VARCHAR", true),
+                    nonKey("lastUpdated", "TIMESTAMP", true)
+                ),
+                entry(Integer.class.getName(), Organization.class.getName()),
+                emptyMap(),
+                Map.ofEntries(
+                        entry("id", "id"),
+                        entry("name", "name"),
+                        entry("type", "type"),
+                        entry("lastUpdated", "lastUpdated")
+                )
+        );
     }
 
     @ParameterizedTest
@@ -304,7 +376,23 @@ class SqlDdlGeneratorTest {
     ) {
         // TODO: Make dynamic pojos with BB to cover all the possible scenarios...
         var cacheCfg = cacheConfigSupplier.apply(int.class, Person.class);
-        testCacheConfig(cacheCfg, allowExtraFields, PERSON_EXPECTED_FIELDS);
+
+        Map<String, String> expectedValFieldToColumnMappings = Map.ofEntries(
+                entry("id", "id"),
+                entry("orgId", "orgId"),
+                entry("firstName", "firstName"),
+                entry("lastName", "lastName"),
+                entry("resume", "resume"),
+                entry("salary", "salary")
+        );
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                PERSON_EXPECTED_FIELDS,
+                entry(Integer.class.getName(), Person.class.getName()),
+                emptyMap(),
+                expectedValFieldToColumnMappings
+        );
     }
 
     @ParameterizedTest
@@ -313,15 +401,25 @@ class SqlDdlGeneratorTest {
             BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
             boolean allowExtraFields
     ) {
+        String valueTypeName = Person.class.getName().replace("Person", "FakePerson");
         var cacheCfg = cacheConfigSupplier.apply(int.class, Person.class);
         QueryEntity qe = cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
-        qe.setValueType(Person.class.getName().replace("Person", "FakePerson"));
+        qe.setValueType(valueTypeName);
 
         Set<String> notNullFields = new HashSet<>();
         notNullFields.add("salary");
         qe.setNotNullFields(notNullFields);
 
-        testCacheConfig(cacheCfg, allowExtraFields, PERSON_EXPECTED_FIELDS);
+        // Since the class is not in the classpath we expect empty mappings.
+        Map<String, String> expectedFieldToColumnMappings = emptyMap();
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                PERSON_EXPECTED_FIELDS,
+                entry(Integer.class.getName(), valueTypeName),
+                expectedFieldToColumnMappings,
+                null
+        );
     }
 
     @ParameterizedTest
@@ -343,7 +441,56 @@ class SqlDdlGeneratorTest {
                 .map(skipNth(1, c -> new ColumnRecord(StringUtils.swapCase(c.name), c.type, c.nullable, c.isPk)))
                 .collect(Collectors.toList());
 
-        testCacheConfig(cacheCfg, allowExtraFields, renameExpectedColumns);
+        var expectedValFieldToColumnMappings = PERSON_EXPECTED_FIELDS.stream()
+                .skip(1)
+                .collect(Collectors.toMap(c -> StringUtils.swapCase(c.name), c -> c.name));
+
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                renameExpectedColumns,
+                entry(Integer.class.getName(), Person.class.getName()),
+                emptyMap(),
+                expectedValFieldToColumnMappings
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideCacheConfigSupplier")
+    void testKeyAndValuePojoWithInterceptingFieldNames(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
+        var cacheCfg = cacheConfigSupplier.apply(InterceptingFieldsModel.Key.class, InterceptingFieldsModel.Value.class);
+
+        // This order should not matter much.
+        List<ColumnRecord> expectedFields = List.of(
+                nonKey("key1", "BIGINT", false),
+                nonKey("key2", "BIGINT", false),
+                nonKey("\"VALUE\"", "VARCHAR", true),
+                primaryKey("ID", "INT"),
+                primaryKey("KEY", "INT")
+        );
+
+        Map<String, String> expectedKeyFieldToColumnMappings = Map.ofEntries(
+                entry("ID", "key1"),
+                entry("KEY", "key2")
+        );
+
+        Map<String, String> expectedValFieldToColumnMappings = Map.ofEntries(
+                entry("key1", "key1"),
+                entry("key2", "key2"),
+                entry("value", "value")
+        );
+
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                expectedFields,
+                entry(InterceptingFieldsModel.Key.class.getName(), InterceptingFieldsModel.Value.class.getName()),
+                expectedKeyFieldToColumnMappings,
+                expectedValFieldToColumnMappings
+        );
     }
 
     @ParameterizedTest
@@ -352,17 +499,33 @@ class SqlDdlGeneratorTest {
         CacheConfiguration<?, ?> cacheCfg = new CacheConfiguration<>("some-cache");
         cacheCfg.setQueryEntities(Collections.singletonList(POJO_WITH_PRIMITIVES_QE));
 
-        testCacheConfig(cacheCfg, allowExtraFields, POJO_WITH_PRIMITIVES_FIELDS);
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                POJO_WITH_PRIMITIVES_FIELDS,
+                entry(Long.class.getName(), Object.class.getName()),
+                emptyMap(),
+                null
+        );
     }
 
     @ParameterizedTest
     @FieldSource("EXTRA_FIELDS_ENABLED_ARG")
     void testTableDefWithPojoWithPrimitiveFieldsDefinedInTypes(boolean allowExtraFields) {
+        String valType = "PersonRecordClassInRoot";
+
         CacheConfiguration<?, ?> cacheCfg = new CacheConfiguration<>("some-cache");
         cacheCfg.setQueryEntities(Collections.singletonList(
-                new QueryEntity(POJO_WITH_PRIMITIVES_QE).setKeyType(long.class.getName()).setValueType("PersonRecordClassInRoot")));
+                new QueryEntity(POJO_WITH_PRIMITIVES_QE).setKeyType(long.class.getName()).setValueType(valType)));
 
-        testCacheConfig(cacheCfg, allowExtraFields, POJO_WITH_PRIMITIVES_FIELDS);
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                POJO_WITH_PRIMITIVES_FIELDS,
+                entry(Long.class.getName(), valType),
+                emptyMap(),
+                null
+        );
     }
 
     @Test
