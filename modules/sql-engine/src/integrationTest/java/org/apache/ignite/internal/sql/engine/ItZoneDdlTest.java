@@ -208,6 +208,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testChangeDefaultZone() {
+        sql("CREATE TABLE dz(id INT PRIMARY KEY)");
         String initialDefaultZoneName = latestActiveCatalog().defaultZone().name();
         String newDefaultZoneName = "test_zone";
 
@@ -259,6 +260,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         {
             String quotedZoneName = "\"" + initialDefaultZoneName + "\"";
 
+            sql("DROP TABLE DZ"); // Table DZ is bounded with Default Zone
             tryToDropZone(quotedZoneName, true);
             tryToCreateZone(quotedZoneName, true);
             tryToSetDefaultZone(quotedZoneName, true);

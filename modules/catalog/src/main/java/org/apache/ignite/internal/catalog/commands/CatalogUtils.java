@@ -55,6 +55,7 @@ import org.jetbrains.annotations.Nullable;
  * Catalog utils.
  */
 public class CatalogUtils {
+
     /** Default number of distribution zone partitions. */
     public static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -65,6 +66,7 @@ public class CatalogUtils {
      * Quorum size for the default zone. Default quorum size for other zones is calculated using replicas count.
      */
     public static final int DEFAULT_ZONE_QUORUM_SIZE = 1;
+
 
     /**
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
@@ -539,11 +541,33 @@ public class CatalogUtils {
      */
     public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
             throws CatalogValidationException {
+        try {
+            return zone(catalog, name);
+        } catch (CatalogValidationException e) {
+            if (shouldThrowIfNotExists) {
+                throw e;
+            }
+
+            return null;
+        }
+    }
+
+    /**
+     * Returns zone with given name.
+     *
+     * @param catalog Catalog to look up zone in.
+     * @param name Name of the zone of interest.
+     * @return Zone descriptor for given name.
+     * @throws CatalogValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
+     *         set to {@code true}.
+     */
+    public static CatalogZoneDescriptor zone(Catalog catalog, String name)
+            throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
-        if (zone == null && shouldThrowIfNotExists) {
+        if (zone == null) {
             throw new CatalogValidationException("Distribution zone with name '{}' not found.", name);
         }
 

@@ -82,7 +82,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         implements CatalogManager, SystemViewProvider {
     /** Default zone name. */
     public static final String DEFAULT_ZONE_NAME = "Default";
-
     private static final int MAX_RETRY_COUNT = 10;
 
     /** The logger. */
@@ -282,22 +281,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private CompletableFuture<Void> initCatalog(Catalog emptyCatalog) {
         List<CatalogCommand> initCommands = List.of(
-                // Init default zone
-                CreateZoneCommand.builder()
-                        .zoneName(DEFAULT_ZONE_NAME)
-                        .partitions(DEFAULT_PARTITION_COUNT)
-                        .replicas(DEFAULT_REPLICA_COUNT)
-                        .quorumSize(DEFAULT_ZONE_QUORUM_SIZE)
-                        .dataNodesAutoAdjustScaleUp(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(nodeProperties.colocationEnabled()))
-                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                        .filter(DEFAULT_FILTER)
-                        .storageProfilesParams(
-                                List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())
-                        )
-                        .build(),
-                AlterZoneSetDefaultCommand.builder()
-                        .zoneName(DEFAULT_ZONE_NAME)
-                        .build(),
                 // Add schemas
                 CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build(),
                 CreateSchemaCommand.systemSchemaBuilder().name(SYSTEM_SCHEMA_NAME).build()
