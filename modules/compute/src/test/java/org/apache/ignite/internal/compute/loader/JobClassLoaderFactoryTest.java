@@ -20,6 +20,9 @@ package org.apache.ignite.internal.compute.loader;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getPath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -29,20 +32,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
 class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
     private static final String UNIT_JOB_CLASS_NAME = "org.apache.ignite.internal.compute.UnitJob";
 
@@ -193,32 +198,74 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
     @DisplayName("Create class loader with non-existing unit")
     public void nonExistingUnit() {
         DeploymentUnit unit = new DeploymentUnit("non-existing", "1.0.0");
-        DisposableDeploymentUnit disposableDeploymentUnit = new DisposableDeploymentUnit(
-                unit,
-                unitsDir.resolve(unit.name()).resolve(unit.version().toString()),
-                () -> {
-                }
-        );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)).classLoader());
+                () -> jobClassLoaderFactory.createClassLoader(toDisposableDeploymentUnits(unit)).classLoader()
+        );
     }
 
     @Test
     @DisplayName("Create class loader with non-existing version")
     public void nonExistingVersion() {
         DeploymentUnit unit = new DeploymentUnit("unit1", "-1.0.0");
-        DisposableDeploymentUnit disposableDeploymentUnit = new DisposableDeploymentUnit(
-                unit,
-                unitsDir.resolve(unit.name()).resolve(unit.version().toString()),
-                () -> {
-                }
-        );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)).classLoader());
+                () -> jobClassLoaderFactory.createClassLoader(toDisposableDeploymentUnits(unit)).classLoader()
+        );
+    }
+
+    @Test
+    void concurrentAccess() throws InterruptedException {
+        List<DisposableDeploymentUnit> units = toDisposableDeploymentUnits(new DeploymentUnit("unit1", "1.0.0"));
+
+        AtomicInteger streamAccessed = new AtomicInteger();
+
+        // Wrap the units list so that the stream() method call takes significant amount of time.
+        List<DisposableDeploymentUnit> slowList = new AbstractList<>() {
+            @Override
+            public int size() {
+                return units.size();
+            }
+
+            @Override
+            public DisposableDeploymentUnit get(int index) {
+                return units.get(index);
+            }
+
+            @Override
+            public Stream<DisposableDeploymentUnit> stream() {
+                // The classLoader method in the JobClassLoader should call this once.
+                streamAccessed.getAndIncrement();
+
+                // Slow this down to increase a change of multiple threads accessing it concurrently.
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                return super.stream();
+            }
+        };
+
+        try (JobClassLoader jobClassLoader = jobClassLoaderFactory.createClassLoader(slowList)) {
+            List<ClassLoader> classLoaders = new ArrayList<>();
+
+            List<Thread> threads = IntStream.range(0, 10)
+                    .mapToObj(i -> new Thread(() -> classLoaders.add(jobClassLoader.classLoader())))
+                    .collect(Collectors.toList());
+
+            threads.forEach(Thread::start);
+
+            for (Thread thread : threads) {
+                thread.join();
+            }
+
+            assertThat(classLoaders, everyItem(sameInstance(classLoaders.get(0))));
+            assertThat(streamAccessed.get(), is(1));
+        }
     }
 
     private List<DisposableDeploymentUnit> toDisposableDeploymentUnits(DeploymentUnit... units) {

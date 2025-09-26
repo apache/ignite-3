@@ -33,7 +33,7 @@ import org.apache.ignite.lang.IgniteException;
  * Implementation of {@link ClassLoader} that loads classes from specified component directories.
  */
 public class JobClassLoader implements AutoCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(JobClassLoader.class);
 
     private final List<DisposableDeploymentUnit> units;
 
@@ -67,11 +67,18 @@ public class JobClassLoader implements AutoCloseable {
      * @return Class loader.
      */
     public ClassLoader classLoader() {
-        if (impl != null) {
-            return impl;
+        if (impl == null) {
+            synchronized (this) {
+                if (impl == null) {
+                    impl = createClassLoader();
+                }
+            }
         }
+        return impl;
+    }
 
-        impl = AccessController.doPrivileged((PrivilegedAction<JobClassLoaderImpl>) () -> {
+    private JobClassLoaderImpl createClassLoader() {
+        return AccessController.doPrivileged((PrivilegedAction<JobClassLoaderImpl>) () -> {
             URL[] classpath = units.stream()
                     .map(DisposableDeploymentUnit::path)
                     .flatMap(JobClasspath::collectClasspath)
@@ -83,8 +90,6 @@ public class JobClassLoader implements AutoCloseable {
 
             return new JobClassLoaderImpl(units, classpath, parent);
         });
-
-        return impl;
     }
 
     @Override
