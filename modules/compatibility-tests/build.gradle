@@ -38,10 +38,19 @@ dependencies {
 
     integrationTestImplementation testFixtures(project(':ignite-compatibility-tests'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-cli')
+    integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-rest-api')
+    integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+
+    integrationTestImplementation libs.micronaut.junit5
+    integrationTestImplementation libs.micronaut.http.client
 
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility
