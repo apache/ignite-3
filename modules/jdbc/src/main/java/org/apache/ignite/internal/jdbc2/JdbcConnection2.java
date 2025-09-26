@@ -49,6 +49,7 @@ import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
@@ -245,7 +246,11 @@ public class JdbcConnection2 implements Connection {
 
         closed = true;
 
-        client.close();
+        try {
+            client.close();
+        } catch (Exception e) {
+            throw new SQLException("Exception occurred while closing.", IgniteExceptionMapperUtil.mapToPublicException(e));
+        }
     }
 
     /**

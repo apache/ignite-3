@@ -20,7 +20,9 @@ package org.apache.ignite.internal.jdbc2;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,6 +43,7 @@ import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
@@ -182,6 +185,22 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             expectClosed(() -> conn.setShardingKey(shardingKey));
             expectClosed(() -> conn.setShardingKey(shardingKey, subShardingKey));
         }
+    }
+    
+    @Test
+    public void closeExceptionMapping() throws SQLException {
+        IgniteClient igniteClient = Mockito.mock(IgniteClient.class);
+        RuntimeException failure = new RuntimeException("Err");
+        Mockito.doThrow(failure).when(igniteClient).close();
+
+        ConnectionProperties properties = new ConnectionPropertiesImpl();
+        properties.setUrl("jdbc:ignite:thin://127.0.0.1:10800/");
+        JdbcQueryEventHandler eventHandler = Mockito.mock(JdbcQueryEventHandler.class);
+
+        JdbcConnection2 connection = new JdbcConnection2(igniteClient, eventHandler, properties);
+
+        SQLException err = assertThrowsSqlException(SQLException.class, "Exception occurred while closing.", connection::close);
+        assertInstanceOf(IgniteException.class, err.getCause());
     }
 
     @Test
