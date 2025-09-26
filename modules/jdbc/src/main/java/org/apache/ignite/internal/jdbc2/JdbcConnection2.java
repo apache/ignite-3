@@ -73,7 +73,7 @@ public class JdbcConnection2 implements Connection {
 
     private boolean readOnly;
 
-    private int networkTimeoutSeconds;
+    private int networkTimeoutMillis;
 
     /**
      * Creates new connection.
@@ -89,7 +89,7 @@ public class JdbcConnection2 implements Connection {
     ) throws SQLException {
         autoCommit = true;
 
-        networkTimeoutSeconds = props.getConnectionTimeout();
+        networkTimeoutMillis = props.getConnectionTimeout();
         txIsolation = TRANSACTION_NONE;
         schemaName = readSchemaName(props.getSchema());
 
@@ -576,7 +576,7 @@ public class JdbcConnection2 implements Connection {
             throw new SQLException("Network timeout cannot be negative.");
         }
 
-        networkTimeoutSeconds = ms;
+        networkTimeoutMillis = ms;
     }
 
     /** {@inheritDoc} */
@@ -584,7 +584,7 @@ public class JdbcConnection2 implements Connection {
     public int getNetworkTimeout() throws SQLException {
         ensureNotClosed();
 
-        return networkTimeoutSeconds;
+        return networkTimeoutMillis;
     }
 
     /** {@inheritDoc} */
