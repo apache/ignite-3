@@ -91,6 +91,8 @@ public class JdbcResultSet implements ResultSet {
 
     private final Statement statement;
 
+    private boolean closeOnCompletion;
+
     private int fetchSize;
 
     private @Nullable SqlRow currentRow;
@@ -109,7 +111,8 @@ public class JdbcResultSet implements ResultSet {
     public JdbcResultSet(
             org.apache.ignite.sql.ResultSet<SqlRow> rs,
             Statement statement,
-            Supplier<ZoneId> zoneIdSupplier
+            Supplier<ZoneId> zoneIdSupplier,
+            boolean closeOnCompletion
     ) {
         this.rs = rs;
 
@@ -122,6 +125,25 @@ public class JdbcResultSet implements ResultSet {
         this.closed = false;
         this.wasNull = false;
         this.jdbcMeta = new JdbcResultSetMetadata(rsMetadata);
+        this.closeOnCompletion = closeOnCompletion;
+    }
+
+    int updateCount() {
+        assert !isQuery() : "Should not be called on a query";
+        if (rs.wasApplied() || rs.affectedRows() == -1) {
+            return 0;
+        } else {
+            //noinspection NumericCastThatLosesPrecision
+            return (int) rs.affectedRows();
+        }
+    }
+
+    boolean isQuery() {
+        return rs.hasRowSet();
+    }
+
+    void closeStatement(boolean close) {
+        closeOnCompletion = close;
     }
 
     @Override
@@ -154,6 +176,11 @@ public class JdbcResultSet implements ResultSet {
         } catch (Exception e) {
             Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
             throw new SQLException(cause.getMessage(), cause);
+        } finally {
+            if (closeOnCompletion) {
+                JdbcStatement2 statement2 = statement.unwrap(JdbcStatement2.class);
+                statement2.closeIfAllResultsClosed();
+            }
         }
     }
 
@@ -2277,6 +2304,7 @@ public class JdbcResultSet implements ResultSet {
 
             // Append nano seconds according to the specified precision.
             long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
+            //noinspection NumericCastThatLosesPrecision
             long scaled = nanos / (long) Math.pow(10, 9 - precision);
 
             sb.append('.');
