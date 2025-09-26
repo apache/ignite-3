@@ -35,7 +35,7 @@ import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Test-only class representing a deserialized {@link IndexFile}.
+ * Test-only class representing a deserialized index file.
  */
 class DeserializedIndexFile {
     /** groupId -> logIndex -> segmentFileOffset. */
