@@ -358,8 +358,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck)
-                .thenCompose(unused -> responseFuture);
+        sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck).exceptionally(throwable -> {
+            if (requestsMap.remove(correlationId) != null) {
+                responseFuture.completeExceptionally(throwable);
+            }
+
+            return null;
+        });
+
+        return responseFuture;
     }
 
     /**
@@ -381,8 +388,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message, strictIdCheck), outboundExecutor)
-                    .thenCompose(Function.identity());
+            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message, strictIdCheck),
+                    outboundExecutor).thenCompose(Function.identity());
         }
 
         List<ClassDescriptorMessage> descriptors;
