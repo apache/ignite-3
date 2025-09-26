@@ -39,17 +39,22 @@ import java.sql.Savepoint;
 import java.sql.ShardingKey;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,26 +64,27 @@ public class JdbcConnection2 implements Connection {
 
     private final IgniteClient client;
 
-    /** Jdbc metadata. Cache the JDBC object on the first access */
+    private final IgniteSql igniteSql;
+
     private final JdbcDatabaseMetadata metadata;
 
-    /** Schema name. */
+    private final ConnectionProperties properties;
+
+    private final ReentrantLock lock = new ReentrantLock();
+
+    private final List<Statement> statements = new ArrayList<>();
+
     private String schema;
 
-    /** Closed flag. */
     private volatile boolean closed;
 
-    /** Current transaction isolation. */
     private int txIsolation;
 
-    /** Auto-commit flag. */
     private boolean autoCommit;
 
-    /** Read-only flag. */
     private boolean readOnly;
 
-    /** Network timeout. */
-    private int netTimeout;
+    private int networkTimeoutSeconds;
 
     /**
      * Creates new connection.
@@ -93,10 +99,12 @@ public class JdbcConnection2 implements Connection {
             ConnectionProperties props
     ) {
         autoCommit = true;
+        igniteSql = client.sql();
 
-        netTimeout = props.getConnectionTimeout();
+        networkTimeoutSeconds = props.getConnectionTimeout();
         txIsolation = TRANSACTION_NONE;
         schema = normalizeSchema(props.getSchema());
+        properties = props;
 
         this.client = client;
         //noinspection ThisEscapedInObjectConstruction
@@ -123,7 +131,16 @@ public class JdbcConnection2 implements Connection {
 
         checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
 
-        throw new UnsupportedOperationException();
+        JdbcStatement2 statement = new JdbcStatement2(this, igniteSql, schema, resSetHoldability);
+
+        lock.lock();
+        try {
+            statements.add(statement);
+        } finally {
+            lock.unlock();
+        }
+
+        return statement;
     }
 
     /** {@inheritDoc} */
@@ -251,7 +268,38 @@ public class JdbcConnection2 implements Connection {
 
         closed = true;
 
-        client.close();
+        List<Exception> suppressedExceptions = new ArrayList<>();
+
+        lock.lock();
+        try {
+            if (closed) {
+                return;
+            }
+
+            for (Statement statement : statements) {
+                try {
+                    statement.close();
+                } catch (Exception e) {
+                    suppressedExceptions.add(e);
+                }
+            }
+
+        } finally {
+            lock.unlock();
+        }
+
+        try {
+            client.close();
+        } catch (Exception e) {
+            SQLException err = new SQLException(
+                    "Exception occurred while closing.",
+                    IgniteExceptionMapperUtil.mapToPublicException(e)
+            );
+            for (Exception suppressed : suppressedExceptions) {
+                err.addSuppressed(suppressed);
+            }
+            throw err;
+        }
     }
 
     /**
@@ -581,7 +629,7 @@ public class JdbcConnection2 implements Connection {
             throw new SQLException("Network timeout cannot be negative.");
         }
 
-        netTimeout = ms;
+        networkTimeoutSeconds = ms;
     }
 
     /** {@inheritDoc} */
@@ -589,7 +637,7 @@ public class JdbcConnection2 implements Connection {
     public int getNetworkTimeout() throws SQLException {
         ensureNotClosed();
 
-        return netTimeout;
+        return networkTimeoutSeconds;
     }
 
     /** {@inheritDoc} */
@@ -655,6 +703,10 @@ public class JdbcConnection2 implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface != null && iface.isAssignableFrom(JdbcConnection2.class);
+    }
+
+    ConnectionProperties properties() {
+        return properties;
     }
 
     private static void checkCursorOptions(
