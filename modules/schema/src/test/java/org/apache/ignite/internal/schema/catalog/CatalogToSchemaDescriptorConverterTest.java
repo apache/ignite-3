@@ -140,7 +140,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
 
-        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());
+        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.latestSchemaVersion());
 
         assertThat(schema.keyColumns().size(), equalTo(2));
         assertThat(schema.keyColumns().get(0).name(), equalTo("K1"));

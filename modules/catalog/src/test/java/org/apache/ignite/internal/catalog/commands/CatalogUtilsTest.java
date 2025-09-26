@@ -108,10 +108,10 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(fooTable, is(notNullValue()));
 
-        int tableVersion = fooTable.tableVersion();
+        int tableVersion = fooTable.latestSchemaVersion();
         CatalogTableDescriptor bazTable = fooTable.copyBuilder()
                 .name("baz")
-                .tableVersion(tableVersion + 1)
+                .latestSchemaVersion(tableVersion + 1)
                 .build();
 
         CatalogSchemaDescriptor updatedSchema = replaceTable(schema, bazTable);

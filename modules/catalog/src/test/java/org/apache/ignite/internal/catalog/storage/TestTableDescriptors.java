@@ -65,7 +65,7 @@ final class TestTableDescriptors {
                 .columns(TestTableColumnDescriptors.columns(state).subList(0, 10))
                 .timestamp(HybridTimestamp.hybridTimestamp(1232L))
                 .storageProfile("S1")
-                .tableVersion(2)
+                .latestSchemaVersion(2)
                 .build()
         );
         list.add(
@@ -74,7 +74,7 @@ final class TestTableDescriptors {
                         .columns(TestTableColumnDescriptors.columns(state).subList(0, 20))
                         .timestamp(HybridTimestamp.hybridTimestamp(21232L))
                         .storageProfile("S1")
-                        .tableVersion(3)
+                        .latestSchemaVersion(3)
                         .build()
         );
 
@@ -95,7 +95,7 @@ final class TestTableDescriptors {
                 .columns(TestTableColumnDescriptors.columns(state).subList(0, 10))
                 .timestamp(HybridTimestamp.hybridTimestamp(4567L))
                 .storageProfile("S2")
-                .tableVersion(2)
+                .latestSchemaVersion(2)
                 .build()
         );
         list.add(list.get(list.size() - 1).copyBuilder()
@@ -103,7 +103,7 @@ final class TestTableDescriptors {
                 .columns(TestTableColumnDescriptors.columns(state).subList(0, 20))
                 .timestamp(HybridTimestamp.hybridTimestamp(8833L))
                 .storageProfile("S2")
-                .tableVersion(3)
+                .latestSchemaVersion(3)
                 .build()
         );
 
@@ -124,7 +124,7 @@ final class TestTableDescriptors {
                 .columns(TestTableColumnDescriptors.columns(state))
                 .timestamp(HybridTimestamp.hybridTimestamp(123234L))
                 .storageProfile("S4")
-                .tableVersion(2)
+                .latestSchemaVersion(2)
                 .build()
         );
 

@@ -1043,7 +1043,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private void makeTableBeDroppedAfter(HybridTimestamp txBeginTs, int tableId) {
         CatalogTableDescriptor tableVersion1 = mock(CatalogTableDescriptor.class);
-        when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
+        when(tableVersion1.latestSchemaVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion1.name()).thenReturn(TABLE_NAME);
 
         when(catalog.table(tableId)).thenReturn(tableVersion1);
@@ -1180,7 +1180,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private void makeSchemaBeNextVersion() {
         CatalogTableDescriptor tableVersion2 = mock(CatalogTableDescriptor.class);
-        when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
+        when(tableVersion2.latestSchemaVersion()).thenReturn(NEXT_SCHEMA_VERSION);
         when(tableVersion2.name()).thenReturn(TABLE_NAME_2);
 
         when(catalog.table(eq(TABLE_ID))).thenReturn(tableVersion2);

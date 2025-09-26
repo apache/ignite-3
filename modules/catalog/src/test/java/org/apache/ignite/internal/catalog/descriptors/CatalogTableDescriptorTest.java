@@ -81,13 +81,13 @@ class CatalogTableDescriptorTest {
             assertions.assertThat(descriptor.colocationColumns()).containsExactly("pkCol");
             assertions.assertThat(descriptor.updateTimestamp()).isEqualTo(INITIAL_TIMESTAMP);
             assertions.assertThat(descriptor.isPrimaryKeyColumn("pkCol")).isTrue();
-            assertions.assertThat(descriptor.tableVersion()).isEqualTo(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
+            assertions.assertThat(descriptor.latestSchemaVersion()).isEqualTo(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
             assertions.assertThat(descriptor.schemaVersions().latestVersion()).isEqualTo(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
             assertions.assertThat(descriptor.storageProfile()).isEqualTo(CatalogService.DEFAULT_STORAGE_PROFILE);
         });
 
         var descriptorV2 = descriptor.copyBuilder()
-                .tableVersion(2)
+                .latestSchemaVersion(2)
                 .timestamp(HybridTimestamp.MAX_VALUE)
                 .build();
 
@@ -95,7 +95,7 @@ class CatalogTableDescriptorTest {
             assertions.assertThat(descriptor.colocationColumns()).containsExactly("pkCol");
             assertions.assertThat(descriptorV2.updateTimestamp()).isEqualTo(HybridTimestamp.MAX_VALUE);
             assertions.assertThat(descriptorV2.isPrimaryKeyColumn("pkCol")).isTrue();
-            assertions.assertThat(descriptorV2.tableVersion()).isEqualTo(2);
+            assertions.assertThat(descriptorV2.latestSchemaVersion()).isEqualTo(2);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-26501
             assertions.assertThat(descriptorV2.schemaVersions().latestVersion()).isEqualTo(2);
@@ -141,13 +141,13 @@ class CatalogTableDescriptorTest {
         assertThrows(IllegalArgumentException.class, () -> {
             baseBuilder
                     .primaryKeyColumns(List.of("pkCol"))
-                    .tableVersion(-1)
+                    .latestSchemaVersion(-1)
                     .build();
         }, "Table version -1 should not be less than a previous version");
 
         assertThrows(NullPointerException.class, () -> {
             baseBuilder
-                    .tableVersion(1)
+                    .latestSchemaVersion(1)
                     .storageProfile(null)
                     .build();
         }, "No storage profile.");

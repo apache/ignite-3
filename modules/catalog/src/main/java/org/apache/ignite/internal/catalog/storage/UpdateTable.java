@@ -28,15 +28,17 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/** Interface describing a particular change to a table within the {@link VersionedUpdate group}. */
-interface UpdateTable extends UpdateEntry {
+/**
+ * This class declares an abstract method for creating a new table descriptor and
+ * provides default implementation for applying the table descriptor changes to a catalog.
+ */
+abstract class UpdateTable implements UpdateEntry {
     @Override
-    default Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
+    public final Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId());
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
         CatalogTableDescriptor modifiedTable = newTableDescriptor(table)
-                .tableVersion(newTableVersion(table))
                 .timestamp(timestamp)
                 .build();
 
@@ -53,20 +55,20 @@ interface UpdateTable extends UpdateEntry {
     }
 
     /**
-     * Creates updated version of {@link CatalogTableDescriptor}.
-     * The table version and casuality token would be incremented automatically.
+     * Creates a {@link CatalogTableDescriptor.Builder} with modifications of this table.
+     * The timestamp of this table will be updated automatically.
      *
      * @param table previous table descriptor definition.
      *
      * @return builder with the updated fields for this table descriptor, created with {@link CatalogTableDescriptor#copyBuilder()}
      **/
-    CatalogTableDescriptor.Builder newTableDescriptor(CatalogTableDescriptor table);
+    abstract CatalogTableDescriptor.Builder newTableDescriptor(CatalogTableDescriptor table);
 
     /** Returns table id for a table affected by an update table command. */
-    int tableId();
+    abstract int tableId();
 
-    /** Returns a new table version for provided {@link CatalogTableDescriptor}. */
-    default int newTableVersion(CatalogTableDescriptor table) {
-        return table.tableVersion() + 1;
+    /** Returns a new schema version for provided {@link CatalogTableDescriptor}. */
+    static int newSchemaVersion(CatalogTableDescriptor table) {
+        return table.latestSchemaVersion() + 1;
     }
 }

@@ -175,7 +175,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
         return catalogTableDescriptor.copyBuilder()
-                .tableVersion(INITIAL_TABLE_VERSION + 1)
+                .latestSchemaVersion(INITIAL_TABLE_VERSION + 1)
                 .build();
     }
 

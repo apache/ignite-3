@@ -25,7 +25,7 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 
 /** Entry representing a rename of a table. */
-public class RenameTableEntry implements UpdateTable, Fireable {
+public class RenameTableEntry extends UpdateTable implements Fireable {
     private final int tableId;
 
     private final String newTableName;
@@ -61,6 +61,7 @@ public class RenameTableEntry implements UpdateTable, Fireable {
 
     @Override
     public Builder newTableDescriptor(CatalogTableDescriptor table) {
-        return table.copyBuilder().name(newTableName);
+        return table.copyBuilder()
+                .name(newTableName);
     }
 }
