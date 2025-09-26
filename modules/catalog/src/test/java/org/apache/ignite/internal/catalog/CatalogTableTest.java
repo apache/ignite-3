@@ -571,8 +571,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(table(prevVersion, TABLE_NAME_2), is(nullValue()));
         assertThat(table(curVersion, TABLE_NAME), is(nullValue()));
 
-        assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion() + 1));
-
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
@@ -580,6 +578,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
+        assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));
     }
 
     @Test

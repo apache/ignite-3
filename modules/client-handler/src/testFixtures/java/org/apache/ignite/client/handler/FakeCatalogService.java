@@ -78,7 +78,7 @@ public class FakeCatalogService implements CatalogService {
                     .name("table")
                     .zoneId(zoneId)
                     .columns(List.of(Mockito.mock(CatalogTableColumnDescriptor.class)))
-                    .primaryKeyColumns(List.of())
+                    .primaryKeyColumns(List.of("pk"))
                     .storageProfile(DEFAULT_STORAGE_PROFILE)
                     .build();
         }).when(catalog).table(anyInt());

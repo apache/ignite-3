@@ -143,7 +143,7 @@ class CatalogTableDescriptorTest {
                     .primaryKeyColumns(List.of("pkCol"))
                     .latestSchemaVersion(-1)
                     .build();
-        }, "Table version -1 should not be less than a previous version");
+        }, "Latest schema version -1 should not be less than a previous version");
 
         assertThrows(NullPointerException.class, () -> {
             baseBuilder
