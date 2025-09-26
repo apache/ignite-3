@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
+import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -539,6 +540,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     @Override
     public CompletableFuture<Long> estimatedSize() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    @Override
+    public CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

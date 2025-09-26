@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -538,6 +539,15 @@ public interface InternalTable extends ManuallyCloseable {
      * @see MvPartitionStorage#estimatedSize
      */
     CompletableFuture<Long> estimatedSize();
+
+    /**
+     * Returns the pair<<em>last modification timestamp</em>, <em>estimated size</em>> of this table.
+     *
+     * @return Estimated size of this table with last modification timestamp.
+     *
+     * @see #estimatedSize
+     */
+    CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate();
 
     /**
      * Returns the streamer receiver runner.
