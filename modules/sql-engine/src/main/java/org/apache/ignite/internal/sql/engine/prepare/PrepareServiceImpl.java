@@ -532,7 +532,7 @@ public class PrepareServiceImpl implements PrepareService {
                 // Try to produce a fast plan, if successful, then return that plan w/o caching it.
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
                 if (fastPlan != null) {
-                    return CompletableFuture.completedFuture(new PlanInfo(fastPlan));
+                    return CompletableFuture.completedFuture(PlanInfo.create(fastPlan));
                 }
             }
 
@@ -577,7 +577,7 @@ public class PrepareServiceImpl implements PrepareService {
                     relWithMetadata.ppMetadata
             );
 
-            return new PlanInfo(plan);
+            return PlanInfo.create(plan);
         }
 
         var plan = new MultiStepPlan(
@@ -600,10 +600,10 @@ public class PrepareServiceImpl implements PrepareService {
         if (currentCatalogVersion == catalogVersion) {
             Set<Integer> sources = resolveSources(plan.getRel());
 
-            return new PlanInfo(plan, stmt, ctx, sources);
+            return PlanInfo.createRefreshable(plan, stmt, ctx, sources);
         }
 
-        return new PlanInfo(plan);
+        return PlanInfo.create(plan);
     }
 
     private CompletableFuture<PlanInfo> preparePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
@@ -698,7 +698,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         logPlan(originalQuery, plan);
 
-        return CompletableFuture.completedFuture(new PlanInfo(plan));
+        return CompletableFuture.completedFuture(PlanInfo.create(plan));
     }
 
     private CompletableFuture<PlanInfo> prepareCachedDml(
@@ -819,10 +819,10 @@ public class PrepareServiceImpl implements PrepareService {
         if (currentCatalogVersion == catalogVersion) {
             Set<Integer> sources = resolveSources(plan.getRel());
 
-            return new PlanInfo(plan, stmt, ctx, sources);
+            return PlanInfo.createRefreshable(plan, stmt, ctx, sources);
         }
 
-        return new PlanInfo(plan);
+        return PlanInfo.create(plan);
     }
 
     private @Nullable QueryPlan tryOptimizeFast(
@@ -1326,23 +1326,16 @@ public class PrepareServiceImpl implements PrepareService {
         private final Set<Integer> sources;
         private volatile boolean needToInvalidate;
 
-        PlanInfo(
+        private PlanInfo(
                 QueryPlan plan,
-                ValidStatement<ValidationResult> statement,
-                PlanningContext context,
+                @Nullable ValidStatement<ValidationResult> statement,
+                @Nullable PlanningContext context,
                 Set<Integer> sources
         ) {
             this.queryPlan = plan;
             this.statement = statement;
             this.context = context;
             this.sources = sources;
-        }
-
-        PlanInfo(QueryPlan plan) {
-            this.queryPlan = plan;
-            this.statement = null;
-            this.context = null;
-            this.sources = Collections.emptySet();
         }
 
         void invalidate() {
@@ -1355,6 +1348,19 @@ public class PrepareServiceImpl implements PrepareService {
 
         boolean needInvalidate() {
             return needToInvalidate;
+        }
+
+        static PlanInfo createRefreshable(
+                QueryPlan plan,
+                ValidStatement<ValidationResult> statement,
+                PlanningContext context,
+                Set<Integer> sources
+        ) {
+            return new PlanInfo(plan, statement, context, sources);
+        }
+
+        static PlanInfo create(QueryPlan plan) {
+            return new PlanInfo(plan, null, null, Collections.emptySet());
         }
     }
 }
