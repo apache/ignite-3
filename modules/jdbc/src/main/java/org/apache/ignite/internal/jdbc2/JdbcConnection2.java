@@ -19,7 +19,6 @@ package org.apache.ignite.internal.jdbc2;
 
 import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
-import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
@@ -40,10 +39,13 @@ import java.sql.Savepoint;
 import java.sql.ShardingKey;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -59,7 +61,7 @@ public class JdbcConnection2 implements Connection {
 
     private static final String CONNECTION_IS_CLOSED = "Connection is closed.";
 
-    private static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
+    static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
             "Returning auto-generated keys is not supported.";
 
     private static final String CALLABLE_FUNCTIONS_ARE_NOT_SUPPORTED =
@@ -98,11 +100,19 @@ public class JdbcConnection2 implements Connection {
     private static final String TYPES_MAPPING_IS_NOT_SUPPORTED =
             "Types mapping is not supported.";
 
+    private final IgniteSql igniteSql;
+
+    private final ReentrantLock lock = new ReentrantLock();
+
+    private final List<Statement> statements = new ArrayList<>();
+
+    private final ConnectionProperties properties;
+
     private final JdbcDatabaseMetadata metadata;
 
-    private String schemaName;
-
     private volatile boolean closed;
+
+    private String schemaName;
 
     private int txIsolation;
 
@@ -124,10 +134,12 @@ public class JdbcConnection2 implements Connection {
             JdbcQueryEventHandler eventHandler,
             ConnectionProperties props
     ) {
+        igniteSql = client;
         autoCommit = true;
         networkTimeoutMillis = props.getConnectionTimeout();
         txIsolation = TRANSACTION_SERIALIZABLE;
         schemaName = readSchemaName(props.getSchema());
+        properties = props;
 
         //noinspection ThisEscapedInObjectConstruction
         metadata = new JdbcDatabaseMetadata(this, eventHandler, props.getUrl(), props.getUsername());
@@ -153,7 +165,16 @@ public class JdbcConnection2 implements Connection {
 
         checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
 
-        throw new UnsupportedOperationException();
+        JdbcStatement2 statement = new JdbcStatement2(this, igniteSql, schemaName, resSetHoldability);
+
+        lock.lock();
+        try {
+            statements.add(statement);
+        } finally {
+            lock.unlock();
+        }
+
+        return statement;
     }
 
     /** {@inheritDoc} */
@@ -285,6 +306,37 @@ public class JdbcConnection2 implements Connection {
         }
 
         closed = true;
+
+        List<Exception> suppressedExceptions = List.of();
+
+        lock.lock();
+        try {
+            if (closed) {
+                return;
+            }
+
+            for (Statement statement : statements) {
+                try {
+                    statement.close();
+                } catch (Exception e) {
+                    if (suppressedExceptions.isEmpty()) {
+                        suppressedExceptions = new ArrayList<>();
+                    }
+                    suppressedExceptions.add(e);
+                }
+            }
+
+        } finally {
+            lock.unlock();
+        }
+
+        if (!suppressedExceptions.isEmpty()) {
+            SQLException err = new SQLException("Exception occurred while closing a connection.");
+            for (Exception suppressed : suppressedExceptions) {
+                err.addSuppressed(suppressed);
+            }
+            throw err;
+        }
     }
 
     /**
@@ -685,6 +737,10 @@ public class JdbcConnection2 implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface != null && iface.isAssignableFrom(JdbcConnection2.class);
+    }
+
+    ConnectionProperties properties() {
+        return properties;
     }
 
     private static void checkCursorOptions(
