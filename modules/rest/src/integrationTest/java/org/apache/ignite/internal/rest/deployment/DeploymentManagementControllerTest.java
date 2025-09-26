@@ -158,6 +158,14 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         HttpResponse<Object> response = deploy(id, version, false, bigFile);
 
         assertThat(response.code(), is(OK.code()));
+
+        await().untilAsserted(() -> {
+            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
+            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
+
+            assertThat(status.id(), is(id));
+            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
+        });
     }
 
     @Test
