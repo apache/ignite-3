@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.time.Duration;
@@ -36,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +61,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -600,7 +603,15 @@ public class PrepareServiceImpl implements PrepareService {
         if (currentCatalogVersion == catalogVersion) {
             IntSet sources = resolveSources(plan.getRel());
 
-            return PlanInfo.createRefreshable(plan, stmt, ctx, sources);
+            PlanningContextState state = PlanningContextState.builder()
+                    .frameworkConfig(ctx.config())
+                    .catalogVersion(ctx.catalogVersion())
+                    .defaultSchemaName(ctx.schemaName())
+                    .parameters(ctx.parameters())
+                    .explicitTx(ctx.explicitTx())
+                    .build();
+
+            return PlanInfo.createRefreshable(plan, stmt, state, sources);
         }
 
         return PlanInfo.create(plan);
@@ -819,7 +830,15 @@ public class PrepareServiceImpl implements PrepareService {
         if (currentCatalogVersion == catalogVersion) {
             IntSet sources = resolveSources(plan.getRel());
 
-            return PlanInfo.createRefreshable(plan, stmt, ctx, sources);
+            PlanningContextState state = PlanningContextState.builder()
+                    .frameworkConfig(ctx.config())
+                    .catalogVersion(ctx.catalogVersion())
+                    .defaultSchemaName(ctx.schemaName())
+                    .parameters(ctx.parameters())
+                    .explicitTx(ctx.explicitTx())
+                    .build();
+
+            return PlanInfo.createRefreshable(plan, stmt, state, sources);
         }
 
         return PlanInfo.create(plan);
@@ -1158,17 +1177,17 @@ public class PrepareServiceImpl implements PrepareService {
                                 }
 
                                 PlanningContext planningContext = PlanningContext.builder()
-                                        .frameworkConfig(info.context.config())
+                                        .frameworkConfig(info.context.frameworkConfig())
                                         .query(info.statement.parsedResult().originalQuery())
                                         .plannerTimeout(plannerTimeout)
                                         .catalogVersion(info.context.catalogVersion())
-                                        .defaultSchemaName(info.context.schemaName())
+                                        .defaultSchemaName(info.context.defaultSchemaName())
                                         .parameters(info.context.parameters())
                                         .explicitTx(info.context.explicitTx())
                                         .build();
 
                                 CompletableFuture<PlanInfo> newPlanFut =
-                                        prepare.preparePlan(queryType, info.statement.parsedResult, planningContext, key);
+                                        prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
 
                                 rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
 
@@ -1185,7 +1204,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     @FunctionalInterface
     private interface PlanPrepare {
-        CompletableFuture<PlanInfo> preparePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key);
+        CompletableFuture<PlanInfo> recalculatePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key);
     }
 
     private static class ParsedResultImpl implements ParsedResult {
@@ -1319,17 +1338,106 @@ public class PrepareServiceImpl implements PrepareService {
         }
     }
 
+    static class PlanningContextState {
+        private final FrameworkConfig frameworkConfig;
+        private final int catalogVersion;
+        private final String defaultSchemaName;
+        private final Int2ObjectMap<Object> parameters;
+        private final boolean explicitTx;
+
+        PlanningContextState(
+                FrameworkConfig frameworkConfig,
+                int catalogVersion,
+                String defaultSchemaName,
+                Int2ObjectMap<Object> parameters,
+                boolean explicitTx
+        ) {
+            this.frameworkConfig = frameworkConfig;
+            this.catalogVersion = catalogVersion;
+            this.defaultSchemaName = defaultSchemaName;
+            this.parameters = parameters;
+            this.explicitTx = explicitTx;
+        }
+
+        FrameworkConfig frameworkConfig() {
+            return frameworkConfig;
+        }
+
+        int catalogVersion() {
+            return catalogVersion;
+        }
+
+        String defaultSchemaName() {
+            return defaultSchemaName;
+        }
+
+        Int2ObjectMap<Object> parameters() {
+            return parameters;
+        }
+
+        boolean explicitTx() {
+            return explicitTx;
+        }
+
+        /** Get context builder. */
+        public static PlanningContextState.Builder builder() {
+            return new PlanningContextState.Builder();
+        }
+
+        public static class Builder {
+            private FrameworkConfig frameworkConfig;
+            private int catalogVersion;
+            private String defaultSchemaName;
+            private Int2ObjectMap<Object> parameters;
+            private boolean explicitTx;
+
+            PlanningContextState.Builder frameworkConfig(FrameworkConfig frameworkCfg) {
+                this.frameworkConfig = Objects.requireNonNull(frameworkCfg);
+                return this;
+            }
+
+            /** Catalog version. */
+            PlanningContextState.Builder catalogVersion(int catalogVersion) {
+                this.catalogVersion = catalogVersion;
+                return this;
+            }
+
+            /** Default schema name. */
+            PlanningContextState.Builder defaultSchemaName(String defaultSchemaName) {
+                this.defaultSchemaName = defaultSchemaName;
+                return this;
+            }
+
+            /** Values of dynamic parameters to assist with type inference. */
+            PlanningContextState.Builder parameters(Int2ObjectMap<Object> parameters) {
+                this.parameters = parameters;
+                return this;
+            }
+
+            /** Sets whether explicit transaction is present. */
+            PlanningContextState.Builder explicitTx(boolean explicitTx) {
+                this.explicitTx = explicitTx;
+                return this;
+            }
+
+            /** Builds planner context state. */
+            PlanningContextState build() {
+                return new PlanningContextState(frameworkConfig, catalogVersion, defaultSchemaName, parameters, explicitTx);
+            }
+        }
+    }
+
     static class PlanInfo {
         private final QueryPlan queryPlan;
         @Nullable private final ValidStatement<ValidationResult> statement;
-        @Nullable private final PlanningContext context;
+        @Nullable private final PlanningContextState context;
         private final IntSet sources;
         private volatile boolean needToInvalidate;
 
         private PlanInfo(
                 QueryPlan plan,
                 @Nullable ValidStatement<ValidationResult> statement,
-                @Nullable PlanningContext context,
+                @Nullable PlanningContextState context,
                 IntSet sources
         ) {
             this.queryPlan = plan;
@@ -1353,7 +1461,7 @@ public class PrepareServiceImpl implements PrepareService {
         static PlanInfo createRefreshable(
                 QueryPlan plan,
                 ValidStatement<ValidationResult> statement,
-                PlanningContext context,
+                PlanningContextState context,
                 IntSet sources
         ) {
             return new PlanInfo(plan, statement, context, sources);
