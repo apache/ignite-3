@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
+import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.List;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +44,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     @BeforeEach
     void resetTableState() {
         sqlScript("DELETE FROM test;"
+                + "INSERT INTO test VALUES (0, NULL, NULL);"
                 + "INSERT INTO test VALUES (1, '-Infinity'::FLOAT, '-Infinity'::DOUBLE);"
                 + "INSERT INTO test VALUES (2, 'Infinity'::FLOAT, 'Infinity'::DOUBLE);"
                 + "INSERT INTO test VALUES (3, 'NaN'::FLOAT, 'NaN'::DOUBLE);"
@@ -137,6 +142,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns(1.0f)
                     .returns(Float.POSITIVE_INFINITY)
                     .returns(Float.NaN)
+                    .returns((Object) null)
                     .check();
 
             assertQuery("SELECT /*+ NO_INDEX */ d FROM test ORDER BY d")
@@ -149,6 +155,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns(1.0d)
                     .returns(Double.POSITIVE_INFINITY)
                     .returns(Double.NaN)
+                    .returns((Object) null)
                     .check();
         }
 
@@ -163,6 +170,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns(1.0f)
                     .returns(Float.POSITIVE_INFINITY)
                     .returns(Float.NaN)
+                    .returns((Object) null)
                     .check();
 
             assertQuery("SELECT /*+ FORCE_INDEX */ d FROM test ORDER BY d")
@@ -175,6 +183,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns(1.0d)
                     .returns(Double.POSITIVE_INFINITY)
                     .returns(Double.NaN)
+                    .returns((Object) null)
                     .check();
         }
     }
@@ -292,26 +301,37 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns(0.0f).returns(-0.0f)
                     .returns(1.0f).returns(-1.0f)
                     .returns(Float.NaN)
+                    .returns((Object) null)
                     .check();
             assertQuery("SELECT d FROM test WHERE d IS DISTINCT FROM '+Infinity'::DOUBLE AND d IS DISTINCT FROM '-Infinity'::DOUBLE")
                     .returns(0.0d).returns(-0.0d)
                     .returns(1.0d).returns(-1.0d)
                     .returns(Double.NaN)
+                    .returns((Object) null)
                     .check();
 
             assertQuery("SELECT f FROM test WHERE f IS DISTINCT FROM '-0.0'::FLOAT")
                     .returns(1.0f).returns(-1.0f)
                     .returns(Float.NEGATIVE_INFINITY).returns(Float.POSITIVE_INFINITY)
                     .returns(Float.NaN)
+                    .returns((Object) null)
                     .check();
             assertQuery("SELECT d FROM test WHERE d IS DISTINCT FROM '-0.0'::DOUBLE")
                     .returns(1.0d).returns(-1.0d)
                     .returns(Double.NEGATIVE_INFINITY).returns(Double.POSITIVE_INFINITY)
                     .returns(Double.NaN)
+                    .returns((Object) null)
                     .check();
 
-            assertQuery("SELECT f FROM test WHERE f IS DISTINCT FROM 'NaN'::FLOAT").returnRowCount(7).check(); // NaN not equal to NaN
-            assertQuery("SELECT d FROM test WHERE d IS DISTINCT FROM 'NaN'::DOUBLE").returnRowCount(7).check(); // NaN not equal to NaN
+            List<Float> floats = sql("SELECT f FROM test WHERE f IS DISTINCT FROM 'NaN'::FLOAT")
+                    .stream().flatMap(List::stream).map(Float.class::cast).collect(toList());
+            assertThat(floats, Matchers.hasSize(8));
+            assertThat(floats, Matchers.hasItem(Float.NaN)); // NaN not equal to NaN
+
+            List<Double> doubles = sql("SELECT d FROM test WHERE d IS DISTINCT FROM 'NaN'::DOUBLE")
+                    .stream().flatMap(List::stream).map(Double.class::cast).collect(toList());
+            assertThat(doubles, Matchers.hasSize(8));
+            assertThat(doubles, Matchers.hasItem(Double.NaN)); // NaN not equal to NaN
         }
     }
 
@@ -333,7 +353,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                 + "INSERT INTO test VALUES (13, -1.0::FLOAT, -1.0::DOUBLE);"
                 + "INSERT INTO test VALUES (14, 1.0::FLOAT, 1.0::DOUBLE);"
         );
-        assertQuery("SELECT * FROM test").returnRowCount(14).check();
+        assertQuery("SELECT * FROM test").returnRowCount(15).check();
 
         assertQuery("SELECT f FROM test GROUP BY f")
                 .returns(Float.NEGATIVE_INFINITY)
@@ -343,6 +363,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                 .returns(1.0f)
                 .returns(0.0f)
                 .returns(-0.0f)
+                .returns((Object) null)
                 .check();
 
         assertQuery("SELECT d FROM test GROUP BY d")
@@ -353,6 +374,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                 .returns(1.0d)
                 .returns(0.0d)
                 .returns(-0.0d)
+                .returns((Object) null)
                 .check();
     }
 }
