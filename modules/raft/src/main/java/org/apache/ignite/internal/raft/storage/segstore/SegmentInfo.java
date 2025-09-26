@@ -19,10 +19,11 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
- * Information about a segment file stored in a {@link IndexMemTable}.
+ * Information about a segment file for single Raft Group stored in a {@link IndexMemTable}.
  */
 class SegmentInfo {
     private static class ArrayWithSize {
@@ -90,6 +91,9 @@ class SegmentInfo {
         this.logIndexBase = logIndexBase;
     }
 
+    /**
+     * Puts the given segment file offset under the given log index.
+     */
     void addOffset(long logIndex, int segmentFileOffset) {
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
@@ -107,6 +111,9 @@ class SegmentInfo {
         assert updated : "Concurrent writes detected";
     }
 
+    /**
+     * Returns the segment file offset for the given log index or {@code 0} if the log index was not found.
+     */
     int getOffset(long logIndex) {
         long offsetIndex = logIndex - logIndexBase;
 
@@ -121,5 +128,37 @@ class SegmentInfo {
         }
 
         return segmentFileOffsets.get((int) offsetIndex);
+    }
+
+    /**
+     * Returns the inclusive lower bound of log indices stored in this memtable.
+     */
+    long firstLogIndex() {
+        return logIndexBase;
+    }
+
+    /**
+     * Returns the non-inclusive upper bound of log indices stored in this memtable.
+     */
+    long lastLogIndex() {
+        return logIndexBase + segmentFileOffsets.size();
+    }
+
+    /**
+     * Returns the number of offsets stored in this memtable.
+     */
+    int size() {
+        return segmentFileOffsets.size();
+    }
+
+    /**
+     * Serializes the offsets to the given byte buffer.
+     */
+    void saveOffsetsTo(ByteBuffer buffer) {
+        ArrayWithSize offsets = segmentFileOffsets;
+
+        for (int i = 0; i < offsets.size(); i++) {
+            buffer.putInt(offsets.get(i));
+        }
     }
 }

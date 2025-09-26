@@ -41,7 +41,7 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-        createDefaultTables(baseIgnite);
+        initTestData(baseIgnite);
     }
 
     @Override

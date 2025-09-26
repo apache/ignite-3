@@ -163,6 +163,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     public void testRestartSpecifiedPartitionsWithCleanup() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 

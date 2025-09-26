@@ -518,6 +518,9 @@ namespace Apache.Ignite
 
             /// <summary> UnitUnavailable error. </summary>
             public const int UnitUnavailable = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> UnitZip error. </summary>
+            public const int UnitZip = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> GarbageCollector errors. </summary>

@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -107,7 +108,7 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     // TODO: Multi-threaded visibility should probably be revised in https://issues.apache.org/jira/browse/IGNITE-26282.
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
-    private IndexMemTable memTable;
+    private WriteModeIndexMemTable memTable;
 
     private final RaftLogCheckpointer checkpointer;
 
@@ -128,7 +129,7 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     private boolean isStopped;
 
-    SegmentFileManager(String nodeName, Path baseDir, long fileSize, int stripes) {
+    SegmentFileManager(String nodeName, Path baseDir, long fileSize, int stripes, FailureProcessor failureProcessor) {
         if (fileSize <= HEADER_RECORD.length) {
             throw new IllegalArgumentException("File size must be greater than the header size: " + fileSize);
         }
@@ -138,7 +139,7 @@ class SegmentFileManager implements ManuallyCloseable {
         this.stripes = stripes;
 
         memTable = new IndexMemTable(stripes);
-        checkpointer = new RaftLogCheckpointer(nodeName);
+        checkpointer = new RaftLogCheckpointer(nodeName, new IndexFileManager(baseDir), failureProcessor);
     }
 
     void start() throws IOException {
@@ -246,7 +247,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
             SegmentFile newFile = allocateNewSegmentFile(++curFileIndex);
 
-            checkpointer.onRollover(observedSegmentFile, memTable);
+            checkpointer.onRollover(observedSegmentFile, memTable.transitionToReadMode());
 
             memTable = new IndexMemTable(stripes);
 
