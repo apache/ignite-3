@@ -128,7 +128,7 @@ SELECT svc.*
 
 |=======
 
-=== GLOBAL_ZONE_PARTITION_STATES
+=== LOCAL_ZONE_PARTITION_STATES
 
 [width="100%", cols="15%a, 15%a, 60%a",opts="header"]
 |=======
