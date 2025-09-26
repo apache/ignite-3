@@ -39,6 +39,7 @@ import java.sql.Savepoint;
 import java.sql.ShardingKey;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -59,26 +60,19 @@ public class JdbcConnection2 implements Connection {
 
     private final IgniteClient client;
 
-    /** Jdbc metadata. Cache the JDBC object on the first access */
     private final JdbcDatabaseMetadata metadata;
 
-    /** Schema name. */
-    private String schema;
+    private String schemaName;
 
-    /** Closed flag. */
     private volatile boolean closed;
 
-    /** Current transaction isolation. */
     private int txIsolation;
 
-    /** Auto-commit flag. */
     private boolean autoCommit;
 
-    /** Read-only flag. */
     private boolean readOnly;
 
-    /** Network timeout. */
-    private int netTimeout;
+    private int networkTimeoutSeconds;
 
     /**
      * Creates new connection.
@@ -91,12 +85,12 @@ public class JdbcConnection2 implements Connection {
             IgniteClient client,
             JdbcQueryEventHandler eventHandler,
             ConnectionProperties props
-    ) {
+    ) throws SQLException {
         autoCommit = true;
 
-        netTimeout = props.getConnectionTimeout();
+        networkTimeoutSeconds = props.getConnectionTimeout();
         txIsolation = TRANSACTION_NONE;
-        schema = normalizeSchema(props.getSchema());
+        schemaName = readSchemaName(props.getSchema());
 
         this.client = client;
         //noinspection ThisEscapedInObjectConstruction
@@ -547,11 +541,7 @@ public class JdbcConnection2 implements Connection {
     public void setSchema(String schema) throws SQLException {
         ensureNotClosed();
 
-        try {
-            this.schema = normalizeSchema(schema);
-        } catch (Exception e) {
-            throw new SQLException("Invalid schema name", e);
-        }
+        this.schemaName = readSchemaName(schema);
     }
 
     /** {@inheritDoc} */
@@ -559,7 +549,7 @@ public class JdbcConnection2 implements Connection {
     public String getSchema() throws SQLException {
         ensureNotClosed();
 
-        return schema;
+        return schemaName;
     }
 
     /** {@inheritDoc} */
@@ -581,7 +571,7 @@ public class JdbcConnection2 implements Connection {
             throw new SQLException("Network timeout cannot be negative.");
         }
 
-        netTimeout = ms;
+        networkTimeoutSeconds = ms;
     }
 
     /** {@inheritDoc} */
@@ -589,7 +579,7 @@ public class JdbcConnection2 implements Connection {
     public int getNetworkTimeout() throws SQLException {
         ensureNotClosed();
 
-        return netTimeout;
+        return networkTimeoutSeconds;
     }
 
     /** {@inheritDoc} */
@@ -677,11 +667,25 @@ public class JdbcConnection2 implements Connection {
         }
     }
 
-    private static String normalizeSchema(String schemaName) {
+    private static String readSchemaName(String schemaName) throws SQLException {
         if (schemaName == null || schemaName.isEmpty()) {
             return SqlCommon.DEFAULT_SCHEMA_NAME;
+        }
+
+        boolean normalized = IgniteNameUtils.isValidNormalizedIdentifier(schemaName);
+        if (normalized) {
+            if (!schemaName.startsWith("\"")) {
+                return schemaName.toUpperCase(Locale.US);
+            } else {
+                return schemaName;
+            }
         } else {
-            return IgniteNameUtils.parseIdentifier(schemaName);
+            try {
+                IgniteNameUtils.parseIdentifier(schemaName);
+            } catch (Exception e) {
+                throw new SQLException("Invalid schema name", e);
+            }
+            return schemaName;
         }
     }
 }

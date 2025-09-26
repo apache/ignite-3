@@ -395,7 +395,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             assertEquals("ABC", conn.getSchema());
 
             conn.setSchema("\"Abc\"");
-            assertEquals("Abc", conn.getSchema());
+            assertEquals("\"Abc\"", conn.getSchema());
 
             assertThrowsSqlException(SQLException.class, "Invalid schema name", () -> {
                 conn.setSchema("AB.C");
@@ -421,7 +421,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
         try (Connection conn = createConnection((props) -> {
             props.setSchema("\"Abc\"");
         })) {
-            assertEquals("Abc", conn.getSchema());
+            assertEquals("\"Abc\"", conn.getSchema());
         }
     }
 
