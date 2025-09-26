@@ -2136,7 +2136,7 @@ public class InternalTableImpl implements InternalTable {
         @Override
         public void onRequestBegin() {
             // Track read only requests which are able to create cursors.
-            if (!transactionInflights.track(txId, true)) {
+            if (!transactionInflights.addScanInflight(txId)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
                         "Transaction is already finished () [txId={}, readOnly=true].",
                         txId
@@ -2146,7 +2146,7 @@ public class InternalTableImpl implements InternalTable {
 
         @Override
         public void onRequestEnd() {
-            // No-op.
+            transactionInflights.removeInflight(txId);
         }
     }
 

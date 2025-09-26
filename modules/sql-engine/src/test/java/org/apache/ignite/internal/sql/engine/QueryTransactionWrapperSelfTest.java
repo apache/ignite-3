@@ -69,7 +69,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void testImplicitTransactionAttributes() {
         prepareTransactionsMocks();
 
-        when(transactionInflights.track(any(), anyBoolean())).thenReturn(true);
+        when(transactionInflights.track(any())).thenReturn(true);
 
         QueryTransactionContext transactionHandler = new QueryTransactionContextImpl(txManager, observableTimeTracker, null,
                 new InflightTransactionalOperationTracker(transactionInflights));
@@ -142,7 +142,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
             return NoOpTransaction.readWrite("test", implicit);
         });
 
-        when(transactionInflights.track(any(), anyBoolean())).thenReturn(true);
+        when(transactionInflights.track(any())).thenReturn(true);
         txCtx.handleControlStatement(txStartStmt);
 
         assertThrowsSqlException(
@@ -239,6 +239,6 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareTxInflightsMocks(Set<UUID> inflights) {
-        when(transactionInflights.track(any(), anyBoolean())).thenAnswer(inv -> inflights.add(inv.getArgument(0)));
+        when(transactionInflights.track(any())).thenAnswer(inv -> inflights.add(inv.getArgument(0)));
     }
 }
