@@ -185,7 +185,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             expectClosed(() -> conn.setShardingKey(shardingKey, subShardingKey));
         }
     }
-    
+
     @Test
     public void closeExceptionMapping() throws SQLException {
         IgniteClient igniteClient = Mockito.mock(IgniteClient.class);
