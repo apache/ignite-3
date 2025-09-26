@@ -489,6 +489,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         // no need to register them.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
         if (!implicit) {
+            // TODO IGNITE-26531 Unregister is not called on finish.
             transactionExpirationRegistry.register(transaction);
 
             if (isStopping) {
@@ -624,6 +625,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             @Nullable ReplicationGroupId commitPartition,
             boolean commitIntent,
             boolean timeout,
+            boolean recovery,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
@@ -695,7 +697,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         commit,
                         enlistedGroups,
                         txId,
-                        finishingStateMeta.txFinishFuture()
+                        finishingStateMeta.txFinishFuture(),
+                        txContext.isNoWrites() && !recovery
                 )
         ).whenComplete((unused, throwable) -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
@@ -731,7 +734,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean commit,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
-            CompletableFuture<TransactionMeta> txFinishFuture
+            CompletableFuture<TransactionMeta> txFinishFuture,
+            boolean unlock
     ) {
         HybridTimestamp commitTimestamp = commitTimestamp(commit);
         // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
@@ -746,6 +750,27 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
                             Map<ReplicationGroupId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
                                     .collect(toMap(Entry::getKey, Entry::getValue));
+
+                            if (unlock) {
+                                return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
+                                        .thenAccept(ignored -> {
+                                            // Don't keep useless state.
+                                            txStateVolatileStorage.updateMeta(txId, old -> null);
+
+                                            TxStateMeta meta = new TxStateMeta(
+                                                    verifiedCommit ? COMMITTED : ABORTED,
+                                                    localNodeId,
+                                                    null,
+                                                    commitTimestamp,
+                                                    null,
+                                                    null,
+                                                    System.currentTimeMillis(),
+                                                    null
+                                            );
+
+                                            txFinishFuture.complete(meta);
+                                        });
+                            }
 
                             return durableFinish(
                                     observableTimestampTracker,
@@ -1095,13 +1120,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        assertReplicationGroupType(commitPartitionId);
         for (ReplicationGroupId replicationGroupId : enlistedPartitions.keySet()) {
             assertReplicationGroupType(replicationGroupId);
         }
@@ -1169,12 +1193,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
+    void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp) {
         UUID txId = txIdAndTimestamp.getTxId();
 
         txMetrics.onReadOnlyTransactionFinished(txId, commitIntent);
 
-        transactionInflights.markReadOnlyTxFinished(txId, timeoutExceeded);
+        transactionInflights.markReadOnlyTxFinished(txId);
     }
 
     @Override

@@ -679,7 +679,7 @@ public class InternalTableImpl implements InternalTable {
 
             if (req.isWrite()) {
                 // Track only write requests from explicit transactions.
-                if (!tx.remote() && !transactionInflights.addInflight(tx.id(), false)) {
+                if (!tx.remote() && !transactionInflights.addInflight(tx.id())) {
                     int code = TX_ALREADY_FINISHED_ERR;
                     if (tx.isRolledBackWithTimeoutExceeded()) {
                         code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
@@ -2136,7 +2136,7 @@ public class InternalTableImpl implements InternalTable {
         @Override
         public void onRequestBegin() {
             // Track read only requests which are able to create cursors.
-            if (!transactionInflights.addInflight(txId, true)) {
+            if (!transactionInflights.addScanInflight(txId)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
                         "Transaction is already finished () [txId={}, readOnly=true].",
                         txId

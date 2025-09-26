@@ -164,6 +164,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
 
+    private TransactionInflights transactionInflights;
+
     @BeforeEach
     public void setup() {
         clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -178,7 +180,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+        transactionInflights = new TransactionInflights(placementDriver, clockService);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
@@ -350,6 +352,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
+        transactionInflights.track(tx.id()); // Enable cleanup path.
 
         tx.commit();
 
@@ -371,6 +374,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
+        transactionInflights.track(tx.id()); // Enable cleanup path.
 
         tx.rollback();
 
@@ -397,6 +401,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
+        transactionInflights.track(tx.id());
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
@@ -425,6 +430,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(1, 0);
 
+        transactionInflights.track(tx.id());
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
 
@@ -833,6 +839,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(replicationGroupId, 10, REMOTE_NODE.name(), 1L);
         tx.assignCommitPartition(replicationGroupId);
+
+        transactionInflights.track(tx.id());
 
         return tx;
     }

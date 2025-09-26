@@ -932,6 +932,44 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testExplicitReadWriteTransaction() {
+        ClientTable table = (ClientTable) table();
+
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        // Load partition map to ensure all entries are directly mapped.
+        Map<Partition, ClusterNode> map = table.partitionManager().primaryReplicasAsync().join();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(600, 20, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(600, 20, map, server1.clusterService().topologyService().localMember(), table);
+
+        Tuple k1 = tuples0.get(0);
+        Tuple v1 = val(tuples0.get(0).intValue(0) + "");
+
+        Tuple k2 = tuples1.get(1);
+        Tuple v2 = val(tuples1.get(1).intValue(0) + "");
+
+        Transaction tx0 = client().transactions().begin();
+        kvView.put(tx0, k1, v1);
+        kvView.put(tx0, k2, v2);
+        tx0.commit();
+
+        Map<Tuple, Tuple> crossPartitionBatch = new HashMap<>();
+        crossPartitionBatch.put(k1, v1);
+        crossPartitionBatch.put(k2, v2);
+
+        Map<Tuple, Tuple> res = kvView.getAll(null, crossPartitionBatch.keySet());
+
+        assertEquals(crossPartitionBatch, res);
+
+        assertEquals(v1, kvView.get(null, k1));
+        assertEquals(v2, kvView.get(null, k2));
+    }
+
+    @Test
     void testExplicitReadOnlyTransaction() {
         ClientTable table = (ClientTable) table();
 

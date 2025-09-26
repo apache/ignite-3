@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -69,7 +71,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
@@ -277,7 +278,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertEquals(NoSuchElementException.class, unwrapCause(gotException.get()).getClass());
 
-        validateTxAbortedState(tx);
+        validateTxFinished(tx);
     }
 
     /**
@@ -322,13 +323,12 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertEquals(StorageException.class, unwrapCause(gotException.get()).getClass());
 
-        validateTxAbortedState(tx);
+        validateTxFinished(tx);
     }
 
-    protected void validateTxAbortedState(InternalTransaction tx) {
-        if (tx != null) {
-            assertEquals(TxState.ABORTED, tx.state());
-        }
+    protected void validateTxFinished(InternalTransaction tx) {
+        assertNotNull(tx);
+        assertNull(tx.state());
     }
 
     /**

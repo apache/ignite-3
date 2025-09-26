@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -74,6 +75,12 @@ class ItTxCleanupTest extends ClusterPerTestIntegrationTest {
                 view.put(tx, 1, "one");
             }
         });
+
+        if (readsOnly) {
+            // We shouldn't see write intent switching from RW-R a transaction.
+            assertFalse(waitForCondition(() -> writeIntentSwitchRequestCount.get() > 0, SECONDS.toMillis(1)));
+            return;
+        }
 
         // We should see one WI switch...
         assertTrue(waitForCondition(() -> writeIntentSwitchRequestCount.get() > 0, SECONDS.toMillis(10)));
