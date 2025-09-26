@@ -65,7 +65,7 @@ public class TransactionInflights {
     }
 
     /**
-     * Registers the inflight update for a RW transaction.
+     * Register the update inflight for RW transaction.
      *
      * @param txId The transaction id.
      * @return {@code True} if the inflight was registered. The update must be failed on false.
@@ -87,23 +87,43 @@ public class TransactionInflights {
     }
 
     /**
-     * Track the given transaction until finish. Tracking is used for:
+     * Register the scan inflight for RO transaction.
+     *
+     * @param txId The transaction id.
+     * @return {@code True} if the inflight was registered. The scan must be failed on false.
+     */
+    public boolean addScanInflight(UUID txId) {
+        boolean[] res = {true};
+
+        txCtxMap.compute(txId, (uuid, ctx) -> {
+            if (ctx == null) {
+                ctx = new ReadOnlyTxContext();
+            }
+
+            res[0] = ctx.addInflight();
+
+            return ctx;
+        });
+
+        return res[0];
+    }
+
+    /**
+     * Track the given RW transaction until finish. Tracking is used for:
      * <ul>
-     *     <li>resources cleanup for RO transactions</li>
      *     <li>unlock only path for RW-R transactions</li>
      *     <li>force cleanup path on recovery</li>
      * </ul>
      *
      * @param txId The transaction id.
-     * @param readOnly {@code True} if a read-only transaction.
      * @return {@code True} if the was registered and is in active state.
      */
-    public boolean track(UUID txId, boolean readOnly) {
+    public boolean track(UUID txId) {
         boolean[] res = {true};
 
         txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
-                ctx = readOnly ? new ReadOnlyTxContext() : new ReadWriteTxContext(placementDriver, clockService);
+                ctx = new ReadWriteTxContext(placementDriver, clockService);
             }
 
             res[0] = !ctx.isTxFinishing();
