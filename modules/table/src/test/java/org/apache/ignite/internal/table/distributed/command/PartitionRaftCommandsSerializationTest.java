@@ -70,7 +70,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     /** Hybrid clock. */
-    private final HybridClockImpl clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     /** Key-value marshaller for tests. */
     private static KvMarshaller<TestKey, TestValue> kvMarshaller;
@@ -228,8 +228,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testTxCleanupCommand() {
-        HybridClock clock = new HybridClockImpl();
-
         WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(UUID.randomUUID())
                 .commit(true)
@@ -247,7 +245,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testFinishTxCommand() {
-        HybridClock clock = new HybridClockImpl();
         ArrayList<ReplicationGroupIdMessage> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {

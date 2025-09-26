@@ -171,6 +171,10 @@ class SegmentFile implements ManuallyCloseable {
         }
     }
 
+    void sync() {
+        buffer.force();
+    }
+
     private @Nullable ByteBuffer reserveBytes(int size) {
         while (true) {
             int pos = bufferPosition.get();

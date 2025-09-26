@@ -348,4 +348,9 @@ public class IgniteCluster {
             throw new RuntimeException(e);
         }
     }
+
+    /** Returns cluster name. */
+    public String clusterName() {
+        return clusterConfiguration.clusterName();
+    }
 }

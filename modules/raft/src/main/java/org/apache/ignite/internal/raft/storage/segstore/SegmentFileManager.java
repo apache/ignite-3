@@ -25,8 +25,11 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
+import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
 /**
  * File manager responsible for allocating and maintaining a pointer to the current segment file.
@@ -48,7 +51,15 @@ import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
  * +------------------------+-------------------+
  * </pre>
  *
- * <p>Payload structure is defined by the outer callers.
+ * <p>Every appended entry is converted into its serialized form (a.k.a. "payload"), defined by a {@link LogEntryEncoder},
+ * and stored in a segment file.
+ *
+ * <p>Binary representation of each entry is as follows:
+ * <pre>
+ * +---------------+---------+--------------------------+---------+----------------+
+ * | Raft Group ID (8 bytes) | Payload Length (4 bytes) | Payload | Hash (4 bytes) |
+ * +---------------+---------+--------------------------+---------+----------------+
+ * </pre>
  *
  * <p>When a rollover happens and the segment file being replaced has at least 8 bytes left, a special {@link #SWITCH_SEGMENT_RECORD} is
  * written at the end of the file. If there are less than 8 bytes left, no switch records are written.
@@ -82,10 +93,24 @@ class SegmentFileManager implements ManuallyCloseable {
     /** Configured size of a segment file. */
     private final long fileSize;
 
+    /** Number of stripes used by the index memtable. Should be equal to the number of stripes in the Raft server's Disruptor. */
+    private final int stripes;
+
     /**
      * Current segment file. Can store {@code null} while a rollover is in progress or if the file manager has been stopped.
      */
     private final AtomicReference<SegmentFile> currentSegmentFile = new AtomicReference<>();
+
+    /**
+     * Index memtable of the current segment file.
+     *
+     * <p>Multi-threaded visibility is guaranteed by volatile reads or writes to the {@link #currentSegmentFile} field.
+     */
+    // TODO: Multi-threaded visibility should probably be revised in https://issues.apache.org/jira/browse/IGNITE-26282.
+    @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
+    private WriteModeIndexMemTable memTable;
+
+    private final RaftLogCheckpointer checkpointer;
 
     /** Lock used to block threads while a rollover is in progress. */
     private final Object rolloverLock = new Object();
@@ -104,16 +129,22 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     private boolean isStopped;
 
-    SegmentFileManager(Path baseDir, long fileSize) {
+    SegmentFileManager(String nodeName, Path baseDir, long fileSize, int stripes, FailureProcessor failureProcessor) {
         if (fileSize <= HEADER_RECORD.length) {
             throw new IllegalArgumentException("File size must be greater than the header size: " + fileSize);
         }
 
         this.baseDir = baseDir;
         this.fileSize = fileSize;
+        this.stripes = stripes;
+
+        memTable = new IndexMemTable(stripes);
+        checkpointer = new RaftLogCheckpointer(nodeName, new IndexFileManager(baseDir), failureProcessor);
     }
 
     void start() throws IOException {
+        checkpointer.start();
+
         // TODO: implement recovery, see https://issues.apache.org/jira/browse/IGNITE-26283.
         currentSegmentFile.set(allocateNewSegmentFile(0));
     }
@@ -132,20 +163,31 @@ class SegmentFileManager implements ManuallyCloseable {
         return String.format(SEGMENT_FILE_NAME_FORMAT, fileIndex, generation);
     }
 
-    WriteBuffer reserve(int size) throws IOException {
-        if (size > maxEntrySize()) {
+    void appendEntry(long groupId, LogEntry entry, LogEntryEncoder encoder) throws IOException {
+        var segmentPayload = new SegmentPayload(groupId, entry, encoder);
+
+        int payloadSize = segmentPayload.size();
+
+        if (payloadSize > maxEntrySize()) {
             throw new IllegalArgumentException(String.format(
-                    "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.", size, maxEntrySize()
+                    "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.", payloadSize, maxEntrySize()
             ));
         }
 
         while (true) {
             SegmentFile segmentFile = currentSegmentFile();
 
-            WriteBuffer writeBuffer = segmentFile.reserve(size);
+            try (WriteBuffer writeBuffer = segmentFile.reserve(payloadSize)) {
+                if (writeBuffer != null) {
+                    int segmentOffset = writeBuffer.buffer().position();
 
-            if (writeBuffer != null) {
-                return writeBuffer;
+                    segmentPayload.writeTo(writeBuffer.buffer());
+
+                    // Append to memtable before write buffer is released to avoid races with checkpoint on rollover.
+                    memTable.appendSegmentFileOffset(groupId, entry.getId().getIndex(), segmentOffset);
+
+                    return;
+                }
             }
 
             // Segment file does not have enough space. Try to switch to a new one and retry the write attempt.
@@ -205,6 +247,10 @@ class SegmentFileManager implements ManuallyCloseable {
 
             SegmentFile newFile = allocateNewSegmentFile(++curFileIndex);
 
+            checkpointer.onRollover(observedSegmentFile, memTable.transitionToReadMode());
+
+            memTable = new IndexMemTable(stripes);
+
             currentSegmentFile.set(newFile);
 
             rolloverLock.notifyAll();
@@ -231,6 +277,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
             rolloverLock.notifyAll();
         }
+
+        checkpointer.stop();
     }
 
     private static void writeHeader(SegmentFile segmentFile) {

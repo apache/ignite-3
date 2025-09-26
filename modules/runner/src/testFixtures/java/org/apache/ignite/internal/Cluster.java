@@ -623,6 +623,8 @@ public class Cluster {
 
         metaStorageAndCmgNodes = List.of();
 
+        MicronautCleanup.removeShutdownHooks();
+
         LOG.info("Shut the cluster down");
     }
 
