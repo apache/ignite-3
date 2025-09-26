@@ -79,6 +79,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
@@ -162,6 +163,8 @@ public class DataNodesManager {
 
     private final IntSupplier partitionDistributionResetTimeoutSupplier;
 
+    private final Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider;
+
     /**
      * Constructor.
      *
@@ -173,6 +176,7 @@ public class DataNodesManager {
      * @param failureProcessor Failure processor.
      * @param partitionResetClosure Closure to reset partitions.
      * @param partitionDistributionResetTimeoutSupplier Supplier for partition distribution reset timeout.
+     * @param latestLogicalTopologyProvider Provider of the latest logical topology.
      */
     public DataNodesManager(
             String nodeName,
@@ -182,7 +186,8 @@ public class DataNodesManager {
             ClockService clockService,
             FailureProcessor failureProcessor,
             BiConsumer<Long, Integer> partitionResetClosure,
-            IntSupplier partitionDistributionResetTimeoutSupplier
+            IntSupplier partitionDistributionResetTimeoutSupplier,
+            Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider
     ) {
         this.metaStorageManager = metaStorageManager;
         this.catalogManager = catalogManager;
@@ -191,6 +196,7 @@ public class DataNodesManager {
         this.localNodeName = nodeName;
         this.partitionResetClosure = partitionResetClosure;
         this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
+        this.latestLogicalTopologyProvider = latestLogicalTopologyProvider;
         this.busyLock = busyLock;
 
         executor = createZoneManagerExecutor(
@@ -324,7 +330,8 @@ public class DataNodesManager {
                         newLogicalTopology,
                         oldLogicalTopology,
                         dataNodesHistoryContext
-                ))
+                )),
+                false
         );
     }
 
@@ -518,7 +525,8 @@ public class DataNodesManager {
                         timestamp,
                         logicalTopology,
                         dataNodesHistoryContext
-                ))
+                )),
+                true
         );
     }
 
@@ -587,7 +595,8 @@ public class DataNodesManager {
                         zoneDescriptor,
                         timestamp,
                         dataNodesHistoryContext
-                ))
+                )),
+                true
         );
     }
 
@@ -686,7 +695,8 @@ public class DataNodesManager {
         return () -> doOperation(
                 zoneDescriptor,
                 List.of(zoneDataNodesHistoryKey(zoneId), scheduledTimer.metaStorageKey()),
-                dataNodesHistoryContext -> applyTimerClosure0(zoneDescriptor, scheduledTimer, dataNodesHistoryContext)
+                dataNodesHistoryContext -> applyTimerClosure0(zoneDescriptor, scheduledTimer, dataNodesHistoryContext),
+                true
         );
     }
 
@@ -992,6 +1002,21 @@ public class DataNodesManager {
         return completedFuture(dataNodeHistoryContextFromValues(entries));
     }
 
+    private CompletableFuture<DataNodesHistoryContext> ensureContextIsPresent(
+            @Nullable DataNodesHistoryContext context,
+            List<ByteArray> keys,
+            int zoneId
+    ) {
+        if (context == null) {
+            // Probably this is a transition from older version of cluster, need to initialize zone according to the
+            // current set of meta storage entries.
+            return initZone(zoneId)
+                    .thenCompose(ignored -> getDataNodeHistoryContextMs(keys));
+        } else {
+            return completedFuture(context);
+        }
+    }
+
     @Nullable
     private static <T> T deserializeEntry(@Nullable Entry e, Function<byte[], T> deserializer) {
         if (e == null || e.value() == null || e.empty() || e.tombstone()) {
@@ -1007,14 +1032,16 @@ public class DataNodesManager {
      * @param zone Zone descriptor.
      * @param keysToRead Keys to read from meta storage, to get {@link DataNodesHistoryContext}.
      * @param operation Operation.
+     * @param ensureContextIsPresent If true, then ensures that {@link DataNodesHistoryContext} is not {@code null}.
      * @return Future reflecting the completion of meta storage operation.
      */
     private CompletableFuture<Void> doOperation(
             CatalogZoneDescriptor zone,
             List<ByteArray> keysToRead,
-            Function<DataNodesHistoryContext, CompletableFuture<DataNodesHistoryMetaStorageOperation>> operation
+            Function<DataNodesHistoryContext, CompletableFuture<DataNodesHistoryMetaStorageOperation>> operation,
+            boolean ensureContextIsPresent
     ) {
-        return msInvokeWithRetry(msGetter -> msGetter.get(keysToRead).thenCompose(operation), zone);
+        return msInvokeWithRetry(msGetter -> msGetter.get(keysToRead).thenCompose(operation), zone, ensureContextIsPresent);
     }
 
     private CompletableFuture<Void> msInvokeWithRetry(
@@ -1022,9 +1049,10 @@ public class DataNodesManager {
                     DataNodeHistoryContextMetaStorageGetter,
                     CompletableFuture<DataNodesHistoryMetaStorageOperation>
             > metaStorageOperationSupplier,
-            CatalogZoneDescriptor zone
+            CatalogZoneDescriptor zone,
+            boolean ensureContextIsPresent
     ) {
-        return msInvokeWithRetry(metaStorageOperationSupplier, MAX_ATTEMPTS_ON_RETRY, zone);
+        return msInvokeWithRetry(metaStorageOperationSupplier, MAX_ATTEMPTS_ON_RETRY, zone, ensureContextIsPresent);
     }
 
     /**
@@ -1042,7 +1070,8 @@ public class DataNodesManager {
                     CompletableFuture<DataNodesHistoryMetaStorageOperation>
             > metaStorageOperationSupplier,
             int attemptsLeft,
-            CatalogZoneDescriptor zone
+            CatalogZoneDescriptor zone,
+            boolean ensureContextIsPresent
     ) {
         if (attemptsLeft <= 0) {
             throw new AssertionError("Failed to perform meta storage invoke, maximum number of attempts reached [zone=" + zone + "].");
@@ -1050,9 +1079,13 @@ public class DataNodesManager {
 
         // Get locally on the first attempt, otherwise it means that invoke has failed because of different value in meta storage,
         // so we need to retrieve the value from meta storage.
-        DataNodeHistoryContextMetaStorageGetter msGetter = attemptsLeft == MAX_ATTEMPTS_ON_RETRY
+        DataNodeHistoryContextMetaStorageGetter msGetter0 = attemptsLeft == MAX_ATTEMPTS_ON_RETRY
                 ? this::getDataNodeHistoryContextMsLocally
                 : this::getDataNodeHistoryContextMs;
+
+        DataNodeHistoryContextMetaStorageGetter msGetter = ensureContextIsPresent
+                ? keys -> msGetter0.get(keys).thenCompose(context -> ensureContextIsPresent(context, keys, zone.id()))
+                : msGetter0;
 
         CompletableFuture<DataNodesHistoryMetaStorageOperation> metaStorageOperationFuture =
                 metaStorageOperationSupplier.apply(msGetter);
@@ -1070,7 +1103,12 @@ public class DataNodesManager {
 
                                         return nullCompletedFuture();
                                     } else {
-                                        return msInvokeWithRetry(metaStorageOperationSupplier, attemptsLeft - 1, zone);
+                                        return msInvokeWithRetry(
+                                                metaStorageOperationSupplier,
+                                                attemptsLeft - 1,
+                                                zone,
+                                                ensureContextIsPresent
+                                        );
                                     }
                                 })
                                 .whenComplete((v, e) -> {
@@ -1097,6 +1135,22 @@ public class DataNodesManager {
      * @return Future reflecting the completion of initialisation of zone's keys in meta storage.
      */
     CompletableFuture<?> onZoneCreate(
+            int zoneId,
+            HybridTimestamp timestamp,
+            Set<NodeWithAttributes> dataNodes
+    ) {
+        return initZone(zoneId, timestamp, dataNodes);
+    }
+
+    private CompletableFuture<?> initZone(int zoneId) {
+        CatalogZoneDescriptor zone = zoneDescriptor(zoneId);
+        Set<NodeWithAttributes> topologyNodes = latestLogicalTopologyProvider.get();
+        Set<NodeWithAttributes> filteredNodes = filterDataNodes(topologyNodes, zone);
+
+        return initZone(zoneId, clockService.now(), filteredNodes);
+    }
+
+    private CompletableFuture<?> initZone(
             int zoneId,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> dataNodes
@@ -1304,6 +1358,18 @@ public class DataNodesManager {
         }
 
         return nullCompletedFuture();
+    }
+
+    private CatalogZoneDescriptor zoneDescriptor(int zoneId) {
+        int catalogVersion = catalogManager.activeCatalogVersion(clockService.currentLong());
+
+        CatalogZoneDescriptor zone = catalogManager.catalog(catalogVersion).zone(zoneId);
+
+        if (zone == null) {
+            throw new DistributionZoneNotFoundException(zoneId);
+        }
+
+        return zone;
     }
 
     @TestOnly

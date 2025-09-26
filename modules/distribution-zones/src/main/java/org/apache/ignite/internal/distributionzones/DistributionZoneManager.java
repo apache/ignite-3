@@ -262,7 +262,8 @@ public class DistributionZoneManager extends
                 clockService,
                 failureProcessor,
                 this::fireTopologyReduceLocalEvent,
-                partitionDistributionResetTimeoutConfiguration::currentValue
+                partitionDistributionResetTimeoutConfiguration::currentValue,
+                this::logicalTopology
         );
 
         this.metricManager = metricManager;

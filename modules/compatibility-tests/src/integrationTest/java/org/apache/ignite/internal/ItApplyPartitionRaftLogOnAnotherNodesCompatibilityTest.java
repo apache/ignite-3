@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 
 import org.apache.ignite.Ignite;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -64,7 +63,6 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
         });
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26479")
     @Test
     void testIncreaseReplicas() throws Exception {
         cluster.stop();
