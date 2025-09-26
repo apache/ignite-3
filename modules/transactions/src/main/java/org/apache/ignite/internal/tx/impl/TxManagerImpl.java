@@ -485,12 +485,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 nodeProperties.colocationEnabled()
         );
 
-        // TODO FIXME broken for implicit batches
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
         // no need to register them.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
         if (!implicit) {
-            // TODO FIXME no unregister called.
+            // TODO IGNITE-26531 Unregister is not called on finish.
             transactionExpirationRegistry.register(transaction);
 
             if (isStopping) {
