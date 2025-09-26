@@ -217,7 +217,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
-        when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
+        when(tableDescriptor.latestSchemaVersion()).thenReturn(schemaDescriptor.version());
 
         when(catalog.table(anyInt())).thenReturn(tableDescriptor);
         when(catalog.table(anyInt())).thenReturn(tableDescriptor);

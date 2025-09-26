@@ -208,7 +208,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
     }
 
     int latestTableVersionFromCatalog(int tableId) {
-        return getTableStrict(catalogManager, tableId, clock.nowLong()).tableVersion();
+        return getTableStrict(catalogManager, tableId, clock.nowLong()).latestSchemaVersion();
     }
 
     void updateTableVersion(String tableName) {

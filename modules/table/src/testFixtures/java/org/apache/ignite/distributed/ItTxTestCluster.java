@@ -640,7 +640,7 @@ public class ItTxTestCluster {
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.id()).thenReturn(tableId);
-        when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
+        when(tableDescriptor.latestSchemaVersion()).thenReturn(SCHEMA_VERSION);
 
         lenient().when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
 

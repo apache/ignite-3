@@ -94,20 +94,20 @@ public class CatalogTableDescriptorSerializers {
                 }
             }
 
-            return new CatalogTableDescriptor(
-                    id,
-                    schemaId,
-                    pkIndexId,
-                    name,
-                    zoneId,
-                    columns,
-                    primaryKeyColumns,
-                    colocationColumns,
-                    schemaVersions,
-                    storageProfile,
+            return CatalogTableDescriptor.builder()
+                    .id(id)
+                    .schemaId(schemaId)
+                    .primaryKeyIndexId(pkIndexId)
+                    .name(name)
+                    .zoneId(zoneId)
+                    .columns(columns)
+                    .primaryKeyColumns(primaryKeyColumns)
+                    .colocationColumns(colocationColumns)
+                    .schemaVersions(schemaVersions)
+                    .storageProfile(storageProfile)
                     // Here we use the initial timestamp because it's old storage.
-                    INITIAL_TIMESTAMP
-            );
+                    .timestamp(INITIAL_TIMESTAMP)
+                    .build();
         }
 
         @Override
@@ -233,19 +233,19 @@ public class CatalogTableDescriptorSerializers {
                 }
             }
 
-            return new CatalogTableDescriptor(
-                    id,
-                    schemaId,
-                    pkIndexId,
-                    name,
-                    zoneId,
-                    columns,
-                    primaryKeyColumns,
-                    colocationColumns,
-                    schemaVersions,
-                    storageProfile,
-                    updateTimestamp
-            );
+            return CatalogTableDescriptor.builder()
+                    .id(id)
+                    .schemaId(schemaId)
+                    .primaryKeyIndexId(pkIndexId)
+                    .name(name)
+                    .zoneId(zoneId)
+                    .columns(columns)
+                    .primaryKeyColumns(primaryKeyColumns)
+                    .colocationColumns(colocationColumns)
+                    .schemaVersions(schemaVersions)
+                    .storageProfile(storageProfile)
+                    .timestamp(updateTimestamp)
+                    .build();
         }
 
         @Override

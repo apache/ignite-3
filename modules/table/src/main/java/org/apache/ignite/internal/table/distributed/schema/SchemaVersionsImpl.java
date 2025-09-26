@@ -54,7 +54,7 @@ public class SchemaVersionsImpl implements SchemaVersions {
     @Override
     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
         return tableDescriptor(tableId, timestamp)
-                .thenApply(CatalogTableDescriptor::tableVersion);
+                .thenApply(CatalogTableDescriptor::latestSchemaVersion);
     }
 
     private CompletableFuture<CatalogTableDescriptor> tableDescriptor(int tableId, HybridTimestamp timestamp) {

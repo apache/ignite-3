@@ -145,7 +145,7 @@ public class SchemaManager implements IgniteComponent {
 
         try {
             int tableId = tableDescriptor.id();
-            int newSchemaVersion = tableDescriptor.tableVersion();
+            int newSchemaVersion = tableDescriptor.latestSchemaVersion();
 
             if (searchSchemaByVersion(tableId, newSchemaVersion) != null) {
                 return falseCompletedFuture();

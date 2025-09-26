@@ -462,7 +462,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
         lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
         lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
-        lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
+        lenient().when(tableDescriptor.latestSchemaVersion()).thenReturn(1);
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         lenient().when(indexDescriptor.id()).thenReturn(pkStorage.get().id());
