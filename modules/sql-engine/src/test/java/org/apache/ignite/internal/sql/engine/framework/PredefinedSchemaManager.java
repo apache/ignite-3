@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 public class PredefinedSchemaManager implements SqlSchemaManager {
     private final IgniteSchemas root;
     private final Int2ObjectMap<IgniteTable> tableById;
+    private final SchemaPlus schemaPlus;
 
     /** Constructs schema manager from a single schema. */
     public PredefinedSchemaManager(IgniteSchema schema) {
@@ -67,7 +68,13 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
             );
         }
 
+        this.schemaPlus = schemaPlus;
+
         root = new IgniteSchemas(schemaPlus, 0);
+    }
+
+    SchemaPlus rootSchema() {
+        return schemaPlus;
     }
 
     /** {@inheritDoc} */

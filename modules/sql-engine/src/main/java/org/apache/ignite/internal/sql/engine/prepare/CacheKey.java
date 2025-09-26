@@ -51,12 +51,22 @@ public class CacheKey {
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, ColumnType[] paramTypes) {
+    public CacheKey(
+            int catalogVersion,
+            String schemaName,
+            String query,
+            Object contextKey,
+            ColumnType[] paramTypes
+    ) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
         this.contextKey = contextKey;
         this.paramTypes = paramTypes;
+    }
+
+    int catalogVersion() {
+        return catalogVersion;
     }
 
     /** {@inheritDoc} */

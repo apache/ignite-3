@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,6 +36,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.ZoneId;
@@ -41,19 +44,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.VersionedSchemaManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -65,7 +72,9 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -76,6 +85,7 @@ import org.apache.ignite.sql.SqlException;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -84,10 +94,12 @@ import org.mockito.Mockito;
 /**
  * Tests to verify {@link PrepareServiceImpl}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static final List<PrepareService> createdServices = new ArrayList<>();
 
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    @InjectExecutorService
+    private static ScheduledExecutorService commonExecutor;
 
     @AfterEach
     public void stopServices() throws Exception {
@@ -96,11 +108,6 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         }
 
         createdServices.clear();
-    }
-
-    @AfterEach
-    public void stopScheduler() {
-        scheduler.shutdownNow();
     }
 
     @ParameterizedTest
@@ -362,6 +369,176 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         ));
     }
 
+    /** Validates that plan for appropriate tableId will be changed by request. */
+    @Test
+    public void statisticUpdatesChangePlans() {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table));
+
+        PrepareServiceImpl service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE);
+
+        assertThat(service.cache.size(), is(0));
+
+        String selectQuery = "SELECT * FROM test.t WHERE c = 1";
+        QueryPlan selectPlan = await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        assertThat(service.cache.size(), is(1));
+
+        String insertQuery = "INSERT INTO test.t VALUES(OCTET_LENGTH('TEST')), (2)";
+        QueryPlan insertPlan = await(service.prepareAsync(parse(insertQuery), operationContext().build()));
+
+        assertThat(service.cache.size(), is(2));
+
+        service.statisticsChanged(table.id());
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .until(
+                        () -> !selectPlan.equals(await(service.prepareAsync(parse(selectQuery), operationContext().build())))
+                );
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .until(
+                         () -> !insertPlan.equals(await(service.prepareAsync(parse(insertQuery), operationContext().build())))
+                );
+
+        assertThat(service.cache.size(), is(2));
+    }
+
+    @Test
+    public void planUpdatesForNonCachedTable() {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteTable table2 = TestBuilders.table()
+                .name("T2")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1, table2));
+
+        // 1 item cache plan size
+        PrepareServiceImpl service = (PrepareServiceImpl) createPlannerService(schema,  1);
+
+        String selectQuery = "SELECT * FROM test.t1 WHERE c = 1";
+        await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        assertThat(service.cache.size(), is(1));
+        CacheKey key1 = service.cache.entrySet().iterator().next().getKey();
+
+        // different table
+        String insertQuery = "SELECT * FROM test.t2 WHERE c = 1";
+        QueryPlan plan2 = await(service.prepareAsync(parse(insertQuery), operationContext().build()));
+        assertThat(service.cache.size(), is(1));
+        CacheKey key2 = service.cache.entrySet().iterator().next().getKey();
+
+        assertNotEquals(key1, key2);
+
+        // not cached table
+        service.statisticsChanged(table1.id());
+
+        // cached table
+        service.statisticsChanged(table2.id());
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .until(
+                        () -> !plan2.equals(await(service.prepareAsync(parse(insertQuery), operationContext().build())))
+                );
+    }
+
+    /** Validate that plan updates only for current catalog version. */
+    @Test
+    public void planUpdatesForCurrentCatalogVersion() {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .sortedIndex()
+                .name("T1_C1_IDX")
+                .addColumn("C1", Collation.ASC_NULLS_LAST)
+                .end()
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1));
+
+        AtomicInteger ver = new AtomicInteger();
+        PrepareServiceImpl service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000,
+                Integer.MAX_VALUE, 1000, ver);
+
+        String selectQuery = "SELECT /*+ FORCE_INDEX(T1_C1_IDX) */ * FROM test.t1 WHERE c1 = 1";
+        QueryPlan plan1 = await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        // catalog version 1
+        ver.incrementAndGet();
+
+        QueryPlan plan2 = await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(10000))
+                .until(
+                        () -> service.cache.size() == 2
+                );
+
+        assertThat(service.cache.size(), is(2));
+        service.statisticsChanged(table1.id());
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
+                .until(
+                        () -> !plan2.equals(await(service.prepareAsync(parse(selectQuery), operationContext().build())))
+                );
+
+        // previous catalog, get cached plan
+        ver.set(0);
+        assertEquals(plan1, await(service.prepareAsync(parse(selectQuery), operationContext().build())));
+    }
+
+    @Test
+    public void cachePlanEntriesInvalidatesForCurrentCatalogVersion() {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addColumn("C1", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1));
+
+        AtomicInteger ver = new AtomicInteger();
+        PrepareServiceImpl service = createPlannerServiceWithMockedExecutor(schema, CaffeineCacheFactory.INSTANCE, 10000,
+                Integer.MAX_VALUE, 1000, ver);
+
+        String selectQuery = "SELECT * FROM test.t1 WHERE c1 = 1";
+        await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        // catalog version 1
+        ver.incrementAndGet();
+
+        await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(10000))
+                .until(
+                        () -> service.cache.size() == 2
+                );
+
+        assertThat(service.cache.size(), is(2));
+        service.statisticsChanged(table1.id());
+
+        assertThat(service.cache.entrySet().stream().filter(e -> e.getValue().join().needInvalidate()).count(), is(1L));
+    }
+
     @Test
     public void planCacheExpiry() {
         IgniteTable table = TestBuilders.table()
@@ -374,13 +551,23 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         Awaitility.await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
             int expireSeconds = 2;
-            PrepareService service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, 2);
+            PrepareServiceImpl service =
+                    createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, expireSeconds, 1000);
 
             String query = "SELECT * FROM test.t WHERE c = 1";
             QueryPlan p0 = await(service.prepareAsync(parse(query), operationContext().build()));
 
+            // infinitely change statistic
+            IgniteTestUtils.runAsync(() -> {
+                while (true) {
+                    service.statisticsChanged(table.id());
+                    Thread.sleep(100);
+                }
+            });
+
             // Expires if not used
             TimeUnit.SECONDS.sleep(expireSeconds * 2);
+            service.statisticsChanged(table.id());
             QueryPlan p2 = await(service.prepareAsync(parse(query), operationContext().build()));
             assertNotSame(p0, p2);
 
@@ -549,29 +736,86 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return createPlannerService(createSchema());
     }
 
+    private static PrepareService createPlannerService(IgniteSchema schema, int cacheSize) {
+        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000, Integer.MAX_VALUE, cacheSize);
+    }
+
     private static PrepareService createPlannerService(IgniteSchema schema) {
-        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 1000);
+        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000);
     }
 
     private static PrepareServiceImpl createPlannerService(IgniteSchema schemas, CacheFactory cacheFactory, int timeoutMillis) {
-        return createPlannerService(schemas, cacheFactory, timeoutMillis, Integer.MAX_VALUE);
+        return createPlannerService(schemas, cacheFactory, timeoutMillis, Integer.MAX_VALUE, 1000);
     }
 
     private static PrepareServiceImpl createPlannerService(
             IgniteSchema schemas,
             CacheFactory cacheFactory,
             int timeoutMillis,
-            int planExpireSeconds
+            int planExpireSeconds,
+            int cacheSize
     ) {
-        PrepareServiceImpl service = new PrepareServiceImpl("test", 1000, cacheFactory,
+        ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+
+        PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new PredefinedSchemaManager(schemas));
+                new PredefinedSchemaManager(schemas), clockService, commonExecutor);
 
         createdServices.add(service);
 
         service.start();
 
         return service;
+    }
+
+    private static PrepareServiceImpl createPlannerService(
+            IgniteSchema schemas,
+            CacheFactory cacheFactory,
+            int timeoutMillis,
+            int planExpireSeconds,
+            int cacheSize,
+            AtomicInteger ver
+    ) {
+        return createPlannerService(schemas, cacheFactory, timeoutMillis, planExpireSeconds, cacheSize, ver, commonExecutor);
+    }
+
+    private static PrepareServiceImpl createPlannerService(
+            IgniteSchema schemas,
+            CacheFactory cacheFactory,
+            int timeoutMillis,
+            int planExpireSeconds,
+            int cacheSize,
+            AtomicInteger ver,
+            ScheduledExecutorService executor
+    ) {
+        ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+
+        PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
+                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
+                new VersionedSchemaManager(schemas, ver), clockService, executor);
+
+        createdServices.add(service);
+
+        service.start();
+
+        return service;
+    }
+
+    private static PrepareServiceImpl createPlannerServiceWithMockedExecutor(
+            IgniteSchema schemas,
+            CacheFactory cacheFactory,
+            int timeoutMillis,
+            int planExpireSeconds,
+            int cacheSize,
+            AtomicInteger ver
+    ) {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+
+        return createPlannerService(schemas, cacheFactory, timeoutMillis, planExpireSeconds, cacheSize, ver, executor);
     }
 
     private static class DummyCacheFactory implements CacheFactory {

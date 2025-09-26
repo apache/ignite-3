@@ -114,7 +114,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void init() {
-        sqlStatisticManager = tableId -> 10_000L;
+        sqlStatisticManager = tableId -> 10_000;
 
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(
