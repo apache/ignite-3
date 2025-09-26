@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -39,33 +40,13 @@ class IndexFileManagerTest extends IgniteAbstractTest {
     void testIndexFileNaming() throws IOException {
         var memtable = new IndexMemTable(4);
 
-        IndexFile indexFile0 = indexFileManager.saveIndexMemtable(memtable);
-        IndexFile indexFile1 = indexFileManager.saveIndexMemtable(memtable);
-        IndexFile indexFile2 = indexFileManager.saveIndexMemtable(memtable);
+        Path path0 = indexFileManager.saveIndexMemtable(memtable);
+        Path path1 = indexFileManager.saveIndexMemtable(memtable);
+        Path path2 = indexFileManager.saveIndexMemtable(memtable);
 
-        assertThat(indexFile0.name(), is("index-0000000000-0000000000.bin"));
-        assertThat(indexFile0.path(), is(workDir.resolve("index-0000000000-0000000000.bin.tmp")));
-
-        assertThat(indexFile1.name(), is("index-0000000001-0000000000.bin"));
-        assertThat(indexFile1.path(), is(workDir.resolve("index-0000000001-0000000000.bin.tmp")));
-
-        assertThat(indexFile2.name(), is("index-0000000002-0000000000.bin"));
-        assertThat(indexFile2.path(), is(workDir.resolve("index-0000000002-0000000000.bin.tmp")));
-
-        indexFile0.syncAndRename();
-
-        assertThat(indexFile0.name(), is("index-0000000000-0000000000.bin"));
-        assertThat(indexFile0.path(), is(workDir.resolve("index-0000000000-0000000000.bin")));
-
-        indexFile1.syncAndRename();
-
-        assertThat(indexFile1.name(), is("index-0000000001-0000000000.bin"));
-        assertThat(indexFile1.path(), is(workDir.resolve("index-0000000001-0000000000.bin")));
-
-        indexFile2.syncAndRename();
-
-        assertThat(indexFile2.name(), is("index-0000000002-0000000000.bin"));
-        assertThat(indexFile2.path(), is(workDir.resolve("index-0000000002-0000000000.bin")));
+        assertThat(path0, is(workDir.resolve("index-0000000000-0000000000.bin")));
+        assertThat(path1, is(workDir.resolve("index-0000000001-0000000000.bin")));
+        assertThat(path2, is(workDir.resolve("index-0000000002-0000000000.bin")));
     }
 
     @Test
@@ -88,9 +69,9 @@ class IndexFileManagerTest extends IgniteAbstractTest {
             }
         }
 
-        IndexFile indexFile = indexFileManager.saveIndexMemtable(memtable);
+        Path indexFile = indexFileManager.saveIndexMemtable(memtable);
 
-        DeserializedIndexFile deserializedIndexFile = DeserializedIndexFile.fromFile(indexFile.path());
+        DeserializedIndexFile deserializedIndexFile = DeserializedIndexFile.fromFile(indexFile);
 
         for (int groupId = 1; groupId <= numGroups; groupId++) {
             for (int i = 0; i < entriesPerGroup; i++) {
