@@ -357,6 +357,21 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void valid() throws SQLException {
+        try (Connection conn = createConnection()) {
+            assertTrue(conn.isValid(0));
+            assertTrue(conn.isValid(1));
+            assertThrowsSqlException(SQLException.class, "Invalid timeout: -1", () -> conn.isValid(-1));
+
+            conn.close();
+
+            assertFalse(conn.isValid(0));
+            assertFalse(conn.isValid(1));
+            assertThrowsSqlException(SQLException.class, "Invalid timeout: -1", () -> conn.isValid(-1));
+        }
+    }
+
+    @Test
     public void clientInfo() throws SQLException {
         try (Connection conn = createConnection()) {
             conn.setClientInfo("A", "B");
