@@ -398,11 +398,11 @@ public class ZoneRebalanceUtil {
             int finalPartId = partId;
 
             partitionFutures[partId] = zoneAssignmentsFut.thenCompose(zoneAssignments -> inBusyLockAsync(busyLock, () -> {
-                // In a case of empty assignments due to initially empty data nodes, assignments will be recalculated
+                // In case of empty assignments due to initially empty data nodes, assignments will be recalculated
                 // after the transition to non-empty data nodes.
-                // In a case of empty assignments due to interrupted zone creation, assignments will be written
+                // In case of empty assignments due to interrupted zone creation, assignments will be written
                 // during the node recovery and then replicas will be started.
-                // In a case when data nodes become empty, assignments are not recalculated
+                // In case when data nodes become empty, assignments are not recalculated
                 // (see DistributionZoneRebalanceEngineV2.createDistributionZonesDataNodesListener).
                 return zoneAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
                         zoneDescriptor,

@@ -390,11 +390,11 @@ public class RebalanceUtil {
 
         return tableStableAssignments(metaStorageManager, tableDescriptor.id(), partitionIds)
                 .thenCompose(stableAssignments -> {
-                    // In a case of empty assignments due to initially empty data nodes, assignments will be recalculated
+                    // In case of empty assignments due to initially empty data nodes, assignments will be recalculated
                     // after the transition to non-empty data nodes.
-                    // In a case of empty assignments due to interrupted table creation, assignments will be written
+                    // In case of empty assignments due to interrupted table creation, assignments will be written
                     // during the node recovery and then replicas will be started.
-                    // In a case when data nodes become empty, assignments are not recalculated
+                    // In case when data nodes become empty, assignments are not recalculated
                     // (see DistributionZoneRebalanceEngine.createDistributionZonesDataNodesListener).
                     if (stableAssignments.isEmpty()) {
                         return nullCompletedFuture();
