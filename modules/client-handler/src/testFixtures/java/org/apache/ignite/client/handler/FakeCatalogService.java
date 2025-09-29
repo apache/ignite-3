@@ -36,6 +36,7 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.mockito.Mockito;
 
 /**
  * Fake catalog service.
@@ -69,17 +70,17 @@ public class FakeCatalogService implements CatalogService {
         lenient().doAnswer(invocation -> {
             int tableId = invocation.getArgument(0);
 
-            return new CatalogTableDescriptor(
-                    tableId,
-                    0,
-                    0,
-                    "table",
-                    zoneIdProvider.applyAsInt(tableId),
-                    List.of(mock(CatalogTableColumnDescriptor.class)),
-                    List.of(),
-                    null,
-                    DEFAULT_STORAGE_PROFILE
-            );
+            int zoneId = zoneIdProvider.applyAsInt(tableId);
+            return CatalogTableDescriptor.builder()
+                    .id(tableId)
+                    .schemaId(0)
+                    .primaryKeyIndexId(0)
+                    .name("table")
+                    .zoneId(zoneId)
+                    .columns(List.of(Mockito.mock(CatalogTableColumnDescriptor.class)))
+                    .primaryKeyColumns(List.of("pk"))
+                    .storageProfile(DEFAULT_STORAGE_PROFILE)
+                    .build();
         }).when(catalog).table(anyInt());
 
         lenient().doAnswer(invocation -> new CatalogZoneDescriptor(

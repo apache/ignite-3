@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.catalog;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -25,6 +24,7 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -122,24 +122,25 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
 
     @Test
     public void convertTableDescriptor() {
-        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                1,
-                -1,
-                -1,
-                "test",
-                0,
-                List.of(
-                        new CatalogTableColumnDescriptor("C1", ColumnType.INT32, false, 0, 0, 0, null),
-                        new CatalogTableColumnDescriptor("K2", ColumnType.INT32, false, 0, 0, 0, null),
-                        new CatalogTableColumnDescriptor("C2", ColumnType.INT32, false, 0, 0, 0, null),
-                        new CatalogTableColumnDescriptor("K1", ColumnType.INT32, false, 0, 0, 0, null)
-                ),
-                List.of("K1", "K2"),
-                List.of("K2"),
-                DEFAULT_STORAGE_PROFILE
+        List<CatalogTableColumnDescriptor> columns = List.of(
+                new CatalogTableColumnDescriptor("C1", ColumnType.INT32, false, 0, 0, 0, null),
+                new CatalogTableColumnDescriptor("K2", ColumnType.INT32, false, 0, 0, 0, null),
+                new CatalogTableColumnDescriptor("C2", ColumnType.INT32, false, 0, 0, 0, null),
+                new CatalogTableColumnDescriptor("K1", ColumnType.INT32, false, 0, 0, 0, null)
         );
+        CatalogTableDescriptor tableDescriptor = CatalogTableDescriptor.builder()
+                .id(1)
+                .schemaId(-1)
+                .primaryKeyIndexId(-1)
+                .name("test")
+                .zoneId(0)
+                .columns(columns)
+                .primaryKeyColumns(List.of("K1", "K2"))
+                .colocationColumns(List.of("K2"))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
 
-        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());
+        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.latestSchemaVersion());
 
         assertThat(schema.keyColumns().size(), equalTo(2));
         assertThat(schema.keyColumns().get(0).name(), equalTo("K1"));
