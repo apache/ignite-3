@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -943,6 +944,12 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private AssignmentsTracker createAssignmentsPlacementDriver() {
-        return new AssignmentsTracker(metastore, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
+        return new AssignmentsTracker(
+                metastore,
+                mock(FailureProcessor.class),
+                new SystemPropertiesNodeProperties(),
+                zoneId -> completedFuture(Set.of("A")),
+                zoneId -> null
+        );
     }
 }

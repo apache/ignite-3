@@ -31,7 +31,6 @@ import java.sql.Statement;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -116,9 +115,6 @@ class ItJdbcAuthenticationTest {
         @Test
         void jdbcCurrentUser() throws SQLException {
             CLUSTER.aliveNode().sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25283 Remove next line.
-            CLUSTER.aliveNode().tables().table("t1").keyValueView().get(null, Tuple.create().set("id", 1));
 
             String connString = "jdbc:ignite:thin://127.0.0.1:10800?username={}&password={}";
             String user1 = "usr";
