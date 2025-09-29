@@ -214,15 +214,18 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             ReplicationGroupId groupId = replicationGroupIds.get(i);
 
             TokenizedAssignments a = assignmentsMap.get(groupId);
-            result.add(a);
 
-            if (a.nodes().isEmpty()) {
-                if (timeoutMillis > 0) {
-                    futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
-                } else {
-                    // If timeout is zero or less, then this group is failed, the correct exception will be thrown
-                    // in #checkEmptyAssignmentsReasons().
-                    futures.put(i, failedFuture(new TimeoutException()));
+            if (a != null) {
+                result.add(a);
+
+                if (a.nodes().isEmpty()) {
+                    if (timeoutMillis > 0) {
+                        futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
+                    } else {
+                        // If timeout is zero or less, then this group is failed, the correct exception will be thrown
+                        // in #checkEmptyAssignmentsReasons().
+                        futures.put(i, failedFuture(new TimeoutException()));
+                    }
                 }
             }
         }

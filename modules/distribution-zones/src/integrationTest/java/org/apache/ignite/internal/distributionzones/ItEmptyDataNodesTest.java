@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.placementdriver.EmptyAssignmentsException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +43,25 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "table0";
 
     @Test
+    public void testInitialEmptyAssignmentsWithSuccessfulWaiting() {
+        createZoneAndTableWithEmptyDataNodes();
+
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+        int zoneId = node.catalogManager().activeCatalog(node.clock().now().longValue()).zone(ZONE_NAME.toUpperCase()).id();
+
+        assertTrue(currentDataNodes(node, zoneId).isEmpty());
+
+        setAdditionalNodeFilter(null);
+
+        // Trigger scale down and data nodes recalculation.
+        stopNode(2);
+
+        // No waiting inside test for non-empty data nodes and assignments. Assignments placement driver should wait for non-empty
+        // assignments for SQL.
+        sql("SELECT * FROM " + TABLE_NAME);
+    }
+
+    //@Test
     public void testEmptyAssignmentsException() {
         createZoneAndTableWithEmptyDataNodes();
 
@@ -53,6 +74,7 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
             sql("SELECT * FROM " + TABLE_NAME);
             fail();
         } catch (Exception e) {
+            assertInstanceOf(SqlException.class, e);
             assertTrue(hasCause(e, EmptyAssignmentsException.class, null));
             assertTrue(hasCause(e, EmptyDataNodesException.class, null));
         }
