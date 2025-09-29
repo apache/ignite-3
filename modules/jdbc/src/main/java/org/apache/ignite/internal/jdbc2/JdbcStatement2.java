@@ -50,9 +50,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class JdbcStatement2 implements Statement {
 
-    private static final EnumSet<QueryModifier> QUERY = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
-    private static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
+    static final EnumSet<QueryModifier> QUERY = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+    static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
             QueryModifier.ALLOW_AFFECTED_ROWS_RESULT, QueryModifier.ALLOW_APPLIED_RESULT);
+
+    static final EnumSet<QueryModifier> ALL = EnumSet.allOf(QueryModifier.class);
 
     private final IgniteSql igniteSql;
 
@@ -336,7 +338,7 @@ public class JdbcStatement2 implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(EnumSet.allOf(QueryModifier.class), Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         return isQuery();
     }
@@ -432,7 +434,7 @@ public class JdbcStatement2 implements Statement {
     public long executeLargeUpdate(String sql) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented");
+        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented.");
     }
 
     /** {@inheritDoc} */
@@ -440,7 +442,7 @@ public class JdbcStatement2 implements Statement {
     public long executeLargeUpdate(String sql, int[] columnIndexes) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented");
+        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented.");
     }
 
     /** {@inheritDoc} */
@@ -448,7 +450,7 @@ public class JdbcStatement2 implements Statement {
     public long executeLargeUpdate(String sql, String[] columnNames) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented");
+        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented.");
     }
 
     /** {@inheritDoc} */
@@ -630,7 +632,7 @@ public class JdbcStatement2 implements Statement {
         return resultSet.isQuery();
     }
 
-    private void ensureNotClosed() throws SQLException {
+    void ensureNotClosed() throws SQLException {
         if (isClosed()) {
             throw new SQLException("Statement is closed.");
         }
