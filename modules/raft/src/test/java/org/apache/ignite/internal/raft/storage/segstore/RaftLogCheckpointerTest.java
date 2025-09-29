@@ -22,12 +22,16 @@ import static org.apache.ignite.internal.raft.storage.segstore.RaftLogCheckpoint
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -43,23 +47,34 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
-    private final RaftLogCheckpointer checkpointer = new RaftLogCheckpointer(NODE_NAME);
+    private RaftLogCheckpointer checkpointer;
+
+    @Mock
+    private IndexFileManager indexFileManager;
 
     @BeforeEach
-    void setUp() {
+    void setUp(@Mock IndexFile indexFile) throws IOException {
+        // To avoid NPE in the checkpoint thread.
+        when(indexFileManager.saveIndexMemtable(any())).thenReturn(indexFile);
+
+        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager());
+
         checkpointer.start();
     }
 
     @AfterEach
     void tearDown() {
-        checkpointer.stop();
+        if (checkpointer != null) {
+            checkpointer.stop();
+        }
     }
 
     @Test
-    void testOnRollover(@Mock SegmentFile segmentFile, @Mock IndexMemTable memTable) {
+    void testOnRollover(@Mock SegmentFile segmentFile, @Mock IndexMemTable memTable) throws IOException {
         checkpointer.onRollover(segmentFile, memTable);
 
         verify(segmentFile, timeout(500)).sync();
+        verify(indexFileManager, timeout(500)).saveIndexMemtable(memTable);
     }
 
     @Test

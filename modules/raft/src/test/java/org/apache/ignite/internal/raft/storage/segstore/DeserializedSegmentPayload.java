@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.LE
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.util.FastCrc;
 import org.jetbrains.annotations.Nullable;
@@ -43,7 +45,7 @@ class DeserializedSegmentPayload {
     }
 
     static DeserializedSegmentPayload fromBytes(byte[] bytes) {
-        return fromByteBuffer(ByteBuffer.wrap(bytes).order(SegmentFile.BYTE_ORDER));
+        return fromByteBuffer(wrap(bytes));
     }
 
     static DeserializedSegmentPayload fromByteBuffer(ByteBuffer entryBuf) {
@@ -72,16 +74,52 @@ class DeserializedSegmentPayload {
             return null;
         }
 
-        long groupId = ByteBuffer.wrap(groupIdBytes).order(SegmentFile.BYTE_ORDER).getLong();
+        long groupId = wrap(groupIdBytes).getLong();
 
         if (groupId == 0) {
             // EOF reached.
             return null;
         }
 
-        int payloadLength = ByteBuffer.wrap(is.readNBytes(LENGTH_SIZE_BYTES)).order(SegmentFile.BYTE_ORDER).getInt();
+        int payloadLength = wrap(is.readNBytes(LENGTH_SIZE_BYTES)).getInt();
 
         byte[] remaining = is.readNBytes(payloadLength + HASH_SIZE);
+
+        ByteBuffer entry = ByteBuffer.allocate(GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payloadLength + HASH_SIZE)
+                .order(SegmentFile.BYTE_ORDER)
+                .putLong(groupId)
+                .putInt(payloadLength)
+                .put(remaining)
+                .flip();
+
+        return fromByteBuffer(entry);
+    }
+
+    static @Nullable DeserializedSegmentPayload fromRandomAccessFile(RandomAccessFile file) throws IOException {
+        byte[] groupIdBytes = new byte[GROUP_ID_SIZE_BYTES];
+
+        try {
+            file.readFully(groupIdBytes);
+        } catch (EOFException e) {
+            return null;
+        }
+
+        long groupId = wrap(groupIdBytes).getLong();
+
+        if (groupId == 0) {
+            // EOF reached.
+            return null;
+        }
+
+        byte[] payloadLengthBytes = new byte[LENGTH_SIZE_BYTES];
+
+        file.readFully(payloadLengthBytes);
+
+        int payloadLength = wrap(payloadLengthBytes).getInt();
+
+        byte[] remaining = new byte[payloadLength + HASH_SIZE];
+
+        file.readFully(remaining);
 
         ByteBuffer entry = ByteBuffer.allocate(GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payloadLength + HASH_SIZE)
                 .order(SegmentFile.BYTE_ORDER)
@@ -103,5 +141,9 @@ class DeserializedSegmentPayload {
 
     int size() {
         return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payload.length + HASH_SIZE;
+    }
+
+    private static ByteBuffer wrap(byte[] bytes) {
+        return ByteBuffer.wrap(bytes).order(SegmentFile.BYTE_ORDER);
     }
 }

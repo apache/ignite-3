@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -56,6 +58,8 @@ import org.jetbrains.annotations.TestOnly;
  * Implementation of {@link IgniteClient} over TCP protocol.
  */
 public class TcpIgniteClient implements IgniteClient {
+    private static final AtomicLong GLOBAL_CONN_ID_GEN = new AtomicLong();
+
     /** Configuration. */
     private final IgniteClientConfiguration cfg;
 
@@ -86,10 +90,10 @@ public class TcpIgniteClient implements IgniteClient {
     /** Cluster. */
     private final ClientCluster cluster;
 
-    /**
-     * Cluster name.
-     */
+    /** Cluster name. */
     private String clusterName;
+
+    private final String clientName;
 
     /**
      * Constructor.
@@ -114,6 +118,11 @@ public class TcpIgniteClient implements IgniteClient {
 
         this.cfg = cfg;
 
+        String cfgName = cfg.name();
+        clientName = cfgName != null
+                ? cfgName
+                : "client_" + GLOBAL_CONN_ID_GEN.incrementAndGet(); // Use underscores for JMX compat.
+
         metrics = new ClientMetricSource();
         ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
         tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
@@ -130,7 +139,7 @@ public class TcpIgniteClient implements IgniteClient {
             return null;
         }
 
-        var metricManager = new MetricManagerImpl(ClientUtils.logger(cfg, MetricManagerImpl.class));
+        var metricManager = new MetricManagerImpl(ClientUtils.logger(cfg, MetricManagerImpl.class), clientName);
 
         metricManager.registerSource(metrics);
         metricManager.enable(metrics);
@@ -234,7 +243,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return "thin-client";
+        return clientName;
     }
 
     /** {@inheritDoc} */
@@ -247,6 +256,12 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public List<ClusterNode> connections() {
         return ch.connections();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(TcpIgniteClient.class.getSimpleName(), "name", clientName, "clusterName", clusterName);
     }
 
     /**

@@ -287,7 +287,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         int tableVersion = SCHEMA.version();
 
-        lenient().when(tableDescriptor.tableVersion()).thenReturn(tableVersion);
+        lenient().when(tableDescriptor.latestSchemaVersion()).thenReturn(tableVersion);
         lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
 
         indexMetaStorage = mock(IndexMetaStorage.class);
@@ -299,9 +299,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
         lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
-        HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
-        lenient().when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.current()).thenReturn(hybridClock.current());
 
         commandListener = new PartitionListener(
                 mock(TxManager.class),
@@ -531,9 +530,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
         lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
-        HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
-        lenient().when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.current()).thenReturn(hybridClock.current());
 
         PartitionListener testCommandListener = new PartitionListener(
                 mock(TxManager.class),

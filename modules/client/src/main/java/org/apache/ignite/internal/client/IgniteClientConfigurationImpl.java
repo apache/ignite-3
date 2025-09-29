@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
     /** Address finder. */
-    private final IgniteClientAddressFinder addressFinder;
+    private final @Nullable IgniteClientAddressFinder addressFinder;
 
     /** Addresses. */
     private final String[] addresses;
@@ -43,7 +43,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     private final long backgroundReconnectInterval;
 
     /** Async continuation executor. */
-    private final Executor asyncContinuationExecutor;
+    private final @Nullable Executor asyncContinuationExecutor;
 
     /** Heartbeat interval. */
     private final long heartbeatInterval;
@@ -66,6 +66,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final int sqlPartitionAwarenessMetadataCacheSize;
 
+    private final @Nullable String name;
+
     /**
      * Constructor.
      *
@@ -83,13 +85,14 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param authenticator Authenticator.
      * @param operationTimeout Operation timeout.
      * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
+     * @param name Client name.
      */
     public IgniteClientConfigurationImpl(
-            IgniteClientAddressFinder addressFinder,
+            @Nullable IgniteClientAddressFinder addressFinder,
             String[] addresses,
             long connectTimeout,
             long backgroundReconnectInterval,
-            Executor asyncContinuationExecutor,
+            @Nullable Executor asyncContinuationExecutor,
             long heartbeatInterval,
             long heartbeatTimeout,
             @Nullable RetryPolicy retryPolicy,
@@ -98,7 +101,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             boolean metricsEnabled,
             @Nullable IgniteClientAuthenticator authenticator,
             long operationTimeout,
-            int sqlPartitionAwarenessMetadataCacheSize
+            int sqlPartitionAwarenessMetadataCacheSize,
+            @Nullable String name
     ) {
         this.addressFinder = addressFinder;
 
@@ -117,11 +121,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.authenticator = authenticator;
         this.operationTimeout = operationTimeout;
         this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
+        this.name = name;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteClientAddressFinder addressesFinder() {
+    public @Nullable IgniteClientAddressFinder addressesFinder() {
         return addressFinder;
     }
 
@@ -199,5 +204,10 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public int sqlPartitionAwarenessMetadataCacheSize() {
         return sqlPartitionAwarenessMetadataCacheSize;
+    }
+
+    @Override
+    public @Nullable String name() {
+        return name;
     }
 }
