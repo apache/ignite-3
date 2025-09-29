@@ -20,7 +20,6 @@ package org.apache.ignite.internal.jdbc2;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -37,12 +36,11 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
@@ -144,6 +142,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
                     ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT));
 
             expectClosed(() -> conn.prepareStatement("SELECT ?", Statement.NO_GENERATED_KEYS));
+            expectClosed(() -> conn.prepareStatement("SELECT ?", Statement.RETURN_GENERATED_KEYS));
 
             expectClosed(() -> conn.prepareStatement("SELECT ?", new int[]{1}));
 
@@ -184,22 +183,6 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             expectClosed(() -> conn.setShardingKey(shardingKey));
             expectClosed(() -> conn.setShardingKey(shardingKey, subShardingKey));
         }
-    }
-
-    @Test
-    public void closeExceptionMapping() throws SQLException {
-        IgniteClient igniteClient = Mockito.mock(IgniteClient.class);
-        RuntimeException failure = new RuntimeException("Err");
-        Mockito.doThrow(failure).when(igniteClient).close();
-
-        ConnectionProperties properties = new ConnectionPropertiesImpl();
-        properties.setUrl("jdbc:ignite:thin://127.0.0.1:10800/");
-        JdbcQueryEventHandler eventHandler = Mockito.mock(JdbcQueryEventHandler.class);
-
-        JdbcConnection2 connection = new JdbcConnection2(igniteClient, eventHandler, properties);
-
-        SQLException err = assertThrowsSqlException(SQLException.class, "Exception occurred while closing.", connection::close);
-        assertInstanceOf(IgniteException.class, err.getCause());
     }
 
     @Test
@@ -246,9 +229,10 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
                     ResultSet.CONCUR_UPDATABLE, ResultSet.HOLD_CURSORS_OVER_COMMIT));
 
             expectNotSupported(() -> conn.createStatement(ResultSet.TYPE_FORWARD_ONLY,
-                    ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT));
+                    ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT));
 
             // prepareStatement - not supported flags
+            expectNotSupported(() -> conn.prepareStatement("SELECT ?", Statement.RETURN_GENERATED_KEYS));
 
             expectNotSupported(() -> conn.prepareStatement("SELECT ?", ResultSet.TYPE_SCROLL_INSENSITIVE,
                     ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT));
@@ -260,7 +244,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
                     ResultSet.CONCUR_UPDATABLE, ResultSet.HOLD_CURSORS_OVER_COMMIT));
 
             expectNotSupported(() -> conn.prepareStatement("SELECT ?", ResultSet.TYPE_FORWARD_ONLY,
-                    ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT));
+                    ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT));
 
             expectNotSupported(() -> conn.prepareStatement("SELECT ?", new int[]{1}));
             expectNotSupported(() -> conn.prepareStatement("SELECT ?", new String[]{"id"}));
@@ -320,7 +304,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
     @Test
     public void transactionIsolation() throws SQLException {
         try (Connection conn = createConnection()) {
-            assertEquals(Connection.TRANSACTION_NONE, conn.getTransactionIsolation());
+            assertEquals(Connection.TRANSACTION_SERIALIZABLE, conn.getTransactionIsolation());
 
             conn.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
             assertEquals(Connection.TRANSACTION_READ_UNCOMMITTED, conn.getTransactionIsolation());
@@ -342,8 +326,13 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             // Does not change anything
             assertEquals(Connection.TRANSACTION_SERIALIZABLE, conn.getTransactionIsolation());
 
-            conn.setTransactionIsolation(Connection.TRANSACTION_NONE);
-            assertEquals(Connection.TRANSACTION_NONE, conn.getTransactionIsolation());
+            assertThrowsSqlException(SQLException.class,
+                    "Cannot set transaction isolation level to TRANSACTION_NONE.",
+                    () -> conn.setTransactionIsolation(Connection.TRANSACTION_NONE)
+            );
+
+            // Does not change anything
+            assertEquals(Connection.TRANSACTION_SERIALIZABLE, conn.getTransactionIsolation());
         }
     }
 
@@ -410,14 +399,10 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             assertEquals("PUBLIC", conn.getSchema());
 
             conn.setSchema("abc");
-            assertEquals("ABC", conn.getSchema());
+            assertEquals("abc", conn.getSchema());
 
             conn.setSchema("\"Abc\"");
             assertEquals("\"Abc\"", conn.getSchema());
-
-            assertThrowsSqlException(SQLException.class, "Invalid schema name", () -> {
-                conn.setSchema("AB.C");
-            });
 
             // Empty value resets to default
             conn.setSchema("");
@@ -433,7 +418,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
         try (Connection conn = createConnection((props) -> {
             props.setSchema("Abc");
         })) {
-            assertEquals("ABC", conn.getSchema());
+            assertEquals("Abc", conn.getSchema());
         }
 
         try (Connection conn = createConnection((props) -> {
@@ -469,7 +454,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
     }
 
     private static Connection createConnection(Consumer<ConnectionProperties> setup) throws SQLException {
-        IgniteClient igniteClient = Mockito.mock(IgniteClient.class);
+        IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
 
         ConnectionProperties properties = new ConnectionPropertiesImpl();
         properties.setUrl("jdbc:ignite:thin://127.0.0.1:10800/");
@@ -478,7 +463,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
 
         JdbcQueryEventHandler eventHandler = Mockito.mock(JdbcQueryEventHandler.class);
 
-        return new JdbcConnection2(igniteClient, eventHandler, properties);
+        return new JdbcConnection2(igniteSql, eventHandler, properties);
     }
 
     private static void expectClosed(Executable method) {
