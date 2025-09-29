@@ -111,6 +111,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      *
      * @param msManager Meta storage manager.
      * @param failureProcessor Failure processor.
+     * @param nodeProperties Node properties.
      */
     public AssignmentsTracker(
             MetaStorageManager msManager,

@@ -930,7 +930,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(metastore, new ClusterNodeResolver() {
+        var clusterNodeResolver = new ClusterNodeResolver() {
             @Override
             public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
                 return leaseholder;
@@ -940,7 +940,16 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             public @Nullable InternalClusterNode getById(UUID id) {
                 return leaseholder;
             }
-        }, clockService);
+        };
+
+        return new LeaseTracker(
+                metastore,
+                clusterNodeResolver,
+                clockService,
+                zoneId -> completedFuture(Set.of("A")),
+                id -> null,
+                new SystemPropertiesNodeProperties()
+        );
     }
 
     private AssignmentsTracker createAssignmentsPlacementDriver() {
