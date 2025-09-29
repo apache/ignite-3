@@ -28,7 +28,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -40,7 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.provider.Arguments;
 
 /**
- * Base class for test cases for data types including {@link IgniteCustomTypeSpec custom data types}.
+ * Base class for test cases for data types.
  *
  * <p>Usage:
  * <ul>

@@ -39,9 +39,9 @@ import org.apache.ignite.tx.IgniteTransactions;
 public class FakeIgnite implements Ignite {
     private final String name;
 
-    private final HybridClock clock = new HybridClockImpl();
+    private final HybridClock clock;
 
-    private final FakeTxManager txMgr = new FakeTxManager(clock);
+    private final FakeTxManager txMgr;
 
     /** Timestamp tracker. */
     private final HybridTimestampTracker hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
@@ -67,6 +67,18 @@ public class FakeIgnite implements Ignite {
      * @param name Name.
      */
     public FakeIgnite(String name) {
+        this(name, new HybridClockImpl());
+    }
+
+    /**
+     * Creates a new instance of {@link FakeIgnite} with the given {@code name} and custom {@code clock}.
+     *
+     * @param name Name.
+     * @param clock Hybrid clock.
+     */
+    public FakeIgnite(String name, HybridClock clock) {
+        this.clock = clock;
+        this.txMgr = new FakeTxManager(clock);
         this.name = name;
         this.compute = new FakeCompute(name, this);
         this.tables = new FakeIgniteTables(compute, placementDriver);
@@ -123,5 +135,9 @@ public class FakeIgnite implements Ignite {
 
     public TxManager txManager() {
         return txMgr;
+    }
+
+    public HybridClock clock() {
+        return clock;
     }
 }

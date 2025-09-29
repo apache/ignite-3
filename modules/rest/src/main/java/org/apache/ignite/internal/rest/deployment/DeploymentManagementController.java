@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
+import static org.apache.ignite.deployment.version.Version.parseVersion;
+
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import java.util.ArrayList;
@@ -65,28 +67,44 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             Optional<InitialDeployMode> deployMode,
             Optional<List<String>> initialNodes
     ) {
+        return doDeploy(unitId, unitVersion, unitContent, deployMode, initialNodes, false);
+    }
 
-        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber();
+    @Override
+    public CompletableFuture<Boolean> deployZip(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent,
+            Optional<InitialDeployMode> deployMode, Optional<List<String>> initialNodes) {
+        return doDeploy(unitId, unitVersion, unitContent, deployMode, initialNodes, true);
+    }
+
+    private CompletableFuture<Boolean> doDeploy(
+            String unitId,
+            String unitVersion,
+            Publisher<CompletedFileUpload> unitContent,
+            Optional<InitialDeployMode> deployMode,
+            Optional<List<String>> initialNodes,
+            boolean zip
+    ) {
+        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(zip);
         unitContent.subscribe(subscriber);
 
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
                 .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
 
-        return subscriber.result().thenCompose(content -> {
-            return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), content, nodesToDeploy);
-        }).whenComplete((res, throwable) -> {
-            try {
-                subscriber.close();
-            } catch (Exception e) {
-                LOG.error("Failed to close subscriber", e);
-            }
-        });
-
+        return subscriber.result().thenCompose(deploymentUnit ->
+                deployment.deployAsync(unitId, parseVersion(unitVersion), deploymentUnit, nodesToDeploy)
+                        .whenComplete((unitStatus, throwable) -> {
+                            try {
+                                deploymentUnit.close();
+                            } catch (Exception e) {
+                                LOG.error("Failed to close subscriber", e);
+                            }
+                        })
+        );
     }
 
     @Override
     public CompletableFuture<Boolean> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, Version.parseVersion(unitVersion));
+        return deployment.undeployAsync(unitId, parseVersion(unitVersion));
     }
 
     @Override
@@ -107,7 +125,7 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private CompletableFuture<List<UnitStatuses>> clusterStatuses(String unitId, Optional<String> version) {
         if (version.isPresent()) {
-            Version parsedVersion = Version.parseVersion(version.get());
+            Version parsedVersion = parseVersion(version.get());
             return deployment.clusterStatusAsync(unitId, parsedVersion)
                     .thenApply(deploymentStatus -> {
                         if (deploymentStatus != null) {
@@ -140,7 +158,7 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private CompletableFuture<List<UnitStatuses>> nodeStatuses(String unitId, Optional<String> version) {
         if (version.isPresent()) {
-            Version parsedVersion = Version.parseVersion(version.get());
+            Version parsedVersion = parseVersion(version.get());
             return deployment.nodeStatusAsync(unitId, parsedVersion)
                     .thenApply(deploymentStatus -> {
                         if (deploymentStatus != null) {

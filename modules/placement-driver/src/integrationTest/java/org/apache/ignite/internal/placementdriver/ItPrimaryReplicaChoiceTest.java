@@ -53,8 +53,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -336,7 +336,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            InternalClusterNode primaryNode = InternalClusterNodeImpl.fromPublicClusterNode(
+            InternalClusterNode primaryNode = ClusterNodeImpl.fromPublicClusterNode(
                     node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get()
             );
 
@@ -367,7 +367,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            InternalClusterNode primaryNode = InternalClusterNodeImpl.fromPublicClusterNode(
+            InternalClusterNode primaryNode = ClusterNodeImpl.fromPublicClusterNode(
                     node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get()
             );
 

@@ -97,6 +97,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -147,6 +148,8 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metrics.LongGauge;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -232,6 +235,7 @@ import org.apache.ignite.internal.table.distributed.storage.BrokenTxStateStorage
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -464,6 +468,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final TableAssignmentsService assignmentsService;
     private final ReliableCatalogVersions reliableCatalogVersions;
 
+    private final MetricManager metricManager;
+    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+    private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
+
     /**
      * Creates a new table manager.
      *
@@ -494,6 +502,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionReplicaLifecycleManager Partition replica lifecycle manager.
      * @param minTimeCollectorService Collects minimum required timestamp for each partition.
      * @param systemDistributedConfiguration System distributed configuration.
+     * @param metricManager Metric manager.
      */
     public TableManager(
             String nodeName,
@@ -533,7 +542,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
             NodeProperties nodeProperties,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
-            SystemDistributedConfiguration systemDistributedConfiguration
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            MetricManager metricManager,
+            PartitionModificationCounterFactory partitionModificationCounterFactory
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -563,6 +574,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.nodeProperties = nodeProperties;
         this.minTimeCollectorService = minTimeCollectorService;
+        this.metricManager = metricManager;
+        this.partitionModificationCounterFactory = partitionModificationCounterFactory;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -1171,6 +1184,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
+            unregisterMetricsSource(parameters.tableId());
+
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
     }
@@ -1533,7 +1548,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 indexMetaStorage,
                 lowWatermark,
                 failureProcessor,
-                nodeProperties
+                nodeProperties,
+                table.metrics()
         );
     }
 
@@ -1804,7 +1820,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Objects.requireNonNull(streamerReceiverRunner),
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
-                nodeProperties.colocationEnabled()
+                nodeProperties.colocationEnabled(),
+                createAndRegisterMetricsSource(tableName)
         );
 
         return new TableImpl(
@@ -2302,9 +2319,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
 
-        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
-        Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
-
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
                     if (!busyLock.enterBusy()) {
@@ -2324,6 +2338,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             return CompletableFutures.<Void>nullCompletedFuture();
                         }
 
+                        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+
                         if (LOG.isInfoEnabled()) {
                             var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
@@ -2338,6 +2354,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     revision
                             );
                         }
+
+                        Assignments pendingAssignments =
+                                pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
                         return handleChangePendingAssignmentEvent(
                                 replicaGrpId,
@@ -2823,7 +2842,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return supplyAsync(() -> {
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(tablePartitionId), revision);
             AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
-            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
@@ -2838,6 +2856,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         revision
                 );
             }
+
+            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             return stopAndDestroyTablePartitionAndUpdateClients(
                     tablePartitionId,
@@ -3040,6 +3060,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     minTimeCollectorService.removePartition(tablePartitionId);
 
+                    PartitionModificationCounterMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
+                    if (metricSource != null) {
+                        metricManager.unregisterSource(metricSource);
+                    }
+
                     return mvGc.removeStorage(tablePartitionId);
                 });
     }
@@ -3121,7 +3146,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return topologyService.localMember();
     }
 
-    private static PartitionUpdateHandlers createPartitionUpdateHandlers(
+    private PartitionUpdateHandlers createPartitionUpdateHandlers(
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableViewInternal table,
@@ -3134,14 +3159,52 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
+        LongSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
+        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(partSizeSupplier);
+        registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                modificationCounter
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
+    }
+
+    private void registerPartitionModificationCounterMetrics(
+            int tableId, int partitionId, PartitionModificationCounter counter) {
+
+        PartitionModificationCounterMetricSource metricSource =
+                new PartitionModificationCounterMetricSource(tableId, partitionId);
+
+        metricSource.addMetric(new LongGauge(
+                PartitionModificationCounterMetricSource.METRIC_COUNTER,
+                "The value of the volatile counter of partition modifications. "
+                        + "This value is used to determine staleness of the related SQL statistics.",
+                counter::value
+        ));
+
+        metricSource.addMetric(new LongGauge(
+                PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE,
+                "The value of the next milestone for the number of partition modifications. "
+                        + "This value is used to determine staleness of the related SQL statistics.",
+                counter::nextMilestone
+        ));
+
+        metricSource.addMetric(new LongGauge(
+                PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP,
+                "The timestamp value representing the commit time of the last modification operation that "
+                        + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
+                () -> counter.lastMilestoneTimestamp().longValue()
+        ));
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
+
+        partModCounterMetricSources.put(new TablePartitionId(tableId, partitionId), metricSource);
     }
 
     /**
@@ -3218,6 +3281,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 int tableId = tableDescriptor.id();
 
                 if (nextCatalog != null && nextCatalog.table(tableId) == null) {
+                    unregisterMetricsSource(tableId);
+
                     destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
                 }
 
@@ -3543,6 +3608,32 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             throw new IgniteInternalException(INTERNAL_ERR, "Failed to acquire a write lock for zone [zoneId=" + zoneId + ']', t);
+        }
+    }
+
+    private TableMetricSource createAndRegisterMetricsSource(QualifiedName tableName) {
+        TableMetricSource source = new TableMetricSource(tableName);
+
+        try {
+            metricManager.registerSource(source);
+            metricManager.enable(source);
+        } catch (Exception e) {
+            LOG.warn("Failed to register metrics source for table [name={}].", e, source.qualifiedTableName());
+        }
+
+        return source;
+    }
+
+    private void unregisterMetricsSource(int tableId) {
+        try {
+            TableViewInternal table = startedTables.get(tableId);
+            if (table == null) {
+                return;
+            }
+
+            metricManager.unregisterSource(table.metrics());
+        } catch (Exception e) {
+            LOG.warn("Failed to unregister metrics source for table [tableId={}].", e, tableId);
         }
     }
 

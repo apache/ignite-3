@@ -194,10 +194,12 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         when(pdClusterService.messagingService()).thenAnswer(inv -> pdMessagingService);
         when(pdClusterService.topologyService()).thenAnswer(inv -> pdTopologyService);
 
+        var clockService = new TestClockService(new HybridClockImpl());
+
         LeaseTracker leaseTracker = new LeaseTracker(
                 metaStorageManager,
                 pdClusterService.topologyService(),
-                new TestClockService(new HybridClockImpl()),
+                clockService,
                 zoneId -> completedFuture(Set.of()),
                 id -> null,
                 new SystemPropertiesNodeProperties()
@@ -220,7 +222,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 mock(FailureProcessor.class),
                 pdLogicalTopologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl()),
+                clockService,
                 assignmentsTracker,
                 replicationConfiguration,
                 Runnable::run

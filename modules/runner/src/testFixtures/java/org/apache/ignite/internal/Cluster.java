@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -360,6 +361,10 @@ public class Cluster {
         return clusterConfiguration.basePort() + nodeIndex;
     }
 
+    public Path nodeWorkDir(int nodeIndex) {
+        return clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName(nodeIndex));
+    }
+
     /**
      * Returns HTTP port by index.
      */
@@ -617,6 +622,8 @@ public class Cluster {
                 .forEach(IgniteServer::shutdown);
 
         metaStorageAndCmgNodes = List.of();
+
+        MicronautCleanup.removeShutdownHooks();
 
         LOG.info("Shut the cluster down");
     }

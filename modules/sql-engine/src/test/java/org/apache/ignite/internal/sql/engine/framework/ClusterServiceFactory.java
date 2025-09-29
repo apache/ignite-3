@@ -22,29 +22,27 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
  * and {@link TopologyService} for each node in the cluster.
  */
 public class ClusterServiceFactory {
-    private final List<String> allNodes;
+    private final LogicalTopology logicalTopology;
 
     private final Map<String, InternalClusterNode> nodeByName = new ConcurrentHashMap<>();
     private final Map<String, LocalMessagingService> messagingServicesByNode = new ConcurrentHashMap<>();
@@ -61,16 +59,16 @@ public class ClusterServiceFactory {
     /**
      * Creates a cluster service object for given collection of nodes.
      *
-     * @param allNodes A collection of nodes to create cluster service from.
+     * @param logicalTopology A logical topology to create cluster service from.
      */
-    ClusterServiceFactory(List<String> allNodes) {
-        this.allNodes = allNodes;
+    ClusterServiceFactory(LogicalTopology logicalTopology) {
+        this.logicalTopology = logicalTopology;
     }
 
     private InternalClusterNode nodeByName(String name) {
         return nodeByName.computeIfAbsent(
                 name,
-                key -> new InternalClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
+                key -> new ClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
         );
     }
 
@@ -81,99 +79,79 @@ public class ClusterServiceFactory {
      * @return An instance of cluster service.
      */
     public ClusterService forNode(String nodeName) {
-        return new ClusterService() {
-            @Override
-            public String nodeName() {
-                throw new AssertionError("Should not be called");
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public TopologyService topologyService() {
-                return topologyServicesByNode.computeIfAbsent(nodeName, name -> new LocalTopologyService(name, allNodes));
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public MessagingService messagingService() {
-                return messagingServicesByNode.computeIfAbsent(nodeName, key -> new LocalMessagingService(nodeByName(nodeName)));
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean isStopped() {
-                return false;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public void updateMetadata(NodeMetadata metadata) {
-                throw new AssertionError("Should not be called");
-            }
-
-            @Override
-            public MessageSerializationRegistry serializationRegistry() {
-                throw new AssertionError("Should not be called");
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                InternalClusterNode node = nodeByName.remove(nodeName);
-
-                if (node != null) {
-                    messagingServicesByNode.remove(nodeName);
-                    topologyServicesByNode.remove(nodeName);
-
-                    topologyServicesByNode.values()
-                            .forEach(topologyService -> topologyService.evictNode(nodeName));
-                }
-
-                return nullCompletedFuture();
-            }
-        };
+        return new TestClusterService(nodeName, this, topologyServicesByNode, messagingServicesByNode);
     }
 
-    private static class LocalTopologyService extends AbstractTopologyService {
-        private static final AtomicInteger NODE_COUNTER = new AtomicInteger(1);
+    /** Stops given node. That is, removes it from physical and logical topologies, and fires necessary events. */
+    void stopNode(String nodeName) {
+        InternalClusterNode node = nodeByName.remove(nodeName);
 
+        if (node != null) {
+            messagingServicesByNode.remove(nodeName);
+            topologyServicesByNode.remove(nodeName);
+
+            topologyServicesByNode.values()
+                    .forEach(topologyService -> topologyService.evictNode(nodeName));
+        }
+    }
+
+    /** Disconnects given node. That is, removes it from physical topology only, and fires related events. */
+    void disconnectNode(String nodeName) {
+        InternalClusterNode node = nodeByName.remove(nodeName);
+
+        if (node != null) {
+            messagingServicesByNode.remove(nodeName);
+            topologyServicesByNode.remove(nodeName);
+
+            topologyServicesByNode.values()
+                    .forEach(topologyService -> topologyService.disconnectNode(nodeName));
+        }
+    }
+
+    LocalTopologyService createTopologyService(String nodeName) {
+        return new LocalTopologyService(nodeName, logicalTopology);
+    }
+
+    LocalMessagingService createMessagingService(String nodeName) {
+        return new LocalMessagingService(nodeByName(nodeName));
+    }
+
+    static class LocalTopologyService extends AbstractTopologyService {
+        private final LogicalTopology logicalTopology;
         private final InternalClusterNode localMember;
-        private final Map<String, InternalClusterNode> allMembers;
-        private final Map<NetworkAddress, InternalClusterNode> allMembersByAddress;
 
-        private LocalTopologyService(String localMember, List<String> allMembers) {
-            this.allMembers = new ConcurrentHashMap<>();
-
-            allMembers.stream()
-                    .map(LocalTopologyService::nodeFromName)
-                    .forEach(node -> this.allMembers.put(node.name(), node));
-
-            this.localMember = this.allMembers.get(localMember);
+        private LocalTopologyService(String localMember, LogicalTopology logicalTopology) {
+            this.logicalTopology = logicalTopology;
+            this.localMember = findNodeByName(logicalTopology, localMember);
 
             if (this.localMember == null) {
                 throw new IllegalArgumentException("Local member is not part of all members");
             }
-
-            this.allMembersByAddress = new HashMap<>();
-
-            this.allMembers.forEach((ignored, member) -> allMembersByAddress.put(member.address(), member));
         }
 
         private void evictNode(String nodeName) {
-            InternalClusterNode nodeToEvict = allMembers.remove(nodeName);
+            InternalClusterNode nodeToEvict = getByConsistentId(nodeName);
 
             if (nodeToEvict != null) {
+                logicalTopology.removeNodes(Set.of((LogicalNode) nodeToEvict));
+
                 getEventHandlers().forEach(handler -> handler.onDisappeared(nodeToEvict));
             }
         }
 
-        private static InternalClusterNode nodeFromName(String name) {
-            return new InternalClusterNodeImpl(randomUUID(), name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+        private void disconnectNode(String nodeName) {
+            InternalClusterNode nodeToDisconnect = getByConsistentId(nodeName);
+
+            if (nodeToDisconnect != null) {
+                getEventHandlers().forEach(handler -> handler.onDisappeared(nodeToDisconnect));
+            }
+        }
+
+        private static @Nullable InternalClusterNode findNodeByName(LogicalTopology logicalTopology, String name) {
+            return logicalTopology.getLogicalTopology().nodes().stream()
+                    .filter(node -> node.name().equals(name))
+                    .findFirst()
+                    .orElse(null);
         }
 
         @Override
@@ -190,29 +168,32 @@ public class ClusterServiceFactory {
         /** {@inheritDoc} */
         @Override
         public Collection<InternalClusterNode> allMembers() {
-            return allMembers.values();
+            return Commons.cast(logicalTopology.getLogicalTopology().nodes());
         }
 
         @Override
         public Collection<InternalClusterNode> logicalTopologyMembers() {
-            return allMembers.values();
+            return Commons.cast(logicalTopology.getLogicalTopology().nodes());
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable InternalClusterNode getByAddress(NetworkAddress addr) {
-            return allMembersByAddress.get(addr);
+            throw new AssertionError("Not implemented");
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
-            return allMembers.get(consistentId);
+            return findNodeByName(logicalTopology, consistentId);
         }
 
         @Override
         public @Nullable InternalClusterNode getById(UUID id) {
-            return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
+            return logicalTopology.getLogicalTopology().nodes().stream()
+                    .filter(node -> node.id().equals(id))
+                    .findFirst()
+                    .orElse(null);
         }
 
         @Override
@@ -224,7 +205,7 @@ public class ClusterServiceFactory {
         }
     }
 
-    private class LocalMessagingService extends AbstractMessagingService {
+    class LocalMessagingService extends AbstractMessagingService {
         private final InternalClusterNode localNode;
 
         private LocalMessagingService(InternalClusterNode localNode) {
@@ -240,11 +221,7 @@ public class ClusterServiceFactory {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
-            for (var handler : messagingServicesByNode.get(recipient.name()).messageHandlers(msg.groupType())) {
-                handler.onReceived(msg, localNode, null);
-            }
-
-            return nullCompletedFuture();
+            return send(recipient.name(), channelType, msg);
         }
 
         @Override

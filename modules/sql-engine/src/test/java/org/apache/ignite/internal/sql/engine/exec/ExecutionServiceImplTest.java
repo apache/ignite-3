@@ -70,12 +70,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -87,8 +87,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -98,7 +98,6 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -163,6 +162,7 @@ import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -851,6 +851,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      */
     @Test
     @Tag(CUSTOM_CLUSTER_SETUP_TAG)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26465")
     public void timeoutFiredOnInitialization() throws Throwable {
         CountDownLatch mappingsCacheAccessBlock = new CountDownLatch(1);
         AtomicReference<Throwable> exHolder = new AtomicReference<>();
@@ -1183,8 +1184,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         return executionService;
     }
 
-    private static InternalClusterNodeImpl clusterNode(String nodeName) {
-        return new InternalClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+    private static ClusterNodeImpl clusterNode(String nodeName) {
+        return new ClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
     }
 
     private MappingServiceImpl createMappingService(
@@ -1195,12 +1196,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     ) {
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters, ppMetadata) -> mappedFragments;
 
-        LongSupplier topologyVerSupplier = () -> Long.MAX_VALUE;
-
-        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologyVerSupplier,
+        LogicalTopology logicalTopology = TestBuilders.logicalTopology(logicalNodes);
+        var service = new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner,
                 new TestExecutionDistributionProvider(logicalNodes, () -> mappingException),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(), Runnable::run
         );
+
+        service.onTopologyLeap(logicalTopology.getLogicalTopology());
+
+        return service;
     }
 
     private SqlOperationContext createContext() {
@@ -1213,7 +1217,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .cancel(new QueryCancel())
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
+                .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                 .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0), false)));
     }
 

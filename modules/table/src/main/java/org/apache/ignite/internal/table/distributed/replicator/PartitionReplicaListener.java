@@ -196,6 +196,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -346,6 +347,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
 
+    private final TableMetricSource metrics;
+
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
     private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
     private final ReliableCatalogVersions reliableCatalogVersions;
@@ -384,6 +387,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param clusterNodeResolver Node resolver.
      * @param remotelyTriggeredResourceRegistry Resource registry.
      * @param indexMetaStorage Index meta storage.
+     * @param metrics Table metric source.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -412,7 +416,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             IndexMetaStorage indexMetaStorage,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            TableMetricSource metrics
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftCommandRunner = raftCommandRunner;
@@ -435,6 +440,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.tableLockKey = new TablePartitionId(tableId, replicationGroupId.partitionId());
+        this.metrics = metrics;
 
         this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
@@ -771,7 +777,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             return completedFuture(rows);
                         } else {
                             return validateRwReadAgainstSchemaAfterTakingLocks(req.transactionId())
-                                    .thenApply(ignored -> rows);
+                                    .thenApply(ignored -> {
+                                        metrics.onRead(rows.size(), false);
+
+                                        return rows;
+                                    });
                         }
                     })
                     .whenComplete((rows, err) -> {
@@ -840,7 +850,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
 
-        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? nullCompletedFuture()
+        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp)
+                ? nullCompletedFuture()
                 : safeTime.waitFor(readTimestamp);
 
         if (request.indexToUse() != null) {
@@ -853,18 +864,34 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
-                return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage));
+                return safeReadFuture
+                        .thenCompose(unused -> lookupIndex(request, indexStorage))
+                        .thenApply(rows -> {
+                            metrics.onRead(rows.size(), true);
+
+                            return rows;
+                        });
             }
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
 
-            return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, indexStorage));
+            return safeReadFuture
+                    .thenCompose(unused -> scanSortedIndex(request, indexStorage))
+                    .thenApply(rows -> {
+                        metrics.onRead(rows.size(), true);
+
+                        return rows;
+                    });
         }
 
         return safeReadFuture
                 .thenCompose(
-                        unused -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), readTimestamp, cursorId, batchCount)
-                );
+                        unused -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), readTimestamp, cursorId, batchCount))
+                .thenApply(rows -> {
+                    metrics.onRead(rows.size(), true);
+
+                    return rows;
+                });
     }
 
     /**
@@ -1054,11 +1081,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         HybridTimestamp readTimestamp = request.readTimestamp();
 
         if (request.requestType() != RO_GET) {
-            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+            throw new IgniteInternalException(
+                    Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? nullCompletedFuture()
+        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp)
+                ? nullCompletedFuture()
                 : safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(primaryKey, readTimestamp));
@@ -1090,11 +1119,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         HybridTimestamp readTimestamp = request.readTimestamp();
 
         if (request.requestType() != RO_GET_ALL) {
-            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+            throw new IgniteInternalException(
+                    Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? nullCompletedFuture()
+        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp)
+                ? nullCompletedFuture()
                 : safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> {
@@ -1931,10 +1962,14 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
             // Nothing found in the storage, return null.
             if (writeIntents.isEmpty() && regularEntries.isEmpty()) {
+                metrics.onRead(true);
+
                 return nullCompletedFuture();
             }
 
             if (writeIntents.isEmpty()) {
+                metrics.onRead(true);
+
                 // No write intents, then return the committed value. We already know that regularEntries is not empty.
                 return completedFuture(regularEntries.get(0).binaryRow());
             } else {
@@ -1948,6 +1983,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         resolveWriteIntentReadability(writeIntent, ts)
                                 .thenApply(writeIntentReadable ->
                                         inBusyLock(busyLock, () -> {
+                                            metrics.onRead(true);
+
                                             if (writeIntentReadable) {
                                                 return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow).orElse(null);
                                             } else {
@@ -2104,6 +2141,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     }
 
                     if (rowIdsToDelete.isEmpty()) {
+                        metrics.onRead(searchRows.size(), false);
+
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
@@ -2117,7 +2156,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                             leaseStartTime
                                     )
                             )
-                            .thenApply(res -> new ReplicaResult(result, res));
+                            .thenApply(res -> {
+                                metrics.onRead(searchRows.size(), false);
+                                metrics.onWrite(rowIdsToDelete.size());
+
+                                return new ReplicaResult(result, res);
+                            });
                 });
             }
             case RW_INSERT_ALL: {
@@ -2153,6 +2197,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     }
 
                     if (rowsToInsert.isEmpty()) {
+                        metrics.onRead(searchRows.size(), false);
+
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
@@ -2185,6 +2231,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                             )
                             .thenApply(res -> {
+                                metrics.onRead(searchRows.size(), false);
+                                metrics.onWrite(rowsToInsert.size());
+
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> insertLockFut : insertLockFuts) {
                                     insertLockFut.join().get2()
@@ -2222,10 +2271,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     }
                 }
 
+                int uniqueKeysCount = 0;
                 for (int i = 0; i < searchRows.size(); i++) {
                     if (rowIdFuts[i] != null) {
                         continue; // Skip previous row with the same key.
                     }
+
+                    uniqueKeysCount++;
 
                     BinaryRow searchRow = searchRows.get(i);
                     boolean isDelete = deleted != null && deleted.get(i);
@@ -2256,6 +2308,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     });
                 }
 
+                int uniqueKeysCountFinal = uniqueKeysCount;
+
                 return allOf(rowIdFuts).thenCompose(ignore -> {
                     Map<UUID, TimedBinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRows.size());
                     List<RowId> rows = new ArrayList<>();
@@ -2282,6 +2336,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     }
 
                     if (rowsToUpdate.isEmpty()) {
+                        metrics.onRead(uniqueKeysCountFinal, false);
+
                         return completedFuture(new ReplicaResult(null, null));
                     }
 
@@ -2296,6 +2352,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                             )
                             .thenApply(res -> {
+                                metrics.onRead(uniqueKeysCountFinal, false);
+                                metrics.onWrite(uniqueKeysCountFinal);
+
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
                                     IgniteBiTuple<RowId, Collection<Lock>> futRes = rowIdFut.join();
@@ -2356,11 +2415,17 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             }
 
                             if (allElementsAreNull(result)) {
+                                metrics.onRead(result.size(), false);
+
                                 return completedFuture(new ReplicaResult(result, null));
                             }
 
                             return validateRwReadAgainstSchemaAfterTakingLocks(txId)
-                                    .thenApply(unused -> new ReplicaResult(result, null));
+                                    .thenApply(unused -> {
+                                        metrics.onRead(result.size(), false);
+
+                                        return new ReplicaResult(result, null);
+                                    });
                         });
             }
             case RW_DELETE_ALL: {
@@ -2422,7 +2487,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                             leaseStartTime
                                     )
                             )
-                            .thenApply(res -> new ReplicaResult(result, res));
+                            .thenApply(res -> {
+                                metrics.onWrite(rowIdsToDelete.size());
+
+                                return new ReplicaResult(result, res);
+                            });
                 });
             }
             default: {
@@ -2732,7 +2801,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         HybridTimestamp readTimestamp = opStartTimestamp;
 
         if (request.requestType() != RO_GET) {
-            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+            throw new IgniteInternalException(
+                    Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
@@ -2757,12 +2827,16 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             case RW_DELETE_EXACT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
+                        metrics.onRead(false);
+
                         return completedFuture(new ReplicaResult(false, null));
                     }
 
                     return takeLocksForDeleteExact(searchRow, rowId, row, txId)
                             .thenCompose(validatedRowId -> {
                                 if (validatedRowId == null) {
+                                    metrics.onRead(false);
+
                                     return completedFuture(new ReplicaResult(false, null));
                                 }
 
@@ -2778,13 +2852,20 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                                         leaseStartTime
                                                 )
                                         )
-                                        .thenApply(res -> new ReplicaResult(true, res));
+                                        .thenApply(res -> {
+                                            metrics.onRead(false);
+                                            metrics.onWrite();
+
+                                            return new ReplicaResult(true, res);
+                                        });
                             });
                 });
             }
             case RW_INSERT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId != null) {
+                        metrics.onRead(false);
+
                         return completedFuture(new ReplicaResult(false, null));
                     }
 
@@ -2804,6 +2885,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
+                                metrics.onRead(false);
+                                metrics.onWrite();
+
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
@@ -2836,6 +2920,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
+                                metrics.onWrite();
+
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
@@ -2868,6 +2954,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
+                                metrics.onRead(false);
+                                metrics.onWrite();
+
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
@@ -2878,6 +2967,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             case RW_GET_AND_REPLACE: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
+                        metrics.onRead(false);
+
                         return completedFuture(new ReplicaResult(null, null));
                     }
 
@@ -2896,6 +2987,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
+                                metrics.onRead(false);
+                                metrics.onWrite();
+
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
@@ -2906,6 +3000,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             case RW_REPLACE_IF_EXIST: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
+                        metrics.onRead(false);
+
                         return completedFuture(new ReplicaResult(false, null));
                     }
 
@@ -2924,6 +3020,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
+                                metrics.onRead(false);
+                                metrics.onWrite();
+
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
@@ -2957,12 +3056,18 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             case RW_GET: {
                 return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
+                        metrics.onRead(false);
+
                         return nullCompletedFuture();
                     }
 
                     return takeLocksForGet(rowId, txId)
                             .thenCompose(ignored -> validateRwReadAgainstSchemaAfterTakingLocks(txId))
-                            .thenApply(ignored -> new ReplicaResult(row, null));
+                            .thenApply(ignored -> {
+                                metrics.onRead(false);
+
+                                return new ReplicaResult(row, null);
+                            });
                 });
             }
             case RW_DELETE: {
@@ -2988,12 +3093,18 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                             leaseStartTime
                                     )
                             )
-                            .thenApply(res -> new ReplicaResult(true, res));
+                            .thenApply(res -> {
+                                metrics.onWrite();
+
+                                return new ReplicaResult(true, res);
+                            });
                 });
             }
             case RW_GET_AND_DELETE: {
                 return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
+                        metrics.onRead(false);
+
                         return nullCompletedFuture();
                     }
 
@@ -3014,7 +3125,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                             leaseStartTime
                                     )
                             )
-                            .thenApply(res -> new ReplicaResult(row, res));
+                            .thenApply(res -> {
+                                metrics.onRead(false);
+                                metrics.onWrite();
+
+                                return new ReplicaResult(row, res);
+                            });
                 });
             }
             default: {
@@ -3229,12 +3345,16 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         if (request.requestType() == RW_REPLACE) {
             return resolveRowByPk(extractPk(newRow), txId, (rowId, row, lastCommitTime) -> {
                 if (rowId == null) {
+                    metrics.onRead(false);
+
                     return completedFuture(new ReplicaResult(false, null));
                 }
 
                 return takeLocksForReplace(expectedRow, row, newRow, rowId, txId)
                         .thenCompose(rowIdLock -> {
                             if (rowIdLock == null) {
+                                metrics.onRead(false);
+
                                 return completedFuture(new ReplicaResult(false, null));
                             }
 
@@ -3256,6 +3376,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock))
                                     .thenApply(tuple -> {
+                                        metrics.onRead(false);
+                                        metrics.onWrite();
+
                                         // Release short term locks.
                                         tuple.get2().get2()
                                                 .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
@@ -3741,7 +3864,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         assert table != null : "tableId=" + tableId() + ", catalogVersion=" + catalog.version();
 
-        return table.tableVersion();
+        return table.latestSchemaVersion();
     }
 
     private static @Nullable BinaryRow binaryRow(@Nullable TimedBinaryRow timedBinaryRow) {

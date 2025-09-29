@@ -47,10 +47,8 @@ public class FeatureCompatibilityTest extends BaseIgniteAbstractTest {
     private IgniteClient client;
 
     private void startServer(@Nullable BitSet features) {
-        TestHybridClock clock = new TestHybridClock(System::currentTimeMillis);
-
-        ignite = new FakeIgnite("server-1");
-        testServer = new TestServer(0, ignite, reqId -> false, null, "server-1", UUID.randomUUID(), null, null, clock, true, features);
+        ignite = new FakeIgnite("server-1", new TestHybridClock(System::currentTimeMillis));
+        testServer = new TestServer(0, ignite, reqId -> false, null, "server-1", UUID.randomUUID(), null, null, true, features);
 
         client = IgniteClient.builder().addresses("127.0.0.1:" + testServer.port()).build();
     }

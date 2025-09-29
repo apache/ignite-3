@@ -42,8 +42,8 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
@@ -147,7 +147,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             HybridClock clock = igniteImpl.clock();
 
             Collection<InternalClusterNode> nodes = ignite.cluster().nodes().stream()
-                    .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                    .map(ClusterNodeImpl::fromPublicClusterNode)
                     .collect(toUnmodifiableList());
 
             for (InternalClusterNode clusterNode : nodes) {
@@ -201,7 +201,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             HybridClock clock = igniteImpl.clock();
 
             Collection<InternalClusterNode> nodes = ignite.cluster().nodes().stream()
-                    .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                    .map(ClusterNodeImpl::fromPublicClusterNode)
                     .collect(toUnmodifiableList());
 
             int finalI = i;

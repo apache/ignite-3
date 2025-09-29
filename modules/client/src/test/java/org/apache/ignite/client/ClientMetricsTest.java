@@ -67,10 +67,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ClientMetricsTest extends BaseIgniteAbstractTest {
     private TestServer server;
     private IgniteClient client;
+    private IgniteClient client2;
 
     @AfterEach
     public void afterEach() throws Exception {
-        closeAll(client, server);
+        closeAll(client2, client, server);
     }
 
     @Test
@@ -161,10 +162,11 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 5000),
+                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 200, 6_000),
                 () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
     }
 
+    @SuppressWarnings("resource")
     @Test
     public void testRequestsMetrics() throws InterruptedException {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
@@ -304,10 +306,10 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     @ValueSource(booleans = {true, false})
     public void testJmxExport(boolean metricsEnabled) throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
-        client = clientBuilder().metricsEnabled(metricsEnabled).build();
+        client = clientBuilder().metricsEnabled(metricsEnabled).name("testJmxExport").build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:type=metrics,name=client";
+        String beanName = "org.apache.ignite:nodeName=testJmxExport,type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
@@ -329,6 +331,63 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals("ConnectionsActive", attribute.getName());
         assertEquals("Currently active connections", attribute.getDescription());
         assertEquals("java.lang.Long", attribute.getType());
+    }
+
+    @Test
+    public void testJmxExportTwoClients() throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+
+        // Client names are auto-generated, unless explicitly specified.
+        client = clientBuilder().metricsEnabled(true).build();
+        client2 = clientBuilder().metricsEnabled(true).build();
+
+        client.tables().tables();
+        client2.tables().tables();
+
+        for (var clientName : new String[]{client.name(), client2.name()}) {
+            String beanName = "org.apache.ignite:nodeName=" + clientName + ",type=metrics,name=client";
+            MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+            ObjectName objName = new ObjectName(beanName);
+            boolean registered = mbeanSrv.isRegistered(objName);
+
+            assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
+
+            DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+            assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+            assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+        }
+    }
+
+    @Test
+    public void testJmxExportTwoClientsSameName() throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+
+        var loggerFactory1 = new TestLoggerFactory("client1");
+        var loggerFactory2 = new TestLoggerFactory("client2");
+
+        String clientName = "testJmxExportTwoClientsSameName";
+        client = clientBuilder().metricsEnabled(true).name(clientName).loggerFactory(loggerFactory1).build();
+        client2 = clientBuilder().metricsEnabled(true).name(clientName).loggerFactory(loggerFactory2).build();
+
+        client.tables().tables();
+        client2.tables().tables();
+
+        String beanName = "org.apache.ignite:nodeName=" + clientName + ",type=metrics,name=client";
+        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+        ObjectName objName = new ObjectName(beanName);
+        boolean registered = mbeanSrv.isRegistered(objName);
+
+        assertTrue(registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
+
+        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+
+        // Error is logged, but the client is functional.
+        loggerFactory2.waitForLogContains("MBean for metric set can't be created [name=client].", 3_000);
+        loggerFactory1.assertLogDoesNotContain("MBean for metric set can't be created");
     }
 
     private Table oneColumnTable() {

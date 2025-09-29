@@ -180,6 +180,60 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testCreateTableWithNamedPk() {
+        long timePriorToTableCreation = clock.nowLong();
+        String expectedName = "CUSTOM_PK_NAME";
+
+        CatalogCommand command = CreateTableCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(SCHEMA_NAME)
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(expectedName)
+                        .columns(List.of("key1", "key2"))
+                        .build())
+                .colocationColumns(List.of("key2"))
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        // Validate catalog version from the past.
+        Catalog catalog = manager.activeCatalog(timePriorToTableCreation);
+
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
+
+        assertNotNull(schema);
+        assertNull(schema.table(TABLE_NAME));
+        assertNull(schema.aliveIndex(expectedName));
+
+        assertNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, expectedName));
+
+        // Validate actual catalog
+        catalog = manager.activeCatalog(clock.nowLong());
+
+        schema = catalog.schema(SCHEMA_NAME);
+        CatalogTableDescriptor table = schema.table(TABLE_NAME);
+
+        // There should be no index with default name.
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+
+        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.aliveIndex(expectedName);
+
+        assertSame(pkIndex, catalog.aliveIndex(SCHEMA_NAME, expectedName));
+        assertSame(pkIndex, catalog.index(pkIndex.id()));
+
+        // Validate newly created pk index
+        assertEquals(expectedName, pkIndex.name());
+        assertEquals(table.id(), pkIndex.tableId());
+        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertTrue(pkIndex.unique());
+        assertTrue(pkIndex.isCreatedWithTable());
+        assertEquals(AVAILABLE, pkIndex.status());
+    }
+
+    @Test
     public void testCreateMultipleTables() {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
@@ -517,8 +571,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(table(prevVersion, TABLE_NAME_2), is(nullValue()));
         assertThat(table(curVersion, TABLE_NAME), is(nullValue()));
 
-        assertThat(curDescriptor.tableVersion(), is(prevDescriptor.tableVersion() + 1));
-
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
@@ -526,6 +578,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
+        assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));
     }
 
     @Test
@@ -556,7 +609,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     @Test
@@ -565,7 +618,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(1));
+        assertThat(table.latestSchemaVersion(), is(1));
     }
 
     @Test
@@ -576,7 +629,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     @Test
@@ -665,7 +718,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     /**

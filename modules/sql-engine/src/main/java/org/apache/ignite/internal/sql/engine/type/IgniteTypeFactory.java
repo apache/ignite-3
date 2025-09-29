@@ -33,17 +33,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.Collection;
-import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -82,9 +77,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     /** Default charset. */
     private final Charset charset;
 
-    /** A registry that contains custom data types. **/
-    private final CustomDataTypes customDataTypes;
-
     {
         implementedJavaTypes.put(LocalDate.class, () ->
                 createTypeWithNullability(createSqlType(SqlTypeName.DATE), true));
@@ -115,8 +107,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             // If JVM default charset is not supported by Calcite - use UTF-8.
             charset = StandardCharsets.UTF_8;
         }
-
-        customDataTypes = new CustomDataTypes(Set.of());
     }
 
     /** {@inheritDoc} */
@@ -173,7 +163,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     public Type getJavaClass(RelDataType type) {
         if (type instanceof JavaType) {
             return ((JavaType) type).getJavaClass();
-        } else if (type instanceof BasicSqlType || type instanceof IntervalSqlType || type instanceof IgniteCustomType) {
+        } else if (type instanceof BasicSqlType || type instanceof IntervalSqlType) {
             switch (type.getSqlTypeName()) {
                 case VARCHAR:
                 case CHAR:
@@ -221,11 +211,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case SYMBOL:
                     return Enum.class;
                 case ANY:
-                    if (type instanceof IgniteCustomType) {
-                        var customType = (IgniteCustomType) type;
-                        return customType.spec().storageType();
-                    }
-                    // fallthrough
                 case OTHER:
                     return Object.class;
                 case NULL:
@@ -257,8 +242,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      */
     public static NativeType relDataTypeToNative(RelDataType relType) {
         assert relType instanceof BasicSqlType
-                || relType instanceof IntervalSqlType
-                || relType instanceof IgniteCustomType : "Not supported:" + relType;
+                || relType instanceof IntervalSqlType : "Not supported:" + relType;
 
         switch (relType.getSqlTypeName()) {
             case BOOLEAN:
@@ -319,11 +303,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case UUID:
                 return NativeTypes.UUID;
             case ANY:
-                if (relType instanceof IgniteCustomType) {
-                    var customType = (IgniteCustomType) relType;
-                    return customType.spec().nativeType();
-                }
-                // fallthrough
             default:
                 throw new IllegalArgumentException("Type is not supported: " + relType);
         }
@@ -346,7 +325,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     public Type getResultClass(RelDataType type) {
         if (type instanceof JavaType) {
             return ((JavaType) type).getJavaClass();
-        } else if (type instanceof BasicSqlType || type instanceof IntervalSqlType || type instanceof IgniteCustomType) {
+        } else if (type instanceof BasicSqlType || type instanceof IntervalSqlType) {
             switch (type.getSqlTypeName()) {
                 case VARCHAR:
                 case CHAR:
@@ -400,12 +379,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case SYMBOL:
                     return Enum.class;
                 case ANY:
-                    if (type instanceof IgniteCustomType) {
-                        var customType = (IgniteCustomType) type;
-                        var nativeType = customType.spec().nativeType();
-                        return nativeType.spec().javaClass();
-                    }
-                    // fallthrough
                 case OTHER:
                     return Object.class;
                 case NULL:
@@ -445,13 +418,10 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return first(types);
         }
 
-        IgniteCustomType firstCustomType = null;
         boolean hasAnyType = false;
         boolean hasNullOrNullable = false;
         boolean hasUuidType = false;
         boolean hasBuiltInType = false;
-        boolean hasNullable = false;
-        IgniteCustomType firstNullable = null;
 
         for (var type : types) {
             SqlTypeName sqlTypeName = type.getSqlTypeName();
@@ -465,23 +435,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 hasNullOrNullable = true;
             }
 
-            if (type instanceof IgniteCustomType) {
-                if (firstCustomType == null) {
-                    firstCustomType = (IgniteCustomType) type;
-                } else {
-                    IgniteCustomType customType = (IgniteCustomType) type;
-                    if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
-                        // IgniteCustomType: Conversion between custom data types is not supported.
-                        return null;
-                    }
-                }
-
-                if (type.isNullable() && firstNullable == null) {
-                    hasNullable = type.isNullable();
-                    firstNullable = (IgniteCustomType) type;
-                }
-
-            } else if (sqlTypeName == SqlTypeName.ANY) {
+            if (sqlTypeName == SqlTypeName.ANY) {
                 hasAnyType = true;
             } else {
                 if (sqlTypeName == SqlTypeName.UUID) {
@@ -534,19 +488,10 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         // when at least one of its arguments have sqlTypeName = ANY.
         assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
 
-        if (hasAnyType && hasBuiltInType && firstCustomType != null) {
-            // There is no least restrictive type between ANY, built-in type, and a custom data type.
-            return null;
-        } else if ((hasAnyType && hasBuiltInType) || (hasAnyType && firstCustomType != null)) {
+        if (hasAnyType && hasBuiltInType) {
             // When at least one of arguments have sqlTypeName = ANY,
             // return it in order to be consistent with default implementation.
             return resultType;
-        } else if (firstCustomType != null && !hasBuiltInType) {
-            // When there is only one custom data type and no other built-in types,
-            // return the custom data type.
-            // We must return a nullable type, when there are nullable and not-nullable types,
-            // because nullable type is less restrictive than not-nullable.
-            return hasNullable ? firstNullable : firstCustomType;
         } else {
             return null;
         }
@@ -647,76 +592,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         //noinspection SuspiciousMethodCalls
         if (implementedJavaTypes.containsKey(type)) {
             return createJavaType((Class<?>) type);
-        } else if (customDataTypes.javaTypes.contains(type)) {
-            throw new IllegalArgumentException("Custom data type should not be created via createType call: " + type);
         } else {
             return super.createType(type);
         }
     }
 
-    /** {@inheritDoc} **/
-    @Override
-    public RelDataType createTypeWithNullability(RelDataType type, boolean nullable) {
-        if (type instanceof IgniteCustomType) {
-            return canonize(((IgniteCustomType) type).createWithNullability(nullable));
-        } else {
-            return super.createTypeWithNullability(type, nullable);
-        }
-    }
-
-    /** {@inheritDoc} **/
-    @Override
-    public RelDataType createJavaType(Class clazz) {
-        if (customDataTypes.javaTypes.contains(clazz)) {
-            throw new IllegalArgumentException("Custom data type should not be created via createJavaType call: " + clazz);
-        } else {
-            return super.createJavaType(clazz);
-        }
-    }
-
-    /**
-     * Creates a custom data type with the given {@code typeName} and precision.
-     *
-     * @param typeName Type name.
-     * @param precision Precision if supported.
-     * @return A custom data type.
-     */
-    public IgniteCustomType createCustomType(String typeName, int precision) {
-        IgniteCustomTypeFactory customTypeFactory = customDataTypes.typeFactories.get(typeName);
-        if (customTypeFactory == null) {
-            throw new IllegalArgumentException("Unexpected custom data type: " + typeName);
-        }
-
-        // By default a type must not be nullable.
-        // See SqlTypeFactory::createSqlType.
-        IgniteCustomType customType = customTypeFactory.newType(false, precision);
-        assert !customType.isNullable() : "makeCustomType must not return a nullable type: " + typeName + " " + customType;
-        return (IgniteCustomType) canonize(customType);
-    }
-
-    /**
-     * Creates a custom data type with the given {@code typeName} and without precision.
-     *
-     * <p>A shorthand for {@code createCustomType(typeName, -1)}.
-     *
-     * @param typeName Type name.
-     * @return A custom data type.
-     */
-    public IgniteCustomType createCustomType(String typeName) {
-        return createCustomType(typeName, PRECISION_NOT_SPECIFIED);
-    }
-
-    /** Returns {@link IgniteCustomTypeSpec type specifications} of registered custom data types. */
-    public Map<String, IgniteCustomTypeSpec> getCustomTypeSpecs() {
-        return customDataTypes.typeSpecs;
-    }
-
-    /** Returns type coercion rules to custom data types. */
-    public IgniteCustomTypeCoercionRules getCustomTypeCoercionRules() {
-        return customDataTypes.typeCoercionRules;
-    }
-
-    private boolean allEquals(List<RelDataType> types) {
+    private static boolean allEquals(List<RelDataType> types) {
         assert types.size() > 1;
 
         RelDataType first = first(types);
@@ -727,69 +608,5 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         }
 
         return true;
-    }
-
-    private static final class CustomDataTypes {
-
-        /**
-         * Contains java types used by registered custom data types.
-         *
-         * <p>We need those to reject attempts to create custom data types via
-         * {@link IgniteTypeFactory#createType(Type)}/{@link IgniteTypeFactory#createJavaType(Class)}
-         * methods of {@link IgniteTypeFactory}.
-         */
-        private final Set<Type> javaTypes;
-
-        /**
-         * Stores functions that are being used by {@link #createCustomType(String, int)} to create type instances.
-         */
-        private final Map<String, IgniteCustomTypeFactory> typeFactories;
-
-        private final Map<String, IgniteCustomTypeSpec> typeSpecs;
-
-        private final IgniteCustomTypeCoercionRules typeCoercionRules;
-
-        CustomDataTypes(Set<NewCustomType> customDataTypes) {
-            this.javaTypes = customDataTypes.stream()
-                    .map(t -> t.spec.storageType())
-                    .collect(Collectors.toSet());
-
-            this.typeSpecs = customDataTypes.stream()
-                    .map(t -> Map.entry(t.spec.typeName(), t.spec))
-                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-
-            this.typeFactories = customDataTypes.stream().collect(Collectors.toMap((v) -> v.spec.typeName(), (v) -> v.typeFactory));
-
-            var builder = IgniteCustomTypeCoercionRules.builder();
-            for (var newType : customDataTypes) {
-                builder.addRules(newType.spec.typeName(), newType.canBeCoercedTo);
-            }
-            this.typeCoercionRules = builder.build(typeSpecs);
-        }
-    }
-
-    private static final class NewCustomType {
-        final IgniteCustomTypeSpec spec;
-
-        final IgniteCustomTypeFactory typeFactory;
-
-        final Set<SqlTypeName> canBeCoercedTo = EnumSet.noneOf(SqlTypeName.class);
-
-        NewCustomType(IgniteCustomTypeSpec spec, IgniteCustomTypeFactory typeFactory) {
-            this.spec = spec;
-            this.typeFactory = typeFactory;
-        }
-
-        /**
-         * Adds a type coercion rule to from the given built-in SQL types to this custom data type.
-         */
-        void addCoercionRules(Collection<SqlTypeName> types) {
-            canBeCoercedTo.addAll(types);
-        }
-    }
-
-    @FunctionalInterface
-    interface IgniteCustomTypeFactory {
-        IgniteCustomType newType(boolean nullable, int precision);
     }
 }

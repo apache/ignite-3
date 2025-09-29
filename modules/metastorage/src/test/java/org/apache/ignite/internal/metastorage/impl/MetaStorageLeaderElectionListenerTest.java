@@ -37,9 +37,9 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.NetworkAddress;
@@ -67,7 +67,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testSafeTimeSchedulerNotCreatedAfterStoppedTerm() {
-        InternalClusterNode thisNode = new InternalClusterNodeImpl(
+        InternalClusterNode thisNode = new ClusterNodeImpl(
                 UUID.randomUUID(),
                 NODE_NAME,
                 new NetworkAddress("host", 1234)
@@ -96,7 +96,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
 
         long lostLeadershipTerm = 1;
 
-        InternalClusterNode otherNode = new InternalClusterNodeImpl(UUID.randomUUID(), "other", new NetworkAddress("host", 1234));
+        InternalClusterNode otherNode = new ClusterNodeImpl(UUID.randomUUID(), "other", new NetworkAddress("host", 1234));
         listener.onLeaderElected(otherNode, lostLeadershipTerm);
 
         // This node lost leadership, so safe time scheduler should not be created for previous terms.

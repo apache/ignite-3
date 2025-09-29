@@ -48,8 +48,8 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.configuration.AckConfiguration;
@@ -180,7 +180,7 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private RecoveryAcceptorHandshakeManager acceptorHandshakeManager(UUID launchId, BooleanSupplier stopping) {
         RecoveryAcceptorHandshakeManager manager = new RecoveryAcceptorHandshakeManager(
-                new InternalClusterNodeImpl(launchId, ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)),
+                new ClusterNodeImpl(launchId, ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
                 new NoOpHandshakeEventLoopSwitcher(),
