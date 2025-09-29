@@ -109,11 +109,8 @@ public class TransactionInflights {
     }
 
     /**
-     * Track the given RW transaction until finish. Tracking is used for:
-     * <ul>
-     *     <li>unlock only path for RW-R transactions</li>
-     *     <li>force cleanup path on recovery</li>
-     * </ul>
+     * Track the given RW transaction until finish.
+     * Currently tracking is used to enforce cleanup path for SQL RW transactions.
      *
      * @param txId The transaction id.
      * @return {@code True} if the was registered and is in active state.
