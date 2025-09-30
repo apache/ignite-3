@@ -284,13 +284,13 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             ExecutorService asyncIoExecutor = this.asyncIoExecutor;
 
             Stream<AutoCloseable> resources = Stream.of(
-                    asyncIoExecutor == null
-                            ? null
-                            : (AutoCloseable) () -> shutdownAndAwaitTermination(asyncIoExecutor, 30, TimeUnit.SECONDS),
                     destructionExecutor == null
                             ? null
                             : (AutoCloseable) () -> shutdownAndAwaitTermination(destructionExecutor, 30, TimeUnit.SECONDS),
                     checkpointManager == null ? null : (AutoCloseable) checkpointManager::stop,
+                    asyncIoExecutor == null
+                            ? null
+                            : (AutoCloseable) () -> shutdownAndAwaitTermination(asyncIoExecutor, 30, TimeUnit.SECONDS),
                     filePageStoreManager == null ? null : (AutoCloseable) filePageStoreManager::stop
             );
 
