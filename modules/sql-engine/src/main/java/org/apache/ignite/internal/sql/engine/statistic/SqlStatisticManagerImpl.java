@@ -83,7 +83,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     @Override
     public void changesNotifier(StatisticUpdatesSupplier updater) {
         if (!this.changesSupplier.compareAndSet(null, updater)) {
-            assert false : "Statistics notifier unexpected change";
+            throw new AssertionError("Statistics notifier unexpected change");
         }
     }
 
