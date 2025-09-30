@@ -19,8 +19,11 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -39,33 +42,13 @@ class IndexFileManagerTest extends IgniteAbstractTest {
     void testIndexFileNaming() throws IOException {
         var memtable = new IndexMemTable(4);
 
-        IndexFile indexFile0 = indexFileManager.saveIndexMemtable(memtable);
-        IndexFile indexFile1 = indexFileManager.saveIndexMemtable(memtable);
-        IndexFile indexFile2 = indexFileManager.saveIndexMemtable(memtable);
+        Path path0 = indexFileManager.saveIndexMemtable(memtable);
+        Path path1 = indexFileManager.saveIndexMemtable(memtable);
+        Path path2 = indexFileManager.saveIndexMemtable(memtable);
 
-        assertThat(indexFile0.name(), is("index-0000000000-0000000000.bin"));
-        assertThat(indexFile0.path(), is(workDir.resolve("index-0000000000-0000000000.bin.tmp")));
-
-        assertThat(indexFile1.name(), is("index-0000000001-0000000000.bin"));
-        assertThat(indexFile1.path(), is(workDir.resolve("index-0000000001-0000000000.bin.tmp")));
-
-        assertThat(indexFile2.name(), is("index-0000000002-0000000000.bin"));
-        assertThat(indexFile2.path(), is(workDir.resolve("index-0000000002-0000000000.bin.tmp")));
-
-        indexFile0.syncAndRename();
-
-        assertThat(indexFile0.name(), is("index-0000000000-0000000000.bin"));
-        assertThat(indexFile0.path(), is(workDir.resolve("index-0000000000-0000000000.bin")));
-
-        indexFile1.syncAndRename();
-
-        assertThat(indexFile1.name(), is("index-0000000001-0000000000.bin"));
-        assertThat(indexFile1.path(), is(workDir.resolve("index-0000000001-0000000000.bin")));
-
-        indexFile2.syncAndRename();
-
-        assertThat(indexFile2.name(), is("index-0000000002-0000000000.bin"));
-        assertThat(indexFile2.path(), is(workDir.resolve("index-0000000002-0000000000.bin")));
+        assertThat(path0, is(workDir.resolve("index-0000000000-0000000000.bin")));
+        assertThat(path1, is(workDir.resolve("index-0000000001-0000000000.bin")));
+        assertThat(path2, is(workDir.resolve("index-0000000002-0000000000.bin")));
     }
 
     @Test
@@ -74,7 +57,7 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         int entriesPerGroup = 5;
 
-        int[] offsets = IntStream.range(0, numGroups * entriesPerGroup)
+        int[] segmentFileOffsets = IntStream.range(0, numGroups * entriesPerGroup)
                 .map(i -> ThreadLocalRandom.current().nextInt())
                 .toArray();
 
@@ -84,24 +67,80 @@ class IndexFileManagerTest extends IgniteAbstractTest {
             for (int i = 0; i < entriesPerGroup; i++) {
                 int offsetIndex = (groupId - 1) * entriesPerGroup + i;
 
-                memtable.appendSegmentFileOffset(groupId, i, offsets[offsetIndex]);
+                memtable.appendSegmentFileOffset(groupId, i, segmentFileOffsets[offsetIndex]);
             }
         }
 
-        IndexFile indexFile = indexFileManager.saveIndexMemtable(memtable);
+        Path indexFile = indexFileManager.saveIndexMemtable(memtable);
 
-        DeserializedIndexFile deserializedIndexFile = DeserializedIndexFile.fromFile(indexFile.path());
+        DeserializedIndexFile deserializedIndexFile = DeserializedIndexFile.fromFile(indexFile);
 
         for (int groupId = 1; groupId <= numGroups; groupId++) {
             for (int i = 0; i < entriesPerGroup; i++) {
                 int offsetIndex = (groupId - 1) * entriesPerGroup + i;
 
-                int expectedOffset = offsets[offsetIndex];
+                int expectedOffset = segmentFileOffsets[offsetIndex];
 
-                Integer actualOffset = deserializedIndexFile.getOffset(groupId, i);
+                Integer actualOffset = deserializedIndexFile.getSegmentFileOffset(groupId, i);
 
                 assertThat(actualOffset, is(expectedOffset));
             }
         }
+    }
+
+    @Test
+    void testSearchIndexMeta() throws IOException {
+        int numGroups = 10;
+
+        int entriesPerGroup = 5;
+
+        int numMemtables = 5;
+
+        int[] segmentFileOffsets = IntStream.range(0, numMemtables * entriesPerGroup)
+                .map(i -> ThreadLocalRandom.current().nextInt())
+                .toArray();
+
+        for (int memtableIndex = 0; memtableIndex < numMemtables; memtableIndex++) {
+            var memtable = new IndexMemTable(4);
+
+            for (int groupId = 1; groupId <= numGroups; groupId++) {
+                for (int i = 0; i < entriesPerGroup; i++) {
+                    int logIndex = memtableIndex * entriesPerGroup + i;
+
+                    memtable.appendSegmentFileOffset(groupId, logIndex, segmentFileOffsets[logIndex]);
+                }
+            }
+
+            indexFileManager.saveIndexMemtable(memtable);
+        }
+
+        for (int memtableIndex = 0; memtableIndex < numMemtables; memtableIndex++) {
+            for (int groupId = 1; groupId <= numGroups; groupId++) {
+                for (int i = 0; i < entriesPerGroup; i++) {
+                    int logIndex = memtableIndex * entriesPerGroup + i;
+
+                    SegmentFilePointer pointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
+
+                    assertThat(pointer, is(notNullValue()));
+                    assertThat(pointer.fileOrdinal(), is(memtableIndex));
+                    assertThat(pointer.payloadOffset(), is(segmentFileOffsets[logIndex]));
+                }
+            }
+        }
+    }
+
+    @Test
+    void testMissingIndexMeta() throws IOException {
+        assertThat(indexFileManager.getSegmentFilePointer(0, 0), is(nullValue()));
+
+        var memtable = new IndexMemTable(4);
+
+        memtable.appendSegmentFileOffset(0, 0, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 0), is(notNullValue()));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(nullValue()));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 0), is(nullValue()));
     }
 }

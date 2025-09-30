@@ -77,7 +77,7 @@ class SegmentInfo {
     }
 
     /**
-     * Base log index. All log indexes in this memtable lie in the {@code [logIndexBase, logIndexBase + segmentFileOffsets.size]} range.
+     * Base log index. All log indexes in this memtable lie in the {@code [logIndexBase, logIndexBase + segmentFileOffsets.size)} range.
      */
     private final long logIndexBase;
 
@@ -138,10 +138,10 @@ class SegmentInfo {
     }
 
     /**
-     * Returns the non-inclusive upper bound of log indices stored in this memtable.
+     * Returns the inclusive upper bound of log indices stored in this memtable.
      */
     long lastLogIndex() {
-        return logIndexBase + segmentFileOffsets.size();
+        return logIndexBase + segmentFileOffsets.size() - 1;
     }
 
     /**
@@ -157,8 +157,6 @@ class SegmentInfo {
     void saveOffsetsTo(ByteBuffer buffer) {
         ArrayWithSize offsets = segmentFileOffsets;
 
-        for (int i = 0; i < offsets.size(); i++) {
-            buffer.putInt(offsets.get(i));
-        }
+        buffer.asIntBuffer().put(offsets.array, 0, offsets.size);
     }
 }
