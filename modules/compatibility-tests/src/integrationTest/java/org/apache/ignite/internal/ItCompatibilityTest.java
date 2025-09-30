@@ -97,11 +97,12 @@ class ItCompatibilityTest extends CompatibilityTestBase {
                 + ")");
 
         baseIgnite.transactions().runInTransaction(tx -> {
-            sql(baseIgnite, tx, "INSERT INTO TEST_DEFAULT DEFAULT VALUES");
+            sql(baseIgnite, tx, "INSERT INTO TEST_DEFAULT VALUES (DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT, "
+                    + "DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT)");
         });
         result = sql(baseIgnite, "SELECT * FROM TEST_DEFAULT");
         assertThat(result, contains(contains(
-                1, 2, 3L, 4.0f, 5.0d, new BigDecimal("6.00"), true,
+                1, 2, 3L, 4.0f, 5.0d, new BigDecimal("6.00"), false,
                 "test", LocalDate.of(1970, 1, 2), LocalTime.of(0, 0, 01), LocalDateTime.of(1970, 1, 31, 0, 0, 31)
         )));
     }
@@ -119,7 +120,7 @@ class ItCompatibilityTest extends CompatibilityTestBase {
         // Read default data
         List<List<Object>> resultDefault = sql("SELECT * FROM TEST_DEFAULT");
         assertThat(resultDefault, contains(contains(
-                1, 2, 3L, 4.0f, 5.0d, new BigDecimal("6.00"), true,
+                1, 2, 3L, 4.0f, 5.0d, new BigDecimal("6.00"), false,
                 "test", LocalDate.of(1970, 1, 2), LocalTime.of(0, 0, 01), LocalDateTime.of(1970, 1, 31, 0, 0, 31)
         )));
 
