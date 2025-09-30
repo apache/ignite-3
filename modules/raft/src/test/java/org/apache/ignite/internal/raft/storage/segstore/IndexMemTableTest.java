@@ -23,6 +23,8 @@ import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Map.Entry;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.RepeatedTest;
@@ -44,6 +46,8 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
         assertThat(memTable.getSegmentFileOffset(0, 1), is(2));
         assertThat(memTable.getSegmentFileOffset(1, 0), is(3));
         assertThat(memTable.getSegmentFileOffset(1, 1), is(4));
+
+        assertThat(memTable.numGroups(), is(2));
     }
 
     @Test
@@ -53,6 +57,33 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
         assertThat(memTable.getSegmentFileOffset(0, 1), is(0));
         assertThat(memTable.getSegmentFileOffset(0, 5), is(1));
         assertThat(memTable.getSegmentFileOffset(0, 6), is(0));
+    }
+
+    @Test
+    void testIterator() {
+        memTable.appendSegmentFileOffset(0, 0, 1);
+        memTable.appendSegmentFileOffset(0, 1, 2);
+        memTable.appendSegmentFileOffset(1, 0, 3);
+        memTable.appendSegmentFileOffset(1, 1, 4);
+
+        Iterator<Entry<Long, SegmentInfo>> it = memTable.iterator();
+
+        it.forEachRemaining(entry -> {
+            long groupId = entry.getKey();
+            SegmentInfo segmentInfo = entry.getValue();
+
+            assertThat(groupId, either(is(0L)).or(is(1L)));
+
+            if (groupId == 0) {
+                assertThat(segmentInfo.getOffset(0), is(1));
+                assertThat(segmentInfo.getOffset(1), is(2));
+                assertThat(segmentInfo.getOffset(2), is(0));
+            } else {
+                assertThat(segmentInfo.getOffset(0), is(3));
+                assertThat(segmentInfo.getOffset(1), is(4));
+                assertThat(segmentInfo.getOffset(2), is(0));
+            }
+        });
     }
 
     @RepeatedTest(10)
@@ -108,6 +139,8 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
         runRace(actions.toArray(RunnableX[]::new));
 
         // Check that all values are present after all writes completed.
+        assertThat(memTable.numGroups(), is(STRIPES));
+
         for (int groupId = 0; groupId < STRIPES; groupId++) {
             for (int j = 0; j < itemsPerGroup; j++) {
                 assertThat(memTable.getSegmentFileOffset(groupId, j), is(j + 1));

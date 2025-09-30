@@ -557,7 +557,9 @@ public class Node {
                 nodeProperties,
                 replicationConfiguration,
                 Runnable::run,
-                metricManager
+                metricManager,
+                zoneId -> completedFuture(Set.of()),
+                id -> null
         );
 
         var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);

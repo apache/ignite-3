@@ -87,6 +87,7 @@ public class ConfigurationTest extends AbstractClientTest {
                 .addresses(addr)
                 .connectTimeout(1234)
                 .addressFinder(() -> new String[]{addr})
+                .name("thin-client")
                 .build();
 
         // Builder can be reused, and it won't affect already created clients.

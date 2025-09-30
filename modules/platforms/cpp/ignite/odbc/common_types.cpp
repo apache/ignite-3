@@ -228,6 +228,7 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // DistributionZones group. Group code: 10
         case error::code::ZONE_NOT_FOUND:
+        case error::code::EMPTY_DATA_NODES:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Network group. Group code: 11
@@ -251,6 +252,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNIT_ALREADY_EXISTS:
         case error::code::UNIT_CONTENT_READ:
         case error::code::UNIT_UNAVAILABLE:
+        case error::code::UNIT_ZIP:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // GarbageCollector group. Group code: 14
@@ -289,6 +291,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::PRIMARY_REPLICA_AWAIT_TIMEOUT:
             return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::PRIMARY_REPLICA_AWAIT:
+        case error::code::EMPTY_ASSIGNMENTS:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // CriticalWorkers group. Group code: 19

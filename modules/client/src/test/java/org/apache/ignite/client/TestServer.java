@@ -62,7 +62,6 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -151,7 +150,6 @@ public class TestServer implements AutoCloseable {
                 clusterId,
                 securityConfiguration,
                 port,
-                null,
                 true,
                 null
         );
@@ -172,7 +170,6 @@ public class TestServer implements AutoCloseable {
             UUID clusterId,
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
-            @Nullable HybridClock clock,
             boolean enableRequestHandling,
             @Nullable BitSet features
     ) {
@@ -225,10 +222,6 @@ public class TestServer implements AutoCloseable {
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
 
-        if (clock == null) {
-            clock = new HybridClockImpl();
-        }
-
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
@@ -264,7 +257,7 @@ public class TestServer implements AutoCloseable {
                         clusterInfo,
                         metrics,
                         authenticationManager,
-                        clock,
+                        ignite.clock(),
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         features)
@@ -279,7 +272,7 @@ public class TestServer implements AutoCloseable {
                         mock(MetricManagerImpl.class),
                         metrics,
                         authenticationManager,
-                        new TestClockService(clock),
+                        new TestClockService(ignite.clock()),
                         new AlwaysSyncedSchemaSyncService(),
                         catalogService,
                         ignite.placementDriver(),
@@ -361,6 +354,10 @@ public class TestServer implements AutoCloseable {
      */
     public FakeCatalogService catalogService() {
         return catalogService;
+    }
+
+    public HybridClock clock() {
+        return ignite.clock();
     }
 
     /** {@inheritDoc} */

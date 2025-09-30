@@ -398,8 +398,12 @@ public class ZoneRebalanceUtil {
             int finalPartId = partId;
 
             partitionFutures[partId] = zoneAssignmentsFut.thenCompose(zoneAssignments -> inBusyLockAsync(busyLock, () -> {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26395 We should distinguish empty stable assignments on
-                // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
+                // In case of empty assignments due to initially empty data nodes, assignments will be recalculated
+                // after the transition to non-empty data nodes.
+                // In case of empty assignments due to interrupted zone creation, assignments will be written
+                // during the node recovery and then replicas will be started.
+                // In case when data nodes become empty, assignments are not recalculated
+                // (see DistributionZoneRebalanceEngineV2.createDistributionZonesDataNodesListener).
                 return zoneAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
                         zoneDescriptor,
                         replicaGrpId,
