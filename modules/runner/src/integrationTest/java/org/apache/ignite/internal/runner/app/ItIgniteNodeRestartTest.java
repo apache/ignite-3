@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -73,7 +72,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -224,7 +222,6 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -600,9 +597,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 id -> null
         );
 
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                IgniteThreadFactory.create(name, "test-rebalance-scheduler", logger()));
-
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -763,7 +757,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 failureProcessor,
                 nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler,
+                threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 clockService,
                 placementDriverManager.placementDriver(),
@@ -795,7 +789,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                rebalanceScheduler,
+                threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotManager,
