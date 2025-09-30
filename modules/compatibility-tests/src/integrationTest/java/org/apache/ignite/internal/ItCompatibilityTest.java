@@ -26,7 +26,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZonedDateTime;
 import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -81,6 +80,30 @@ class ItCompatibilityTest extends CompatibilityTestBase {
                 "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56),
                 Instant.parse("2025-05-05T02:05:05Z"), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
         )));
+
+        // Check default values
+        sql(baseIgnite, "CREATE TABLE TEST_DEFAULT("
+                + "ID INT DEFAULT 1 PRIMARY KEY, "
+                + "VAL_INT INT DEFAULT 2, "
+                + "VAL_BIGINT BIGINT DEFAULT 3, "
+                + "VAL_FLOAT FLOAT DEFAULT 4.0, "
+                + "VAL_DOUBLE DOUBLE DEFAULT 5.0, "
+                + "VAL_DECIMAL DECIMAL(10,2) DEFAULT 6.00, "
+                + "VAL_BOOL BOOLEAN DEFAULT FALSE, "
+                + "VAL_STR VARCHAR DEFAULT 'test', "
+                + "VAL_DATE DATE DEFAULT DATE '1970-01-02', "
+                + "VAL_TIME TIME DEFAULT TIME '00:00:01', "
+                + "VAL_TIMESTAMP TIMESTAMP DEFAULT TIMESTAMP '1970-01-31 00:00:31'"
+                + ")");
+
+        baseIgnite.transactions().runInTransaction(tx -> {
+            sql(baseIgnite, tx, "INSERT INTO TEST_DEFAULT DEFAULT VALUES");
+        });
+        result = sql(baseIgnite, "SELECT * FROM TEST_DEFAULT");
+        assertThat(result, contains(contains(
+                1, 2, 3L, 4.0f, 5.0d, new BigDecimal("6.00"), true,
+                "test", LocalDate.of(1970, 1, 2), LocalTime.of(0, 0, 01), LocalDateTime.of(1970, 1, 31, 0, 0, 31)
+        )));
     }
 
     @Test
@@ -89,7 +112,15 @@ class ItCompatibilityTest extends CompatibilityTestBase {
         List<List<Object>> result = sql("SELECT * FROM TEST_ALL_TYPES");
         assertThat(result, contains(contains(
                 1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
-                "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
+                "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56),
+                Instant.parse("2025-05-05T02:05:05Z"), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
+        )));
+
+        // Read default data
+        List<List<Object>> resultDefault = sql("SELECT * FROM TEST_DEFAULT");
+        assertThat(resultDefault, contains(contains(
+                1, 2, 3L, 4.0f, 5.0d, new BigDecimal("6.00"), true,
+                "test", LocalDate.of(1970, 1, 2), LocalTime.of(0, 0, 01), LocalDateTime.of(1970, 1, 31, 0, 0, 31)
         )));
 
         // Insert new data using transaction
