@@ -129,25 +129,13 @@ CREATE TABLE IF NOT EXISTS person (
 -- Table with UUID generation and defaults
 DROP TABLE IF EXISTS person;
 CREATE TABLE IF NOT EXISTS person (
-  id UUID DEFAULT RAND_UUID,
-  city_id INT DEFAULT 1,
-  name VARCHAR,
-  age INT,
-  company VARCHAR,
-  duration TIMESTAMP WITH LOCAL TIME ZONE DEFAULT CURRENT_TIMESTAMP + INTERVAL '7' DAYS,
-  PRIMARY KEY (id, duration)
-);
-
--- Table with expiration
-DROP TABLE IF EXISTS person;
-CREATE TABLE IF NOT EXISTS person (
   id INT PRIMARY KEY,
   city_id INT DEFAULT 1,
   name VARCHAR(10),
   age INT,
   company VARCHAR,
   ttl TIMESTAMP WITH LOCAL TIME ZONE
-) EXPIRE AT ttl;
+);
 
 -- ============================================================================
 -- CREATE INDEX EXAMPLES
@@ -198,13 +186,6 @@ ALTER TABLE person ALTER COLUMN city_id SET DEFAULT 1;
 
 -- Drop default value
 ALTER TABLE person ALTER COLUMN city_id DROP DEFAULT;
-
--- Set table expiration
-ALTER TABLE person SET EXPIRE AT ttl;
-
--- Drop table expiration
-ALTER TABLE person DROP EXPIRE;
-
 
 -- ============================================================================
 -- DROP EXAMPLES
