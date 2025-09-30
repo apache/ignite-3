@@ -1171,11 +1171,6 @@ public class PrepareServiceImpl implements PrepareService {
                             if (currentCatalogVersion == key.catalogVersion()) {
                                 SqlQueryType queryType = info.statement.parsedResult().queryType();
 
-                                if (queryType != SqlQueryType.QUERY && queryType != SqlQueryType.DML) {
-                                    assert false : "Unexpected type: " + queryType;
-                                    continue;
-                                }
-
                                 PlanningContext planningContext = PlanningContext.builder()
                                         .frameworkConfig(info.context.frameworkConfig())
                                         .query(info.statement.parsedResult().originalQuery())
