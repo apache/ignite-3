@@ -39,7 +39,7 @@ class TypeInspectorTest {
     void testPrimitiveFieldType(Class<?> primitiveKlass, String typeName) {
         List<InspectedField> inspectedTypes = inspectType(primitiveKlass);
 
-        var expected = InspectedField.forUnamed(typeName, InspectedFieldType.PRIMITIVE);
+        var expected = InspectedField.forUnnamed(typeName, InspectedFieldType.PRIMITIVE);
         assertThat(inspectedTypes).containsExactly(expected);
     }
 
@@ -70,7 +70,7 @@ class TypeInspectorTest {
     void testArrayFieldType(Class<?> primitiveKlass) {
         List<InspectedField> inspectedTypes = inspectType(primitiveKlass);
 
-        var expected = InspectedField.forUnamed(primitiveKlass.getName(), InspectedFieldType.ARRAY);
+        var expected = InspectedField.forUnnamed(primitiveKlass.getName(), InspectedFieldType.ARRAY);
         assertThat(inspectedTypes).containsExactly(expected);
     }
 

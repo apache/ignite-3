@@ -63,7 +63,7 @@ public class InspectedField {
      * @param fieldType Field type.
      * @return The new InspectedField instance.
      */
-    public static InspectedField forUnamed(String typeName, InspectedFieldType fieldType) {
+    public static InspectedField forUnnamed(String typeName, InspectedFieldType fieldType) {
         if (fieldType != InspectedFieldType.PRIMITIVE && fieldType != InspectedFieldType.ARRAY) {
             throw new IllegalArgumentException("'fieldType' must be PRIMITIVE or ARRAY");
         }

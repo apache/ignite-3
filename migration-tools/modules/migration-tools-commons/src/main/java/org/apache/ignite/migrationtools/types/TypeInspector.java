@@ -91,9 +91,9 @@ public class TypeInspector {
         String rootTypeName = rootType.getName();
 
         if (rootType.isArray() || Collection.class.isAssignableFrom(rootType)) {
-            return Collections.singletonList(InspectedField.forUnamed(rootTypeName, InspectedFieldType.ARRAY));
+            return Collections.singletonList(InspectedField.forUnnamed(rootTypeName, InspectedFieldType.ARRAY));
         } else if (isPrimitiveType(rootType)) {
-            return Collections.singletonList(InspectedField.forUnamed(rootTypeName, InspectedFieldType.PRIMITIVE));
+            return Collections.singletonList(InspectedField.forUnnamed(rootTypeName, InspectedFieldType.PRIMITIVE));
         } else {
             Field[] fields = rootType.getDeclaredFields();
             List<InspectedField> ret = new ArrayList<>(fields.length);
