@@ -86,11 +86,6 @@ public class EmptyCacheFactory implements CacheFactory {
         }
 
         @Override
-        public @Nullable V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public Set<Entry<K, V>> entrySet() {
             return Set.of();
         }

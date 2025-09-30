@@ -157,11 +157,6 @@ public class CaffeineCacheFactory implements CacheFactory {
         }
 
         @Override
-        public @Nullable V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-            return cache.asMap().computeIfPresent(key, remappingFunction);
-        }
-
-        @Override
         public Set<Entry<K, V>> entrySet() {
             return cache.asMap().entrySet();
         }

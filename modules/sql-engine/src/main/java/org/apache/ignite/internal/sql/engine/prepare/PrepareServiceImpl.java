@@ -493,7 +493,7 @@ public class PrepareServiceImpl implements PrepareService {
             } else {
                 info.invalidated();
 
-                cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
+                cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
 
                 return info;
             }
@@ -727,7 +727,7 @@ public class PrepareServiceImpl implements PrepareService {
             } else {
                 info.invalidated();
 
-                cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
+                cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
 
                 return info;
             }

@@ -75,19 +75,6 @@ public interface Cache<K, V> {
      */
     V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
 
-    /**
-     * If the value for the specified key is present and non-null, attempts to compute a new mapping
-     * given the key and its current mapped value.
-     * If the remapping function returns null, the mapping is removed.
-     * If the remapping function itself throws an (unchecked) exception, the exception is rethrown,
-     * and the current mapping is left unchanged.
-     *
-     * @param key Key with which the specified value is to be associated.
-     * @param remappingFunction The remapping function to compute a value.
-     * @return The new value associated with the specified key, or null if none.
-     */
-    @Nullable V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
-
     /** Returns a {@link Set} view of the mappings contained in this cache. */
     Set<Map.Entry<K, V>> entrySet();
 

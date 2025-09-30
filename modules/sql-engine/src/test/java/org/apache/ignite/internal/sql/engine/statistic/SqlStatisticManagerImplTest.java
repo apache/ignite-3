@@ -121,7 +121,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testEstimationFailure() throws Exception {
+    public void testEstimationFailure() {
         int tableId = ThreadLocalRandom.current().nextInt();
 
         prepareCatalogWithTable(tableId);
