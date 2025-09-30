@@ -116,6 +116,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private volatile ExecutorService destructionExecutor;
 
+    private volatile ExecutorService asyncIoExecutor;
+
     private final FailureManager failureManager;
 
     private final LogSyncer logSyncer;
@@ -182,9 +184,26 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         int pageSize = engineConfig.pageSizeBytes().value();
 
         try {
-            FileIoFactory fileIoFactory = engineConfig.checkpoint().useAsyncFileIoFactory().value()
-                    ? new AsyncFileIoFactory()
-                    : new RandomAccessFileIoFactory();
+            FileIoFactory fileIoFactory;
+
+            if (engineConfig.checkpoint().useAsyncFileIoFactory().value()) {
+                ThreadPoolExecutor ioExecutor = new ThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        Runtime.getRuntime().availableProcessors(),
+                        100,
+                        TimeUnit.MILLISECONDS,
+                        new LinkedBlockingQueue<>(),
+                        IgniteThreadFactory.create(igniteInstanceName, "persistent-mv-async-io", LOG)
+                );
+
+                asyncIoExecutor = ioExecutor;
+
+                fileIoFactory = new AsyncFileIoFactory(asyncIoExecutor);
+            } else {
+                asyncIoExecutor = null;
+
+                fileIoFactory = new RandomAccessFileIoFactory();
+            }
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 
@@ -262,8 +281,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             ExecutorService destructionExecutor = this.destructionExecutor;
             CheckpointManager checkpointManager = this.checkpointManager;
             FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
+            ExecutorService asyncIoExecutor = this.asyncIoExecutor;
 
             Stream<AutoCloseable> resources = Stream.of(
+                    asyncIoExecutor == null
+                            ? null
+                            : (AutoCloseable) () -> shutdownAndAwaitTermination(asyncIoExecutor, 30, TimeUnit.SECONDS),
                     destructionExecutor == null
                             ? null
                             : (AutoCloseable) () -> shutdownAndAwaitTermination(destructionExecutor, 30, TimeUnit.SECONDS),
