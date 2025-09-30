@@ -38,7 +38,6 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
@@ -97,7 +96,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -258,7 +256,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -1247,8 +1244,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         /** Failure processor. */
         private final FailureManager failureManager;
 
-        private final ScheduledExecutorService rebalanceScheduler;
-
         private final LogStorageFactory logStorageFactory;
 
         private final LogStorageFactory cmgLogStorageFactory;
@@ -1518,9 +1513,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metricManager
             );
 
-            rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                    IgniteThreadFactory.create(name, "test-rebalance-scheduler", logger()));
-
             replicaManager = spy(new ReplicaManager(
                     name,
                     clusterService,
@@ -1596,7 +1588,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     failureManager,
                     nodeProperties,
                     threadPoolsManager.tableIoExecutor(),
-                    rebalanceScheduler,
+                    threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     clockService,
                     placementDriver,
@@ -1628,7 +1620,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
-                    rebalanceScheduler,
+                    threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.commonScheduler(),
                     clockService,
                     outgoingSnapshotManager,

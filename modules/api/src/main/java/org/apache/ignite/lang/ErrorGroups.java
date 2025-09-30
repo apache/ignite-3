@@ -504,6 +504,9 @@ public class ErrorGroups {
 
         /** Distribution zone was not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Empty data nodes. */
+        public static final int EMPTY_DATA_NODES_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Network error group. */
@@ -685,6 +688,9 @@ public class ErrorGroups {
 
         /** Primary replica await error. */
         public static final int PRIMARY_REPLICA_AWAIT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Error that occurs if there are no assignments for a group. */
+        public static final int EMPTY_ASSIGNMENTS_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /** Critical workers error group. */

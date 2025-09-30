@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.migrationtools.tablemanagement;
+package org.apache.ignite.internal.placementdriver;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.jetbrains.annotations.Nullable;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.EMPTY_ASSIGNMENTS_ERR;
 
-/** {@link TableTypeRegistry} implementation based on a in-memory map. */
-public class TableTypeRegistryMapImpl implements TableTypeRegistry {
-    private final Map<String, TableTypeDescriptor> hints = new HashMap<>();
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.lang.IgniteException;
 
-    @Override
-    public @Nullable TableTypeDescriptor typesForTable(String tableName) {
-        return hints.get(tableName);
-    }
+/**
+ * Exception thrown when there are no assignments available.
+ */
+public class EmptyAssignmentsException extends IgniteException {
+    private static final long serialVersionUID = 1698246028174494488L;
 
-    @Override
-    public void registerTypesForTable(String tableName, TableTypeDescriptor tableDescriptor) {
-        this.hints.putIfAbsent(tableName, tableDescriptor);
+    /**
+     * Constructor.
+     *
+     * @param groupId Replication group id.
+     */
+    public EmptyAssignmentsException(ReplicationGroupId groupId) {
+        super(EMPTY_ASSIGNMENTS_ERR, format("Empty assignments for group [groupId={}].", groupId));
     }
 }

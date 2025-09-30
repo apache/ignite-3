@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.migrationtools.tablemanagement;
+package org.apache.ignite.internal.distributionzones.exception;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.jetbrains.annotations.Nullable;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.EMPTY_DATA_NODES_ERR;
 
-/** {@link TableTypeRegistry} implementation based on a in-memory map. */
-public class TableTypeRegistryMapImpl implements TableTypeRegistry {
-    private final Map<String, TableTypeDescriptor> hints = new HashMap<>();
+import org.apache.ignite.lang.IgniteException;
 
-    @Override
-    public @Nullable TableTypeDescriptor typesForTable(String tableName) {
-        return hints.get(tableName);
-    }
+/**
+ * Exception thrown when there are no data nodes for the given zone.
+ */
+public class EmptyDataNodesException extends IgniteException {
+    private static final long serialVersionUID = 5691362165660196984L;
 
-    @Override
-    public void registerTypesForTable(String tableName, TableTypeDescriptor tableDescriptor) {
-        this.hints.putIfAbsent(tableName, tableDescriptor);
+    /**
+     * Constructor.
+     *
+     * @param zoneId Zone ID.
+     */
+    public EmptyDataNodesException(int zoneId) {
+        super(EMPTY_DATA_NODES_ERR, format("Empty data nodes for zone [zoneId={}].", zoneId));
     }
 }
