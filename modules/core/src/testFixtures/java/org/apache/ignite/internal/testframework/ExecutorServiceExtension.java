@@ -221,14 +221,14 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
                 allowedOperations
         );
 
-        var shutdownStackTraceHolder = new AtomicReference<Exception>();
+        var shutdownExceptionHolder = new AtomicReference<Exception>();
 
-        RejectedExecutionHandler rejectedExecutionHandler = newRejectedExecutionHandler(threadPrefix, shutdownStackTraceHolder);
+        RejectedExecutionHandler rejectedExecutionHandler = newRejectedExecutionHandler(threadPrefix, shutdownExceptionHolder);
 
         if (fieldType.equals(ScheduledExecutorService.class)) {
-            return newScheduledThreadPool(threadCount, threadFactory, rejectedExecutionHandler, shutdownStackTraceHolder);
+            return newScheduledThreadPool(threadCount, threadFactory, rejectedExecutionHandler, shutdownExceptionHolder);
         } else if (fieldType.equals(ExecutorService.class)) {
-            return newFixedThreadPool(threadCount, threadFactory, rejectedExecutionHandler, shutdownStackTraceHolder);
+            return newFixedThreadPool(threadCount, threadFactory, rejectedExecutionHandler, shutdownExceptionHolder);
         }
 
         throw new AssertionError(
@@ -273,14 +273,14 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
 
     private static RejectedExecutionHandler newRejectedExecutionHandler(
             String threadPrefix,
-            AtomicReference<Exception> shutdownStackTraceHolder
+            AtomicReference<Exception> shutdownExceptionHolder
     ) {
         return (r, executor) -> {
             String message = "Task " + r.toString()
                     + " for threads with prefix " + threadPrefix
                     + " rejected from " + executor.toString();
 
-            throw new RejectedExecutionException(message, shutdownStackTraceHolder.get());
+            throw new RejectedExecutionException(message, shutdownExceptionHolder.get());
         };
     }
 
@@ -288,7 +288,7 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
             int threadCount,
             ThreadFactory threadFactory,
             RejectedExecutionHandler rejectedExecutionHandler,
-            AtomicReference<Exception> shutdownStackTraceHolder
+            AtomicReference<Exception> shutdownExceptionHolder
     ) {
         int poolSize = threadCount == 0 ? CPUS : threadCount;
 
@@ -303,7 +303,7 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
         ) {
             @Override
             public void shutdown() {
-                shutdownStackTraceHolder.compareAndSet(null, new Exception());
+                shutdownExceptionHolder.compareAndSet(null, new Exception("Shutdown tracker"));
 
                 super.shutdown();
             }
@@ -314,12 +314,12 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
             int threadCount,
             ThreadFactory threadFactory,
             RejectedExecutionHandler rejectedExecutionHandler,
-            AtomicReference<Exception> shutdownStackTraceHolder
+            AtomicReference<Exception> shutdownExceptionHolder
     ) {
         return new ScheduledThreadPoolExecutor(threadCount == 0 ? 1 : threadCount, threadFactory, rejectedExecutionHandler) {
             @Override
             public void shutdown() {
-                shutdownStackTraceHolder.compareAndSet(null, new Exception());
+                shutdownExceptionHolder.compareAndSet(null, new Exception("Shutdown tracker"));
 
                 super.shutdown();
             }
