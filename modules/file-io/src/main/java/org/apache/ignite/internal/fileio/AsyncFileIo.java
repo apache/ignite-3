@@ -31,6 +31,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * {@link FileIo} implementation based on {@link AsynchronousFileChannel}.
@@ -48,11 +49,12 @@ public class AsyncFileIo extends AbstractFileIo {
      * Creates I/O implementation for specified file.
      *
      * @param filePath File path.
+     * @param asyncIoExecutor Callback executor.
      * @param modes Open modes.
      * @throws IOException If some I/O error occurs.
      */
-    public AsyncFileIo(Path filePath, OpenOption... modes) throws IOException {
-        ch = AsynchronousFileChannel.open(filePath, modes);
+    public AsyncFileIo(Path filePath, ExecutorService asyncIoExecutor, OpenOption... modes) throws IOException {
+        ch = AsynchronousFileChannel.open(filePath, Set.of(modes), asyncIoExecutor);
     }
 
     /** {@inheritDoc} */
