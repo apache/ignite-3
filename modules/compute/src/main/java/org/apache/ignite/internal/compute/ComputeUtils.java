@@ -357,20 +357,22 @@ public class ComputeUtils {
      * @param marshaller Optional marshaller to unmarshal the input.
      * @param input Input object.
      * @param pojoType Pojo type to use when unmarshalling as a pojo.
+     * @param classLoader Class loader to set before unmarshalling.
      * @param <T> Result type.
      * @return Unmarshalled object.
      */
     public static <T> @Nullable T unmarshalOrNotIfNull(
             @Nullable Marshaller<T, byte[]> marshaller,
             @Nullable Object input,
-            @Nullable Class<?> pojoType
+            @Nullable Class<?> pojoType,
+            ClassLoader classLoader
     ) {
         if (input == null) {
             return null;
         }
 
         if (input instanceof ComputeJobDataHolder) {
-            return SharedComputeUtils.unmarshalArgOrResult((ComputeJobDataHolder) input, marshaller, pojoType);
+            return SharedComputeUtils.unmarshalArgOrResult((ComputeJobDataHolder) input, marshaller, pojoType, classLoader);
         }
 
         if (marshaller == null) {
@@ -384,10 +386,14 @@ public class ComputeUtils {
         }
 
         if (input instanceof byte[]) {
+            ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
             try {
+                Thread.currentThread().setContextClassLoader(classLoader);
                 return marshaller.unmarshal((byte[]) input);
             } catch (Exception ex) {
                 throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller: " + ex.getMessage(), ex);
+            } finally {
+                Thread.currentThread().setContextClassLoader(contextClassLoader);
             }
         }
 

@@ -148,7 +148,27 @@ public class SharedComputeUtils {
     public static <T> @Nullable T unmarshalArgOrResult(
             @Nullable ComputeJobDataHolder holder,
             @Nullable Marshaller<?, byte[]> marshaller,
-            @Nullable Class<?> resultClass) {
+            @Nullable Class<?> resultClass
+    ) {
+        return unmarshalArgOrResult(holder, marshaller, resultClass, Thread.currentThread().getContextClassLoader());
+    }
+
+    /**
+     * Unmarshals the job argument or result.
+     *
+     * @param holder Data holder.
+     * @param marshaller Optional marshaller.
+     * @param resultClass Optional result class.
+     * @param classLoader Class loader to set before unmarshalling.
+     * @param <T> Type of the object.
+     * @return Unmarshalled object.
+     */
+    public static <T> @Nullable T unmarshalArgOrResult(
+            @Nullable ComputeJobDataHolder holder,
+            @Nullable Marshaller<?, byte[]> marshaller,
+            @Nullable Class<?> resultClass,
+            ClassLoader classLoader
+    ) {
         if (holder == null || holder.data() == null) {
             return null;
         }
@@ -192,10 +212,14 @@ public class SharedComputeUtils {
                 if (marshaller == null) {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Marshaller should be defined on the client");
                 }
+                ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
                 try {
+                    Thread.currentThread().setContextClassLoader(classLoader);
                     return (T) marshaller.unmarshal(holder.data());
                 } catch (Exception ex) {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
+                } finally {
+                    Thread.currentThread().setContextClassLoader(contextClassLoader);
                 }
 
             case TUPLE_COLLECTION:
