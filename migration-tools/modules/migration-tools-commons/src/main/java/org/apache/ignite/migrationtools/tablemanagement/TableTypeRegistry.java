@@ -17,7 +17,6 @@
 
 package org.apache.ignite.migrationtools.tablemanagement;
 
-import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /** This interface provides a registry for mappings between tables and their corresponding java types. */
@@ -28,17 +27,13 @@ public interface TableTypeRegistry {
      * @param tableName Must be escaped according to Ignite 3 rules.
      * @return The type hints for the table, or null if none are available.
      */
-    @Nullable Map.Entry<Class<?>, Class<?>> typesForTable(String tableName) throws ClassNotFoundException;
+    @Nullable TableTypeDescriptor typesForTable(String tableName);
 
     /**
      * Registers the supplied type hints for the given table. Existing hints will be replaced.
      *
      * @param tableName Must be escaped according to Ignite 3 rules.
-     * @param tableTypes Entry with the ClassNames of Key and Value types, as returned by {@link Class#getName()}.
+     * @param tableDescriptor Table Descriptor.
      */
-    void registerTypesForTable(String tableName, Map.Entry<String, String> tableTypes);
-
-    static Map.Entry<String, String> typeHints(Class<?> keyType, Class<?> valType) {
-        return Map.entry(keyType.getName(), valType.getName());
-    }
+    void registerTypesForTable(String tableName, TableTypeDescriptor tableDescriptor);
 }

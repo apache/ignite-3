@@ -153,6 +153,7 @@ enum class code : underlying_t {
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,
+    EMPTY_DATA_NODES = 0xa0002,
 
     // Network group. Group code: 11
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
@@ -174,6 +175,7 @@ enum class code : underlying_t {
     UNIT_ALREADY_EXISTS = 0xd0002,
     UNIT_CONTENT_READ = 0xd0003,
     UNIT_UNAVAILABLE = 0xd0004,
+    UNIT_ZIP = 0xd0005,
 
     // GarbageCollector group. Group code: 14
     CLOSED = 0xe0001,
@@ -206,6 +208,7 @@ enum class code : underlying_t {
     // PlacementDriver group. Group code: 18
     PRIMARY_REPLICA_AWAIT_TIMEOUT = 0x120001,
     PRIMARY_REPLICA_AWAIT = 0x120002,
+    EMPTY_ASSIGNMENTS = 0x120003,
 
     // CriticalWorkers group. Group code: 19
     SYSTEM_WORKER_BLOCKED = 0x130001,
