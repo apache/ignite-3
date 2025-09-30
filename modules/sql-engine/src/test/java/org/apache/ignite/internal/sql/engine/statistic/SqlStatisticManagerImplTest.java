@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.IntConsumer;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -135,18 +136,22 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         );
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        IntConsumer notifier = mock(IntConsumer.class);
+        sqlStatisticManager.changesNotifier(notifier);
         sqlStatisticManager.start();
 
         sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
 
         // table size 1
         assertEquals(1L, sqlStatisticManager.tableSize(tableId));
+        verify(notifier, times(1)).accept(anyInt());
 
         // table size 2
         assertEquals(2L, sqlStatisticManager.tableSize(tableId));
 
         // exceptionable table size
         assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+        verify(notifier, times(2)).accept(anyInt());
         verify(internalTable, times(3)).estimatedSize();
     }
 
