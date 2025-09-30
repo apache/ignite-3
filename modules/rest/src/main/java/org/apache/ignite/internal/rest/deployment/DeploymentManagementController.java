@@ -34,6 +34,9 @@ import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProviderImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
 
@@ -55,8 +59,11 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private IgniteDeployment deployment;
 
-    public DeploymentManagementController(IgniteDeployment deployment) {
+    private TempStorageProvider tempStorageProvider;
+
+    public DeploymentManagementController(IgniteDeployment deployment, TempStorageProvider tempStorageProvider) {
         this.deployment = deployment;
+        this.tempStorageProvider = tempStorageProvider;
     }
 
     @Override
@@ -84,15 +91,19 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             Optional<List<String>> initialNodes,
             boolean zip
     ) {
-        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(zip);
+        Version version = parseVersion(unitVersion);
+
+        TempStorage tempStorage = tempStorageProvider.tempStorage(unitId, version);
+        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(tempStorage, zip);
         unitContent.subscribe(subscriber);
 
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
                 .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
 
         return subscriber.result().thenCompose(deploymentUnit ->
-                deployment.deployAsync(unitId, parseVersion(unitVersion), deploymentUnit, nodesToDeploy)
+                deployment.deployAsync(unitId, version, deploymentUnit, nodesToDeploy)
                         .whenComplete((unitStatus, throwable) -> {
+                            tempStorage.close();
                             try {
                                 deploymentUnit.close();
                             } catch (Exception e) {
@@ -232,5 +243,6 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
     @Override
     public void cleanResources() {
         deployment = null;
+        tempStorageProvider = null;
     }
 }

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -282,7 +283,8 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         smallUnit.waitUnitClean(igniteImpl(2));
     }
 
-    @Test
+//    @Test
+    @RepeatedTest(10)
     public void testZipDeploy() {
         String id = "test";
         Unit unit = files.deployAndVerifyFlatZip(id, Version.parseVersion("1.1.0"), igniteImpl(1));

@@ -17,37 +17,35 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.nio.file.Path;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
- * Implementation of {@link DeploymentUnit} that handles regular deployment content in local FS path.
+ * Implementation of {@link DeploymentUnit} that handles unit from provided future.
  */
-public class FilesDeploymentUnit implements DeploymentUnit {
-    private final Map<String, Path> content;
+public class CachedDeploymentUnit implements DeploymentUnit {
+    private static final IgniteLogger LOG = Loggers.forClass(CachedDeploymentUnit.class);
 
-    /**
-     * Constructor.
-     */
-    public FilesDeploymentUnit(Map<String, Path> content) {
-        this.content = content;
-    }
+    private final CompletableFuture<DeploymentUnit> future;
 
-    /**
-     * Returns the deployment unit content as a map of file names to input streams.
-     */
-    public Map<String, Path> content() {
-        return content;
-    }
-
-    @Override
-    public void close() throws Exception {
-
+    public CachedDeploymentUnit(CompletableFuture<DeploymentUnit> future) {
+        this.future = future;
     }
 
     @Override
     public <T, R> CompletableFuture<R> process(DeploymentUnitProcessor<T, R> processor, T arg) {
-        return processor.processFilesContent(this, arg);
+        return future.thenCompose(unit -> unit.process(processor, arg));
+    }
+
+    @Override
+    public void close() throws Exception {
+        future.whenComplete((unit, throwable) -> {
+            try {
+                unit.close();
+            } catch (Exception e) {
+                LOG.warn("Failed to close deployment unit: {}", e, unit);
+            }
+        });
     }
 }

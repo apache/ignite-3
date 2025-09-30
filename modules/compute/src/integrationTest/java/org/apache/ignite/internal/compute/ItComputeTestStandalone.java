@@ -53,6 +53,7 @@ import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.FilesDeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
+import org.apache.ignite.internal.deployunit.StreamDeploymentUnit;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -257,7 +258,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
             CompletableFuture<Boolean> deployed = deployment.deployAsync(
                     unitId,
                     unitVersion,
-                    new FilesDeploymentUnit(Map.of(jarName, jarStream)),
+                    new StreamDeploymentUnit(Map.of(jarName, jarStream)),
                     new NodesToDeploy(MAJORITY)
             );
 
