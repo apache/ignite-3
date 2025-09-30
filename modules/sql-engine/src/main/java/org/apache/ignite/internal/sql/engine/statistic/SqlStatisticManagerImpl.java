@@ -28,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.IntConsumer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -67,7 +66,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private final CatalogService catalogService;
     private final LowWatermark lowWatermark;
 
-    private IntConsumer changesUpdater;
+    private AtomicReference<StatisticUpdatesSupplier> changesSupplier;
 
     /* Contains all known table id's with statistics. */
     private final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
@@ -82,8 +81,10 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     }
 
     @Override
-    public void changesNotifier(IntConsumer updater) {
-        this.changesUpdater = updater;
+    public void changesNotifier(StatisticUpdatesSupplier updater) {
+        if (!this.changesSupplier.compareAndSet(null, updater)) {
+            assert false : "Statistics notifier unexpected change";
+        }
     }
 
     /**
@@ -141,7 +142,10 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
                             return null;
                         } else {
-                            changesUpdater.accept(tableId);
+                            StatisticUpdatesSupplier supplier = changesSupplier.get();
+                            if (supplier != null) {
+                                supplier.accept(tableId);
+                            }
 
                             return res;
                         }

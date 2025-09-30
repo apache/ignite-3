@@ -83,6 +83,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.awaitility.Awaitility;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -553,7 +554,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareServiceImpl service =
                 createPlannerServiceWithInactivePlanUpdater(schema, CaffeineCacheFactory.INSTANCE, 10000,
-                        (int) TimeUnit.MILLISECONDS.toSeconds(expireMillis), 1000, new AtomicInteger());
+                        (int) TimeUnit.MILLISECONDS.toSeconds(expireMillis), 1000, null);
 
         String query = "SELECT * FROM test.t WHERE c = 1";
         QueryPlan p0 = await(service.prepareAsync(parse(query), operationContext().build()));
@@ -811,7 +812,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
             int timeoutMillis,
             int planExpireSeconds,
             int cacheSize,
-            AtomicInteger ver,
+            @Nullable AtomicInteger ver,
             ScheduledExecutorService executor
     ) {
         ClockServiceImpl clockService = mock(ClockServiceImpl.class);
@@ -835,7 +836,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
             int timeoutMillis,
             int planExpireSeconds,
             int cacheSize,
-            AtomicInteger ver
+            @Nullable AtomicInteger ver
     ) {
         ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
 

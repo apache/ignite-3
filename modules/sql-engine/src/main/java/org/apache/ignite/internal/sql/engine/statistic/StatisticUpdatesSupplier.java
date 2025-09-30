@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
-import java.util.function.IntConsumer;
-
-/** Statistic updates notifier. */
+/** Statistic updates actor. */
 @FunctionalInterface
-public interface StatisticUpdatesNotifier {
-    /** Changes callback. */
-    void changesNotifier(StatisticUpdatesSupplier updater);
+public interface StatisticUpdatesSupplier {
+    /**
+     * Reaction on statistic change.
+     *
+     * @param tableId Table statistic is changed for.
+     */
+    void accept(int tableId);
 }

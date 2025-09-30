@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.framework;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy wrapper for predefined collection of schemas with possibility to change catalog version.
@@ -27,10 +28,10 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
  * @see PredefinedSchemaManager
  */
 public class VersionedSchemaManager extends PredefinedSchemaManager {
-    private final AtomicInteger ver;
+    @Nullable private final AtomicInteger ver;
 
     /** Constructor. */
-    public VersionedSchemaManager(IgniteSchema schema, AtomicInteger ver) {
+    public VersionedSchemaManager(IgniteSchema schema, @Nullable AtomicInteger ver) {
         super(schema);
 
         this.ver = ver;
@@ -45,6 +46,6 @@ public class VersionedSchemaManager extends PredefinedSchemaManager {
     /** {@inheritDoc} */
     @Override
     public IgniteSchemas schemas(long timestamp) {
-        return new IgniteSchemas(rootSchema(), ver.get());
+        return ver == null ? super.schemas(timestamp) : new IgniteSchemas(rootSchema(), ver.get());
     }
 }
