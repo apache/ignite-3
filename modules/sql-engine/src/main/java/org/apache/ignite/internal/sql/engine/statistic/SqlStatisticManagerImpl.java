@@ -66,7 +66,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private final CatalogService catalogService;
     private final LowWatermark lowWatermark;
 
-    private AtomicReference<StatisticUpdatesSupplier> changesSupplier;
+    private final AtomicReference<StatisticUpdatesSupplier> changesSupplier = new AtomicReference<>();
 
     /* Contains all known table id's with statistics. */
     private final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();

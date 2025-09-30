@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
-import java.util.function.IntConsumer;
-
 /** Statistic updates notifier. */
 @FunctionalInterface
 public interface StatisticUpdatesNotifier {

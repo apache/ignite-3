@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.IntConsumer;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -136,7 +135,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         );
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
-        IntConsumer notifier = mock(IntConsumer.class);
+        StatisticUpdatesSupplier notifier = mock(StatisticUpdatesSupplier.class);
         sqlStatisticManager.changesNotifier(notifier);
         sqlStatisticManager.start();
 

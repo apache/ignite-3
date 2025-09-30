@@ -786,7 +786,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new PredefinedSchemaManager(schemas), clockService, commonExecutor);
+                new PredefinedSchemaManager(schemas), clockService::currentLong, commonExecutor);
 
         createdServices.add(service);
 
@@ -821,7 +821,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new VersionedSchemaManager(schemas, ver), clockService, executor);
+                new VersionedSchemaManager(schemas, ver), clockService::currentLong, executor);
 
         createdServices.add(service);
 

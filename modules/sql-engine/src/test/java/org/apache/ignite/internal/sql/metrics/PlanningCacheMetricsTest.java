@@ -79,7 +79,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         PrepareService prepareService = new PrepareServiceImpl(
                 "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema),
-                clockService, commonExecutor
+                clockService::currentLong, commonExecutor
         );
 
         prepareService.start();

@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
@@ -64,7 +65,6 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -164,7 +164,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final PlanUpdater planUpdater;
 
-    private final ClockService clockService;
+    private final LongSupplier currentClock;
 
     /**
      * Factory method.
@@ -177,7 +177,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param nodeCfg Node SQL configuration.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
-     * @param clockService Clock service.
+     * @param currentClock Actual clock supplier.
      * @param scheduler Scheduler.
      * @param updNotifier Updates notifier call-back.
      */
@@ -190,7 +190,7 @@ public class PrepareServiceImpl implements PrepareService {
             SqlLocalConfiguration nodeCfg,
             SqlSchemaManager schemaManager,
             DdlSqlToCommandConverter ddlSqlToCommandConverter,
-            ClockService clockService,
+            LongSupplier currentClock,
             ScheduledExecutorService scheduler,
             StatisticUpdatesNotifier updNotifier
     ) {
@@ -204,7 +204,7 @@ public class PrepareServiceImpl implements PrepareService {
                 nodeCfg.planner().threadCount().value(),
                 metricManager,
                 schemaManager,
-                clockService,
+                currentClock,
                 scheduler
         );
 
@@ -223,7 +223,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param plannerTimeout Timeout in milliseconds to planning.
      * @param metricManager Metric manager.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
-     * @param clockService Clock service.
+     * @param currentClock Actual clock supplier.
      * @param scheduler Scheduler.
      */
     public PrepareServiceImpl(
@@ -236,7 +236,7 @@ public class PrepareServiceImpl implements PrepareService {
             int planExpirySeconds,
             MetricManager metricManager,
             SqlSchemaManager schemaManager,
-            ClockService clockService,
+            LongSupplier currentClock,
             ScheduledExecutorService scheduler
     ) {
         this.nodeName = nodeName;
@@ -246,7 +246,7 @@ public class PrepareServiceImpl implements PrepareService {
         this.plannerThreadCount = plannerThreadCount;
         this.schemaManager = schemaManager;
 
-        this.clockService = clockService;
+        this.currentClock = currentClock;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
@@ -1067,7 +1067,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     // Although catalog version can evaluate during execution, it`s ok to take actual version for this moment.
     private int directCatalogVersion() {
-        return schemaManager.catalogVersion(clockService.now().longValue());
+        return schemaManager.catalogVersion(currentClock.getAsLong());
     }
 
     public void statisticsChanged(int tableId) {

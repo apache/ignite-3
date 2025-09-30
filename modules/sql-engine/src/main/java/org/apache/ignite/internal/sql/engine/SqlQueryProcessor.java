@@ -298,7 +298,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 nodeCfg,
                 sqlSchemaManager,
                 ddlSqlToCommandConverter,
-                clockService,
+                clockService::currentLong,
                 commonScheduler,
                 sqlStatisticManager
         ));

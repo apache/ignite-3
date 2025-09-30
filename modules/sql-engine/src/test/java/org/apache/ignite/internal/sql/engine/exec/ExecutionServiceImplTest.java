@@ -275,7 +275,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 PLAN_EXPIRATION_SECONDS,
                 metricManager,
                 new PredefinedSchemaManager(schema),
-                clockService,
+                clockService::currentLong,
                 commonExecutor
         );
         parserService = new ParserServiceImpl();

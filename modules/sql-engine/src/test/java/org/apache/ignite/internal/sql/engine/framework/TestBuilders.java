@@ -697,7 +697,7 @@ public class TestBuilders {
                     PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(),
                     schemaManager,
-                    clockService,
+                    clockService::currentLong,
                     scheduledExecutor
             );
 
