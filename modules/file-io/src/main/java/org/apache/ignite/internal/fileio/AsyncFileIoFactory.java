@@ -32,7 +32,7 @@ public class AsyncFileIoFactory implements FileIoFactory {
     /**
      * Constructor.
      *
-     * @param asyncIoExecutor Async callback executor.
+     * @param asyncIoExecutor Async callback executor or {@code null} to use the default pool.
      */
     public AsyncFileIoFactory(ExecutorService asyncIoExecutor) {
         this.asyncIoExecutor = asyncIoExecutor;

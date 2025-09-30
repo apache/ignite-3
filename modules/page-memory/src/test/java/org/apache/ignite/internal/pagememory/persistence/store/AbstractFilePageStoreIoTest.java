@@ -405,6 +405,6 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
     }
 
     private static FileIoFactory[] ioFactories() {
-        return new FileIoFactory[]{new RandomAccessFileIoFactory(), new AsyncFileIoFactory()};
+        return new FileIoFactory[]{new RandomAccessFileIoFactory(), new AsyncFileIoFactory(null)};
     }
 }

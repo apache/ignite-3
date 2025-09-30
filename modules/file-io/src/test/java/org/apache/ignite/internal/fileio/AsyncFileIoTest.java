@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 public class AsyncFileIoTest extends AbstractFileIoTest {
     @BeforeEach
     void setUp() {
-        fileIoFactory = new AsyncFileIoFactory();
+        fileIoFactory = new AsyncFileIoFactory(null);
     }
 
     /** {@inheritDoc} */
