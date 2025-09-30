@@ -43,7 +43,7 @@ class IndexFileMeta {
     }
 
     /**
-     * Returns the non-inclusive upper bound of log indices stored in the index file for the Raft Group.
+     * Returns the inclusive upper bound of log indices stored in the index file for the Raft Group.
      */
     long lastLogIndex() {
         return lastLogIndex;

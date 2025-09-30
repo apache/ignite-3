@@ -44,6 +44,12 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray add(IndexFileMeta indexFileMeta) {
+        assert indexFileMeta.firstLogIndex() == array[size - 1].lastLogIndex() + 1 :
+                String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+                        array[size - 1].lastLogIndex() + 1,
+                        indexFileMeta.firstLogIndex()
+                );
+
         // The array can be shared between multiple instances, but since it always grows and we read at most "size" elements,
         // we don't need to copy it every time.
         IndexFileMeta[] array = this.array;
@@ -57,8 +63,8 @@ class IndexFileMetaArray {
         return new IndexFileMetaArray(array, size + 1);
     }
 
-    IndexFileMeta get(int index) {
-        return array[index];
+    IndexFileMeta get(int arrayIndex) {
+        return array[arrayIndex];
     }
 
     int size() {
@@ -66,23 +72,23 @@ class IndexFileMetaArray {
     }
 
     /**
-     * Returns the index of the {@link IndexFileMeta} containing the given log index or {@code -1} if no such meta exists.
+     * Returns the array index of the {@link IndexFileMeta} containing the given Raft log index or {@code -1} if no such meta exists.
      */
     int find(long logIndex) {
-        int lowIndex = 0;
-        int highIndex = size - 1;
+        int lowArrayIndex = 0;
+        int highArrayIndex = size - 1;
 
-        while (lowIndex <= highIndex) {
-            int middleIndex = (lowIndex + highIndex) >>> 1;
+        while (lowArrayIndex <= highArrayIndex) {
+            int middleArrayIndex = (lowArrayIndex + highArrayIndex) >>> 1;
 
-            IndexFileMeta midValue = array[middleIndex];
+            IndexFileMeta midValue = array[middleArrayIndex];
 
             if (logIndex < midValue.firstLogIndex()) {
-                highIndex = middleIndex - 1;
-            } else if (logIndex >= midValue.lastLogIndex()) {
-                lowIndex = middleIndex + 1;
+                highArrayIndex = middleArrayIndex - 1;
+            } else if (logIndex > midValue.lastLogIndex()) {
+                lowArrayIndex = middleArrayIndex + 1;
             } else {
-                return middleIndex;
+                return middleArrayIndex;
             }
         }
 

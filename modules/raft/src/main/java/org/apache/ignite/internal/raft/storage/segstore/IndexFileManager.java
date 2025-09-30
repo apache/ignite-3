@@ -103,11 +103,11 @@ class IndexFileManager {
     private final Path baseDir;
 
     /**
-     * Current index file index (used to generate index file names).
+     * Current index file ordinal (used to generate index file names).
      *
      * <p>No synchronized access is needed because this field is only used by the checkpoint thread.
      */
-    private int curFileIndex = 0;
+    private int curFileOrdinal = 0;
 
     /**
      * Index file metadata grouped by Raft Group ID.
@@ -122,7 +122,7 @@ class IndexFileManager {
      * Saves the given index memtable to a file.
      */
     Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
-        String fileName = indexFileName(curFileIndex, 0);
+        String fileName = indexFileName(curFileOrdinal, 0);
 
         Path tmpFilePath = baseDir.resolve(fileName + ".tmp");
 
@@ -138,13 +138,14 @@ class IndexFileManager {
             }
         }
 
-        curFileIndex++;
+        curFileOrdinal++;
 
         return syncAndRename(tmpFilePath, tmpFilePath.resolveSibling(fileName));
     }
 
     /**
-     * Returns a pointer into a segment file that contains the entry for the given group's index or {@code null} if no such entry exists.
+     * Returns a pointer into a segment file that contains the entry for the given group's index. Returns {@code null} if the given log
+     * index could not be found in any of the index files.
      */
     @Nullable
     SegmentFilePointer getSegmentFilePointer(long groupId, long logIndex) throws IOException {
@@ -160,28 +161,33 @@ class IndexFileManager {
             return null;
         }
 
-        Path indexFile = baseDir.resolve(indexFileName(filePointer.fileIndex(), 0));
+        Path indexFile = baseDir.resolve(indexFileName(filePointer.fileOrdinal(), 0));
 
         IndexFileMeta fileMeta = filePointer.fileMeta();
 
-        long payloadIndex = logIndex - fileMeta.firstLogIndex();
+        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex] range.
+        long payloadArrayIndex = logIndex - fileMeta.firstLogIndex();
+
+        assert payloadArrayIndex >= 0 : payloadArrayIndex;
+
+        long payloadOffset = fileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
 
         try (SeekableByteChannel channel = Files.newByteChannel(indexFile, StandardOpenOption.READ)) {
-            channel.position(fileMeta.indexFilePayloadOffset() + payloadIndex * Integer.BYTES);
+            channel.position(payloadOffset);
 
-            ByteBuffer offsetBuffer = ByteBuffer.allocate(Integer.BYTES).order(BYTE_ORDER);
+            ByteBuffer segmentPayloadOffsetBuffer = ByteBuffer.allocate(Integer.BYTES).order(BYTE_ORDER);
 
-            while (offsetBuffer.hasRemaining()) {
-                int bytesRead = channel.read(offsetBuffer);
+            while (segmentPayloadOffsetBuffer.hasRemaining()) {
+                int bytesRead = channel.read(segmentPayloadOffsetBuffer);
 
                 if (bytesRead == -1) {
                     throw new EOFException("EOF reached while reading index file: " + indexFile);
                 }
             }
 
-            int offset = offsetBuffer.getInt(0);
+            int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
 
-            return new SegmentFilePointer(filePointer.fileIndex(), offset);
+            return new SegmentFilePointer(filePointer.fileOrdinal(), segmentPayloadOffset);
         }
     }
 
@@ -203,6 +209,7 @@ class IndexFileManager {
         while (it.hasNext()) {
             Entry<Long, SegmentInfo> entry = it.next();
 
+            // Using the boxed value to avoid unnecessary autoboxing later.
             Long groupId = entry.getKey();
 
             SegmentInfo segmentInfo = entry.getValue();
@@ -232,7 +239,7 @@ class IndexFileManager {
         GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
 
         if (existingGroupIndexMeta == null) {
-            groupIndexMetas.put(groupId, new GroupIndexMeta(curFileIndex, indexFileMeta));
+            groupIndexMetas.put(groupId, new GroupIndexMeta(curFileOrdinal, indexFileMeta));
         } else {
             existingGroupIndexMeta.addIndexMeta(indexFileMeta);
         }
@@ -260,7 +267,7 @@ class IndexFileManager {
         return segmentInfo.size() * Integer.BYTES;
     }
 
-    private static String indexFileName(int fileIndex, int generation) {
-        return String.format(INDEX_FILE_NAME_FORMAT, fileIndex, generation);
+    private static String indexFileName(int fileOrdinal, int generation) {
+        return String.format(INDEX_FILE_NAME_FORMAT, fileOrdinal, generation);
     }
 }

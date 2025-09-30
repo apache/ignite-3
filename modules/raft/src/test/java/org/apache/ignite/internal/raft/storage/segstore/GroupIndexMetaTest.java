@@ -35,7 +35,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         var groupMeta = new GroupIndexMeta(0, initialMeta);
 
-        var additionalMeta = new IndexFileMeta(50, 100, 42);
+        var additionalMeta = new IndexFileMeta(51, 100, 42);
 
         groupMeta.addIndexMeta(additionalMeta);
 
@@ -44,52 +44,59 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         IndexFilePointer pointer = groupMeta.indexFilePointer(1);
 
         assertThat(pointer, is(notNullValue()));
-        assertThat(pointer.fileIndex(), is(0));
+        assertThat(pointer.fileOrdinal(), is(0));
         assertThat(pointer.fileMeta(), is(initialMeta));
 
         pointer = groupMeta.indexFilePointer(66);
 
         assertThat(pointer, is(notNullValue()));
-        assertThat(pointer.fileIndex(), is(1));
+        assertThat(pointer.fileOrdinal(), is(1));
         assertThat(pointer.fileMeta(), is(additionalMeta));
 
-        pointer = groupMeta.indexFilePointer(100);
+        pointer = groupMeta.indexFilePointer(101);
 
         assertThat(pointer, is(nullValue()));
     }
 
     @RepeatedTest(10)
     void testOneWriterMultipleReaders() {
-        int startFileIndex = 100;
+        int startFileOrdinal = 100;
 
-        int logsPerFile = 50;
+        int logEntriesPerFile = 50;
 
-        var initialMeta = new IndexFileMeta(0, logsPerFile, 0);
+        var initialMeta = new IndexFileMeta(0, logEntriesPerFile - 1, 0);
 
-        var groupMeta = new GroupIndexMeta(startFileIndex, initialMeta);
+        var groupMeta = new GroupIndexMeta(startFileOrdinal, initialMeta);
 
-        int numItems = 1000;
+        int totalIndexFiles = 1000;
 
         RunnableX writer = () -> {
-            for (int fileIndex = 1; fileIndex < numItems; fileIndex++) {
-                long startIndex = fileIndex * logsPerFile;
+            for (int relativeFileOrdinal = 1; relativeFileOrdinal < totalIndexFiles; relativeFileOrdinal++) {
+                long startLogIndex = relativeFileOrdinal * logEntriesPerFile;
+                long lastLogIndex = startLogIndex + logEntriesPerFile - 1;
 
-                groupMeta.addIndexMeta(new IndexFileMeta(startIndex, startIndex + logsPerFile, fileIndex));
+                groupMeta.addIndexMeta(new IndexFileMeta(startLogIndex, lastLogIndex, 0));
             }
         };
 
+        int totalLogEntries = totalIndexFiles * logEntriesPerFile;
+
         RunnableX reader = () -> {
-            for (int logIndex = 0; logIndex < numItems * logsPerFile; logIndex++) {
+            for (int logIndex = 0; logIndex < totalLogEntries; logIndex++) {
                 IndexFilePointer pointer = groupMeta.indexFilePointer(logIndex);
 
                 if (pointer != null) {
-                    int expectedFileIndex = logIndex / logsPerFile;
+                    int relativeFileOrdinal = logIndex / logEntriesPerFile;
 
-                    int expectedStartLogIndex = expectedFileIndex * logsPerFile;
+                    int expectedFileOrdinal = startFileOrdinal + relativeFileOrdinal;
 
-                    var expectedMeta = new IndexFileMeta(expectedStartLogIndex, expectedStartLogIndex + logsPerFile, expectedFileIndex);
+                    int expectedStartLogIndex = relativeFileOrdinal * logEntriesPerFile;
 
-                    assertThat(pointer.fileIndex(), is(startFileIndex + expectedFileIndex));
+                    int expectedEndLogIndex = expectedStartLogIndex + logEntriesPerFile - 1;
+
+                    var expectedMeta = new IndexFileMeta(expectedStartLogIndex, expectedEndLogIndex, 0);
+
+                    assertThat(pointer.fileOrdinal(), is(expectedFileOrdinal));
                     assertThat(pointer.fileMeta(), is(expectedMeta));
                 }
             }

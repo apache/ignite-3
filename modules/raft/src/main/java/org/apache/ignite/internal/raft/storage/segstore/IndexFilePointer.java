@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 class IndexFilePointer {
-    private final int fileIndex;
+    private final int fileOrdinal;
 
     private final IndexFileMeta fileMeta;
 
-    IndexFilePointer(int fileIndex, IndexFileMeta fileMeta) {
-        this.fileIndex = fileIndex;
+    IndexFilePointer(int fileOrdinal, IndexFileMeta fileMeta) {
+        this.fileOrdinal = fileOrdinal;
         this.fileMeta = fileMeta;
     }
 
-    int fileIndex() {
-        return fileIndex;
+    int fileOrdinal() {
+        return fileOrdinal;
     }
 
     IndexFileMeta fileMeta() {

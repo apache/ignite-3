@@ -57,7 +57,7 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         int entriesPerGroup = 5;
 
-        int[] offsets = IntStream.range(0, numGroups * entriesPerGroup)
+        int[] segmentFileOffsets = IntStream.range(0, numGroups * entriesPerGroup)
                 .map(i -> ThreadLocalRandom.current().nextInt())
                 .toArray();
 
@@ -67,7 +67,7 @@ class IndexFileManagerTest extends IgniteAbstractTest {
             for (int i = 0; i < entriesPerGroup; i++) {
                 int offsetIndex = (groupId - 1) * entriesPerGroup + i;
 
-                memtable.appendSegmentFileOffset(groupId, i, offsets[offsetIndex]);
+                memtable.appendSegmentFileOffset(groupId, i, segmentFileOffsets[offsetIndex]);
             }
         }
 
@@ -79,9 +79,9 @@ class IndexFileManagerTest extends IgniteAbstractTest {
             for (int i = 0; i < entriesPerGroup; i++) {
                 int offsetIndex = (groupId - 1) * entriesPerGroup + i;
 
-                int expectedOffset = offsets[offsetIndex];
+                int expectedOffset = segmentFileOffsets[offsetIndex];
 
-                Integer actualOffset = deserializedIndexFile.getOffset(groupId, i);
+                Integer actualOffset = deserializedIndexFile.getSegmentFileOffset(groupId, i);
 
                 assertThat(actualOffset, is(expectedOffset));
             }
@@ -96,7 +96,7 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         int numMemtables = 5;
 
-        int[] offsets = IntStream.range(0, numMemtables * entriesPerGroup)
+        int[] segmentFileOffsets = IntStream.range(0, numMemtables * entriesPerGroup)
                 .map(i -> ThreadLocalRandom.current().nextInt())
                 .toArray();
 
@@ -107,7 +107,7 @@ class IndexFileManagerTest extends IgniteAbstractTest {
                 for (int i = 0; i < entriesPerGroup; i++) {
                     int logIndex = memtableIndex * entriesPerGroup + i;
 
-                    memtable.appendSegmentFileOffset(groupId, logIndex, offsets[logIndex]);
+                    memtable.appendSegmentFileOffset(groupId, logIndex, segmentFileOffsets[logIndex]);
                 }
             }
 
@@ -122,8 +122,8 @@ class IndexFileManagerTest extends IgniteAbstractTest {
                     SegmentFilePointer pointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
 
                     assertThat(pointer, is(notNullValue()));
-                    assertThat(pointer.fileIndex(), is(memtableIndex));
-                    assertThat(pointer.offset(), is(offsets[logIndex]));
+                    assertThat(pointer.fileOrdinal(), is(memtableIndex));
+                    assertThat(pointer.payloadOffset(), is(segmentFileOffsets[logIndex]));
                 }
             }
         }

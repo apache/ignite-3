@@ -27,14 +27,14 @@ import org.junit.jupiter.api.Test;
 class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
     @Test
     void testAddGet() {
-        var initialMeta = new IndexFileMeta(1, 1, 1);
+        var initialMeta = new IndexFileMeta(1, 1, 0);
 
         var array = new IndexFileMetaArray(initialMeta);
 
         assertThat(array.size(), is(1));
         assertThat(array.get(0), is(initialMeta));
 
-        var meta2 = new IndexFileMeta(2, 2, 2);
+        var meta2 = new IndexFileMeta(2, 2, 0);
 
         array = array.add(meta2);
 
@@ -42,10 +42,12 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
         assertThat(array.get(1), is(meta2));
 
         for (int i = 0; i < INITIAL_CAPACITY; i++) {
-            array = array.add(meta2);
+            long logIndex = meta2.firstLogIndex() + i + 1;
+
+            array = array.add(new IndexFileMeta(logIndex, logIndex, 0));
         }
 
-        var meta3 = new IndexFileMeta(3, 3, 3);
+        var meta3 = new IndexFileMeta(INITIAL_CAPACITY + 3, INITIAL_CAPACITY + 3, 0);
 
         array = array.add(meta3);
 
@@ -56,21 +58,28 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
     @Test
     void testFindReturnsCorrectIndex() {
         var meta1 = new IndexFileMeta(1, 10, 100);
-        var meta2 = new IndexFileMeta(10, 20, 200);
-        var meta3 = new IndexFileMeta(20, 30, 300);
+        var meta2 = new IndexFileMeta(11, 20, 200);
+        var meta3 = new IndexFileMeta(21, 30, 300);
 
         IndexFileMetaArray array = new IndexFileMetaArray(meta1)
                 .add(meta2)
                 .add(meta3);
 
         assertThat(array.find(0), is(-1));
+
         assertThat(array.find(1), is(0));
         assertThat(array.find(5), is(0));
-        assertThat(array.find(10), is(1));
+        assertThat(array.find(10), is(0));
+
+        assertThat(array.find(11), is(1));
         assertThat(array.find(15), is(1));
-        assertThat(array.find(20), is(2));
+        assertThat(array.find(20), is(1));
+
+        assertThat(array.find(21), is(2));
         assertThat(array.find(25), is(2));
-        assertThat(array.find(30), is(-1));
+        assertThat(array.find(30), is(2));
+
+        assertThat(array.find(31), is(-1));
     }
 
     @Test
@@ -79,7 +88,6 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
         var array = new IndexFileMetaArray(meta);
 
         assertThat(array.find(99), is(-1));
-        assertThat(array.find(200), is(-1));
-        assertThat(array.find(300), is(-1));
+        assertThat(array.find(201), is(-1));
     }
 }

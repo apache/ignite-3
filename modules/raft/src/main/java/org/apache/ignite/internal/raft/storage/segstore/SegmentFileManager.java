@@ -116,11 +116,11 @@ class SegmentFileManager implements ManuallyCloseable {
     private final Object rolloverLock = new Object();
 
     /**
-     * Current segment file index (used to generate segment file names).
+     * Current segment file ordinal (used to generate segment file names).
      *
      * <p>Must always be accessed under the {@link #rolloverLock}.
      */
-    private int curFileIndex;
+    private int curSegmentFileOrdinal;
 
     /**
      * Flag indicating whether the file manager has been stopped.
@@ -149,8 +149,8 @@ class SegmentFileManager implements ManuallyCloseable {
         currentSegmentFile.set(allocateNewSegmentFile(0));
     }
 
-    private SegmentFile allocateNewSegmentFile(int fileIndex) throws IOException {
-        Path path = baseDir.resolve(segmentFileName(fileIndex, 0));
+    private SegmentFile allocateNewSegmentFile(int fileOrdinal) throws IOException {
+        Path path = baseDir.resolve(segmentFileName(fileOrdinal, 0));
 
         var segmentFile = new SegmentFile(path, fileSize, 0);
 
@@ -159,8 +159,8 @@ class SegmentFileManager implements ManuallyCloseable {
         return segmentFile;
     }
 
-    private static String segmentFileName(int fileIndex, int generation) {
-        return String.format(SEGMENT_FILE_NAME_FORMAT, fileIndex, generation);
+    private static String segmentFileName(int fileOrdinal, int generation) {
+        return String.format(SEGMENT_FILE_NAME_FORMAT, fileOrdinal, generation);
     }
 
     void appendEntry(long groupId, LogEntry entry, LogEntryEncoder encoder) throws IOException {
@@ -245,7 +245,7 @@ class SegmentFileManager implements ManuallyCloseable {
                 throw new IgniteInternalException(NODE_STOPPING_ERR);
             }
 
-            SegmentFile newFile = allocateNewSegmentFile(++curFileIndex);
+            SegmentFile newFile = allocateNewSegmentFile(++curSegmentFileOrdinal);
 
             checkpointer.onRollover(observedSegmentFile, memTable.transitionToReadMode());
 

@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-class SegmentFilePointer {
-    private final int fileOrdinal;
+import java.io.EOFException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 
-    private final int payloadOffset;
+class ByteChannelUtils {
+    static ByteBuffer readFully(ReadableByteChannel byteChannel, int len) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(len);
 
-    SegmentFilePointer(int fileOrdinal, int payloadOffset) {
-        this.fileOrdinal = fileOrdinal;
-        this.payloadOffset = payloadOffset;
-    }
+        while (buffer.hasRemaining()) {
+            int bytesRead = byteChannel.read(buffer);
 
-    int fileOrdinal() {
-        return fileOrdinal;
-    }
+            if (bytesRead == -1) {
+                throw new EOFException("EOF reached while reading byte channel");
+            }
+        }
 
-    int payloadOffset() {
-        return payloadOffset;
+        return buffer.rewind();
     }
 }
