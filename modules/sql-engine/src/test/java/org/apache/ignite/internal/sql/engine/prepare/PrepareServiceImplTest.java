@@ -516,7 +516,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1));
 
         AtomicInteger ver = new AtomicInteger();
-        PrepareServiceImpl service = createPlannerServiceWithMockedExecutor(schema, CaffeineCacheFactory.INSTANCE, 10000,
+        PrepareServiceImpl service = createPlannerServiceWithInactivePlanUpdater(schema, CaffeineCacheFactory.INSTANCE, 10000,
                 Integer.MAX_VALUE, 1000, ver);
 
         String selectQuery = "SELECT * FROM test.t1 WHERE c1 = 1";
@@ -540,6 +540,39 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testCacheExpireIfStatisticChanged() throws InterruptedException {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table));
+
+        int expireMillis = 4_000;
+
+        PrepareServiceImpl service =
+                createPlannerServiceWithInactivePlanUpdater(schema, CaffeineCacheFactory.INSTANCE, 10000,
+                        (int) TimeUnit.MILLISECONDS.toSeconds(expireMillis), 1000, new AtomicInteger());
+
+        String query = "SELECT * FROM test.t WHERE c = 1";
+        QueryPlan p0 = await(service.prepareAsync(parse(query), operationContext().build()));
+
+        // infinitely change statistic
+        IgniteTestUtils.runAsync(() -> {
+            while (true) {
+                service.statisticsChanged(table.id());
+                Thread.sleep(expireMillis / 10);
+            }
+        });
+
+        // Expires if not used
+        TimeUnit.MILLISECONDS.sleep(expireMillis * 2);
+        QueryPlan p2 = await(service.prepareAsync(parse(query), operationContext().build()));
+        assertNotSame(p0, p2);
+    }
+
+    @Test
     public void planCacheExpiry() {
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -557,17 +590,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
             String query = "SELECT * FROM test.t WHERE c = 1";
             QueryPlan p0 = await(service.prepareAsync(parse(query), operationContext().build()));
 
-            // infinitely change statistic
-            IgniteTestUtils.runAsync(() -> {
-                while (true) {
-                    service.statisticsChanged(table.id());
-                    Thread.sleep(100);
-                }
-            });
-
             // Expires if not used
             TimeUnit.SECONDS.sleep(expireSeconds * 2);
-            service.statisticsChanged(table.id());
             QueryPlan p2 = await(service.prepareAsync(parse(query), operationContext().build()));
             assertNotSame(p0, p2);
 
@@ -805,7 +829,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return service;
     }
 
-    private static PrepareServiceImpl createPlannerServiceWithMockedExecutor(
+    private static PrepareServiceImpl createPlannerServiceWithInactivePlanUpdater(
             IgniteSchema schemas,
             CacheFactory cacheFactory,
             int timeoutMillis,
