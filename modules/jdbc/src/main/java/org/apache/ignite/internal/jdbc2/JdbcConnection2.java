@@ -186,6 +186,7 @@ public class JdbcConnection2 implements Connection {
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureNotClosed();
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-26139 Implement autocommit = false
         if (autoCommit != this.autoCommit) {
             this.autoCommit = autoCommit;
         }
@@ -228,9 +229,8 @@ public class JdbcConnection2 implements Connection {
             throw new SQLException("Invalid savepoint.");
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26139 autocommit = false
         if (autoCommit) {
-            throw new SQLException("Auto-commit mode.");
+            throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
         }
 
         throw new SQLFeatureNotSupportedException("Savepoints are not supported.");
@@ -366,7 +366,7 @@ public class JdbcConnection2 implements Connection {
     public void setHoldability(int holdability) throws SQLException {
         ensureNotClosed();
 
-        if (holdability != HOLD_CURSORS_OVER_COMMIT) {
+        if (holdability != CLOSE_CURSORS_AT_COMMIT) {
             throw new SQLException("Invalid result set holdability value.");
         }
     }
@@ -376,7 +376,7 @@ public class JdbcConnection2 implements Connection {
     public int getHoldability() throws SQLException {
         ensureNotClosed();
 
-        return HOLD_CURSORS_OVER_COMMIT;
+        return CLOSE_CURSORS_AT_COMMIT;
     }
 
     /** {@inheritDoc} */

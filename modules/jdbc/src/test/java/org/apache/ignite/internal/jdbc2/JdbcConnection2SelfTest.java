@@ -339,18 +339,23 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
     @Test
     public void holdability() throws SQLException {
         try (Connection conn = createConnection()) {
-            assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, conn.getHoldability());
+            assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, conn.getHoldability());
 
-            conn.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
-            assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, conn.getHoldability());
+            conn.setHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT);
+            assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, conn.getHoldability());
 
             assertThrowsSqlException(SQLException.class,
                     "Invalid result set holdability value.",
-                    () -> conn.setHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT)
+                    () -> conn.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT)
+            );
+
+            assertThrowsSqlException(SQLException.class,
+                    "Invalid result set holdability value.",
+                    () -> conn.setHoldability(1234)
             );
 
             // Does not change anything
-            assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, conn.getHoldability());
+            assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, conn.getHoldability());
         }
     }
 
