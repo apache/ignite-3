@@ -34,6 +34,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,10 +75,8 @@ class SegmentFileTest extends IgniteAbstractTest {
     private SegmentFile file;
 
     @BeforeEach
-    void setUp() throws IOException {
+    void setUp() {
         path = workDir.resolve(FILE_NAME);
-
-        Files.createFile(path);
     }
 
     @AfterEach
@@ -106,11 +105,18 @@ class SegmentFileTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testConstructorInvariants() {
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, -1, 0));
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, 0, -1));
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, 1, 1));
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, Integer.MAX_VALUE + 1L, 1));
+    void testCreateNewConstructorInvariants() {
+        assertThrows(IllegalArgumentException.class, () -> SegmentFile.createNew(path, -1));
+        assertThrows(IllegalArgumentException.class, () -> SegmentFile.createNew(path, Integer.MAX_VALUE + 1L));
+    }
+
+    @Test
+    void testOpenExistingConstructorInvariants() throws IOException {
+        assertThrows(IllegalArgumentException.class, () -> SegmentFile.openExisting(path));
+
+        createSegmentFile(1);
+
+        assertDoesNotThrow(() -> SegmentFile.openExisting(path));
     }
 
     /**
@@ -144,35 +150,6 @@ class SegmentFileTest extends IgniteAbstractTest {
         createSegmentFile(fileSize);
 
         assertFalse(writeToSegmentFile(new byte[fileSize + 1]));
-    }
-
-    /**
-     * Tests appends to an already existing file (e.g. appends from a predetermined position).
-     */
-    @Test
-    void testReserveFromPosition() throws IOException {
-        int fileSize = 100;
-
-        createSegmentFile(fileSize);
-
-        byte[] existingContent = intToBytes(239);
-
-        writeToSegmentFile(existingContent);
-
-        file.close();
-
-        openSegmentFile(Integer.BYTES);
-
-        var bytes = randomBytes(ThreadLocalRandom.current(), fileSize - Integer.BYTES);
-
-        assertTrue(writeToSegmentFile(bytes));
-
-        byte[] expectedBytes = ByteBuffer.allocate(bytes.length + Integer.BYTES)
-                .put(existingContent)
-                .put(bytes)
-                .array();
-
-        assertThat(readFileContent(expectedBytes.length), is(expectedBytes));
     }
 
     /**
@@ -409,11 +386,7 @@ class SegmentFileTest extends IgniteAbstractTest {
     }
 
     private void createSegmentFile(int size) throws IOException {
-        file = new SegmentFile(path, size, 0);
-    }
-
-    private void openSegmentFile(int position) throws IOException {
-        file = new SegmentFile(path, Files.size(path), position);
+        file = SegmentFile.createNew(path, size);
     }
 
     private boolean writeToSegmentFile(byte[] bytes) {

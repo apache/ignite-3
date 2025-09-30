@@ -23,9 +23,11 @@ import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite's {@link LogStorage} implementation.
@@ -40,6 +42,8 @@ class SegstoreLogStorage implements LogStorage {
 
     private volatile LogEntryEncoder logEntryEncoder;
 
+    private volatile LogEntryDecoder logEntryDecoder;
+
     SegstoreLogStorage(long groupId, SegmentFileManager segmentFileManager) {
         if (groupId <= 0) {
             throw new IllegalArgumentException("groupId must be greater than 0: " + groupId);
@@ -52,6 +56,7 @@ class SegstoreLogStorage implements LogStorage {
     @Override
     public boolean init(LogStorageOptions opts) {
         logEntryEncoder = opts.getLogEntryCodecFactory().encoder();
+        logEntryDecoder = opts.getLogEntryCodecFactory().decoder();
 
         return true;
     }
@@ -87,8 +92,12 @@ class SegstoreLogStorage implements LogStorage {
     }
 
     @Override
-    public LogEntry getEntry(long index) {
-        throw new UnsupportedOperationException();
+    public @Nullable LogEntry getEntry(long index) {
+        try {
+            return segmentFileManager.getEntry(groupId, index, logEntryDecoder);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
     }
 
     @Override
