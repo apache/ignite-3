@@ -344,15 +344,9 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             conn.setHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT);
             assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, conn.getHoldability());
 
-            assertThrowsSqlException(SQLException.class,
-                    "Invalid result set holdability value.",
-                    () -> conn.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT)
-            );
-
-            assertThrowsSqlException(SQLException.class,
-                    "Invalid result set holdability value.",
-                    () -> conn.setHoldability(1234)
-            );
+            String error = "Invalid result set holdability (only close cursors at commit option is supported).";
+            assertThrowsSqlException(SQLException.class, error, () -> conn.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT));
+            assertThrowsSqlException(SQLException.class, error, () -> conn.setHoldability(1234));
 
             // Does not change anything
             assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, conn.getHoldability());
