@@ -386,15 +386,7 @@ public class ComputeUtils {
         }
 
         if (input instanceof byte[]) {
-            ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-            try {
-                Thread.currentThread().setContextClassLoader(classLoader);
-                return marshaller.unmarshal((byte[]) input);
-            } catch (Exception ex) {
-                throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller: " + ex.getMessage(), ex);
-            } finally {
-                Thread.currentThread().setContextClassLoader(contextClassLoader);
-            }
+            return SharedComputeUtils.unmarshalData(marshaller, classLoader, (byte[]) input);
         }
 
         throw new ComputeException(

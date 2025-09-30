@@ -212,15 +212,7 @@ public class SharedComputeUtils {
                 if (marshaller == null) {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Marshaller should be defined on the client");
                 }
-                ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-                try {
-                    Thread.currentThread().setContextClassLoader(classLoader);
-                    return (T) marshaller.unmarshal(holder.data());
-                } catch (Exception ex) {
-                    throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
-                } finally {
-                    Thread.currentThread().setContextClassLoader(contextClassLoader);
-                }
+                return unmarshalData(marshaller, classLoader, holder.data());
 
             case TUPLE_COLLECTION:
                 return (T) readTupleCollection(ByteBuffer.wrap(holder.data()).order(ByteOrder.LITTLE_ENDIAN));
@@ -255,6 +247,27 @@ public class SharedComputeUtils {
             throw new UnmarshallingException("Constructor is inaccessible", e);
         } catch (PojoConversionException e) {
             throw new UnmarshallingException("Can't unpack object", e);
+        }
+    }
+
+    /**
+     * Unmarshal raw data using custom marshaller. Sets the specified classloader to the thread's context.
+     *
+     * @param marshaller Marshaller.
+     * @param classLoader Class loader to set before unmarshalling.
+     * @param raw raw presentation of object.
+     * @param <T> Type of the object.
+     * @return Unmarshalled object.
+     */
+    public static <T> @Nullable T unmarshalData(Marshaller<?, byte[]> marshaller, ClassLoader classLoader, byte[] raw) {
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(classLoader);
+            return (T) marshaller.unmarshal(raw);
+        } catch (Exception ex) {
+            throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
+        } finally {
+            Thread.currentThread().setContextClassLoader(contextClassLoader);
         }
     }
 
