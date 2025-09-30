@@ -200,4 +200,8 @@ public class ClientLazyTransaction implements Transaction {
 
         return tx0.join();
     }
+
+    public long observableTimestamp() {
+        return observableTimestamp;
+    }
 }
