@@ -22,9 +22,11 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -63,18 +65,21 @@ class ItCompatibilityTest extends CompatibilityTestBase {
                 + "VAL_STR VARCHAR, "
                 + "VAL_DATE DATE, "
                 + "VAL_TIME TIME, "
+                + "VAL_TIMESTAMP_LOCAL TIMESTAMP WITH LOCAL TIME ZONE, "
                 + "VAL_TIMESTAMP TIMESTAMP)");
 
         baseIgnite.transactions().runInTransaction(tx -> {
-            sql(baseIgnite, tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            sql(baseIgnite, tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
-                    "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56));
+                    "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56),
+                    Instant.parse("2025-05-05T02:05:05Z"), LocalDateTime.of(2025, 7, 23, 12, 34, 56));
         });
 
         List<List<Object>> result = sql(baseIgnite, "SELECT * FROM TEST_ALL_TYPES");
         assertThat(result, contains(contains(
                 1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
-                "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
+                "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56),
+                Instant.parse("2025-05-05T02:05:05Z"), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
         )));
     }
 
@@ -89,9 +94,10 @@ class ItCompatibilityTest extends CompatibilityTestBase {
 
         // Insert new data using transaction
         node(0).transactions().runInTransaction(tx -> {
-            sql(node(0), tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            sql(node(0), tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     2, -1, -9876543210L, 0.0f, -1.23d, new BigDecimal("0.00"), false,
-                    "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0), LocalDateTime.of(2020, 1, 1, 0, 0, 0));
+                    "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0),
+                    Instant.parse("2020-05-05T02:05:05Z"), LocalDateTime.of(2020, 1, 1, 0, 0, 0));
         });
 
         // Verify all data
@@ -99,11 +105,13 @@ class ItCompatibilityTest extends CompatibilityTestBase {
         assertThat(result, containsInAnyOrder(
                 contains(
                         1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
-                        "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
+                        "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56),
+                        Instant.parse("2025-05-05T02:05:05Z"), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
                 ),
                 contains(
                         2, -1, -9876543210L, 0.0f, -1.23d, new BigDecimal("0.00"), false,
-                        "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0), LocalDateTime.of(2020, 1, 1, 0, 0, 0)
+                        "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0),
+                        Instant.parse("2020-05-05T02:05:05Z"), LocalDateTime.of(2020, 1, 1, 0, 0, 0)
                 )
         ));
     }
