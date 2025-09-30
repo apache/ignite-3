@@ -35,14 +35,14 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
-    private final HybridTimestampTracker observableTimestamp;
+    private final long observableTimestamp;
 
     private final @Nullable TransactionOptions options;
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
     ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
-        this.observableTimestamp = observableTimestamp;
+        this.observableTimestamp = observableTimestamp.getLong();
         this.options = options;
     }
 
