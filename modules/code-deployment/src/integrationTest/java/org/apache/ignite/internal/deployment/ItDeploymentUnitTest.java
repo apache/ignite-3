@@ -283,8 +283,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         smallUnit.waitUnitClean(igniteImpl(2));
     }
 
-//    @Test
-    @RepeatedTest(10)
+    @Test
     public void testZipDeploy() {
         String id = "test";
         Unit unit = files.deployAndVerifyFlatZip(id, Version.parseVersion("1.1.0"), igniteImpl(1));

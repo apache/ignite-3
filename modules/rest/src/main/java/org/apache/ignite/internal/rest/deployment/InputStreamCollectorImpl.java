@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rest.deployment;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,11 +27,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
+import org.apache.ignite.internal.deployunit.CachedDeploymentUnit;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.FilesDeploymentUnit;
-import org.apache.ignite.internal.deployunit.CachedDeploymentUnit;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Standard implementation of {@link InputStreamCollector} for collecting regular file content.
@@ -42,6 +42,8 @@ import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
  * deployment units containing regular (non-compressed) file content.
  */
 public class InputStreamCollectorImpl implements InputStreamCollector {
+    private static final IgniteLogger LOG = Loggers.forClass(InputStreamCollectorImpl.class);
+
     private final Map<String, CompletableFuture<Path>> collect = new HashMap<>();
 
     private final TempStorage tempStorage;
@@ -56,7 +58,7 @@ public class InputStreamCollectorImpl implements InputStreamCollector {
             try {
                 is.close();
             } catch (IOException e) {
-
+                LOG.error("Error when closing input stream.", e);
             }
         }));
     }

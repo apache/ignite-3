@@ -24,11 +24,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.zip.ZipInputStream;
-import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.CachedDeploymentUnit;
+import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitWriteException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitZipException;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -68,13 +68,12 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
 
         if (isZip(result)) {
-            ZipInputStream zis = new ZipInputStream(result);
-            future = tempStorage.store(filename, zis)
+            future = tempStorage.store(filename, result)
                     .whenComplete((path, throwable) -> {
                         try {
-                            zis.close();
+                            result.close();
                         } catch (IOException e) {
-                            LOG.error("Error with closing");
+                            LOG.error("Error with closing zip input stream.", e);
                         }
                     });
         } else {
@@ -116,7 +115,8 @@ public class ZipInputStreamCollector implements InputStreamCollector {
             try {
                 return new ZipDeploymentUnit(new ZipInputStream(Files.newInputStream(zip)));
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                LOG.error("Error when creating zip deployment unit", e);
+                throw new DeploymentUnitWriteException("Failed to create zip deployment unit", e);
             }
         }));
     }

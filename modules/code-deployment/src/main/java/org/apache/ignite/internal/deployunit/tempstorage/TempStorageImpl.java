@@ -37,7 +37,7 @@ public class TempStorageImpl implements TempStorage {
 
     private final Path storageDir;
 
-    private final Map<String, CompletableFuture<Path>> map = new HashMap<>();
+    private final Map<String, CompletableFuture<Path>> files = new HashMap<>();
 
     private final Executor executor;
 
@@ -65,13 +65,13 @@ public class TempStorageImpl implements TempStorage {
         },
         executor);
 
-        map.put(fileName, result);
+        files.put(fileName, result);
         return result;
     }
 
     @Override
     public void rollback() {
-        map.values().forEach(f -> f.cancel(true));
+        files.values().forEach(f -> f.cancel(true));
     }
 
     @Override

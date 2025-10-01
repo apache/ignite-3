@@ -78,7 +78,7 @@ class DeployerProcessor implements DeploymentUnitProcessor<DeployArg, Boolean> {
     public CompletableFuture<Boolean> processFilesContent(FilesDeploymentUnit unit, DeployArg deployArg) {
         return wrap(() -> {
             for (Entry<String, Path> e : unit.content().entrySet()) {
-                Files.move(e.getValue(), deployArg.unitFolder, ATOMIC_MOVE, REPLACE_EXISTING);
+                Files.move(e.getValue(), deployArg.unitFolder.resolve(e.getKey()), ATOMIC_MOVE, REPLACE_EXISTING);
             }
         });
     }
