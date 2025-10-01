@@ -42,6 +42,7 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Contains counters for in-flight requests of the transactions. Read-write transactions can't finish when some requests are in-flight.
@@ -110,7 +111,7 @@ public class TransactionInflights {
 
     /**
      * Track the given RW transaction until finish.
-     * Currently tracking is used to enforce cleanup path for SQL RW transactions.
+     * Currently RW tracking is used to enforce cleanup path for SQL RW transactions, which doesn't use RW inflights tracking yet.
      *
      * @param txId The transaction id.
      * @return {@code True} if the was registered and is in active state.
@@ -121,6 +122,29 @@ public class TransactionInflights {
         txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
                 ctx = new ReadWriteTxContext(placementDriver, clockService);
+            }
+
+            res[0] = !ctx.isTxFinishing();
+
+            return ctx;
+        });
+
+        return res[0];
+    }
+
+    /**
+     * Track the given RO transaction until finish.
+     * Currently RO tracking is used to prevent unclosed cursors.
+     *
+     * @param txId The transaction id.
+     * @return {@code True} if the was registered and is in active state.
+     */
+    public boolean trackReadOnly(UUID txId) {
+        boolean[] res = {true};
+
+        txCtxMap.compute(txId, (uuid, ctx) -> {
+            if (ctx == null) {
+                ctx = new ReadOnlyTxContext();
             }
 
             res[0] = !ctx.isTxFinishing();
@@ -148,6 +172,17 @@ public class TransactionInflights {
         if (tuple != null) {
             tuple.onInflightsRemoved();
         }
+    }
+
+    @TestOnly
+    public boolean hasActiveInflights() {
+        for (TxContext value : txCtxMap.values()) {
+            if (!value.isTxFinishing()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     Collection<UUID> finishedReadOnlyTransactions() {
@@ -185,6 +220,8 @@ public class TransactionInflights {
         txCtxMap.compute(txId, (k, ctx) -> {
             if (ctx == null) {
                 ctx = new ReadOnlyTxContext();
+            } else {
+                assert ctx instanceof ReadOnlyTxContext;
             }
 
             ctx.finishTx(null);
