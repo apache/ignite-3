@@ -62,6 +62,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -747,6 +748,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26567")
     public void testBroadcastQueryTxInflightStateCleanup() {
         IgniteSql sql = client().sql();
 
