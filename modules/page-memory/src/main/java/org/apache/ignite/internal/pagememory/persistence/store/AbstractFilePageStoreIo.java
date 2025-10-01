@@ -293,7 +293,6 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                         while (true) {
                             try {
                                 this.fileIo = fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
-                                var fileI1 = ioFactory.create(filePath, new OpenOption[0]);
 
                                 fileExists = true;
 

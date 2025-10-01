@@ -116,7 +116,13 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private volatile ExecutorService destructionExecutor;
 
-    private volatile ExecutorService asyncIoExecutor;
+    /**
+     * Executor service for performing asynchronous I/O operations.
+     *
+     * This field is initialized when the engine is configured to use asynchronous file I/O.
+     * If the engine is configured to use synchronous I/O, this field remains {@code null}.
+     */
+    private volatile @Nullable ExecutorService asyncIoExecutor;
 
     private final FailureManager failureManager;
 
