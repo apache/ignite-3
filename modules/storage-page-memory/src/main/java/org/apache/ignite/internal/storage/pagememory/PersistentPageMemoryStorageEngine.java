@@ -118,7 +118,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     /**
      * Executor service for performing asynchronous I/O operations.
-     *
+     * <p>
      * This field is initialized when the engine is configured to use asynchronous file I/O.
      * If the engine is configured to use synchronous I/O, this field remains {@code null}.
      */
