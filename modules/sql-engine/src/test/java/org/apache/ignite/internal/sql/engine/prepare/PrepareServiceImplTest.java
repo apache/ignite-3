@@ -782,7 +782,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     ) {
         ClockServiceImpl clockService = mock(ClockServiceImpl.class);
 
-        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+        when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
@@ -817,7 +817,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     ) {
         ClockServiceImpl clockService = mock(ClockServiceImpl.class);
 
-        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+        when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),

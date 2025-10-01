@@ -75,7 +75,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         ClockServiceImpl clockService = mock(ClockServiceImpl.class);
 
-        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+        when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
         PrepareService prepareService = new PrepareServiceImpl(
                 "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema),

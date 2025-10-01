@@ -681,7 +681,7 @@ public class TestBuilders {
 
             ClockServiceImpl clockService = mock(ClockServiceImpl.class);
 
-            when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+            when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
             ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                     IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)

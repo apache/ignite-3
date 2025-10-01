@@ -263,7 +263,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ClockServiceImpl clockService = mock(ClockServiceImpl.class);
 
-        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+        when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
         prepareService = new PrepareServiceImpl(
                 "test",
