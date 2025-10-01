@@ -254,17 +254,16 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {
-        return new CatalogTableDescriptor(
-                tableId,
-                schemaId,
-                pkIndexId,
-                "TEST_TABLE",
-                zoneId,
-                List.of(tableColumn(columnName)),
-                List.of(columnName),
-                null,
-                DEFAULT_STORAGE_PROFILE
-        );
+        return CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(schemaId)
+                .primaryKeyIndexId(pkIndexId)
+                .name("TEST_TABLE")
+                .zoneId(zoneId)
+                .columns(List.of(tableColumn(columnName)))
+                .primaryKeyColumns(List.of(columnName))
+                .storageProfile(DEFAULT_STORAGE_PROFILE)
+                .build();
     }
 
     static CatalogTableColumnDescriptor tableColumn(String columnName) {

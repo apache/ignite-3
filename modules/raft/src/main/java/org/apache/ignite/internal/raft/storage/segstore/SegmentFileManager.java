@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -92,12 +93,24 @@ class SegmentFileManager implements ManuallyCloseable {
     /** Configured size of a segment file. */
     private final long fileSize;
 
+    /** Number of stripes used by the index memtable. Should be equal to the number of stripes in the Raft server's Disruptor. */
+    private final int stripes;
+
     /**
      * Current segment file. Can store {@code null} while a rollover is in progress or if the file manager has been stopped.
      */
     private final AtomicReference<SegmentFile> currentSegmentFile = new AtomicReference<>();
 
-    private final IndexMemTable memTable;
+    /**
+     * Index memtable of the current segment file.
+     *
+     * <p>Multi-threaded visibility is guaranteed by volatile reads or writes to the {@link #currentSegmentFile} field.
+     */
+    // TODO: Multi-threaded visibility should probably be revised in https://issues.apache.org/jira/browse/IGNITE-26282.
+    @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
+    private WriteModeIndexMemTable memTable;
+
+    private final RaftLogCheckpointer checkpointer;
 
     /** Lock used to block threads while a rollover is in progress. */
     private final Object rolloverLock = new Object();
@@ -116,18 +129,22 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     private boolean isStopped;
 
-    SegmentFileManager(Path baseDir, long fileSize, int stripes) {
+    SegmentFileManager(String nodeName, Path baseDir, long fileSize, int stripes, FailureProcessor failureProcessor) {
         if (fileSize <= HEADER_RECORD.length) {
             throw new IllegalArgumentException("File size must be greater than the header size: " + fileSize);
         }
 
         this.baseDir = baseDir;
         this.fileSize = fileSize;
+        this.stripes = stripes;
 
         memTable = new IndexMemTable(stripes);
+        checkpointer = new RaftLogCheckpointer(nodeName, new IndexFileManager(baseDir), failureProcessor);
     }
 
     void start() throws IOException {
+        checkpointer.start();
+
         // TODO: implement recovery, see https://issues.apache.org/jira/browse/IGNITE-26283.
         currentSegmentFile.set(allocateNewSegmentFile(0));
     }
@@ -230,6 +247,10 @@ class SegmentFileManager implements ManuallyCloseable {
 
             SegmentFile newFile = allocateNewSegmentFile(++curFileIndex);
 
+            checkpointer.onRollover(observedSegmentFile, memTable.transitionToReadMode());
+
+            memTable = new IndexMemTable(stripes);
+
             currentSegmentFile.set(newFile);
 
             rolloverLock.notifyAll();
@@ -256,6 +277,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
             rolloverLock.notifyAll();
         }
+
+        checkpointer.stop();
     }
 
     private static void writeHeader(SegmentFile segmentFile) {

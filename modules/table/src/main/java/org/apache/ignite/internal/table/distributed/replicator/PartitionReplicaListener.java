@@ -3875,7 +3875,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         assert table != null : "tableId=" + tableId() + ", catalogVersion=" + catalog.version();
 
-        return table.tableVersion();
+        return table.latestSchemaVersion();
     }
 
     private static @Nullable BinaryRow binaryRow(@Nullable TimedBinaryRow timedBinaryRow) {

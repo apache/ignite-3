@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -60,6 +61,8 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     private static final long GROUP_ID = 1000;
 
+    private static final String NODE_NAME = "test";
+
     private SegstoreLogStorage logStorage;
 
     private SegmentFileManager segmentFileManager;
@@ -69,7 +72,7 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        segmentFileManager = new SegmentFileManager(workDir, SEGMENT_SIZE, 1);
+        segmentFileManager = new SegmentFileManager(NODE_NAME, workDir, SEGMENT_SIZE, 1, new NoOpFailureManager());
 
         logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
 
@@ -210,7 +213,10 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     private List<Path> segmentFiles() throws IOException {
         try (Stream<Path> files = Files.list(workDir)) {
-            return files.sorted().collect(toList());
+            return files
+                    .filter(p -> p.getFileName().toString().startsWith("segment"))
+                    .sorted()
+                    .collect(toList());
         }
     }
 

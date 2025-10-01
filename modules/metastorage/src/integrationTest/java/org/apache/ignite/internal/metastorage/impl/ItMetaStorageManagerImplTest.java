@@ -133,6 +133,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private MetaStorageManagerImpl metaStorageManager;
 
+    private HybridClock clock;
+
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
@@ -150,7 +152,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        HybridClock clock = new HybridClockImpl();
+        clock = new HybridClockImpl();
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
@@ -291,7 +293,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(LogicalTopologyService.class),
                 raftManager,
                 storage,
-                new HybridClockImpl(),
+                clock,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 mock(MetastorageRepairStorage.class),
