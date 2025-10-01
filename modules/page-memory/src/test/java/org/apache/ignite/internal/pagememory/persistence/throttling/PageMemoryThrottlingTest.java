@@ -135,7 +135,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         FailureManager failureManager = mock(FailureManager.class);
         when(failureManager.process(any())).thenThrow(new AssertionError("Unexpected error"));
 
-        fileIoFactory = spy(new AsyncFileIoFactory(null));
+        fileIoFactory = spy(new AsyncFileIoFactory());
         pageStoreManager = new FilePageStoreManager("test", workDir, fileIoFactory, PAGE_SIZE, failureManager);
 
         List<DataRegion<PersistentPageMemory>> dataRegions = new CopyOnWriteArrayList<>();

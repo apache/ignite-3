@@ -21,20 +21,28 @@ import java.io.IOException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link AsyncFileIo} factory.
  */
 public class AsyncFileIoFactory implements FileIoFactory {
-    /** Async callback executor. */
-    private final ExecutorService asyncIoExecutor;
+    /** Async callback executor. {@code null} for system default pool. */
+    private final @Nullable ExecutorService asyncIoExecutor;
+
+    /**
+     * Constructor.
+     */
+    public AsyncFileIoFactory() {
+        this(null);
+    }
 
     /**
      * Constructor.
      *
      * @param asyncIoExecutor Async callback executor or {@code null} to use the default pool.
      */
-    public AsyncFileIoFactory(ExecutorService asyncIoExecutor) {
+    public AsyncFileIoFactory(@Nullable ExecutorService asyncIoExecutor) {
         this.asyncIoExecutor = asyncIoExecutor;
     }
 

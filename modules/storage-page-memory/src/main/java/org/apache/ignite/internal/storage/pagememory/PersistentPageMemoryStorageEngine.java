@@ -187,7 +187,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             FileIoFactory fileIoFactory;
 
             if (engineConfig.checkpoint().useAsyncFileIoFactory().value()) {
-                ThreadPoolExecutor ioExecutor = new ThreadPoolExecutor(
+                asyncIoExecutor = new ThreadPoolExecutor(
                         Runtime.getRuntime().availableProcessors(),
                         Runtime.getRuntime().availableProcessors(),
                         100,
@@ -195,8 +195,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                         new LinkedBlockingQueue<>(),
                         IgniteThreadFactory.create(igniteInstanceName, "persistent-mv-async-io", LOG)
                 );
-
-                asyncIoExecutor = ioExecutor;
 
                 fileIoFactory = new AsyncFileIoFactory(asyncIoExecutor);
             } else {

@@ -33,6 +33,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -292,6 +293,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                         while (true) {
                             try {
                                 this.fileIo = fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
+                                var fileI1 = ioFactory.create(filePath, new OpenOption[0]);
 
                                 fileExists = true;
 
