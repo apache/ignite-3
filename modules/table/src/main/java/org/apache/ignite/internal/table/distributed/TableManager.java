@@ -1396,6 +1396,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             replicationConfiguration
                     );
 
+                    partitionUpdateHandlers.storageUpdateHandler.lastModificationCounterMilestone();
+                    //partitionDataStorage.getStorage().estimatedSize();
+
                     internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
                     mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);

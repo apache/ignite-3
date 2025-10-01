@@ -541,15 +541,6 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<Long> estimatedSize();
 
     /**
-     * Returns the pair<<em>last modification timestamp</em>, <em>estimated size</em>> of this table.
-     *
-     * @return Estimated size of this table with last modification timestamp.
-     *
-     * @see #estimatedSize
-     */
-    CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate();
-
-    /**
      * Returns the streamer receiver runner.
      *
      * @return Streamer receiver runner.

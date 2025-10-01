@@ -848,7 +848,7 @@ public class DataNodesManager {
     }
 
     /**
-     * Returns data nodes for the given zone and timestamp. See {@link #dataNodes(int, HybridTimestamp)}.
+     * Returns data nodes for the given zone and timestamp. See {@link #dataNodes(int, HybridTimestamp, Integer)}.
      * Catalog version is calculated by the given timestamp.
      *
      * @param zoneId Zone ID.

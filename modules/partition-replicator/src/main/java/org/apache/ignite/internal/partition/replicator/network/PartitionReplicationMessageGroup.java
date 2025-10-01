@@ -53,7 +53,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Binar
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
@@ -218,11 +217,6 @@ public interface PartitionReplicationMessageGroup {
      * Message type for {@link ChangePeersAndLearnersAsyncReplicaRequest}.
      */
     short CHANGE_PEERS_AND_LEARNERS_ASYNC_REPLICA_REQUEST = 28;
-
-    /**
-     * Message type for {@link GetEstimatedSizeWithLastModifiedTsRequest}.
-     */
-    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE = 51;
 
     /**
      * Message types for partition replicator module RAFT commands.

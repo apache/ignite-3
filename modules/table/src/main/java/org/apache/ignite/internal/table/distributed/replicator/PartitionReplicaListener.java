@@ -127,7 +127,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Binar
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
@@ -590,10 +589,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         if (request instanceof GetEstimatedSizeRequest) {
             return processGetEstimatedSizeRequest();
-        }
-
-        if (request instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
-            return processGetEstimatedSizeWithTsRequest();
         }
 
         if (request instanceof ChangePeersAndLearnersAsyncReplicaRequest) {

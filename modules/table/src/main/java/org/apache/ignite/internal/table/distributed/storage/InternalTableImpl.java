@@ -2211,9 +2211,34 @@ public class InternalTableImpl implements InternalTable {
         return streamerFlushExecutor.get();
     }
 
+/*
     @Override
     public CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate() {
-        HybridTimestamp now = clockService.current();
+        //return CompletableFuture.completedFuture(null);
+
+        Set<String> peers = new HashSet<>();
+
+        for (int partId = 0; partId < partitions; partId++) {
+            ReplicationGroupId replicaGroupId = targetReplicationGroupId(partId);
+
+            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicaGroupId, clockService.current());
+
+            if (meta != null) {
+                peers.add(meta.getLeaseholder());
+            } else {
+                assert false; //!!! remove it
+            }
+        }
+
+        GetEstimatedSizeWithLastModifiedTsRequest request = TABLE_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
+                .tableId(tableId).build();
+
+        for (String leaseHolderName : peers) {
+
+        }
+
+*/
+/*        HybridTimestamp now = clockService.current();
 
         var invokeFutures = new CompletableFuture<?>[partitions];
 
@@ -2250,8 +2275,10 @@ public class InternalTableImpl implements InternalTable {
                 count += result.keyLong();
             }
             return LongObjectImmutablePair.of(count, last);
-        });
+        });*//*
+
     }
+*/
 
     @Override
     public CompletableFuture<Long> estimatedSize() {

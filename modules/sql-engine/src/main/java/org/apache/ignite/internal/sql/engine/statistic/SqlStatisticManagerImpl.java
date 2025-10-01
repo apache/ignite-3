@@ -76,6 +76,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;
+    private final StatisticAggregator statAggregator;
+
     static final long INITIAL_DELAY = 5_000;
     static final long REFRESH_PERIOD = 5_000;
 
@@ -84,12 +86,14 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
             TableManager tableManager,
             CatalogService catalogService,
             LowWatermark lowWatermark,
-            ScheduledExecutorService scheduler
+            ScheduledExecutorService scheduler,
+            StatisticAggregator statAggregator
     ) {
         this.tableManager = tableManager;
         this.catalogService = catalogService;
         this.lowWatermark = lowWatermark;
         this.scheduler = scheduler;
+        this.statAggregator = statAggregator;
     }
 
     /**
