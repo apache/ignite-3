@@ -35,7 +35,7 @@ Ignite cluster often spans across multiple availability zones, and distribution 
 
 == Default Zone
 
-Ignite 3 create a `default` distribution zone on startup. This distribution zone stores data from tables when they are not configured to use a different zone, or when a different distribution zone is not available. This distribution zone has 25 partitions, 1 partition replica and does not adjust itself to new nodes entering or exiting the cluster. For production purposes, we recommend creating a new distribution zone adjusted for your purposes.
+Ignite 3 creates a `default` distribution zone on startup. This distribution zone stores data from tables when they are not configured to use a different zone, or when a different distribution zone is not available. This distribution zone has 25 partitions, 1 partition replica and does not adjust itself to new nodes entering or exiting the cluster. For production purposes, we recommend creating a new distribution zone adjusted for your purposes.
 
 == Creating and Using Zones
 
@@ -80,7 +80,7 @@ By default, distribution zones do not adjust to cluster changes.
 
 [source,sql]
 ----
-CREATE ZONE IF NOT EXISTS exampleZone WITH STORAGE_PROFILES='default',DATA_NODES_AUTO_ADJUST_SCALE_UP=100,DATA_NODES_AUTO_ADJUST_SCALE_DOWN=20.
+CREATE ZONE IF NOT EXISTS exampleZone WITH STORAGE_PROFILES='default',DATA_NODES_AUTO_ADJUST_SCALE_UP=100,DATA_NODES_AUTO_ADJUST_SCALE_DOWN=20
 ----
 
 == Checking Distribution Zone Properties

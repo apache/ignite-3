@@ -1,0 +1,180 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Python Database API Driver
+
+Apache Ignite 3 clients connect to the cluster via a standard socket connection. Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
+
+Apache Ignite DB API driver uses the link:https://peps.python.org/pep-0249/[Python Database API].
+
+
+== Getting Started
+
+=== Prerequisites
+
+To run the Python driver, the following is required:
+
+- CMake 3.18 or newer to build the driver
+- Python 3.9 or newer (3.9, 3.10, 3.11 and 3.12 are tested)
+- Access to a running Ignite 3 node
+
+=== Limitations
+Script execution of SQL statements is not supported in current release.
+
+
+
+=== Installation
+
+To install Python DB API driver, download it from pip.
+
+----
+pip install pyignite3_dbapi
+----
+
+After this, you can import `pyignite3_dbapi` into your project and use it.
+
+== Connecting to Cluster
+
+To connect to the cluster, use the `connect()` method:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=connect,indent=0]
+----
+
+After you are done working with the cluster, remember to always close the connection to it.
+
+[source, python]
+----
+conn.close()
+----
+
+Alternatively, you can use the `with` statement to automatically close the connection when no longer necessary:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=with_clause,indent=0]
+----
+
+=== Configuring SSL for Connection
+
+To ensure secure connection to the cluster, you can enable SSL for it by providing the key file and certificate, for example:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=connect_ssl,indent=0]
+----
+
+NOTE: All paths to certificate file and keys should be provided in string format appropriate for the system.
+
+=== Configuring Authorization
+
+If the cluster uses link:administrators-guide/security/authentication#basic-authentication[basic authorization], you need to provide user `identity` and `secret` to authorize on it, for example:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=connect_auth,indent=0]
+----
+
+=== Configuring Data Access
+
+You can configure optional properties to fine-tune how data is accessed.
+
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Configuration name | Description
+
+|schema|A schema name to be used by default. Default value: 'PUBLIC'.
+|page_size|Maximum number of rows that can be received or sent in a single request. Default value: 1024
+
+|=======================================================================
+
+The example below shows how to set these properties:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=connect_conf,indent=0]
+----
+
+== Getting Cursor Object
+
+To work with tables from Python client, you use the `cursor` object that can be retrieved from the connection object:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=cursor,indent=0]
+----
+
+Similar to the connection, you can use the `with` statement when getting the cursor:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=cursor_with,indent=0]
+----
+
+== Executing Single Query
+
+The cursor object can be used to execute SQL statements with the `execute` command:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=execute,indent=0]
+----
+
+== Executing a Batched Query
+
+You can use the `executemany` command to execute SQL queries with a batch of parameters. This kind of operation offers much higher performance than executing individual queries. The example below inserts two rows into the Person table:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=execute_batch,indent=0]
+----
+
+
+== Getting Query Results
+
+The cursor retains a reference to the operation. If the operation returns results (for example, a `SELECT`), they will also be stored in the cursor. You can then use the `fetchone()` method to retrieve query results from the cursor:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=execute_get,indent=0]
+----
+
+== Working with Transactions
+
+By default, transactions required for database operations are handled implicitly. However, you can disable automatic transaction handling and manually handle commits.
+
+To do this, first, disable autocommit:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=autocommit_false;!comment,indent=0]
+----
+
+Once autocommit is disabled, you need to commit your operations manually:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=transaction;!comment;!error,indent=0]
+----
+
+Operations that are not committed are sent to the cluster, but not yet written to the table. The table is only updated when the `commit` method is called. You can roll back all uncommitted operations with the `rollback` command:
+
+[source, python]
+----
+include::includes/examples/python/db_api_example.py[tags=transaction_rollback;!comment;!error,indent=0]
+----
+
+NOTE: The `rollback` command rolls back all uncommitted data.

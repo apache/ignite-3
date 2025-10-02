@@ -324,7 +324,7 @@ Ignite 3 is focused on SQL, and SQL API is the primary way to work with the data
 tab:C++[]
 [source, cpp]
 ----
-result_set result = client.get_sql().execute(nullptr, {"select name from tbl where id = ?"}, {std::int64_t{42});
+result_set result = client.get_sql().execute(nullptr, {"select name from tbl where id = ?"}, {std::int64_t{42}});
 std::vector<ignite_tuple> page = result_set.current_page();
 ignite_tuple& row = page.front();
 ----
@@ -404,7 +404,7 @@ auto table_api = client.get_tables();
 std::vector<table> existing_tables = table_api.get_tables();
 table first_table = existing_tables.front();
 
-std::optional<table> my_table = table_api.get_table("MY_TABLE);
+std::optional<table> my_table = table_api.get_table("MY_TABLE");
 ----
 --
 

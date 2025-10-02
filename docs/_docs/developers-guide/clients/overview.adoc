@@ -14,7 +14,7 @@
 // limitations under the License.
 = Ignite Clients
 
-Ignite 3 clients connect to the cluster via a standard socket connection. Unlike in Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike in Ignite 2.x, there are no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
 
 Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
 
@@ -112,7 +112,7 @@ NOTE: Partition awareness assumes that the cluster is stable. Client receives in
 * DML queries, which **cannot** be rewritten to key-value operations, are not supported yet. +
 Apache Ignite can execute a query as key-value operation only if the query contains an equality condition on all key columns.
 Partition awareness will only work for DML queries if the query can be rewritten to a single key-value operation. The explain plan will contains `KeyValueGet` or `KeyValueModify` node in that case.
-Bulk DML operations (like ```INSERT FROM SELECT``` or multi-values ```INSERT FROM VALUES```) are not supported yet.
+Bulk DML operations (like `INSERT FROM SELECT` or multi-value `INSERT FROM VALUES`) are not supported yet.
 
 * Equality condition on colocation key columns is required. +
 Apache Ignite can only apply partition awareness optimization if the SQL query contains an equality condition on all colocated columns. This requirement allows the client to route the query to the node where the partition with the data resides. +

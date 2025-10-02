@@ -14,7 +14,7 @@
 // limitations under the License.
 = Apache Ignite 3
 
-Apache Ignite 3 is the next step of development of Apache Ignite, reworking the product from the core to bring it to the new era of interconnected networks and fast-paced and fast scaling environments. This page helps you to quickly see the improvements over Ignite 2.
+Apache Ignite 3 is the next step of development of Apache Ignite, reworking the product from its core to bring it to a new era of interconnected networks and fast-paced and fast scaling environments. This page helps you to quickly see the improvements over Ignite 2.
 
 == Core Improvements
 
@@ -50,7 +50,7 @@ The option to start Ignite from code as a client node remains, but this mode of 
 
 == Finer Control over Distributed Computing
 
-Ignite 3 distributed computing API extends what was possible in Ignite 2. All features of ignite 2 distributed computing are kept, and new APIs were added to keep active track of your job execution queues and job failover.
+Ignite 3 distributed computing API extends what was possible in Ignite 2. All features of Ignite 2 distributed computing are kept, and new APIs were added to keep active track of your job execution queues and job failover.
 
 == Management Improvements
 

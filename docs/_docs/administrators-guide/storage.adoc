@@ -22,7 +22,7 @@ image::images/storage.png[]
 
 == What is a Storage Engine?
 
-Storage engine is a Ignite node entity responsible for storing data on disk or in volatile memory in a particular format. It defines:
+Storage engine is an Ignite node entity responsible for storing data on disk or in volatile memory in a particular format. It defines:
 
 
 - The binary format of stored data;

@@ -16,13 +16,13 @@
 
 To execute table operations on a specific table, you need to get a specific view of the table and use one of its methods. You can only create new tables by using SQL API.
 
-Ignite supports mapping user objects to table tuples. This ensures that objects created in any programming language can be used for key-value operations directly.
+Apache Ignite supports mapping user objects to table tuples. This ensures that objects created in any programming language can be used for key-value operations directly.
 
-== Table Views in Ignite 3
+== Table Views in Apache Ignite
 
-=== Binary and Non-Binary Views
+=== Tuple and Key-Value Views
 
-When working with tables, Ignite offers two approaches: directly handling the data or mapping the data to classes. The direct data handling approach is is referred to as the `binary` view. Alternatively, when mapping data to classes, the data is converted to and from these classes as needed for database interactions.
+When working with tables, Apache Ignite offers two approaches: directly handling the data or mapping the data to classes. The direct data handling approach handles data tuples. Alternatively, when mapping data to classes, the data is converted to and from these classes as needed for database interactions.
 
 === Record and Key-Value Views
 
@@ -31,6 +31,24 @@ When creating views, you can create a `RecordView` or `KeyValueView`. The primar
 In a RecordView, you create a single “record” that includes all the information about a row to be updated or retrieved from the table, and send this record to the server. This record should contain all the fields, including the primary key.
 
 In a KeyValueView, you work with key-value mappings. Think of it as a dictionary where the key object contains the primary key field or fields, and the value object contains the data fields. This approach is useful when primary key is not directly related to the domain object thus you prefer not to add the primary key to it.
+
+== Data Type Support
+
+=== Time and Date Data Types
+
+Only JavaTime API is supported for working with table views. The following data types are not supported:
+
+- `java.util.Date`
+- `java.sql.Date`
+- `java.sql.Time`
+- `java.sql.Timestamp`
+
+Use the following data types instead:
+
+- `java.time.LocalDate`
+- `java.time.LocalTime`
+- `java.time.LocalDateTime`
+- `java.time.Instant`
 
 == Getting a Table Instance
 
@@ -41,11 +59,9 @@ First, get an instance of the table. To obtain an instance of table, use the `Ig
 tab:Java[]
 [source, java]
 ----
-IgniteTables tableApi = client.tables();
-List<Table> existingTables = tableApi.tables();
-Table firstTable = existingTables.get(0);
-
-Table myTable = tableApi.table("MY_TABLE");
+include::includes/examples/table/TableExample.java[tags=tableapi,indent=0]
+include::includes/examples/table/TableExample.java[tags=tableapiexisting,indent=0]
+include::includes/examples/table/TableExample.java[tags=tableapifirst,indent=0]
 ----
 
 tab:.NET[]
@@ -66,39 +82,82 @@ auto table_api = client.get_tables();
 std::vector<table> existing_tables = table_api.get_tables();
 table first_table = existing_tables.front();
 
-std::optional<table> my_table = table_api.get_table("MY_TABLE);
+std::optional<table> my_table = table_api.get_table("MY_TABLE");
 ----
 --
+
+By default, if the schema name is not specified, the `PUBLIC` schema is used. If a qualified name is specified, the table is taken from the specified schema.
+
+=== Qualified Table Name Object
+
+Instead of using a string to specify table name, you can create a `QualifiedName` object to hold a fully qualified table name. Apache Ignite provides 2 methods for creating qualified names:
+
+- You can parse the fully qualified table name with the `parse` method:
++
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+include::includes/examples/table/TableExample.java[tags=tableapiqualified1,indent=0]
+include::includes/examples/table/TableExample.java[tags=gettable,indent=0]
+----
+--
++
+- You can provide schema name and table name separately with the `of` method:
++
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+include::includes/examples/table/TableExample.java[tags=tableapiqualified2,indent=0]
+include::includes/examples/table/TableExample.java[tags=gettable,indent=0]
+----
+--
+
+The provided names must follow SQL syntax rules for identifiers:
+
+- Identifier must start from a character in the "Lu", "Ll", "Lt", "Lm", "Lo", or "Nl" Unicode categories or `U+0331` (underscore);
+- Identifier characters (except for the first one) may be `U+00B7` (middle dot), or any character in the "Mn", "Mc", "Nd", "Pc", or "Cf" Unicode categories;
+- Identifiers that contain any other characters must be quoted with `U+2033` (double-quotes);
+- Double-quote inside the identifier must be escaped with 2 double-quote characters.
+
+Any unquoted names will be cast to upper case. In this case, `Person` and `PERSON` names are equivalent. To avoid this, add escaped quotes around the name. For example, `\"Person\"` will be encoded as a case-sensitive `Person` name. If the name contains the `U+2033` (double quote) symbol, it must be escaped as `""` (2 double quote symbols).
+
+For example:
+
+----
+// Case-insensitive table `MY_TABLE` in a case-insensitive `PUBLIC` schema.
+QualifiedName.parse("public.my_table"))
+
+// Case-sensitive table `my_table` in a case-sensitive `public` schema.
+QualifiedName.parse("\"public\".\"my_table\""))
+
+// Same as above, but with comma as separator that needs to be surrounded by quote characters.
+QualifiedName.of("\"public\"","\"my_table\""))
+
+// Case-sensitive name my"table.
+QualifiedName.parse("\"my\"\"table\""));
+
+// Case-sensitive table name `public.my_table` in a default schema.
+QualifiedName.parse("\"public.my_table\""));
+----
 
 == Basic Table Operations
 
 Once you've got a table you need to get a specific view to choose how you want to operate table records.
 
-=== Binary Record View
+=== Tuple Record View
 
-A binary record view. It can be used to operate table tuples directly. When retrieving data from binary views, you can use a wide variety of methods to retrieve type-specific data stored in tuples. A full list of methods is available in the Tuple object javadoc.
+A tuple record view can be used to operate on table tuples directly. When retrieving data from tuple views, you can use a wide variety of methods to retrieve type-specific data stored in tuples. A full list of methods is available in the Tuple object javadoc.
 
 [tabs]
 --
 tab:Java[]
 [source, java]
 ----
-RecordView<Tuple> view = myTable.recordView();
-
-//create a new person record
-Tuple fullRecord = Tuple.create()
-        .set("id", 42)
-        .set("name", "John Doe");
-
-view.upsert(null, fullRecord);
-
-//create a key to find record with id = 42
-Tuple keyRecord = Tuple.create().set("id", 42);
-
-Tuple resultRecord = view.get(null, keyRecord);
-
-System.out.println("id: " + resultRecord.intValue("id"));
-System.out.println("name: " + resultRecord.stringValue("name"));
+include::includes/examples/table/RecordViewExample.java[tags=record-kv;!comment,indent=0]
 ----
 
 tab:.NET[]
@@ -146,23 +205,31 @@ assert(res_record->get<std::string>("name") == "John Doe");
 
 === Record View
 
-A record view mapped to a user type. It can be used to operate table using user objects which are mapped to table tuples.
+A record view maps to a user-defined type and enables table operations on user objects which are mapped to table tuples.
+
+Create the type converter:
+
+[source, java]
+----
+include::includes/examples/table/MapperExample.java[tags=converter,indent=0]
+----
+
+Then build the mapper and get the `RecordView`:
+
+[source, java]
+----
+include::includes/examples/table/MapperExample.java[tags=mapper,indent=0]
+----
+
+Perform table operations on your custom objects mapped to table tuples:
 
 [tabs]
 --
 tab:Java[]
-[source, java]
+
+[source,java]
 ----
-RecordView<Person> personView = myTable.recordView(Mapper.of(Person.class));
-
-//insert a new Person object
-personView.upsert(null, new Person(42, "John Doe", 30));
-
-//retrieve the Person object with id = 42
-Person resultRecord = personView.get(null, new Person(42, "Jane Doe", 32));
-
-System.out.println("id: " + resultRecord.id);
-System.out.println("name:" + resultRecord.name);
+include::includes/examples/table/RecordViewPojoExample.java[tags=record-pojo;!comment,indent=0]
 ----
 
 tab:.NET[]
@@ -196,25 +263,16 @@ assert(res->name == "John Doe");
 
 --
 
-=== Key-Value Binary View
+=== Key-Value Tuple View
 
-A binary key-value view. It can be used to operate table using key and value tuples separately. When retrieving data from binary views, you can use a wide variety of methods to retrieve type-specific data stored in tuples. A full list of methods is available in the Tuple object javadoc.
+A tuple key-value view. It can be used to operate table using key and value tuples separately. When retrieving data from tuple views, you can use a wide variety of methods to retrieve type-specific data stored in tuples. A full list of methods is available in the Tuple object javadoc.
 
 [tabs]
 --
 tab:Java[]
 [source, java]
 ----
-KeyValueView<Tuple, Tuple> kvView = myTable.keyValueView();
-
-Tuple key = Tuple.create().set("id", 42);
-Tuple val = Tuple.create().set("name", "John Doe").set("age", 30);
-
-kvView.put(null, key, val);
-
-Tuple resultRecord = kvView.get(null, key);
-System.out.println("age: " + resultRecord.intValue("age"));
-System.out.println("name: " + resultRecord.stringValue("name"));
+include::includes/examples/table/KeyValueViewExample.java[tags=kv-tuple;!comment,indent=0]
 ----
 
 tab:.NET[]
@@ -262,13 +320,7 @@ A key-value view with user objects. It can be used to operate table using key an
 tab:Java[]
 [source, java]
 ----
-KeyValueView<Integer, PersonKV> personView =
-        myTable.keyValueView(Mapper.of(Integer.class), Mapper.of(PersonKV.class));
-
-personView.put(null, 42, new PersonKV("John Doe", 30));
-PersonKV val = personView.get(null, 42);
-
-System.out.println("name: " + val.name);
+include::includes/examples/table/KeyValueViewPojoExample.java[tags=kv-pojo;!comment,indent=0]
 ----
 
 tab:.NET[]
@@ -301,7 +353,7 @@ assert(res->name == "John Doe");
 
 == Criterion Queries
 
-Ignite 3 provides the criterion queries that can be used to retrieve data from tables. Criterion queries work with any type of view, returning the appropriate data to the query specified.
+Apache Ignite provides the criterion queries that can be used to retrieve data from tables. Criterion queries work with any type of view, returning the appropriate data to the query specified.
 
 The example below shows how you can execute a query within an implicit transaction:
 
@@ -310,12 +362,7 @@ The example below shows how you can execute a query within an implicit transacti
 tab:Java[]
 [source, java]
 ----
-try (Cursor<Map.Entry<Tuple, Tuple>> cursor = kvView.query(
-        null,
-        and(columnValue("name", equalTo("John Doe")), columnValue("age", greaterThan(20)))
-)) {
-    // ...
-}
+include::includes/examples/table/QueryExample.java[tags=criterion,indent=0]
 ----
 --
 
@@ -328,17 +375,7 @@ You can also specify the specific transaction to execute the query in to perform
 tab:Java[]
 [source, java]
 ----
-Ignite client = node.api();
-Transaction tx = client.transactions().begin();
-
-try (Cursor<Map.Entry<Tuple, Tuple>> cursor = kvView.query(
-        tx,
-        and(columnValue("name", equalTo("John Doe")), columnValue("age", greaterThan(20)))
-)) {
-    // ...
-}
-
-tx.commit();
+include::includes/examples/table/QueryExample.java[tags=criterionwithtransaction,indent=0]
 ----
 --
 
@@ -349,41 +386,20 @@ You can also perform the query asynchronously by using the `queryAsync` method. 
 [tabs]
 --
 tab:Java[]
+[source, java]
 ----
-kvView.queryAsync(null, and(columnValue("name", equalTo("John Doe")), columnValue("age", greaterThan(20))))
-        .thenCompose(this::fetchAllRowsInto)
-        .join();
+include::includes/examples/table/QueryExample.java[tags=asyncquery,indent=0]
 ----
 --
 
 This operation uses the `thenCompose()` method to handle the query results asynchronously in the user-defined `fetchAllRowsInto()` method. Here is how this method may look like:
 
-[tabs]
---
 
-
-== Table TTL
+=== Table TTL
 
 When inserting values to the table, you can set expiration time for these values if TTL is enabled in the table. You can set the TTL by using the link:sql-reference/ddl/#create-table[CREATE TABLE] or link:sql-reference/ddl#alter-table-if-exists-table-set-expire-at[ALTER TABLE] statements.
 
-When adding data to the table, it is enough to put the desired TTL timestamp in the TTL column:
-
-tab:Java[]
-----
-public CompletionStage<Void> fetchAllRowsInto(AsyncCursor<Map.Entry<Tuple, Tuple>> cursor) {
-    // Process the current page.
-    for (var row : cursor.currentPage()) {
-        // ...
-    }
-    // Finish processing if no more data is currently available.
-    if (!cursor.hasMorePages()) {
-        return CompletableFuture.completedFuture(null);
-    }
-    // Request for the next page, then subscribe to the response.
-    return cursor.fetchNextPage().thenCompose(this::fetchAllRowsInto);
-}
-----
---
+When adding data to the table, it is enough to put the desired TTL timestamp in the TTL column.
 
 
 === Comparison Expressions

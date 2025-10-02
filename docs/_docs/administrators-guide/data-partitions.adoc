@@ -21,7 +21,7 @@ Data partitioning is a method of subdividing large sets of data into smaller chu
 When the table is created, it is always assigned to a link:administrators-guide/distribution-zones[distribution zone]. Based on the distribution zone parameters, data is separated into `PARTITIONS` parts, called *partitions*, stored `REPLICAS` times across the cluster. Each partition is identified by a number from a limited set (0 to 24 by default). Each individual copy of a partition is called a *replica*, and is stored on separate nodes, if possible. Ignite uses the *Fair* partition distribution algorithm. It means that it stores information on partition distribution and uses this information for assigning new partitions. This information is preserved in cluster metastorage, and is recalculated only when necessary.
 
 
-Once partitions and all replicas are created, they are distributed across the available cluster nodes that are included in the distribution zone following the `DATA_NODES_FILTER` parameter and according to the *partition distribution algorithm*. Thus, each key is mapped to a list of nodes owning the corresponding partition and is stored on those nodes. When data is added, it is distributed evenly between partitions.
+Once partitions and all replicas are created, they are distributed across the available cluster nodes that are included in the distribution zone following the `DATA_NODES_FILTER` parameter. Distribution follows the *partition distribution algorithm*. Thus, each key is mapped to a list of nodes owning the corresponding partition and is stored on those nodes. When data is added, it is distributed evenly between partitions.
 
 image::images/partitioning.png[Ignite Partitions]
 
