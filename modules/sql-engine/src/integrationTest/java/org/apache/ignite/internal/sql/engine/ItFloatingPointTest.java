@@ -46,7 +46,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     @BeforeEach
     void resetTableState() {
         sqlScript("DELETE FROM test;"
-                + "INSERT INTO test VALUES (0, NULL, NULL, 0.0f, 0.0d);"
+                + "INSERT INTO test VALUES (0, NULL, NULL, 0.0::FLOAT, 0.0::DOUBLE);"
                 + "INSERT INTO test VALUES (1, '-Infinity'::FLOAT, '-Infinity'::DOUBLE, '-Infinity'::FLOAT, '-Infinity'::DOUBLE);"
                 + "INSERT INTO test VALUES (2, 'Infinity'::FLOAT, 'Infinity'::DOUBLE, 'Infinity'::FLOAT, 'Infinity'::DOUBLE);"
                 + "INSERT INTO test VALUES (3, 'NaN'::FLOAT, 'NaN'::DOUBLE, 'NaN'::FLOAT, 'NaN'::DOUBLE);"
@@ -162,7 +162,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
         }
 
         { // Index scan
-            assertQuery("SELECT /*+ FORCE_INDEX */ f FROM test ORDER BY f")
+            assertQuery("SELECT /*+ FORCE_INDEX(test_f_idx) */ f, fn FROM test ORDER BY f")
                     .matches(containsIndexScanIgnoreBounds("PUBLIC", "TEST", "TEST_F_IDX"))
                     .ordered()
                     .returns(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
@@ -175,7 +175,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns((Object) null, 0.0f)
                     .check();
 
-            assertQuery("SELECT /*+ FORCE_INDEX */ d FROM test ORDER BY d")
+            assertQuery("SELECT /*+ FORCE_INDEX(test_d_idx) */ d, dn FROM test ORDER BY d")
                     .matches(containsIndexScanIgnoreBounds("PUBLIC", "TEST", "TEST_D_IDX"))
                     .ordered()
                     .returns(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY)
@@ -214,15 +214,20 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
             assertQuery("SELECT /*+ FORCE_INDEX(test_f_idx) */ f FROM test WHERE f > ?")
                     .withParam(Float.NEGATIVE_INFINITY)
                     .matches(containsIndexScan("PUBLIC", "TEST", "TEST_F_IDX"))
-                    .returns(-0.0f).returns(0.0f)
-                    .returns(-1.0f).returns(1.0f)
+                    .returns(-0.0f)
+                    .returns(0.0f)
+                    .returns(-1.0f)
+                    .returns(1.0f)
                     .returns(Float.POSITIVE_INFINITY)
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_fn_idx) */ fn FROM test WHERE fn > ?")
                     .withParam(Float.NEGATIVE_INFINITY)
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_F_IDX"))
-                    .returns(-0.0f).returns(0.0f)
-                    .returns(-1.0f).returns(1.0f)
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_FN_IDX"))
+                    .returns(-0.0f)
+                    .returns(0.0f)
+                    .returns(0.0f)
+                    .returns(-1.0f)
+                    .returns(1.0f)
                     .returns(Float.POSITIVE_INFINITY)
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_f_idx) */ f FROM test WHERE f > ?")
@@ -232,7 +237,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_fn_idx) */ fn FROM test WHERE fn > ?")
                     .withParam(Float.NaN)
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_F_IDX"))
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_FN_IDX"))
                     .returnNothing()
                     .check();
 
@@ -243,9 +248,12 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns(Double.POSITIVE_INFINITY)
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_dn_idx) */ dn FROM test WHERE dn > '-Infinity'::DOUBLE")
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_D_IDX"))
-                    .returns(-0.0d).returns(0.0d)
-                    .returns(-1.0d).returns(1.0d)
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_DN_IDX"))
+                    .returns(-0.0d)
+                    .returns(0.0d)
+                    .returns(0.0d)
+                    .returns(-1.0d)
+                    .returns(1.0d)
                     .returns(Double.POSITIVE_INFINITY)
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_d_idx) */ d FROM test WHERE d > 'NaN'::DOUBLE")
@@ -253,7 +261,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returnNothing()
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_dn_idx) */ dn FROM test WHERE dn > 'NaN'::DOUBLE")
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_D_IDX"))
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_DN_IDX"))
                     .returnNothing()
                     .check();
         }
@@ -268,7 +276,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_fn_idx) */ fn FROM test WHERE fn < ?")
                     .withParam(+0.0f)
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_F_IDX"))
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_FN_IDX"))
                     .returns(-1.0f)
                     .returns(Float.NEGATIVE_INFINITY)
                     .check();
@@ -279,7 +287,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_fn_idx) */ fn FROM test WHERE fn < ?")
                     .withParam(Float.NaN)
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_F_IDX"))
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_FN_IDX"))
                     .returnNothing()
                     .check();
 
@@ -289,7 +297,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returns(Double.NEGATIVE_INFINITY)
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_dn_idx) */ dn FROM test WHERE dn < +0.0::DOUBLE")
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_D_IDX"))
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_DN_IDX"))
                     .returns(-1.0d)
                     .returns(Double.NEGATIVE_INFINITY)
                     .check();
@@ -298,7 +306,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .returnNothing()
                     .check();
             assertQuery("SELECT /*+ FORCE_INDEX(test_dn_idx) */ dn FROM test WHERE dn < '-NaN'::DOUBLE")
-                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_D_IDX"))
+                    .matches(containsIndexScan("PUBLIC", "TEST", "TEST_DN_IDX"))
                     .returnNothing()
                     .check();
         }
@@ -396,9 +404,9 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     void testIsDistinctFrom() {
         assertQuery("SELECT f, fn FROM test WHERE f IS DISTINCT FROM '+Infinity'::FLOAT AND fn IS DISTINCT FROM '-Infinity'::FLOAT")
                 .returns(0.0f, 0.0f).returns(-0.0f, -0.0f)
-                .returns(1.0f, 1.0f).returns(-1.0f, 1.0f)
+                .returns(1.0f, 1.0f).returns(-1.0f, -1.0f)
                 .returns(Float.NaN, Float.NaN)
-                .returns(null, 0.0)
+                .returns(null, 0.0f)
                 .check();
         assertQuery("SELECT d, dn FROM test WHERE d IS DISTINCT FROM '+Infinity'::DOUBLE AND dn IS DISTINCT FROM '-Infinity'::DOUBLE")
                 .returns(0.0d, 0.0d).returns(-0.0d, -0.0d)
@@ -445,13 +453,13 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     @Test
     void testGrouping() {
         // Insert more data.
-        sqlScript("INSERT INTO test VALUES (8, '-Infinity'::FLOAT, '-Infinity'::DOUBLE);"
-                + "INSERT INTO test VALUES (9, 'Infinity'::FLOAT, 'Infinity'::DOUBLE);"
-                + "INSERT INTO test VALUES (10, 'NaN'::FLOAT, 'NaN'::DOUBLE);"
-                + "INSERT INTO test VALUES (11, -0.0::FLOAT, -0.0::DOUBLE);"
-                + "INSERT INTO test VALUES (12, 0.0::FLOAT, 0.0::DOUBLE);"
-                + "INSERT INTO test VALUES (13, -1.0::FLOAT, -1.0::DOUBLE);"
-                + "INSERT INTO test VALUES (14, 1.0::FLOAT, 1.0::DOUBLE);"
+        sqlScript("INSERT INTO test VALUES (8, '-Infinity'::FLOAT, '-Infinity'::DOUBLE, '-Infinity'::FLOAT, '-Infinity'::DOUBLE);"
+                + "INSERT INTO test VALUES (9, 'Infinity'::FLOAT, 'Infinity'::DOUBLE, 'Infinity'::FLOAT, 'Infinity'::DOUBLE);"
+                + "INSERT INTO test VALUES (10, 'NaN'::FLOAT, 'NaN'::DOUBLE, 'NaN'::FLOAT, 'NaN'::DOUBLE);"
+                + "INSERT INTO test VALUES (11, -0.0::FLOAT, -0.0::DOUBLE, -0.0::FLOAT, -0.0::DOUBLE);"
+                + "INSERT INTO test VALUES (12, 0.0::FLOAT, 0.0::DOUBLE, 0.0::FLOAT, 0.0::DOUBLE);"
+                + "INSERT INTO test VALUES (13, -1.0::FLOAT, -1.0::DOUBLE, -1.0::FLOAT, -1.0::DOUBLE);"
+                + "INSERT INTO test VALUES (14, 1.0::FLOAT, 1.0::DOUBLE, 1.0::FLOAT, 1.0::DOUBLE);"
         );
         assertQuery("SELECT * FROM test").returnRowCount(15).check();
 
@@ -474,7 +482,6 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                 .returns(1.0f)
                 .returns(0.0f)
                 .returns(-0.0f)
-                .returns((Object) null)
                 .check();
 
         assertQuery("SELECT d FROM test GROUP BY d")
@@ -496,7 +503,6 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                 .returns(1.0d)
                 .returns(0.0d)
                 .returns(-0.0d)
-                .returns((Object) null)
                 .check();
     }
 }
