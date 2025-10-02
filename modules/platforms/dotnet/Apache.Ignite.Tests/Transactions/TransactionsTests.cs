@@ -227,6 +227,8 @@ namespace Apache.Ignite.Tests.Transactions
             await PocoView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
             // Old read-only tx sees old data.
+            // TODO: This fails if (somehow??) the upserts are on different channels - see the log in the ticket.
+            // Imitate this to reproduce.
             Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
 
             // New tx sees new data
