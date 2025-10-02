@@ -216,7 +216,9 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     ) {
         return () -> {
             CompletableFuture<R> userJobFut = jobInstance.executeAsync(
-                    context, unmarshalOrNotIfNull(inputMarshaller, arg, getJobExecuteArgumentType(jobClass)));
+                    context,
+                    unmarshalOrNotIfNull(inputMarshaller, arg, getJobExecuteArgumentType(jobClass), jobClass.getClassLoader())
+            );
 
             return userJobFut == null
                     ? null
