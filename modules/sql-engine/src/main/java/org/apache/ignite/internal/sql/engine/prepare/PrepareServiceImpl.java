@@ -478,8 +478,21 @@ public class PrepareServiceImpl implements PrepareService {
             ParsedResult parsedResult,
             PlanningContext ctx
     ) {
-        CompletableFuture<ValidStatement<ValidationResult>> validateFut = validateQuery(parsedResult, ctx);
-        return buildQueryPlan(validateFut, ctx);
+        return validateQuery(parsedResult, ctx).thenCompose(stmt -> {
+            if (!ctx.explicitTx()) {
+                // Try to produce a fast plan, if successful, then return that plan w/o caching it.
+                QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
+                if (fastPlan != null) {
+                    return CompletableFuture.completedFuture(PlanInfo.create(fastPlan));
+                }
+            }
+
+            // Use parameter metadata to compute a cache key.
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata, ctx.defaultSchema());
+
+            return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
+                    () -> cache.invalidate(cacheKey)), planningPool));
+        });
     }
 
     private CompletableFuture<PlanInfo> rebuildQueryPlan(
@@ -525,27 +538,6 @@ public class PrepareServiceImpl implements PrepareService {
 
             return new ValidStatement<>(parsedResult, validated, parameterMetadata);
         }, planningPool);
-    }
-
-    private CompletableFuture<PlanInfo> buildQueryPlan(
-            CompletableFuture<ValidStatement<ValidationResult>> validFut,
-            PlanningContext ctx
-    ) {
-        return validFut.thenCompose(stmt -> {
-            if (!ctx.explicitTx()) {
-                // Try to produce a fast plan, if successful, then return that plan w/o caching it.
-                QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
-                if (fastPlan != null) {
-                    return CompletableFuture.completedFuture(PlanInfo.create(fastPlan));
-                }
-            }
-
-            // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata, ctx.defaultSchema());
-
-            return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
-                    () -> cache.invalidate(cacheKey)), planningPool));
-        });
     }
 
     private PlanInfo buildQueryPlan(ValidStatement<ValidationResult> stmt, PlanningContext ctx, Runnable onTimeoutAction) {
@@ -710,7 +702,7 @@ public class PrepareServiceImpl implements PrepareService {
             PlanningContext ctx,
             CacheKey key
     ) {
-        CompletableFuture<PlanInfo> fut = validateDml(parsedResult, ctx).thenCompose(stmt ->
+        CompletableFuture<PlanInfo> fut = validateDml(parsedResult, parsedResult.parsedTree(), ctx).thenCompose(stmt ->
                 CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx, () -> {}), planningPool));
 
         return fut.handle((info, err) -> {
@@ -740,38 +732,7 @@ public class PrepareServiceImpl implements PrepareService {
             return prepareDmlOpt(sqlNode, ctx, parsedResult.originalQuery());
         }
 
-        CompletableFuture<ValidStatement<ValidationResult>> validateFut = validateDml(parsedResult, ctx);
-
-        return buildDmlPlan(validateFut, ctx, parsedResult);
-    }
-
-    private CompletableFuture<ValidStatement<ValidationResult>> validateDml(
-            ParsedResult parsedResult,
-            PlanningContext ctx
-    ) {
-        SqlNode sqlNode = parsedResult.parsedTree();
-
-        return CompletableFuture.supplyAsync(() -> {
-            IgnitePlanner planner = ctx.planner();
-
-            // Validate
-            SqlNode validatedNode = planner.validate(sqlNode);
-            ValidationResult validatedResult = new ValidationResult(validatedNode);
-
-            // Get parameter metadata.
-            RelDataType parameterRowType = planner.getParameterRowType();
-            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
-
-            return new ValidStatement<>(parsedResult, validatedResult, parameterMetadata);
-        }, planningPool);
-    }
-
-    private CompletableFuture<PlanInfo> buildDmlPlan(
-            CompletableFuture<ValidStatement<ValidationResult>> validFut,
-            PlanningContext ctx,
-            ParsedResult parsedResult
-    ) {
-        return validFut.thenCompose(stmt -> {
+        return validateDml(parsedResult, sqlNode, ctx).thenCompose(stmt -> {
             // Use parameter metadata to compute a cache key.
             CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata, ctx.defaultSchema());
 
@@ -834,6 +795,27 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return PlanInfo.create(plan);
+    }
+
+    private CompletableFuture<ValidStatement<ValidationResult>> validateDml(
+            ParsedResult parsedResult,
+            SqlNode sqlNode,
+            PlanningContext ctx
+    ) {
+        return CompletableFuture.supplyAsync(() -> {
+            IgnitePlanner planner = ctx.planner();
+
+            // Validate
+            SqlNode validatedNode = planner.validate(sqlNode);
+            ValidationResult validatedResult = new ValidationResult(validatedNode);
+
+            // Get parameter metadata.
+            RelDataType parameterRowType = planner.getParameterRowType();
+            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
+
+            // No need whole ParsedResult
+            return new ValidStatement<>(parsedResult, validatedResult, parameterMetadata);
+        }, planningPool);
     }
 
     private @Nullable QueryPlan tryOptimizeFast(
