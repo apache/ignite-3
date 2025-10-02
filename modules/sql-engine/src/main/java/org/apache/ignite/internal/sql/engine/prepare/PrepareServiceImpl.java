@@ -37,7 +37,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -62,7 +61,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
@@ -74,7 +72,6 @@ import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
-import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
@@ -301,7 +298,18 @@ public class PrepareServiceImpl implements PrepareService {
         long timestamp = operationContext.operationTime().longValue();
         int catalogVersion = schemaManager.catalogVersion(timestamp);
 
-        CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters());
+        IgniteSchemas rootSchema = schemaManager.schemas(catalogVersion);
+        assert rootSchema != null : "Root schema does not exist";
+
+        SchemaPlus schemaPlus = rootSchema.root();
+        SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
+        // If default schema does not exist or misconfigured, we should use the root schema as default one
+        // because there is no other schema for the validator to use.
+        if (defaultSchema == null) {
+            defaultSchema = schemaPlus;
+        }
+
+        CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters(), defaultSchema);
 
         CompletableFuture<PlanInfo> planFuture = cache.get(key);
 
@@ -324,26 +332,14 @@ public class PrepareServiceImpl implements PrepareService {
             });
         }
 
-        IgniteSchemas rootSchema = schemaManager.schemas(timestamp);
-        assert rootSchema != null : "Root schema does not exist";
-
-        QueryCancel cancelHandler = operationContext.cancel();
-        assert cancelHandler != null;
-
-        SchemaPlus schemaPlus = rootSchema.root();
-        SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
-        // If default schema does not exist or misconfigured, we should use the root schema as default one
-        // because there is no other schema for the validator to use.
-        if (defaultSchema == null) {
-            defaultSchema = schemaPlus;
-        }
-
         PlanningContext planningContext = PlanningContext.builder()
-                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(defaultSchema).build())
+                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                        .defaultSchema(defaultSchema).build())
                 .query(parsedResult.originalQuery())
                 .plannerTimeout(plannerTimeout)
-                .catalogVersion(rootSchema.catalogVersion())
+                .catalogVersion(catalogVersion)
                 .defaultSchemaName(schemaName)
+                .defaultSchema(defaultSchema)
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .explicitTx(explicitTx)
                 .build();
@@ -478,21 +474,30 @@ public class PrepareServiceImpl implements PrepareService {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    private CompletableFuture<PlanInfo> prepareCachedQuery(
+    private CompletableFuture<PlanInfo> prepareQuery(
+            ParsedResult parsedResult,
+            PlanningContext ctx
+    ) {
+        CompletableFuture<ValidStatement<ValidationResult>> validateFut = validateQuery(parsedResult, ctx);
+        return buildQueryPlan(validateFut, ctx);
+    }
+
+    private CompletableFuture<PlanInfo> rebuildQueryPlan(
             ParsedResult parsedResult,
             PlanningContext ctx,
             CacheKey key
     ) {
-        CompletableFuture<PlanInfo> fut = prepareQueryCacheAware(parsedResult, ctx, false);
+        CompletableFuture<PlanInfo> fut = validateQuery(parsedResult, ctx)
+                .thenCompose(stmt ->
+                        CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx, () -> {}), planningPool)
+                );
 
         return fut.handle((info, err) -> {
             if (err != null) {
-                LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), err);
+                LOG.debug("Failed to re-planning query: " + parsedResult.originalQuery(), err);
 
                 return null;
             } else {
-                info.invalidated();
-
                 cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
 
                 return info;
@@ -500,20 +505,11 @@ public class PrepareServiceImpl implements PrepareService {
         });
     }
 
-    private CompletableFuture<PlanInfo> prepareQuery(
+    private CompletableFuture<ValidStatement<ValidationResult>> validateQuery(
             ParsedResult parsedResult,
             PlanningContext ctx
     ) {
-        return prepareQueryCacheAware(parsedResult, ctx, true);
-    }
-
-    private CompletableFuture<PlanInfo> prepareQueryCacheAware(
-            ParsedResult parsedResult,
-            PlanningContext ctx,
-            boolean prepareWithCache
-    ) {
-        // First validate statement
-        CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             SqlNode sqlNode = parsedResult.parsedTree();
@@ -529,7 +525,12 @@ public class PrepareServiceImpl implements PrepareService {
 
             return new ValidStatement<>(parsedResult, validated, parameterMetadata);
         }, planningPool);
+    }
 
+    private CompletableFuture<PlanInfo> buildQueryPlan(
+            CompletableFuture<ValidStatement<ValidationResult>> validFut,
+            PlanningContext ctx
+    ) {
         return validFut.thenCompose(stmt -> {
             if (!ctx.explicitTx()) {
                 // Try to produce a fast plan, if successful, then return that plan w/o caching it.
@@ -539,15 +540,11 @@ public class PrepareServiceImpl implements PrepareService {
                 }
             }
 
-            if (prepareWithCache) {
-                // Use parameter metadata to compute a cache key.
-                CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
+            // Use parameter metadata to compute a cache key.
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata, ctx.defaultSchema());
 
-                return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
-                        () -> cache.invalidate(cacheKey)), planningPool));
-            } else {
-                return CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx, () -> {}), planningPool);
-            }
+            return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
+                    () -> cache.invalidate(cacheKey)), planningPool));
         });
     }
 
@@ -604,11 +601,7 @@ public class PrepareServiceImpl implements PrepareService {
             IntSet sources = resolveSources(plan.getRel());
 
             PlanningContextState state = PlanningContextState.builder()
-                    .frameworkConfig(ctx.config())
-                    .catalogVersion(ctx.catalogVersion())
-                    .defaultSchemaName(ctx.schemaName())
                     .parameters(ctx.parameters())
-                    .explicitTx(ctx.explicitTx())
                     .build();
 
             return PlanInfo.createRefreshable(plan, stmt, state, sources);
@@ -626,9 +619,9 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         if (queryType == SqlQueryType.QUERY) {
-            return prepareCachedQuery(parsedRes, ctx, key);
+            return rebuildQueryPlan(parsedRes, ctx, key);
         } else if (queryType == SqlQueryType.DML) {
-            return prepareCachedDml(parsedRes, ctx, key);
+            return rebuildDmlPlan(parsedRes, ctx, key);
         } else {
             throw new AssertionError("should not get here");
         }
@@ -712,21 +705,20 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.completedFuture(PlanInfo.create(plan));
     }
 
-    private CompletableFuture<PlanInfo> prepareCachedDml(
+    private CompletableFuture<PlanInfo> rebuildDmlPlan(
             ParsedResult parsedResult,
             PlanningContext ctx,
             CacheKey key
     ) {
-        CompletableFuture<PlanInfo> fut = prepareDmlCacheAware(parsedResult, ctx, false);
+        CompletableFuture<PlanInfo> fut = validateDml(parsedResult, ctx).thenCompose(stmt ->
+                CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx, () -> {}), planningPool));
 
         return fut.handle((info, err) -> {
             if (err != null) {
-                LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), err);
+                LOG.debug("Failed to re-planning query: " + parsedResult.originalQuery(), err);
 
                 return null;
             } else {
-                info.invalidated();
-
                 cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
 
                 return info;
@@ -738,14 +730,6 @@ public class PrepareServiceImpl implements PrepareService {
             ParsedResult parsedResult,
             PlanningContext ctx
     ) {
-        return prepareDmlCacheAware(parsedResult, ctx, true);
-    }
-
-    private CompletableFuture<PlanInfo> prepareDmlCacheAware(
-            ParsedResult parsedResult,
-            PlanningContext ctx,
-            boolean prepareWithCache
-    ) {
         SqlNode sqlNode = parsedResult.parsedTree();
 
         assert single(sqlNode);
@@ -756,7 +740,18 @@ public class PrepareServiceImpl implements PrepareService {
             return prepareDmlOpt(sqlNode, ctx, parsedResult.originalQuery());
         }
 
-        CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<ValidStatement<ValidationResult>> validateFut = validateDml(parsedResult, ctx);
+
+        return buildDmlPlan(validateFut, ctx, parsedResult);
+    }
+
+    private CompletableFuture<ValidStatement<ValidationResult>> validateDml(
+            ParsedResult parsedResult,
+            PlanningContext ctx
+    ) {
+        SqlNode sqlNode = parsedResult.parsedTree();
+
+        return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -769,18 +764,19 @@ public class PrepareServiceImpl implements PrepareService {
 
             return new ValidStatement<>(parsedResult, validatedResult, parameterMetadata);
         }, planningPool);
+    }
 
-        // Optimize
+    private CompletableFuture<PlanInfo> buildDmlPlan(
+            CompletableFuture<ValidStatement<ValidationResult>> validFut,
+            PlanningContext ctx,
+            ParsedResult parsedResult
+    ) {
         return validFut.thenCompose(stmt -> {
-            if (prepareWithCache) {
-                // Use parameter metadata to compute a cache key.
-                CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
+            // Use parameter metadata to compute a cache key.
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata, ctx.defaultSchema());
 
-                return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
-                        () -> cache.invalidate(cacheKey)), planningPool));
-            } else {
-                return CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx, () -> {}), planningPool);
-            }
+            return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
+                    () -> cache.invalidate(cacheKey)), planningPool));
         });
     }
 
@@ -831,11 +827,7 @@ public class PrepareServiceImpl implements PrepareService {
             IntSet sources = resolveSources(plan.getRel());
 
             PlanningContextState state = PlanningContextState.builder()
-                    .frameworkConfig(ctx.config())
-                    .catalogVersion(ctx.catalogVersion())
-                    .defaultSchemaName(ctx.schemaName())
                     .parameters(ctx.parameters())
-                    .explicitTx(ctx.explicitTx())
                     .build();
 
             return PlanInfo.createRefreshable(plan, stmt, state, sources);
@@ -890,7 +882,11 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private static CacheKey createCacheKey(
-            ParsedResult parsedResult, int catalogVersion, String schemaName, Object[] params
+            ParsedResult parsedResult,
+            int catalogVersion,
+            String schemaName,
+            Object[] params,
+            SchemaPlus defaultSchema
     ) {
         ColumnType[] paramTypes = new ColumnType[params.length];
 
@@ -911,12 +907,15 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes[idx++] = columnType;
         }
 
-        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), true /* distributed */, paramTypes);
+        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), true /* distributed */, paramTypes, defaultSchema);
     }
 
-    private static CacheKey createCacheKeyFromParameterMetadata(ParsedResult parsedResult, PlanningContext ctx,
-            ParameterMetadata parameterMetadata) {
-
+    private static CacheKey createCacheKeyFromParameterMetadata(
+            ParsedResult parsedResult,
+            PlanningContext ctx,
+            ParameterMetadata parameterMetadata,
+            SchemaPlus defaultSchema
+    ) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
         int catalogVersion = ctx.catalogVersion();
         ColumnType[] paramTypes;
@@ -934,7 +933,7 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes = result;
         }
 
-        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes, defaultSchema);
     }
 
     private static IntSet resolveSources(IgniteRel rel) {
@@ -1172,22 +1171,19 @@ public class PrepareServiceImpl implements PrepareService {
                                 SqlQueryType queryType = info.statement.parsedResult().queryType();
 
                                 PlanningContext planningContext = PlanningContext.builder()
-                                        .frameworkConfig(info.context.frameworkConfig())
+                                        .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                                .defaultSchema(key.defaultSchema()).build())
                                         .query(info.statement.parsedResult().originalQuery())
                                         .plannerTimeout(plannerTimeout)
-                                        .catalogVersion(info.context.catalogVersion())
-                                        .defaultSchemaName(info.context.defaultSchemaName())
+                                        .catalogVersion(key.catalogVersion())
+                                        .defaultSchemaName(key.schemaName())
                                         .parameters(info.context.parameters())
-                                        .explicitTx(info.context.explicitTx())
                                         .build();
 
                                 CompletableFuture<PlanInfo> newPlanFut =
                                         prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
 
                                 rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
-
-                            } else {
-                                info.invalidated();
                             }
                         }
                     }
@@ -1334,44 +1330,16 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     static class PlanningContextState {
-        private final FrameworkConfig frameworkConfig;
-        private final int catalogVersion;
-        private final String defaultSchemaName;
         private final Int2ObjectMap<Object> parameters;
-        private final boolean explicitTx;
 
         PlanningContextState(
-                FrameworkConfig frameworkConfig,
-                int catalogVersion,
-                String defaultSchemaName,
-                Int2ObjectMap<Object> parameters,
-                boolean explicitTx
+                Int2ObjectMap<Object> parameters
         ) {
-            this.frameworkConfig = frameworkConfig;
-            this.catalogVersion = catalogVersion;
-            this.defaultSchemaName = defaultSchemaName;
             this.parameters = parameters;
-            this.explicitTx = explicitTx;
-        }
-
-        FrameworkConfig frameworkConfig() {
-            return frameworkConfig;
-        }
-
-        int catalogVersion() {
-            return catalogVersion;
-        }
-
-        String defaultSchemaName() {
-            return defaultSchemaName;
         }
 
         Int2ObjectMap<Object> parameters() {
             return parameters;
-        }
-
-        boolean explicitTx() {
-            return explicitTx;
         }
 
         /** Get context builder. */
@@ -1380,28 +1348,7 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         public static class Builder {
-            private FrameworkConfig frameworkConfig;
-            private int catalogVersion;
-            private String defaultSchemaName;
             private Int2ObjectMap<Object> parameters;
-            private boolean explicitTx;
-
-            PlanningContextState.Builder frameworkConfig(FrameworkConfig frameworkCfg) {
-                this.frameworkConfig = Objects.requireNonNull(frameworkCfg);
-                return this;
-            }
-
-            /** Catalog version. */
-            PlanningContextState.Builder catalogVersion(int catalogVersion) {
-                this.catalogVersion = catalogVersion;
-                return this;
-            }
-
-            /** Default schema name. */
-            PlanningContextState.Builder defaultSchemaName(String defaultSchemaName) {
-                this.defaultSchemaName = defaultSchemaName;
-                return this;
-            }
 
             /** Values of dynamic parameters to assist with type inference. */
             PlanningContextState.Builder parameters(Int2ObjectMap<Object> parameters) {
@@ -1409,15 +1356,9 @@ public class PrepareServiceImpl implements PrepareService {
                 return this;
             }
 
-            /** Sets whether explicit transaction is present. */
-            PlanningContextState.Builder explicitTx(boolean explicitTx) {
-                this.explicitTx = explicitTx;
-                return this;
-            }
-
             /** Builds planner context state. */
             PlanningContextState build() {
-                return new PlanningContextState(frameworkConfig, catalogVersion, defaultSchemaName, parameters, explicitTx);
+                return new PlanningContextState(parameters);
             }
         }
     }
@@ -1443,10 +1384,6 @@ public class PrepareServiceImpl implements PrepareService {
 
         void invalidate() {
             needToInvalidate = true;
-        }
-
-        void invalidated() {
-            needToInvalidate = false;
         }
 
         boolean needInvalidate() {

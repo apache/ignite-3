@@ -182,6 +182,8 @@ public final class PlanningContext implements Context {
 
     private final @Nullable String defaultSchemaName;
 
+    private final SchemaPlus defaultSchema;
+
     /** Private constructor, used by a builder. */
     private PlanningContext(
             FrameworkConfig config,
@@ -190,7 +192,8 @@ public final class PlanningContext implements Context {
             Int2ObjectMap<Object> parameters,
             boolean explicitTx,
             int catalogVersion,
-            @Nullable String defaultSchemaName
+            @Nullable String defaultSchemaName,
+            SchemaPlus defaultSchema
     ) {
         this.parentCtx = config.getContext();
 
@@ -204,6 +207,7 @@ public final class PlanningContext implements Context {
         this.explicitTx = explicitTx;
         this.catalogVersion = catalogVersion;
         this.defaultSchemaName = defaultSchemaName;
+        this.defaultSchema = defaultSchema;
     }
 
     /** Get framework config. */
@@ -214,6 +218,11 @@ public final class PlanningContext implements Context {
     /** Get query. */
     public String query() {
         return qry;
+    }
+
+    /** Get default schema wrapper. */
+    public SchemaPlus defaultSchema() {
+        return defaultSchema;
     }
 
     /** Get query parameters. */
@@ -418,6 +427,8 @@ public final class PlanningContext implements Context {
 
         private @Nullable String defaultSchemaName;
 
+        private SchemaPlus defaultSchema;
+
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkConfig = Objects.requireNonNull(frameworkCfg);
             return this;
@@ -438,6 +449,12 @@ public final class PlanningContext implements Context {
         /** Default schema name. */
         public Builder defaultSchemaName(String defaultSchemaName) {
             this.defaultSchemaName = defaultSchemaName;
+            return this;
+        }
+
+        /** Default schema name. */
+        public Builder defaultSchema(SchemaPlus defaultSchema) {
+            this.defaultSchema = defaultSchema;
             return this;
         }
 
@@ -465,7 +482,8 @@ public final class PlanningContext implements Context {
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(frameworkConfig, qry, plannerTimeout, parameters, explicitTx, catalogVersion, defaultSchemaName);
+            return new PlanningContext(frameworkConfig, qry, plannerTimeout, parameters, explicitTx, catalogVersion,
+                    defaultSchemaName, defaultSchema);
         }
     }
 }
