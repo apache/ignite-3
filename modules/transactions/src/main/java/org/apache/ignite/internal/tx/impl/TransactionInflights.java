@@ -174,6 +174,9 @@ public class TransactionInflights {
         }
     }
 
+    /**
+     * @return {@code True} if has some inflights in progress.
+     */
     @TestOnly
     public boolean hasActiveInflights() {
         for (TxContext value : txCtxMap.values()) {
