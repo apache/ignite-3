@@ -149,8 +149,8 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
                     reduceResultMarshallerRef = task.reduceJobResultMarshaller();
 
                     Class<?> splitArgumentType = getTaskSplitArgumentType(taskClass);
-                    return task.splitAsync(context, unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType))
-                            .thenApply(jobs -> new SplitResult<>(task, jobs));
+                    I input = unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType, taskClass.getClassLoader());
+                    return task.splitAsync(context, input).thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
 
                 Integer.MAX_VALUE,

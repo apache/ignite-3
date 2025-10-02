@@ -362,10 +362,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Creates raft group listener.
      *
      * @param service                 The cluster service.
+     * @param server                  The raft server that is starting a new raft node.
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath);
+    public abstract RaftGroupListener createListener(ClusterService service, RaftServer server, Path listenerPersistencePath);
 
     /**
      * Returns raft group id for tests.
@@ -459,7 +460,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftNode(
                 new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
                 initialMemberConf,
-                createListener(service, componentWorkDir.dbPath()),
+                createListener(service, server, componentWorkDir.dbPath()),
                 defaults()
                         .commandsMarshaller(commandsMarshaller(service))
                         .setLogStorageFactory(partitionsLogStorageFactory)

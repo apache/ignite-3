@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -273,6 +275,26 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 addWriteCommitted(rowId, binaryRow3, clock.now()),
                 equalsToAddWriteCommittedResult(AddWriteCommittedResult.writeIntentExists(txId, newCommitTimestamp))
         );
+    }
+
+    /**
+     * Tests handling values of a decently large size.
+     */
+    @Test
+    public void testWriteLongValues() {
+        Random random = new Random();
+
+        for (int length = 10_000; length < 20_000; length++) {
+            BinaryRow insertedValue = binaryRow(key, new TestValue(length, IgniteTestUtils.randomString(random, length)));
+
+            RowId rowId = insert(insertedValue, txId);
+            commitWrite(rowId, clock.now(), txId);
+
+            BinaryRow valueFromStorage = read(rowId, clock.now());
+
+            assertNotNull(valueFromStorage);
+            assertEquals(insertedValue.tupleSlice(), valueFromStorage.tupleSlice(), "Value mismatch at length " + length);
+        }
     }
 
     /**

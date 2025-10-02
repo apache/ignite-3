@@ -190,7 +190,7 @@ public class Ignite2PersistentCacheTools {
         String quotedName = IgniteNameUtils.quoteIfNeeded(cacheName);
         @Nullable ClientTable table = (ClientTable) client.tables().table(quotedName);
         SqlDdlGenerator.GenerateTableResult tableDefinition = sqlGenerator.generate(cacheCfg);
-        Map<String, String> columnToFieldMappings = tableDefinition.fieldNameForColumnMappings();
+        Map<String, String> columnToFieldMappings = tableDefinition.fieldToColumnMappings();
         if (table == null) {
             table = (ClientTable) client.catalog()
                     .createTableAsync(tableDefinition.tableDefinition())

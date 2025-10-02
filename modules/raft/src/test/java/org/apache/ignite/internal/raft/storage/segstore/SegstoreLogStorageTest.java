@@ -19,19 +19,19 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
-import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.overheadSize;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -71,7 +72,7 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        segmentFileManager = new SegmentFileManager(NODE_NAME, workDir, SEGMENT_SIZE, 1);
+        segmentFileManager = new SegmentFileManager(NODE_NAME, workDir, SEGMENT_SIZE, 1, new NoOpFailureManager());
 
         logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
 
@@ -122,12 +123,13 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
         assertThat(segmentFiles, hasSize(1));
 
-        try (InputStream is = Files.newInputStream(segmentFiles.get(0))) {
+        try (SeekableByteChannel channel = Files.newByteChannel(segmentFiles.get(0))) {
             // Skip header.
-            is.readNBytes(SegmentFileManager.HEADER_RECORD.length);
+            channel.position(channel.position() + SegmentFileManager.HEADER_RECORD.length);
 
-            DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromBytes(is.readNBytes(overheadSize() + payload.length));
+            DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromByteChannel(channel);
 
+            assertThat(entry, is(notNullValue()));
             assertThat(entry.groupId(), is(GROUP_ID));
             assertThat(entry.payload(), is(payload));
         }
@@ -183,14 +185,14 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
         var actualEntries = new ArrayList<DeserializedSegmentPayload>(payloads.size());
 
         for (Path segmentFile : segmentFiles()) {
-            try (InputStream is = Files.newInputStream(segmentFile)) {
+            try (SeekableByteChannel channel = Files.newByteChannel(segmentFile)) {
                 // Skip header.
-                is.readNBytes(SegmentFileManager.HEADER_RECORD.length);
+                channel.position(channel.position() + SegmentFileManager.HEADER_RECORD.length);
 
                 long bytesRead = SegmentFileManager.HEADER_RECORD.length;
 
                 while (bytesRead < SEGMENT_SIZE - SWITCH_SEGMENT_RECORD.length) {
-                    DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromInputStream(is);
+                    DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromByteChannel(channel);
 
                     if (entry == null) {
                         // EOF reached.
@@ -212,7 +214,10 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     private List<Path> segmentFiles() throws IOException {
         try (Stream<Path> files = Files.list(workDir)) {
-            return files.sorted().collect(toList());
+            return files
+                    .filter(p -> p.getFileName().toString().startsWith("segment"))
+                    .sorted()
+                    .collect(toList());
         }
     }
 

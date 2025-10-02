@@ -128,7 +128,7 @@ public class DirectTxUtils {
                 if (ctx.firstReqFut != null) {
                     ClientLazyTransaction tx0 = (ClientLazyTransaction) tx;
                     out.out().packLong(TX_ID_FIRST_DIRECT);
-                    out.out().packLong(ctx.tracker.get().longValue());
+                    out.out().packLong(tx0.observableTimestamp());
                     out.out().packBoolean(tx.isReadOnly());
                     out.out().packLong(tx0.timeout());
                 } else {

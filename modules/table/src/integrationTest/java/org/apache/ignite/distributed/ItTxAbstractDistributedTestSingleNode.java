@@ -36,6 +36,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.table.TxAbstractTest;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.tx.Transaction;
@@ -198,17 +199,37 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
     public void testImplicitTransactionTimeout() {
         var rv = accounts.recordView();
 
+        // Default tx timeout is 30 sec, default implicit transaction retry timeout is also 30 sec.
+        // If the tx has expired (see TransactionExpirationRegistry) by the time we hit another implicit transaction retry,
+        // the S lock from tx will be released together with the tx rollback and the upsert will succeed.
+        // Start tx with the default transaction timeout (30 sec).
         Transaction tx = igniteTransactions.begin();
 
         assertNull(rv.get(tx, makeKey(1)));
 
-        CompletableFuture<Void> implicitOpFut = runAsync(() -> rv.upsert(null, makeValue(1, 1.)));
+        try {
+            // Set transaction timeout to 3 sec.Implicit transaction will keep retrying during this time.
+            setTxTimeout(txConfiguration, 3_000);
 
-        assertFalse(implicitOpFut.isDone());
+            // Run upsert in an implicit transaction. Keeps retrying for 30 sec internally in case the transaction fails.
+            CompletableFuture<Void> implicitOpFut = runAsync(() -> rv.upsert(null, makeValue(1, 1.)));
 
-        assertThat(implicitOpFut, willThrow(TransactionException.class, 40_000, TimeUnit.SECONDS));
+            assertFalse(implicitOpFut.isDone());
 
-        assertNull(rv.get(null, makeKey(1)));
+            assertThat(implicitOpFut, willThrow(TransactionException.class, 30_000, TimeUnit.SECONDS));
+
+            assertNull(rv.get(null, makeKey(1)));
+        } finally {
+            // Reset transaction timeout to default.
+            setTxTimeout(txConfiguration, 30_000);
+        }
+    }
+
+    private static void setTxTimeout(TransactionConfiguration txConfiguration, long timeout) {
+        CompletableFuture<Void> changeFuture = txConfiguration.readWriteTimeoutMillis()
+                .update(timeout);
+
+        assertThat(changeFuture, willCompleteSuccessfully());
     }
 
     /**

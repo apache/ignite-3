@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.raft.storage.segstore.ByteChannelUtils.readFully;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
@@ -29,6 +30,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -36,12 +38,16 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.ByteChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -53,6 +59,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -81,7 +88,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        fileManager = new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES);
+        fileManager = new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, new NoOpFailureManager());
 
         fileManager.start();
     }
@@ -94,8 +101,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     @Test
     void testConstructorInvariants() {
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 0, 1));
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 1, 1));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 0, 1, new NoOpFailureManager()));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 1, 1, new NoOpFailureManager()));
     }
 
     @Test
@@ -112,7 +119,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void checkSegmentNamingAfterRollovers() throws Exception {
+    void checkFileNamingAfterRollovers() throws Exception {
         int segmentFilesNum = 10;
 
         byte[] bytes = new byte[FILE_SIZE - HEADER_RECORD.length - SegmentPayload.overheadSize()];
@@ -125,10 +132,18 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         assertThat(segmentFiles, hasSize(segmentFilesNum));
 
-        for (int i = 0; i < segmentFilesNum; i++) {
+        for (int i = 0; i < segmentFiles.size(); i++) {
             String expectedFileName = String.format("segment-%010d-0000000000.bin", i);
 
             assertThat(segmentFiles.get(i).getFileName().toString(), is(expectedFileName));
+        }
+
+        List<Path> indexFiles = await().until(this::indexFiles, hasSize(segmentFilesNum - 1));
+
+        for (int i = 0; i < indexFiles.size(); i++) {
+            String expectedFileName = String.format("index-%010d-0000000000.bin", i);
+
+            assertThat(indexFiles.get(i).getFileName().toString(), is(expectedFileName));
         }
     }
 
@@ -157,13 +172,15 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         Path segmentFile = findSoleSegmentFile();
 
-        try (InputStream is = Files.newInputStream(segmentFile)) {
-            assertThat(is.readNBytes(HEADER_RECORD.length), is(HEADER_RECORD));
+        try (ByteChannel channel = Files.newByteChannel(segmentFile)) {
+            assertThat(readFully(channel, HEADER_RECORD.length).array(), is(HEADER_RECORD));
 
             for (byte[] expectedBatch : batches) {
-                validateEntry(is.readNBytes(expectedBatch.length + SegmentPayload.overheadSize()), expectedBatch);
+                validateSegmentEntry(channel, expectedBatch);
             }
         }
+
+        assertThat(indexFiles(), is(empty()));
     }
 
     @Test
@@ -184,22 +201,28 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         for (int i = 0; i < batches.size(); i++) {
             byte[] expectedBatch = batches.get(i);
 
-            try (InputStream is = Files.newInputStream(segmentFiles.get(i))) {
-                assertThat(is.readNBytes(HEADER_RECORD.length), is(HEADER_RECORD));
+            try (ByteChannel channel = Files.newByteChannel(segmentFiles.get(i))) {
+                assertThat(readFully(channel, HEADER_RECORD.length).array(), is(HEADER_RECORD));
 
-                validateEntry(is.readNBytes(expectedBatch.length + SegmentPayload.overheadSize()), expectedBatch);
+                validateSegmentEntry(channel, expectedBatch);
 
                 if (i != batches.size() - 1) {
                     // All segment files except the last one must contain a segment switch record.
-                    assertThat(is.readNBytes(SWITCH_SEGMENT_RECORD.length), is(SWITCH_SEGMENT_RECORD));
+                    assertThat(readFully(channel, SWITCH_SEGMENT_RECORD.length).array(), is(SWITCH_SEGMENT_RECORD));
                 }
             }
+        }
+
+        List<Path> indexFiles = await().until(this::indexFiles, hasSize(segmentFiles.size() - 1));
+
+        for (int i = 0; i < indexFiles.size(); i++) {
+            validateIndexFile(indexFiles.get(i), segmentFiles.get(i));
         }
     }
 
     @RepeatedTest(10)
     void testConcurrentWrites() throws IOException {
-        int batchSize = FILE_SIZE / 10;
+        int batchSize = FILE_SIZE / 5;
 
         List<byte[]> batches = randomData(batchSize, 10);
 
@@ -215,7 +238,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         runRace(tasks);
 
-        assertThat(segmentFiles(), hasSize(greaterThan(1)));
+        List<Path> segmentFiles = segmentFiles();
+
+        assertThat(segmentFiles, hasSize(greaterThan(1)));
 
         List<byte[]> actualData = readDataFromSegmentFiles(batchSize, batches.size()).stream()
                 .sorted(comparingLong(DeserializedSegmentPayload::groupId))
@@ -223,6 +248,12 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 .collect(toList());
 
         assertThat(actualData, contains(batches.toArray()));
+
+        List<Path> indexFiles = await().until(this::indexFiles, hasSize(segmentFiles.size() - 1));
+
+        for (int i = 0; i < indexFiles.size(); i++) {
+            validateIndexFile(indexFiles.get(i), segmentFiles.get(i));
+        }
     }
 
     @RepeatedTest(10)
@@ -300,6 +331,15 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         for (IgniteInternalException e : exceptions) {
             assertThat(e.code(), is(NODE_STOPPING_ERR));
         }
+
+        List<Path> segmentFiles = segmentFiles();
+
+        // We don't need to wait for index files to appear, because the file manager has been stopped.
+        List<Path> indexFiles = indexFiles();
+
+        for (int i = 0; i < indexFiles.size(); i++) {
+            validateIndexFile(indexFiles.get(i), segmentFiles.get(i));
+        }
     }
 
     private Path findSoleSegmentFile() throws IOException {
@@ -312,7 +352,23 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     private List<Path> segmentFiles() throws IOException {
         try (Stream<Path> files = Files.list(workDir)) {
-            return files.sorted().collect(toList());
+            return files
+                    .filter(p -> p.getFileName().toString().startsWith("segment"))
+                    .sorted()
+                    .collect(toList());
+        }
+    }
+
+    private List<Path> indexFiles() throws IOException {
+        try (Stream<Path> files = Files.list(workDir)) {
+            return files
+                    .filter(p -> {
+                        String fileName = p.getFileName().toString();
+
+                        return fileName.startsWith("index") && !fileName.endsWith(".tmp");
+                    })
+                    .sorted()
+                    .collect(toList());
         }
     }
 
@@ -328,21 +384,23 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         int entrySize = batchLength + SegmentPayload.overheadSize();
 
         for (Path segmentFile : segmentFiles()) {
-            try (InputStream is = Files.newInputStream(segmentFile)) {
-                assertThat(is.readNBytes(HEADER_RECORD.length), is(HEADER_RECORD));
+            try (SeekableByteChannel channel = Files.newByteChannel(segmentFile)) {
+                assertThat(readFully(channel, HEADER_RECORD.length).array(), is(HEADER_RECORD));
 
                 int bytesRead = HEADER_RECORD.length;
 
                 while (bytesRead + entrySize < FILE_SIZE && result.size() < numBatches) {
-                    byte[] entry = is.readNBytes(entrySize);
+                    long position = channel.position();
 
-                    result.add(DeserializedSegmentPayload.fromBytes(entry));
+                    result.add(DeserializedSegmentPayload.fromByteChannel(channel));
+
+                    assertThat(channel.position(), is(position + entrySize));
 
                     bytesRead += entrySize;
                 }
 
                 if (FILE_SIZE - bytesRead >= SWITCH_SEGMENT_RECORD.length) {
-                    assertThat(is.readNBytes(SWITCH_SEGMENT_RECORD.length), is(SWITCH_SEGMENT_RECORD));
+                    assertThat(readFully(channel, SWITCH_SEGMENT_RECORD.length).array(), is(SWITCH_SEGMENT_RECORD));
                 }
             }
         }
@@ -377,10 +435,26 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         });
     }
 
-    private static void validateEntry(byte[] entry, byte[] expectedPayload) {
-        DeserializedSegmentPayload deserializedSegmentPayload = DeserializedSegmentPayload.fromBytes(entry);
+    private static void validateSegmentEntry(ReadableByteChannel channel, byte[] expectedPayload) throws IOException {
+        DeserializedSegmentPayload deserializedSegmentPayload = DeserializedSegmentPayload.fromByteChannel(channel);
 
+        assertThat(deserializedSegmentPayload, is(notNullValue()));
         assertThat(deserializedSegmentPayload.groupId(), is(GROUP_ID));
         assertThat(deserializedSegmentPayload.payload(), is(expectedPayload));
+    }
+
+    private static void validateIndexFile(Path indexFilePath, Path segmentFilePath) throws IOException {
+        DeserializedIndexFile indexFile = DeserializedIndexFile.fromFile(indexFilePath);
+
+        try (SeekableByteChannel channel = Files.newByteChannel(segmentFilePath)) {
+            for (DeserializedIndexFile.Entry indexEntry : indexFile.entries()) {
+                channel.position(indexEntry.segmentFileOffset());
+
+                DeserializedSegmentPayload segmentPayload = DeserializedSegmentPayload.fromByteChannel(channel);
+
+                assertThat(segmentPayload, is(notNullValue()));
+                assertThat(segmentPayload.groupId(), is(indexEntry.groupId()));
+            }
+        }
     }
 }
