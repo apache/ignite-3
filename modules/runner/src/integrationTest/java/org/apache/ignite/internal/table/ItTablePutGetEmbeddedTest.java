@@ -17,11 +17,20 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Objects;
 import java.util.stream.Stream;
+import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
@@ -120,6 +129,67 @@ public class ItTablePutGetEmbeddedTest extends ClusterPerClassIntegrationTest {
         NullableValue<Void> res2 = kvPrimitiveView.getNullable(null, key2);
 
         assertNull(res2.get());
+    }
+
+    @Test
+    public void testCustomMapping() {
+        sql("CREATE TABLE sampleTable (\"lowercase\" varchar(255), id int primary key)");
+
+        RecordView<PojoExample> sampleTable = tables().table("sampleTable").recordView(PojoExample.class);
+
+        PojoExample pojoExample = new PojoExample();
+        pojoExample.id = 1;
+        pojoExample.lowercase = "test";
+
+        sampleTable.upsert(null, pojoExample);
+
+        try (Cursor<PojoExample> cursor = sampleTable.query(null, null)) {
+            assertThat(cursor.hasNext(), is(true));
+            assertThat(cursor.next(), equalTo(pojoExample));
+        }
+
+        RecordView<PojoExampleIncorrect> sampleTableIncorrect = tables().table("sampleTable").recordView(PojoExampleIncorrect.class);
+
+        PojoExampleIncorrect pojoExampleIncorrect = new PojoExampleIncorrect();
+        pojoExampleIncorrect.id = 1;
+        pojoExampleIncorrect.lowercase = "test";
+
+        assertThrows(MarshallerException.class, () -> sampleTableIncorrect.upsert(null, pojoExampleIncorrect));
+    }
+
+    static class PojoExampleIncorrect {
+        int id;
+
+        String lowercase;
+    }
+
+    static class PojoExample {
+        int id;
+
+        @Column("lowercase")
+        String lowercase;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof PojoExample)) {
+                return false;
+            }
+            PojoExample that = (PojoExample) o;
+            return id == that.id && Objects.equals(lowercase, that.lowercase);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, lowercase);
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 
     private static Stream<Arguments> tableDefinitions() {
