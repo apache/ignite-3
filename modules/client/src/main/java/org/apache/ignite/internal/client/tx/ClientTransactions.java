@@ -28,7 +28,6 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
