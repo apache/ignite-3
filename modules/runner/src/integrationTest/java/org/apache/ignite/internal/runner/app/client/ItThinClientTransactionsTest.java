@@ -971,16 +971,21 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testReadOnlyClientEmbedded(boolean server) {
+    void testReadOnlyTxDoesNotSeeUpdatesAfterStart(boolean server) {
         //noinspection resource
         Ignite ignite = server ? server() : client();
         KeyValueView<Integer, String> kvView = ignite.tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
 
+        // Start RO TX, don't access anything yet.
+        // Lazy client TX should record the start time at this point.
         Transaction tx = ignite.transactions().begin(new TransactionOptions().readOnly(true));
+
+        // Put outside of TX.
         kvView.put(null, 123, "123");
 
+        // RO tx does not see the value.
         String val = kvView.get(tx, 123);
-        assertNull(val);
+        assertNull(val, "Read-only transaction should not see values committed after its start");
     }
 
     @AfterEach
