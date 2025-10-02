@@ -50,7 +50,8 @@ To connect to the cluster, use the `connect()` method:
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=connect,indent=0]
+addr = ['127.0.0.1:10800']
+return pygridgain_dbapi.connect(address=addr, timeout=10)
 ----
 
 After you are done working with the cluster, remember to always close the connection to it.
@@ -64,7 +65,8 @@ Alternatively, you can use the `with` statement to automatically close the conne
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=with_clause,indent=0]
+with pygridgain_dbapi.connect(address=addr, timeout=10) as conn:
+    conn.cursor()
 ----
 
 === Configuring SSL for Connection
@@ -73,7 +75,17 @@ To ensure secure connection to the cluster, you can enable SSL for it by providi
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=connect_ssl,indent=0]
+def create_ssl_connection():
+  """Create SSL-enabled connection to GridGain cluster."""
+  addr = ['127.0.0.1:10800']
+  return pygridgain_dbapi.connect(
+      address=addr,
+      timeout=10,
+      use_ssl=True,
+      ssl_keyfile='<path_to_ssl_keyfile.pem>',
+      ssl_certfile='<path_to_ssl_certfile.pem>',
+      # Optional: ssl_ca_certfile='<path_to_ssl_ca_certfile.pem>'
+  )
 ----
 
 NOTE: All paths to certificate file and keys should be provided in string format appropriate for the system.
@@ -84,7 +96,15 @@ If the cluster uses link:administrators-guide/security/authentication#basic-auth
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=connect_auth,indent=0]
+def create_authenticated_connection():
+  """Create authenticated connection to GridGain cluster."""
+  addr = ['127.0.0.1:10800']
+  return pygridgain_dbapi.connect(
+      address=addr,
+      timeout=10,
+      identity='user',
+      secret='password'
+  )
 ----
 
 === Configuring Data Access
@@ -105,7 +125,15 @@ The example below shows how to set these properties:
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=connect_conf,indent=0]
+def create_configured_connection():
+  """Create authenticated connection to GridGain cluster."""
+  addr = ['127.0.0.1:10800']
+  return conn = pygridgain_dbapi.connect(
+    address=addr,
+    timeout=10,
+    schema='CUSTOM',
+    page_size=2048
+  )
 ----
 
 == Getting Cursor Object
@@ -114,14 +142,14 @@ To work with tables from Python client, you use the `cursor` object that can be 
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=cursor,indent=0]
+conn.cursor()
 ----
 
 Similar to the connection, you can use the `with` statement when getting the cursor:
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=cursor_with,indent=0]
+with conn.cursor() as cursor:
 ----
 
 == Executing Single Query
@@ -130,7 +158,14 @@ The cursor object can be used to execute SQL statements with the `execute` comma
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=execute,indent=0]
+# Create table
+cursor.execute('''
+          CREATE TABLE Person(
+              id INT PRIMARY KEY,
+              name VARCHAR,
+              age INT
+          )
+      ''')
 ----
 
 == Executing a Batched Query
@@ -139,7 +174,15 @@ You can use the `executemany` command to execute SQL queries with a batch of par
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=execute_batch,indent=0]
+# Sample data
+sample_data = [
+  [1, "John", 30],
+  [2, "Jane", 32],
+  [3, "Bob", 28]
+]
+
+# Insert data (fixed table name)
+cursor.executemany('INSERT INTO Person VALUES(?, ?, ?)', sample_data)
 ----
 
 
@@ -149,7 +192,13 @@ The cursor retains a reference to the operation. If the operation returns result
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=execute_get,indent=0]
+# Query data
+cursor.execute('SELECT * FROM Person ORDER BY id')
+results = cursor.fetchall()
+
+print("All persons in database:")
+for row in results:
+  print(f"ID: {row[0]}, Name: {row[1]}, Age: {row[2]}")
 ----
 
 == Working with Transactions
@@ -160,21 +209,42 @@ To do this, first, disable autocommit:
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=autocommit_false;!comment,indent=0]
+conn.autocommit = False
 ----
 
 Once autocommit is disabled, you need to commit your operations manually:
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=transaction;!comment;!error,indent=0]
+# Insert valid records
+cursor.execute('INSERT INTO Person VALUES(?, ?, ?)', [4, "Alice", 29])
+cursor.execute('INSERT INTO Person VALUES(?, ?, ?)', [5, "Charlie", 31])
+
+cursor.execute('INSERT INTO Person VALUES(?, ?, ?)', [6, "Invalid", new_age])
+
+conn.commit()
+print("Transaction committed successfully")
 ----
 
 Operations that are not committed are sent to the cluster, but not yet written to the table. The table is only updated when the `commit` method is called. You can roll back all uncommitted operations with the `rollback` command:
 
 [source, python]
 ----
-include::includes/examples/python/db_api_example.py[tags=transaction_rollback;!comment;!error,indent=0]
+with conn.cursor() as cursor:
+  try:
+    # Insert valid records
+    cursor.execute('INSERT INTO Person VALUES(?, ?, ?)', [4, "Alice", 29])
+    cursor.execute('INSERT INTO Person VALUES(?, ?, ?)', [5, "Charlie", 31])
+
+    cursor.execute('INSERT INTO Person VALUES(?, ?, ?)', [6, "Invalid", new_age])
+
+    conn.commit()
+    print("Transaction committed successfully")
+
+  except Exception as e:
+    # Rollback on any error
+    conn.rollback()
+    print(f"Transaction rolled back due to error: {e}")
 ----
 
 NOTE: The `rollback` command rolls back all uncommitted data.

@@ -132,7 +132,13 @@ This example shows how to update an account's balance synchronously:
 tab:Java[]
 [source,java]
 ----
-include::includes/examples/tx/TransactionsExample.java[tags=tx-sync;!comment,indent=0]
+client.transactions().runInTransaction(tx -> {
+    Account acct = accounts.get(tx, key);
+    if (acct != null) {
+        acct.balance += 200.0d;
+    }
+    accounts.put(tx, key, acct);
+});
 
 ----
 --
@@ -144,7 +150,14 @@ And this example performs the same logic in an asynchronous manner:
 tab:Java[]
 [source,java]
 ----
-include::includes/examples/tx/TransactionsExample.java[tags=tx-async;!comment,indent=0]
+CompletableFuture<Void> future = client.transactions().runInTransactionAsync(tx ->
+        accounts.getAsync(tx, key)
+                .thenCompose(acct -> {
+                    acct.balance += 300.0d;
+                    return accounts.putAsync(tx, key, acct);
+                })
+);
+future.join();
 ----
 --
 

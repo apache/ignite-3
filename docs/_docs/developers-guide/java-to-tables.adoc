@@ -41,7 +41,64 @@ The example below creates a table called `kv_pojo` by using the POJO compatible 
 
 [source, java]
 ----
-include::includes/examples/catalog/KeyValuePojoExample.java[tags=catalog-kv;!comment,indent=0]
+@Table(value = "kv_pojo",
+        zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+        colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+        indexes = @Index(value = "ix", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+
+public static class PojoKey {
+    @Id
+    Integer id;
+
+    @Id(SortOrder.DEFAULT)
+    @Column(value = "id_str", length = 20)
+    String idStr;
+
+    public PojoKey(Integer id, String idStr) {
+        this.id = id;
+        this.idStr = idStr;
+    }
+}
+
+public static class PojoValue {
+    @Column("f_name")
+    private String firstName;
+
+    @Column("l_name")
+    private String lastName;
+
+    public PojoValue(String firstName, String lastName) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+}
+
+
+public static void main(String[] args) {
+
+    System.out.println("\nConnecting to server...");
+
+    try (IgniteClient client = IgniteClient.builder()
+            .addresses("127.0.0.1:10800")
+            .build()
+    ) {
+
+        org.apache.ignite.table.Table myTable = client.catalog().createTable(PojoKey.class, PojoValue.class);
+
+        KeyValueView<PojoKey, PojoValue> kvView = myTable.keyValueView(PojoKey.class, PojoValue.class);
+        PojoKey key = new PojoKey(1, "sample");
+        PojoValue putValue = new PojoValue("John", "Smith");
+        kvView.put(null, key, putValue);
+
+        PojoValue getValue = kvView.get(null, key);
+        System.out.println(
+                "\nRetrieved values:\n"
+                        + "    Account ID: " + key.id + '\n'
+                        + "    First name: " + getValue.firstName + '\n'
+                        + "    Last name" + getValue.lastName);
+
+    }
+}
 ----
 
 NOTE: You need to create a link:administrators-guide/storage#creating-and-using-storage-profiles[storage profile] in node configuration by using the CLI tool.
@@ -72,7 +129,54 @@ The example below creates the `pojo_sample` table by using the POJO compatible w
 
 [source, java]
 ----
-include::includes/examples/catalog/RecordViewPojoExample.java[tags=catalog-record;!comment,indent=0]
+@Table(value = "pojo_sample",
+        zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+        colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+        indexes = @Index(value = "ix_sample", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+
+public static class Pojo {
+    @Id
+    Integer id;
+
+    @Id(SortOrder.DEFAULT)
+    @Column(value = "id_str", length = 20)
+    String idStr;
+
+    @Column("f_name")
+    String firstName;
+
+    @Column("l_name")
+    String lastName;
+
+    String str;
+}
+
+public static void main(String[] args) {
+
+    System.out.println("\nConnecting to server...");
+
+    try (IgniteClient client = IgniteClient.builder()
+            .addresses("127.0.0.1:10800")
+            .build()
+    ) {
+
+        org.apache.ignite.table.Table myTable = client.catalog().createTable(Pojo.class);
+
+        RecordView<Tuple> view = myTable.recordView();
+        Tuple insertTuple = Tuple.create()
+                .set("id", 1)
+                .set("id_str", "sample")
+                .set("f_name", "John")
+                .set("l_name", "Smith");
+        view.insert(null, insertTuple);
+
+        Tuple getTuple = view.get(null, insertTuple);
+        System.out.println(
+                "\nRetrieved record: " +
+                        getTuple.stringValue("f_name")
+        );
+    }
+}
 ----
 
 === The Builder Alternative to the @Table Annotation
@@ -83,7 +187,26 @@ NOTE: When using builders, only the `@Id` and `@Column` annotations on fields ar
 
 [source, java]
 ----
-include::includes/examples/catalog/TableBuilderExample.java[tags=catalog-builder;!comment,indent=0]
+IgniteCatalog catalog = client.catalog();
+
+catalog.createTable(
+        TableDefinition.builder("sampleTable3")
+                .primaryKey("myKey")
+                .columns(
+                        column("myKey", ColumnType.INT32),
+                        column("myValue", ColumnType.VARCHAR)
+                )
+                .build()
+);
+
+Table myTable = client.tables().table("sampleTable3");
+myTable.keyValueView().put(null, Tuple.create().set("myKey", 1), Tuple.create().set("myValue", "John"));
+
+Tuple value = myTable.keyValueView().get(null, Tuple.create().set("myKey", 1));
+System.out.println(
+        "\nRetrieved value:\n" +
+        value.stringValue("myValue")
+);
 ----
 
 == Next Steps

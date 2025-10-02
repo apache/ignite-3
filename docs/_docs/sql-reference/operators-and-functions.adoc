@@ -1225,35 +1225,6 @@ LOCALTIMESTAMP(precision)
 
 Returns the current date and time in the session time zone in a value of datatype TIMESTAMP, with precision digits of precision.
 
-== Sequence Functions
-
-=== NEXTVAL
-
-[source,sql]
-----
-NEXTVAL('seq_name')
-----
-
-Advances the sequence and returns the new value.
-
-=== SETVAL
-
-[source,sql]
-----
-SETVAL('seq_name', bigint)
-----
-
-Sets the current sequence value to the specified value.
-
-=== CURRVAL
-
-[source,sql]
-----
-CURRVAL('seq_name')
-----
-
-Returns the current sequence value.
-
 == Other Functions
 
 === CAST

@@ -28,7 +28,49 @@ The example below demonstrates how to load a script that is packaged within a JA
 
 [source, java]
 ----
-include::includes/examples/deployment/MyJob.java[tags=load-script,indent=0]
+public class MyJob implements ComputeJob<String, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext ctx, String arg) {
+        Ignite ignite = ctx.ignite();
+
+        /** Full path to the script we want to run */
+        final String resPath = "/org/apache/ignite/example/code/deployment/resources/script.sh";
+
+        try (InputStream in = MyJob.class.getResourceAsStream(resPath)) {
+            if (in == null) {
+                throw new IllegalStateException("Resource not found: " + resPath);
+            }
+
+            byte[] script = in.readAllBytes();
+
+            Process p = new ProcessBuilder("sh", "-s", "--", arg)
+                    .redirectErrorStream(true)
+                    .start();
+
+            try (OutputStream os = p.getOutputStream()) {
+                os.write(script);
+            }
+
+            String out;
+            try (InputStream procOut = p.getInputStream()) {
+                out = new String(procOut.readAllBytes(), StandardCharsets.UTF_8).strip();
+            }
+
+            int exit = p.waitFor();
+            if (exit != 0) {
+                throw new RuntimeException("Script exited with code " + exit + ":\n" + out);
+            }
+
+            String result = "Node: " + ignite.name()
+                    + "\nArg: " + arg
+                    + "\nScript output:\n" + out;
+
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to run script", e);
+        }
+    }
+}
 ----
 
 You can manage deployment units using either link:ignite-cli-tool[CLI] commands or the link:https://ignite.apache.org/releases/3.0.0/openapi.yaml[REST API]. Both methods provide the same functionality for deploying, listing, and undeploying code.
