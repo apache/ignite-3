@@ -175,6 +175,8 @@ public class TransactionInflights {
     }
 
     /**
+     * Get active inflights.
+     *
      * @return {@code True} if has some inflights in progress.
      */
     @TestOnly
