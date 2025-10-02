@@ -50,16 +50,18 @@ import org.jetbrains.annotations.Nullable;
  */
 public class JdbcStatement2 implements Statement {
 
-    private static final EnumSet<QueryModifier> QUERY = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+    static final EnumSet<QueryModifier> QUERY = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
 
-    private static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
+    static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
             QueryModifier.ALLOW_AFFECTED_ROWS_RESULT, QueryModifier.ALLOW_APPLIED_RESULT);
+
+    static final EnumSet<QueryModifier> ALL = EnumSet.allOf(QueryModifier.class);
 
     private static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
             JdbcConnection2.RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED;
 
     private static final String LARGE_UPDATE_NOT_SUPPORTED =
-            "executeLargeUpdate not implemented";
+            "executeLargeUpdate not implemented.";
 
     private static final String FIELD_SIZE_LIMIT_IS_NOT_SUPPORTED =
             "Field size limit is not supported.";
@@ -361,7 +363,7 @@ public class JdbcStatement2 implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(EnumSet.allOf(QueryModifier.class), Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         return isQuery();
     }
@@ -658,7 +660,7 @@ public class JdbcStatement2 implements Statement {
         return resultSet.isQuery();
     }
 
-    private void ensureNotClosed() throws SQLException {
+    void ensureNotClosed() throws SQLException {
         if (isClosed()) {
             throw new SQLException(STATEMENT_IS_CLOSED);
         }
