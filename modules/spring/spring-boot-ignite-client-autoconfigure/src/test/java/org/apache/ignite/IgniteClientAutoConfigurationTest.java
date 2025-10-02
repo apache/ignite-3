@@ -196,10 +196,7 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
                         "ignite.client.addresses=127.0.0.1:10800",
                         "ignite.client.auth.basic.username=" + username,
                         "ignite.client.auth.basic.password=" + password)
-                .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class))
-                .withBean(IgniteClientPropertiesCustomizer.class, () -> (c) ->
-                        c.setAuthenticator(BasicAuthenticator.builder().username(username).password(password).build())
-                );
+                .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class));
 
         contextRunnerCustomizer.run((ctx) -> {
             IgniteClient client = ctx.getBean(IgniteClient.class);
