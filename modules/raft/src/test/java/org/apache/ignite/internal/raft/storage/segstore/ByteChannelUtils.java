@@ -15,16 +15,25 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.raft.storage.segstore;
 
-dependencies {
-    implementation libs.jetbrains.annotations
-    implementation project(':ignite-core')
+import java.io.EOFException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 
-    testImplementation project(':ignite-core')
-    testImplementation testFixtures(project(':ignite-core'))
+class ByteChannelUtils {
+    static ByteBuffer readFully(ReadableByteChannel byteChannel, int len) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(len);
+
+        while (buffer.hasRemaining()) {
+            int bytesRead = byteChannel.read(buffer);
+
+            if (bytesRead == -1) {
+                throw new EOFException("EOF reached while reading byte channel");
+            }
+        }
+
+        return buffer.rewind();
+    }
 }
-
-description = 'ignite-file-io'

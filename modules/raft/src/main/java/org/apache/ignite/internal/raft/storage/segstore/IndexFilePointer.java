@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.raft.storage.segstore;
 
-dependencies {
-    implementation libs.jetbrains.annotations
-    implementation project(':ignite-core')
+class IndexFilePointer {
+    private final int fileOrdinal;
 
-    testImplementation project(':ignite-core')
-    testImplementation testFixtures(project(':ignite-core'))
+    private final IndexFileMeta fileMeta;
+
+    IndexFilePointer(int fileOrdinal, IndexFileMeta fileMeta) {
+        this.fileOrdinal = fileOrdinal;
+        this.fileMeta = fileMeta;
+    }
+
+    int fileOrdinal() {
+        return fileOrdinal;
+    }
+
+    IndexFileMeta fileMeta() {
+        return fileMeta;
+    }
 }
-
-description = 'ignite-file-io'
