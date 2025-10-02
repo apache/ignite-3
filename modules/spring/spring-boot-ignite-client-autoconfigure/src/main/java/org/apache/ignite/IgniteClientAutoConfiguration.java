@@ -89,9 +89,7 @@ public class IgniteClientAutoConfiguration {
 
         if (config.getAuthenticator() != null) {
             builder.authenticator(config.getAuthenticator());
-        }
-
-        if (config.getAuthenticator() == null && config.getAuth() != null) {
+        } else if (config.getAuth() != null) {
             String userName = config.getAuth().getBasic().getUsername();
             String password = config.getAuth().getBasic().getPassword();
             builder.authenticator(BasicAuthenticator.builder().username(userName).password(password).build());
