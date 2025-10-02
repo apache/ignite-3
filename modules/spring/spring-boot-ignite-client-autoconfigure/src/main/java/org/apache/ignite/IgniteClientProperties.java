@@ -39,6 +39,7 @@ public class IgniteClientProperties {
     private SslConfigurationProperties sslConfiguration;
     private Boolean metricsEnabled;
     private IgniteClientAuthenticator authenticator;
+    private AuthenticationProperties auth;
     private Long operationTimeout;
     private Long backgroundReconnectInterval;
     private Executor asyncContinuationExecutor;
@@ -225,5 +226,58 @@ public class IgniteClientProperties {
      */
     public void setHeartbeatTimeout(Long heartbeatTimeout) {
         this.heartbeatTimeout = heartbeatTimeout;
+    }
+
+    /**
+     * Gets authentication properties.
+     */
+    public AuthenticationProperties getAuth() {
+        return auth;
+    }
+
+    /**
+     * Sets authentication properties.
+     */
+    public void setAuth(AuthenticationProperties auth) {
+        this.auth = auth;
+    }
+
+    /**
+     * Authentication configuration properties.
+     */
+    public static class AuthenticationProperties {
+        private BasicAuthProperties basic;
+
+        public BasicAuthProperties getBasic() {
+            return basic;
+        }
+
+        public void setBasic(BasicAuthProperties basic) {
+            this.basic = basic;
+        }
+    }
+
+    /**
+     * Basic authentication properties.
+     */
+    public static class BasicAuthProperties {
+        private String username;
+        private String password;
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
     }
 }
