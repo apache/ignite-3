@@ -266,7 +266,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .check();
         }
 
-        {// Lesser-than
+        { // Lesser-than
             // Index by Float column can only be used with parameter.
             assertQuery("SELECT /*+ FORCE_INDEX(test_f_idx) */ f FROM test WHERE f < ?")
                     .withParam(+0.0f)
@@ -314,8 +314,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
 
     @Test
     void testNonEqualityComparisonWithTableScan() {
-        // Greater-than
-        {
+        { // Greater-than
             assertQuery("SELECT /*+ NO_INDEX */ f FROM test WHERE f > -0.0::FLOAT")
                     .matches(containsTableScan("PUBLIC", "TEST"))
                     .returns(1.0f)
@@ -357,7 +356,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                     .check();
         }
 
-        {// Lesser-than
+        { // Lesser-than
             assertQuery("SELECT /*+ NO_INDEX */ f FROM test WHERE f < +0.0::FLOAT")
                     .matches(containsTableScan("PUBLIC", "TEST"))
                     .returns(-1.0f)
