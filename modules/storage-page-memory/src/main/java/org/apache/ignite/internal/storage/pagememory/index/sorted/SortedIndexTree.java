@@ -31,6 +31,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.comparator.JitComparator;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeLeafIo;
@@ -56,6 +57,8 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     @Nullable
     private final PartialBinaryTupleMatcher partialBinaryTupleMatcher;
 
+    private JitComparator jitComparator;
+
     /** Inline size in bytes. */
     private final int inlineSize;
 
@@ -71,8 +74,9 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param indexDescriptor Index descriptor.
-     * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
-     *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
+     * @param jitComparator
+     * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating
+     *         it for the first time), {@code false} if not necessary (for example, when restoring a tree).
      * @throws IgniteInternalCheckedException If failed.
      */
     private SortedIndexTree(
@@ -84,6 +88,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             long metaPageId,
             @Nullable ReuseList reuseList,
             StorageSortedIndexDescriptor indexDescriptor,
+            JitComparator jitComparator,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super("SortedIndexTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
@@ -94,6 +99,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         this.dataPageReader = new DataPageReader(pageMem, grpId);
         this.binaryTupleComparator = StorageUtils.binaryTupleComparator(indexDescriptor.columns());
         this.partialBinaryTupleMatcher = StorageUtils.partialBinaryTupleComparator(indexDescriptor.columns());
+        this.jitComparator = jitComparator;
 
         init(initNew);
     }
@@ -126,6 +132,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         this.dataPageReader = new DataPageReader(pageMem, grpId);
         this.binaryTupleComparator = null;
         this.partialBinaryTupleMatcher = null;
+        this.jitComparator = null;
 
         init(false);
     }
@@ -141,9 +148,10 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            StorageSortedIndexDescriptor indexDescriptor
+            StorageSortedIndexDescriptor indexDescriptor,
+            JitComparator jitComparator
     ) throws IgniteInternalCheckedException {
-        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, true);
+        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, jitComparator, true);
     }
 
     /**
@@ -157,9 +165,10 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            StorageSortedIndexDescriptor indexDescriptor
+            StorageSortedIndexDescriptor indexDescriptor,
+            JitComparator jitComparator
     ) throws IgniteInternalCheckedException {
-        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, false);
+        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, jitComparator, false);
     }
 
     /**
@@ -209,6 +218,17 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     protected int compare(BplusIo<SortedIndexRowKey> io, long pageAddr, int idx, SortedIndexRowKey row)
             throws IgniteInternalCheckedException {
         SortedIndexTreeIo sortedIndexTreeIo = (SortedIndexTreeIo) io;
+
+        if (jitComparator != null) {
+            return sortedIndexTreeIo.compare(
+                    dataPageReader,
+                    jitComparator,
+                    partId,
+                    pageAddr,
+                    idx,
+                    row
+            );
+        }
 
         return sortedIndexTreeIo.compare(
                 dataPageReader,

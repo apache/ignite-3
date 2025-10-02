@@ -41,7 +41,7 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTre
  * Class responsible for creating Index B-Trees.
  */
 class IndexStorageFactory {
-    private final AbstractPageMemoryTableStorage tableStorage;
+    private final AbstractPageMemoryTableStorage<?> tableStorage;
 
     private final int partitionId;
 
@@ -66,7 +66,7 @@ class IndexStorageFactory {
     }
 
     IndexStorageFactory(
-            AbstractPageMemoryTableStorage tableStorage,
+            AbstractPageMemoryTableStorage<?> tableStorage,
             int partitionId,
             IndexMetaTree indexMetaTree,
             FreeListImpl freeList
@@ -196,6 +196,13 @@ class IndexStorageFactory {
         );
     }
 
+    /**
+     * This method notifies the factory that an index with a given descriptor has been fully destroyed.
+     */
+    void sortedIndexDestroyed(StorageSortedIndexDescriptor indexDescriptor) {
+        tableStorage.engine().disposeSortedIndexComparator(indexDescriptor);
+    }
+
     private IndexTreeAndMeta<SortedIndexTree> createSortedIndexTreeAndMeta(StorageSortedIndexDescriptor indexDescriptor) {
         return createIndexTree(
                 indexDescriptor,
@@ -207,7 +214,8 @@ class IndexStorageFactory {
                         tableStorage.engine().generateGlobalRemoveId(),
                         metaPageId,
                         freeList,
-                        indexDescriptor
+                        indexDescriptor,
+                        tableStorage.engine().createSortedIndexComparator(indexDescriptor)
                 )
         );
     }
@@ -222,7 +230,8 @@ class IndexStorageFactory {
                     tableStorage.engine().generateGlobalRemoveId(),
                     indexMeta.metaPageId(),
                     freeList,
-                    indexDescriptor
+                    indexDescriptor,
+                    tableStorage.engine().createSortedIndexComparator(indexDescriptor)
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(e);
