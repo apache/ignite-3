@@ -35,8 +35,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -288,7 +288,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private void verifyNoNodesHaveAnythingInIndex() {
-        int nodesHavingSomethingInIndex = 0;
+        boolean anyNodeHasSomethingInIndex = false;
+
         for (int nodeIndex = 0; nodeIndex < initialNodes(); nodeIndex++) {
             IgniteImpl ignite = unwrapIgniteImpl(node(nodeIndex));
 
@@ -298,13 +299,14 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             if (indexStorage != null) {
                 try (Cursor<IndexRow> indexRows = indexStorage.readOnlyScan(null, null, 0)) {
                     if (indexRows.hasNext()) {
-                        nodesHavingSomethingInIndex++;
+                        anyNodeHasSomethingInIndex = true;
+                        break;
                     }
                 }
             }
         }
 
-        assertThat("Nothing should have been put to the index", nodesHavingSomethingInIndex, is(0));
+        assertFalse(anyNodeHasSomethingInIndex, "Nothing should have been put to the index");
     }
 
     private static void disableWriteIntentSwitchExecution() {
