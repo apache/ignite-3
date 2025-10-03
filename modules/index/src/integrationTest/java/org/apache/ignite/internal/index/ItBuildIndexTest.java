@@ -288,8 +288,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private void verifyNoNodesHaveAnythingInIndex() {
-        boolean anyNodeHasSomethingInIndex = false;
-
         for (int nodeIndex = 0; nodeIndex < initialNodes(); nodeIndex++) {
             IgniteImpl ignite = unwrapIgniteImpl(node(nodeIndex));
 
@@ -298,15 +296,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
             if (indexStorage != null) {
                 try (Cursor<IndexRow> indexRows = indexStorage.readOnlyScan(null, null, 0)) {
-                    if (indexRows.hasNext()) {
-                        anyNodeHasSomethingInIndex = true;
-                        break;
-                    }
+                    assertFalse(indexRows.hasNext(), "Nothing should have been put to the index, but it was found on node " + nodeIndex);
                 }
             }
         }
-
-        assertFalse(anyNodeHasSomethingInIndex, "Nothing should have been put to the index");
     }
 
     private static void disableWriteIntentSwitchExecution() {
