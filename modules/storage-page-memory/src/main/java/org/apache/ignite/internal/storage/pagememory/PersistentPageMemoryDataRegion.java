@@ -28,17 +28,20 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.LongGauge;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -111,7 +114,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
     private final PersistentPageMemoryMetricSource metricSource;
 
-    private final Collection<PersistentPageMemoryTableStorage> tableStorages = ConcurrentHashMap.newKeySet();
+    private final ConcurrentMap<Integer, PersistentPageMemoryTableStorage> tableStorages = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -437,13 +440,13 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     /** Adds a table storage to the data region. */
     @VisibleForTesting
     public void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
-        boolean add = tableStorages.add(tableStorage);
+        PersistentPageMemoryTableStorage old = tableStorages.put(tableStorage.getTableId(), tableStorage);
 
-        assert add : tableStorage.getTableId();
+        assert old == null : tableStorage.getTableId();
     }
 
     void removeTableStorage(PersistentPageMemoryTableStorage tableStorage) {
-        tableStorages.remove(tableStorage);
+        tableStorages.remove(tableStorage.getTableId());
     }
 
     private void initMetrics() {
@@ -459,10 +462,30 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         ));
     }
 
+    /**
+     * Registers region-specific metrics for the given table.
+     *
+     * @param tableDescriptor Table descriptor.
+     * @param metricConsumer Abstract metric consumer for registering metrics.
+     */
+    void addTableMetrics(CatalogTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
+        PersistentPageMemoryTableStorage tableStorage = tableStorages.get(tableDescriptor.id());
+
+        assert tableStorage != null : "Foo";
+
+        metricConsumer.accept(new LongGauge(
+                "TotalAllocatedSize",
+                "desc",
+                () -> pageSize * tableStorage.mvPartitionStorages.stream()
+                        .mapToLong(PersistentPageMemoryMvPartitionStorage::pageCount)
+                        .sum()
+        ));
+    }
+
     private long totalAllocatedPagesSizeOnDiskInBytes() {
         long pageCount = 0;
 
-        for (PersistentPageMemoryTableStorage tableStorage : tableStorages) {
+        for (PersistentPageMemoryTableStorage tableStorage : tableStorages.values()) {
             for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
                 pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
             }
@@ -474,7 +497,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     private long totalNonEmptyAllocatedPagesSizeOnDiskInBytes() {
         long pageCount = 0;
 
-        for (PersistentPageMemoryTableStorage tableStorage : tableStorages) {
+        for (PersistentPageMemoryTableStorage tableStorage : tableStorages.values()) {
             for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
                 pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
 

@@ -21,6 +21,9 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
 import java.util.Set;
+import java.util.function.Consumer;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
@@ -72,6 +75,16 @@ public interface StorageEngine {
      * @throws StorageException If an error has occurs while dropping the table.
      */
     void destroyMvTable(int tableId);
+
+    /**
+     * Adds metrics related to the table to the given metric consumer.
+     *
+     * @param tableDescriptor Table descriptor.
+     * @param metricConsumer Metric consumer.
+     */
+    default void addTableMetrics(CatalogTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
+        // No-op.
+    }
 
     /**
      * Default size of a data region, maximum between 256 MiB and 20% of the total physical memory.
