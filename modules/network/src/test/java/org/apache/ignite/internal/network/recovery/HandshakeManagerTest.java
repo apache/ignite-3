@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.recovery;
 
-
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 
 import java.util.concurrent.CompletableFuture;
