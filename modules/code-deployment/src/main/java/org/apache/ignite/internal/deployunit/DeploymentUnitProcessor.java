@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Processor interface for handling deployment unit content operations.
@@ -29,7 +30,7 @@ import java.io.IOException;
  *
  * @param <T> the type of argument passed to the processing methods
  */
-public interface DeploymentUnitProcessor<T> {
+public interface DeploymentUnitProcessor<T, R> {
     /**
      * Processes the content of a regular deployment unit.
      *
@@ -41,7 +42,9 @@ public interface DeploymentUnitProcessor<T> {
      * @param arg the argument to be used during processing
      * @throws IOException if an I/O error occurs during processing
      */
-    void processContent(FilesDeploymentUnit unit, T arg) throws IOException;
+    CompletableFuture<R> processFilesContent(FilesDeploymentUnit unit, T arg);
+
+    CompletableFuture<R> processStreamContent(StreamDeploymentUnit unit, T arg);
 
     /**
      * Processes the content of a ZIP-based deployment unit with automatic extraction.
@@ -55,5 +58,5 @@ public interface DeploymentUnitProcessor<T> {
      * @param arg the argument to be used during processing
      * @throws IOException if an I/O error occurs during processing or extraction
      */
-    void processContentWithUnzip(ZipDeploymentUnit unit, T arg) throws IOException;
+    CompletableFuture<R> processContentWithUnzip(ZipDeploymentUnit unit, T arg);
 }

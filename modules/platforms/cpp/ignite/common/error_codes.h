@@ -176,6 +176,7 @@ enum class code : underlying_t {
     UNIT_CONTENT_READ = 0xd0003,
     UNIT_UNAVAILABLE = 0xd0004,
     UNIT_ZIP = 0xd0005,
+    UNIT_WRITE = 0xd0006,
 
     // GarbageCollector group. Group code: 14
     CLOSED = 0xe0001,

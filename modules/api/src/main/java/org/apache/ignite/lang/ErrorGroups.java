@@ -577,6 +577,9 @@ public class ErrorGroups {
 
         /** Deployment unit zip deploy error. */
         public static final int UNIT_ZIP_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Deployment unit write to fs error. */
+        public static final int UNIT_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /**

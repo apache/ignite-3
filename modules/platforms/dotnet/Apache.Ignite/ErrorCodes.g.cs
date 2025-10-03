@@ -524,6 +524,9 @@ namespace Apache.Ignite
 
             /// <summary> UnitZip error. </summary>
             public const int UnitZip = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> UnitWrite error. </summary>
+            public const int UnitWrite = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> GarbageCollector errors. </summary>

@@ -45,9 +45,6 @@ class DeploymentUtils {
     }
 
     private static void deployUnit(List<File> unitFiles, String unitName, String unitVersion) {
-        // TODO IGNITE-26418 Netty buffer leaks in REST API
-        ResourceLeakDetector.setLevel(Level.DISABLED);
-
         DeployUnitClient deployUnitClient = new DeployUnitClient(new ApiClient());
 
         try {

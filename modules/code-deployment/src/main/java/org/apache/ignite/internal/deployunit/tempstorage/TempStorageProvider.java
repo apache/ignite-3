@@ -15,24 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.configuration;
+package org.apache.ignite.internal.deployunit.tempstorage;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.PublicName;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.deployment.version.Version;
 
-/**
- * Configuration schema for Compute functionality.
- */
-@Config
-public class DeploymentConfigurationSchema {
-    /**
-     * Relative path to folder in node working directory where will store all deployment units content.
-     */
-    @Value(hasDefault = true)
-    @PublicName(legacyNames = "deploymentLocation")
-    public final String location = "deployment";
-
-    @Value(hasDefault = true)
-    public final String tempLocation = "deployment.tmp";
+public interface TempStorageProvider {
+    TempStorage tempStorage(String id, Version version);
 }
