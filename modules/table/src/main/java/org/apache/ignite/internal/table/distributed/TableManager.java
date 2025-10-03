@@ -1433,9 +1433,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             partitionUpdateHandlers,
                             raftClient);
 
-                    RaftGroupEventsListener raftGroupEventsListener = localAssignment.isPeer()
-                            ? createRaftGroupEventsListener(replicaGrpId)
-                            : RaftGroupEventsListener.noopLsnr;
+                    RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(replicaGrpId);
 
                     MvTableStorage mvTableStorage = internalTbl.storage();
 
