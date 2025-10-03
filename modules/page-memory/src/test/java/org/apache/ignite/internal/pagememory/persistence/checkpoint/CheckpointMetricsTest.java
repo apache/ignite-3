@@ -30,12 +30,13 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link CheckpointMetrics} testing. */
-public class CheckpointMetricsTest {
+public class CheckpointMetricsTest extends BaseIgniteAbstractTest {
     private final MetricManager metricManager = new TestMetricManager();
 
     private final CheckpointMetricSource metricSource = new CheckpointMetricSource("test");
