@@ -46,6 +46,4 @@ public final class SqlQueryMessageGroup {
 
     /** See {@link CancelOperationResponse} for the details. */
     public static final short OPERATION_CANCEL_RESPONSE = 7;
-
-    public static final short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE = 8;
 }

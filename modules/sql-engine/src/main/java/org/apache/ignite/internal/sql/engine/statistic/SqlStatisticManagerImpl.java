@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -106,6 +107,23 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
      */
     @Override
     public long tableSize(int tableId) {
+/*        TableViewInternal tableView = tableManager.cachedTable(tableId);
+
+        if (tableView == null) {
+            return 1;
+        }
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> updateResult = statAggregator.estimatedSizeWithLastUpdate(
+                tableView.internalTable());
+
+        updateResult.join();*/
+
         return tableSizeMap.computeIfAbsent(tableId, k -> DEFAULT_VALUE).getSize();
     }
 
@@ -143,7 +161,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                 continue;
             }
 
-            CompletableFuture<Void> updateResult = tableView.internalTable().estimatedSizeWithLastUpdate()
+            CompletableFuture<Void> updateResult = statAggregator.estimatedSizeWithLastUpdate(tableView.internalTable())
                     .thenAccept(res -> {
                         // the table can be concurrently dropped and we shouldn't put new value in this case.
                         tableSizeMap.computeIfPresent(tableId, (k, v) -> {

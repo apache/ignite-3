@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
 
 /**
  * Factory for producing {@link PartitionModificationCounter}.
@@ -41,12 +42,20 @@ public class PartitionModificationCounterFactory {
      * @param partitionSizeSupplier Partition size supplier.
      * @return New partition modification counter.
      */
-    public PartitionModificationCounter create(LongSupplier partitionSizeSupplier) {
+    public PartitionModificationCounter create(
+            int tableId,
+            int partitionId,
+            LongSupplier partitionSizeSupplier,
+            MessagingService messagingService
+    ) {
         return new PartitionModificationCounter(
                 currentTimestampSupplier.get(),
                 partitionSizeSupplier,
                 DEFAULT_STALE_ROWS_FRACTION,
-                DEFAULT_MIN_STALE_ROWS_COUNT
+                DEFAULT_MIN_STALE_ROWS_COUNT,
+                tableId,
+                partitionId,
+                messagingService
         );
     }
 }

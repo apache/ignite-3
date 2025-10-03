@@ -255,7 +255,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        statAggregator = new StatisticAggregator(placementDriver, clockService::current, tableManager);
+        statAggregator = new StatisticAggregator(placementDriver, clockService::current, tableManager, clusterSrvc.topologyService());
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler, statAggregator);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,

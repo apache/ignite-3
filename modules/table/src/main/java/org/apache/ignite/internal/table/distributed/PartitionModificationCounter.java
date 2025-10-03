@@ -18,9 +18,17 @@
 package org.apache.ignite.internal.table.distributed;
 
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Keeps track of the number of modifications of a partition.
@@ -38,13 +46,19 @@ public class PartitionModificationCounter {
     private final AtomicLong counter = new AtomicLong(0);
     private volatile long nextMilestone;
     private volatile HybridTimestamp lastMilestoneReachedTimestamp;
+    private final MessagingService messagingService;
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
 
     /** Constructor. */
     public PartitionModificationCounter(
             HybridTimestamp initTimestamp,
             LongSupplier partitionSizeSupplier,
             double staleRowsFraction,
-            long minStaleRowsCount
+            long minStaleRowsCount,
+            int tableId,
+            int partitionId,
+            MessagingService messagingService
     ) {
         Objects.requireNonNull(initTimestamp, "initTimestamp");
         Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
@@ -63,6 +77,65 @@ public class PartitionModificationCounter {
 
         nextMilestone = computeNextMilestone(partitionSizeSupplier.getAsLong(), staleRowsFraction, minStaleRowsCount);
         lastMilestoneReachedTimestamp = initTimestamp;
+
+        this.messagingService = messagingService;
+
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
+    }
+
+    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+        if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
+            handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender, correlationId);
+        }
+    }
+
+    private void handleRequestCounter(
+            GetEstimatedSizeWithLastModifiedTsRequest message,
+            InternalClusterNode sender,
+            @Nullable Long correlationId
+    ) {
+        GetEstimatedSizeWithLastModifiedTsRequest msg = (GetEstimatedSizeWithLastModifiedTsRequest) message;
+
+        CompletableFuture<Void> fut = messagingService.respond(
+                sender,
+                PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(100).ts(HybridTimestamp.MAX_VALUE).build(),
+                correlationId
+        );
+
+        System.err.println();
+
+/*        messagingService.respond(
+                sender,
+                PARTITION_REPLICATION_MESSAGES_FACTORY.hasDataResponse().build(),
+                correlationId
+        );*/
+
+
+/*        TableViewInternal tableView = tableManager.cachedTable(msg.tableId());
+
+        if (tableView == null) {
+            LOG.debug("No table found to update statistics [id={}].", msg.tableId());
+
+            return;
+        }
+
+        InternalTable table = tableView.internalTable();
+
+        for (int p = 0 ; p < table.partitions(); ++p) {
+            MvPartitionStorage mvPartition = table.storage().getMvPartition(p);
+
+            if (mvPartition != null) {
+                LeaseInfo info = mvPartition.leaseInfo();
+
+                if (info != null) {
+                    if (info.primaryReplicaNodeName().equals(nodeName)) {
+                        mvPartition.estimatedSize();
+                    }
+                }
+            }
+        }
+
+        storageAccessExecutor.execute(() -> handleHasDataRequest(msg, sender, correlationId));*/
     }
 
     /** Returns the current counter value. */

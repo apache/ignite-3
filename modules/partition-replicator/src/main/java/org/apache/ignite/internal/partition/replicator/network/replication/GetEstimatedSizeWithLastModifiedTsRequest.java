@@ -20,12 +20,9 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TableAware;
 
-/**
- * Request for getting an estimated size of a partition.
- */
-@Transferable(PartitionReplicationMessageGroup.GET_ESTIMATED_SIZE_MESSAGE)
-public interface GetEstimatedSizeRequest extends PrimaryReplicaRequest, TableAware {
+@Transferable(PartitionReplicationMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST)
+public interface GetEstimatedSizeWithLastModifiedTsRequest extends NetworkMessage {
+    /** ID of the table. */
+    int tableId();
 }
