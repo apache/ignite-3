@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -29,16 +30,15 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationE
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.List;
@@ -238,10 +238,9 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         CLUSTER.restartNode(txCoordinatorOrdinal);
 
         createIndex(INDEX_NAME);
-        assertTrue(
-                waitForCondition(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME), 10_000),
-                "Index did not become available in time"
-        );
+        await("Index did not become available in time")
+                .atMost(10, SECONDS)
+                .until(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME));
 
         verifyNoNodesHaveAnythingInIndex();
     }
@@ -279,10 +278,9 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         // the pre-build wait.
         CLUSTER.restartNode(txCoordinatorOrdinal);
 
-        assertTrue(
-                waitForCondition(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME), 30_000),
-                "Index did not become available in time"
-        );
+        await("Index did not become available in time")
+                .atMost(10, SECONDS)
+                .until(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME));
 
         verifyNoNodesHaveAnythingInIndex();
     }
@@ -398,12 +396,11 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param indexName Name of an index to wait for.
      */
     private static void waitForIndex(String indexName) throws InterruptedException {
-        assertTrue(waitForCondition(
+        await().atMost(10, SECONDS).until(
                 () -> CLUSTER.runningNodes()
                         .map(TestWrappers::unwrapIgniteImpl)
                         .map(node -> getIndexDescriptor(node, indexName))
-                        .allMatch(Objects::nonNull),
-                10_000)
+                        .allMatch(Objects::nonNull)
         );
     }
 
@@ -450,7 +447,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             );
         }
 
-        assertTrue(waitForCondition(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME), 10_000));
+        await().atMost(10, SECONDS).until(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME));
 
         waitForReadTimestampThatObservesMostRecentCatalog();
     }
@@ -481,23 +478,21 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         int indexId = indexId(indexName);
 
         CLUSTER.runningNodes().forEach(node -> {
-            try {
-                InternalTable internalTable = internalTable(node, tableName);
+            InternalTable internalTable = internalTable(node, tableName);
 
-                for (Entry<Integer, Set<String>> entry : partitionIdToNodes.entrySet()) {
-                    // Let's check if there is a node in the partition assignments.
-                    if (!entry.getValue().contains(node.name())) {
-                        continue;
-                    }
-
-                    IndexStorage index = internalTable.storage().getIndex(entry.getKey(), indexId);
-
-                    assertNotNull(index, String.format("No index %d for partition %d", indexId, entry.getKey()));
-
-                    assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, SECONDS.toMillis(10)));
+            for (Entry<Integer, Set<String>> entry : partitionIdToNodes.entrySet()) {
+                // Let's check if there is a node in the partition assignments.
+                if (!entry.getValue().contains(node.name())) {
+                    continue;
                 }
-            } catch (InterruptedException e) {
-                throw new RuntimeException("Node operation failed: node=" + node.name(), e);
+
+                IndexStorage index = internalTable.storage().getIndex(entry.getKey(), indexId);
+
+                assertNotNull(index, String.format("No index %d for partition %d", indexId, entry.getKey()));
+
+                await().atMost(10, SECONDS)
+                        .pollInterval(10, MILLISECONDS)
+                        .until(() -> index.getNextRowIdToBuild() == null);
             }
         });
 
