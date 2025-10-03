@@ -305,11 +305,11 @@ public final class Commons {
      * @param params Array of values.
      * @return Map of values.
      */
-    public static Int2ObjectMap<Object> arrayToMap(@Nullable Object[] params) {
+    public static <T> Int2ObjectMap<T> arrayToMap(@Nullable T[] params) {
         if (ArrayUtils.nullOrEmpty(params)) {
             return Int2ObjectMaps.emptyMap();
         } else {
-            Int2ObjectMap<Object> res = new Int2ObjectArrayMap<>(params.length);
+            Int2ObjectMap<T> res = new Int2ObjectArrayMap<>(params.length);
 
             for (int i = 0; i < params.length; i++) {
                 res.put(i, params[i]);

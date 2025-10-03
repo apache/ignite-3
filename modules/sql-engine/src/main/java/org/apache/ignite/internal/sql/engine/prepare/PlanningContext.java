@@ -54,6 +54,7 @@ import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.UnboundMetadata;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
@@ -172,7 +173,7 @@ public final class PlanningContext implements Context {
     /** Flag indicated if planning has been canceled due to timeout. */
     private volatile boolean timeouted;
 
-    private final Int2ObjectMap<Object> parameters;
+    private final Int2ObjectMap<RelDataType> parameters;
 
     private @Nullable CalciteCatalogReader catalogReader;
 
@@ -187,7 +188,7 @@ public final class PlanningContext implements Context {
             FrameworkConfig config,
             String qry,
             long plannerTimeout,
-            Int2ObjectMap<Object> parameters,
+            Int2ObjectMap<RelDataType> parameters,
             boolean explicitTx,
             int catalogVersion,
             @Nullable String defaultSchemaName
@@ -217,7 +218,7 @@ public final class PlanningContext implements Context {
     }
 
     /** Get query parameters. */
-    public Int2ObjectMap<Object> parameters() {
+    public Int2ObjectMap<RelDataType> parameters() {
         return parameters;
     }
 
@@ -410,7 +411,7 @@ public final class PlanningContext implements Context {
 
         private long plannerTimeout;
 
-        private Int2ObjectMap<Object> parameters = Int2ObjectMaps.emptyMap();
+        private Int2ObjectMap<RelDataType> parameters = Int2ObjectMaps.emptyMap();
 
         private boolean explicitTx;
 
@@ -448,7 +449,7 @@ public final class PlanningContext implements Context {
         }
 
         /** Values of dynamic parameters to assist with type inference. */
-        public Builder parameters(Int2ObjectMap<Object> parameters) {
+        public Builder parameters(Int2ObjectMap<RelDataType> parameters) {
             this.parameters = parameters;
             return this;
         }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
+import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.deriveTypeFromDynamicParamValueTestOnly;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -252,11 +253,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             String... disabledRules
     ) {
 
-        Int2ObjectArrayMap<Object> paramsMap = new Int2ObjectArrayMap<>();
+        Int2ObjectArrayMap<RelDataType> paramsMap = new Int2ObjectArrayMap<>();
         for (int i = 0; i < params.size(); i++) {
             Object value = params.get(i);
             if (value != Unspecified.UNKNOWN) {
-                paramsMap.put(i, value);
+                paramsMap.put(i, deriveTypeFromDynamicParamValueTestOnly(value));
             }
         }
 
