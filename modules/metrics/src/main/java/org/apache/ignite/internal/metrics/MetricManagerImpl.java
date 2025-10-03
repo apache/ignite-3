@@ -55,6 +55,7 @@ import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporte
 import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterView;
 import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -80,13 +81,13 @@ public class MetricManagerImpl implements MetricManager {
 
     private volatile Supplier<UUID> clusterIdSupplier;
 
-    private volatile String nodeName;
+    private volatile @Nullable String nodeName;
 
     /**
      * Constructor.
      */
     public MetricManagerImpl() {
-        this(Loggers.forClass(MetricManagerImpl.class));
+        this(Loggers.forClass(MetricManagerImpl.class), null);
     }
 
     /**
@@ -94,9 +95,10 @@ public class MetricManagerImpl implements MetricManager {
      *
      * @param log Logger.
      */
-    public MetricManagerImpl(IgniteLogger log) {
+    public MetricManagerImpl(IgniteLogger log, @Nullable String nodeName) {
         registry = new MetricRegistry();
         this.log = log;
+        this.nodeName = nodeName;
     }
 
     @Override

@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +25,6 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,8 +41,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 public class FileDeployerService {
     private static final IgniteLogger LOG = Loggers.forClass(FileDeployerService.class);
 
-    private static final String TMP_SUFFIX = ".tmp";
-
     private static final int DEPLOYMENT_EXECUTOR_SIZE = 4;
 
     /**
@@ -56,6 +49,8 @@ public class FileDeployerService {
     private Path unitsFolder;
 
     private final ExecutorService executor;
+
+    private final DeploymentUnitProcessor<Path> deployProcessor = new DeployerProcessor();
 
     /** Constructor. */
     public FileDeployerService(String nodeName) {
@@ -81,16 +76,10 @@ public class FileDeployerService {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Path unitFolder = unitPath(id, version);
-
                 Files.createDirectories(unitFolder);
 
-                for (Entry<String, InputStream> entry : deploymentUnit.content().entrySet()) {
-                    String fileName = entry.getKey();
-                    Path unitPath = unitFolder.resolve(fileName);
-                    Path unitPathTmp = unitFolder.resolve(fileName + TMP_SUFFIX);
-                    Files.copy(entry.getValue(), unitPathTmp, REPLACE_EXISTING);
-                    Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
-                }
+                deploymentUnit.process(deployProcessor, unitFolder);
+
                 return true;
             } catch (IOException e) {
                 LOG.error("Failed to deploy unit " + id + ":" + version, e);
@@ -129,10 +118,12 @@ public class FileDeployerService {
         return CompletableFuture.supplyAsync(() -> {
             Map<String, byte[]> result = new HashMap<>();
             try {
-                Files.walkFileTree(unitPath(id, version), new SimpleFileVisitor<>() {
+                Path unitFolder = unitPath(id, version);
+                Files.walkFileTree(unitFolder, new SimpleFileVisitor<>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        result.put(file.getFileName().toString(), Files.readAllBytes(file));
+                        Path unitStructure = unitFolder.relativize(file);
+                        result.put(unitStructure.toString(), Files.readAllBytes(file));
                         return FileVisitResult.CONTINUE;
                     }
                 });

@@ -17,8 +17,13 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Marshalling.COMMON_ERR;
 
+import java.io.IOException;
+import java.nio.channels.ClosedByInterruptException;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.thread.IgniteThread;
 
@@ -28,8 +33,8 @@ import org.apache.ignite.internal.thread.IgniteThread;
  * <p>A checkpoint is triggered by the {@link SegmentFileManager} when segment file rollover occurs. Upon rollover, the following happens:
  *
  * <ol>
- *     <li>{@code SegmentFileManager} notifies the Checkpointer by providing the segment file that got full and the {@link IndexMemTable}
- *     for this file;</li>
+ *     <li>{@code SegmentFileManager} notifies the Checkpointer by providing the segment file that got full and the
+ *     {@link ReadModeIndexMemTable} for this file;</li>
  *     <li>Checkpointer adds a task to the tail of the {@link CheckpointQueue}. If the queue is full, the caller thread is blocked until
  *     free space is available in the queue.</li>
  *     <li>Checkpoint thread polls the head of the queue and performs the following actions:
@@ -50,8 +55,15 @@ class RaftLogCheckpointer {
 
     private final Thread checkpointThread;
 
-    RaftLogCheckpointer(String nodeName) {
-        checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint", new CheckpointTask(queue));
+    private final IndexFileManager indexFileManager;
+
+    private final FailureProcessor failureProcessor;
+
+    RaftLogCheckpointer(String nodeName, IndexFileManager indexFileManager, FailureProcessor failureProcessor) {
+        this.indexFileManager = indexFileManager;
+        this.failureProcessor = failureProcessor;
+
+        checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint", new CheckpointTask());
     }
 
     void start() {
@@ -70,7 +82,7 @@ class RaftLogCheckpointer {
         }
     }
 
-    void onRollover(SegmentFile segmentFile, IndexMemTable indexMemTable) {
+    void onRollover(SegmentFile segmentFile, ReadModeIndexMemTable indexMemTable) {
         try {
             queue.add(segmentFile, indexMemTable);
         } catch (InterruptedException e) {
@@ -80,13 +92,7 @@ class RaftLogCheckpointer {
         }
     }
 
-    private static class CheckpointTask implements Runnable {
-        private final CheckpointQueue queue;
-
-        CheckpointTask(CheckpointQueue queue) {
-            this.queue = queue;
-        }
-
+    private class CheckpointTask implements Runnable {
         @Override
         public void run() {
             while (true) {
@@ -95,12 +101,14 @@ class RaftLogCheckpointer {
 
                     entry.segmentFile().sync();
 
-                    // TODO: Persist the memtable, see https://issues.apache.org/jira/browse/IGNITE-26473.
+                    indexFileManager.saveIndexMemtable(entry.memTable());
 
                     queue.removeHead();
-                } catch (InterruptedException e) {
+                } catch (InterruptedException | ClosedByInterruptException e) {
                     // Interrupt is called on stop.
                     return;
+                } catch (IOException e) {
+                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
                 }
             }
         }

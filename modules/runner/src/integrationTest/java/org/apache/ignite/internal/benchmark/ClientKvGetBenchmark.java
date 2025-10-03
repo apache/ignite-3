@@ -101,7 +101,7 @@ public class ClientKvGetBenchmark extends ClientKvBenchmark {
 
     /**
      * Benchmark's entry point. Can be started from command line:
-     * ./gradlew ":ignite-runner:runClientPutBenchmark" --args='jmh.batch=10 jmh.threads=1'
+     * ./gradlew ":ignite-runner:runClientGetBenchmark" --args='jmh.batch=10 jmh.threads=1'
      */
     public static void main(String[] args) throws RunnerException {
         runBenchmark(ClientKvGetBenchmark.class, args);

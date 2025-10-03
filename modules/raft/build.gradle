@@ -59,6 +59,7 @@ dependencies {
     testAnnotationProcessor project(':ignite-network-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-metrics:'))
@@ -68,6 +69,7 @@ dependencies {
     testImplementation project(':ignite-network')
     testImplementation libs.netty.common
     testImplementation libs.jmh.core
+    testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
     testFixturesImplementation project(':ignite-core')

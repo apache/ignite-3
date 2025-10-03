@@ -21,6 +21,8 @@ import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.testframework.WorkDirectoryExtension.zipDirectory;
+import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,6 +47,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -994,6 +998,28 @@ public final class IgniteTestUtils {
             buf.rewind();
             channel.write(buf);
         }
+    }
+
+    /**
+     * Generate zip file with dummy content based on provided map.
+     *
+     * @param contentTree Map from zip content files path to size.
+     * @param dest Zip file destination.
+     * @throws IOException if an I/O error is thrown.
+     */
+    public static void createZipFile(Map<String, Long> contentTree, Path dest) throws IOException {
+        Path zipTempFolder = Files.createTempDirectory("zipContent");
+        for (Entry<String, Long> e : contentTree.entrySet()) {
+            String zipEntryPath = e.getKey();
+            Long entrySize = e.getValue();
+            Path entry = zipTempFolder.resolve(zipEntryPath);
+            if (entrySize > 0) {
+                Files.createDirectories(entry.getParent());
+                fillDummyFile(entry, entrySize);
+            }
+        }
+        zipDirectory(zipTempFolder, dest);
+        deleteIfExists(zipTempFolder);
     }
 
     /**

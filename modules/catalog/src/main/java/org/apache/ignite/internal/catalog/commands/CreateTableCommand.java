@@ -137,17 +137,17 @@ public class CreateTableCommand extends AbstractTableCommand {
         int tableId = id++;
         int pkIndexId = id++;
 
-        CatalogTableDescriptor table = new CatalogTableDescriptor(
-                tableId,
-                schema.id(),
-                pkIndexId,
-                tableName,
-                zone.id(),
-                columns.stream().map(CatalogUtils::fromParams).collect(toList()),
-                primaryKey.columns(),
-                colocationColumns,
-                storageProfile
-        );
+        CatalogTableDescriptor table = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(schema.id())
+                .primaryKeyIndexId(pkIndexId)
+                .name(tableName)
+                .zoneId(zone.id())
+                .columns(columns.stream().map(CatalogUtils::fromParams).collect(toList()))
+                .primaryKeyColumns(primaryKey.columns())
+                .colocationColumns(colocationColumns)
+                .storageProfile(storageProfile)
+                .build();
 
         String indexName = primaryKey.name();
         if (indexName == null) {
