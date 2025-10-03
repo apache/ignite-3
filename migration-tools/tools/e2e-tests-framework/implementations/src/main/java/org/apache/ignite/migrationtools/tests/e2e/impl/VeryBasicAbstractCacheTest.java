@@ -31,11 +31,13 @@ import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.migrationtools.tests.e2e.framework.core.ExampleBasedCacheTest;
+import org.apache.ignite.migrationtools.tests.e2e.framework.core.NameUtils;
 import org.apache.ignite.migrationtools.tests.e2e.framework.core.SqlTest;
 import org.apache.ignite.migrationtools.tests.e2e.framework.core.SqlTestUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /** VeryBasicAbstractCacheTest. */
 public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCacheTest<K, V> {
@@ -67,6 +69,12 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
         cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         cacheCfg.setIndexedTypes(keyType, valType);
         return cacheCfg;
+    }
+
+    @Nullable
+    @Override
+    public String getSchemaName() {
+        return null;
     }
 
     @Override
@@ -106,12 +114,13 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
 
     @Override
     public Map<String, SqlTest> jdbcTests() {
+        var tableName = NameUtils.ignite3TableName(this);
         return Map.of(
-                "Count Test", (conn, numExamples) -> SqlTestUtils.sqlCountRecordsTest(conn, getIgnite3SqlTableName(), numExamples),
+                "Count Test", (conn, numExamples) -> SqlTestUtils.sqlCountRecordsTest(conn, tableName, numExamples),
                 "Element Iterator Test", (conn, numExamples) ->
                         SqlTestUtils.sqlRandomElementTest(
                                 conn,
-                                getIgnite3SqlTableName(),
+                                tableName,
                                 keyColumnName,
                                 numExamples,
                                 this::supplyExample,
@@ -131,11 +140,6 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
         // Get the tableName for the SQL Query. Why uppercase??
         String tableName = (this.valueClass.isArray()) ? '"' + this.valueClass.getName() + '"' : this.valueClass.getSimpleName();
         return "\"" + this.getTableName() + "\"." + tableName.toUpperCase();
-    }
-
-    // TODO: Check if this is the actual AI3 table name.
-    private String getIgnite3SqlTableName() {
-        return "\"" + this.getTableName() + "\"";
     }
 
     protected void assertValueFromIgnite2(V actualVal, V expected) {
