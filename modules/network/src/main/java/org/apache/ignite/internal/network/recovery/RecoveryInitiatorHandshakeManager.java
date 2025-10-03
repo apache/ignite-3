@@ -41,7 +41,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
@@ -436,10 +435,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
             giveUpClinch();
         } else {
-            Exception ex = msg.reason() == HandshakeRejectionReason.STOPPING
-                    ? new RecipientLeftException(msg.message())
-                    : new HandshakeException(msg.message());
-            localHandshakeCompleteFuture.completeExceptionally(ex);
+            localHandshakeCompleteFuture.completeExceptionally(HandshakeManagerUtils.createExceptionFromRejectionMessage(msg));
         }
     }
 
