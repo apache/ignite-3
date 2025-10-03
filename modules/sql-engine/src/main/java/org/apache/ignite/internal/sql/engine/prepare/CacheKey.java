@@ -77,11 +77,6 @@ public class CacheKey {
     }
 
     @Override
-    public String toString() {
-        return "query=" + query + ", catalogVersion=" + catalogVersion + ", schemaName=" + schemaName + ", paramTypes=" + paramTypes;
-    }
-
-    @Override
     public int hashCode() {
         if (hashCode == 0) {
             int result = catalogVersion;

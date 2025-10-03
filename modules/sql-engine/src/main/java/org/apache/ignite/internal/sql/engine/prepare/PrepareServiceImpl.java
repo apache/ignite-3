@@ -959,16 +959,20 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     @TestOnly
+    @Nullable
     public static RelDataType deriveTypeFromDynamicParamValueTestOnly(@Nullable Object value) {
         return deriveTypeFromDynamicParamValue(value);
     }
 
+    // This method was introduced during https://issues.apache.org/jira/browse/IGNITE-25716 and moved here after refactoring
+    // And it`s questionable, why it can`t be changed into: native2relationalType(Commons.typeFactory(), NativeTypes.fromObject(param))
+    @Nullable
     private static RelDataType deriveTypeFromDynamicParamValue(@Nullable Object value) {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
         if (value == null) {
-            return typeFactory.createSqlType(SqlTypeName.NULL);
+            return null;
         }
+
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
 
         Class<?> cls = value.getClass();
 

@@ -466,8 +466,7 @@ public final class PlanningContext implements Context {
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(frameworkConfig, qry, plannerTimeout, parameters, explicitTx, catalogVersion,
-                    defaultSchemaName);
+            return new PlanningContext(frameworkConfig, qry, plannerTimeout, parameters, explicitTx, catalogVersion, defaultSchemaName);
         }
     }
 }
