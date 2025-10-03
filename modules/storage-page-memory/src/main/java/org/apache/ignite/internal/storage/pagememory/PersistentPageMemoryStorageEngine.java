@@ -30,7 +30,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -351,6 +354,15 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         } catch (IOException e) {
             throw new StorageException("Failed to destroy table directory: {}", e, tableId);
         }
+    }
+
+    @Override
+    public void addTableMetrics(CatalogTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
+        PersistentPageMemoryDataRegion region = regions.get(tableDescriptor.storageProfile());
+
+        assert region != null : "Adding metrics to the table with non-existent data region: " + tableDescriptor;
+
+        region.addTableMetrics(tableDescriptor, metricConsumer);
     }
 
     /**
