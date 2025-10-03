@@ -335,7 +335,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             throw e;
         }
 
-        assertNotNull(indexStorage, String.format("indexId=%s, partitionId=%s", indexId, partitionId));
+        assertNotNull(indexStorage, String.format("No index storage exists for indexId=%s, partitionId=%s", indexId, partitionId));
 
         return indexStorage;
     }
@@ -351,7 +351,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 .findFirst()
                 .orElse(null);
 
-        assertNotNull(tableViewInternal, "tableId=" + tableId);
+        assertNotNull(tableViewInternal, "No table object found for tableId=" + tableId);
 
         return tableViewInternal;
     }
