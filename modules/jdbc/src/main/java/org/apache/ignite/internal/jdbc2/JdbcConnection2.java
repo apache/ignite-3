@@ -307,7 +307,7 @@ public class JdbcConnection2 implements Connection {
 
         closed = true;
 
-        List<Exception> suppressedExceptions = List.of();
+        List<Exception> suppressedExceptions = null;
 
         lock.lock();
         try {
@@ -319,7 +319,7 @@ public class JdbcConnection2 implements Connection {
                 try {
                     statement.close();
                 } catch (Exception e) {
-                    if (suppressedExceptions.isEmpty()) {
+                    if (suppressedExceptions == null) {
                         suppressedExceptions = new ArrayList<>();
                     }
                     suppressedExceptions.add(e);
@@ -330,7 +330,7 @@ public class JdbcConnection2 implements Connection {
             lock.unlock();
         }
 
-        if (!suppressedExceptions.isEmpty()) {
+        if (suppressedExceptions != null) {
             SQLException err = new SQLException("Exception occurred while closing a connection.");
             for (Exception suppressed : suppressedExceptions) {
                 err.addSuppressed(suppressed);
