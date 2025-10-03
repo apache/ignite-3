@@ -206,36 +206,6 @@ auto client = ignite_client::start(cfg, std::chrono::seconds(5));
 ----
 --
 
-=== Using Dependency Injection
-
-Ignite client provides support for using link:https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection[Dependency Injection] when initializing a client instance.
-
-This approach can be used to simplify initializing the client in DI containers:
-
-- Register the `IgniteClientGroup` in your DI container:
-+
-[source, cpp]
-----
-builder.Services.AddSingleton<IgniteClientGroup>(_ => new IgniteClientGroup(
-    new IgniteClientGroupConfiguration
-    {
-        Size = 3,
-        ClientConfiguration = new("localhost"),
-    }));
-----
-+
-- Use an instance of the group you created in your methods:
-+
-[source, cpp]
-----
-public async Task<IActionResult> Index([FromServices] IgniteClientGroup igniteGroup)
-{
-    IIgnite ignite = await igniteGroup.GetIgniteAsync();
-    var tables = await ignite.Tables.GetTablesAsync();
-    return Ok(tables);
-}
-----
-
 == Authentication
 
 To pass authentication information, pass it to `IgniteClient` builder:

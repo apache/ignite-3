@@ -29,25 +29,7 @@ Each Apache Ignite storage engine can have several storage profiles. Each profil
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 
 |aimem.initSizeBytes|268435456| Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
-|aimem.maxSizeBytes|268435456| Maximum memory region size in bytes.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
-|aimem.eviction.mode|DISABLED| Eviction mode.| Yes | No |
-- DISABLED - Eviction is disabled.
-- HISTORY_ONLY - Only historical versions of rows are evicted.
-- RANDOM - Historical versions of rows are evicted first, followed by the eviction of the most recent row versions, which are chosen randomly.
-|aimem.eviction.threshold|90% a| Threshold for eviction initiation. A number with a dimension identifier:
-
-* % - percentage of aimem.maxSize
-* k - Kb
-* m - Mb
-* g - Gb
-
-For instance, "90%" means that the page memory starts eviction only after 90% of the data region is occupied.| Yes | No a| * 0-100%
-
-* 0-9223372036854775807k/m/g
-|aimem.eviction.lwmUpdateInterval|60000| Frequency of the low watermark update in milliseconds.| Yes | No | 1 - inf
-|aimem.eviction.interval|60000| Interval between the data eviction iterations.| Yes | No | 1 - inf
-|aimem.eviction.lwmThreshold|1000| If the low watermark is less than evictionLwmThreshold from the current timestamp, the row eviction is triggered.| Yes | No | 0 - inf
-|aimem.eviction.batchSize|60000| Eviction batch size in rows.| Yes | No | 1 - inf
+|aimem.maxSizeBytes|(268435456 or 20% of physical memory)| Maximum memory region size in bytes. Calculated automatically as 256Mb or 20% of available memory, whichever is larger. | Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
 |======
 
 == Configuration Example
@@ -63,14 +45,6 @@ In Apache Ignite 3, you can create and maintain configuration in either HOCON or
         {
            "engine": "aimem",
            "name": "default_aimem",
-           "eviction": {
-             "batchSize": 200,
-             "interval": 60000,
-             "lwmThreshold": 1000,
-             "lwmUpdateInterval": 60000,
-             "mode": "DISABLED",
-             "threshold": "90%"
-           },
            "initSizeBytes": 268435456,
            "maxSizeBytes": 268435456
           }

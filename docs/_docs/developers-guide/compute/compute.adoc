@@ -632,7 +632,6 @@ The table below lists the possible job statuses:
 |=======================================================================
 |Status |Description |Transitions to
 
-| `Submitted` | The job was created and sent to the cluster, but not yet processed. | `Queued`, `Canceled`
 | `Queued` | The job was added to the queue and is waiting for execution. | `Executing`, `Canceled`
 | `Executing` | The job is being executed. | `Canceling`, `Completed`, `Queued`
 | `Completed` | The job was executed successfully and the execution result was returned. |
@@ -678,21 +677,6 @@ cts.Cancel();
 --
 
 Another way to cancel jobs is by using the SQL link:sql-reference/operational-commands#kill-compute[KILL COMPUTE] command. The job id can be retrieved via the `COMPUTE_JOBS` link:administrators-guide/metrics/system-views[system view].
-
-
-== Job Configuration
-
-When jobs arrive at the destination node, they are submitted to a thread pool and scheduled for execution in random order.
-However, you can change job ordering by configuring `CollisionSpi`.
-The `CollisionSpi` interface provides a way to control how jobs are scheduled for processing on each node.
-
-Apache Ignite provides several implementations of the `CollisionSpi` interface:
-
-- `FifoQueueCollisionSpi` — simple FIFO ordering in multiple threads. This implementation is used by default;
-- `PriorityQueueCollisionSpi` — priority ordering;
-- `JobStealingFailoverSpi` — use this implementation to enable job stealing.
-
-To enable a specific collision spi, change the `IgniteConfiguration.collisionSpi` property.
 
 === Job Priority
 

@@ -51,7 +51,7 @@ To connect to the cluster, use the `connect()` method:
 [source, python]
 ----
 addr = ['127.0.0.1:10800']
-return pygridgain_dbapi.connect(address=addr, timeout=10)
+return pyignite_dbapi.connect(address=addr, timeout=10)
 ----
 
 After you are done working with the cluster, remember to always close the connection to it.
@@ -65,7 +65,7 @@ Alternatively, you can use the `with` statement to automatically close the conne
 
 [source, python]
 ----
-with pygridgain_dbapi.connect(address=addr, timeout=10) as conn:
+with pyignite_dbapi.connect(address=addr, timeout=10) as conn:
     conn.cursor()
 ----
 
@@ -78,7 +78,7 @@ To ensure secure connection to the cluster, you can enable SSL for it by providi
 def create_ssl_connection():
   """Create SSL-enabled connection to GridGain cluster."""
   addr = ['127.0.0.1:10800']
-  return pygridgain_dbapi.connect(
+  return pyignite_dbapi.connect(
       address=addr,
       timeout=10,
       use_ssl=True,
@@ -99,7 +99,7 @@ If the cluster uses link:administrators-guide/security/authentication#basic-auth
 def create_authenticated_connection():
   """Create authenticated connection to GridGain cluster."""
   addr = ['127.0.0.1:10800']
-  return pygridgain_dbapi.connect(
+  return pyignite_dbapi.connect(
       address=addr,
       timeout=10,
       identity='user',
@@ -128,7 +128,7 @@ The example below shows how to set these properties:
 def create_configured_connection():
   """Create authenticated connection to GridGain cluster."""
   addr = ['127.0.0.1:10800']
-  return conn = pygridgain_dbapi.connect(
+  return conn = pyignite_dbapi.connect(
     address=addr,
     timeout=10,
     schema='CUSTOM',

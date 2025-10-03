@@ -98,6 +98,15 @@ SOME(condition)
 
 Returns TRUE if one or more of the values of condition is TRUE.
 
+=== GROUPING
+
+[source,sql]
+----
+GROUPING(column_reference [,column_reference])
+----
+
+Returns a bit vector of the given grouping expressions.
+
 == JSON Functions
 
 === JSON_TYPE
@@ -1349,3 +1358,14 @@ SYSTEM_RANGE(start, end[, increment])
 ----
 
 Returns a range from the table, with an optional increment.
+
+== Security Functions
+
+=== CURRENT_USER
+
+[source,sql]
+----
+CURRENT_USER
+----
+
+Returns the name of the current database user. When security is disabled, returns the system user name instead.
