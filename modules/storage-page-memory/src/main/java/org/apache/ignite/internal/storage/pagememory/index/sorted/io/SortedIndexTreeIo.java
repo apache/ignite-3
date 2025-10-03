@@ -40,11 +40,13 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
+import org.apache.ignite.internal.schema.UnsafeByteBufferAccessor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.comparator.JitComparator;
 
 /**
  * Interface for {@link SortedIndexRow} B+Tree-related IO.
@@ -210,6 +212,74 @@ public interface SortedIndexTreeIo {
             return cmp;
         }
 
+        return compareRowId(pageAddr, rowKey, off);
+    }
+
+    /**
+     * Compare the {@link SortedIndexRowKey} from the page with passed {@link SortedIndexRowKey}. This method is very similar to
+     * {@link #compare(DataPageReader, Comparator, PartialBinaryTupleMatcher, int, long, int, SortedIndexRowKey)}. Combining them into a
+     * single method would make it too bloated.
+     *
+     * @param dataPageReader Data page reader.
+     * @param comparator Comparator.
+     * @param partitionId Partition ID.
+     * @param pageAddr Page address.
+     * @param idx Element's index.
+     * @param rowKey Lookup index row key.
+     * @return Comparison result.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    default int compare(
+            DataPageReader dataPageReader,
+            JitComparator comparator,
+            int partitionId,
+            long pageAddr,
+            int idx,
+            SortedIndexRowKey rowKey
+    ) throws IgniteInternalCheckedException {
+        int off = offset(idx);
+
+        int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
+
+        ByteBuffer outerBuffer = rowKey.indexColumns().valueBuffer();
+        UnsafeByteBufferAccessor outerAccessor = new UnsafeByteBufferAccessor(outerBuffer);
+        UnsafeByteBufferAccessor innerAccessor;
+        int innerSize;
+
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
+            innerSize = indexColumnsInlineSize();
+            innerAccessor = new UnsafeByteBufferAccessor(pageAddr + off + TUPLE_OFFSET, innerSize);
+
+            int cmp = comparator.compare(outerAccessor, outerBuffer.capacity(), innerAccessor, innerSize);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
+
+            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+
+            dataPageReader.traverse(link, indexColumnsTraversal, null);
+
+            byte[] innerBytes = indexColumnsTraversal.result();
+            innerAccessor = new UnsafeByteBufferAccessor(innerBytes, 0, innerBytes.length);
+        } else {
+            innerSize = indexColumnsSize;
+            innerAccessor = new UnsafeByteBufferAccessor(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
+        }
+
+        int cmp = comparator.compare(outerAccessor, outerBuffer.capacity(), innerAccessor, innerSize);
+
+        if (cmp != 0) {
+            return cmp;
+        }
+
+        return compareRowId(pageAddr, rowKey, off);
+    }
+
+    private int compareRowId(long pageAddr, SortedIndexRowKey rowKey, int off) {
+        int cmp;
         assert rowKey instanceof SortedIndexRow : rowKey;
 
         SortedIndexRow row = (SortedIndexRow) rowKey;

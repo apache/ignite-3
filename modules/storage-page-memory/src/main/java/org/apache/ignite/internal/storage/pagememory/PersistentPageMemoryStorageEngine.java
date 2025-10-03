@@ -95,6 +95,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final StorageConfiguration storageConfig;
 
+    // TODO Move to upper level.
     private final @Nullable SystemLocalConfiguration systemLocalConfig;
 
     private final PageIoRegistry ioRegistry;
