@@ -2182,7 +2182,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         try {
             return localPartitionsVv.get(causalityToken)
-                    .thenApply(unused -> Objects.requireNonNullElse(localPartsByTableId.get(tableId), PartitionSet.EMPTY_SET));
+                    .thenApply(unused -> localPartsByTableId.getOrDefault(tableId, PartitionSet.EMPTY_SET));
         } finally {
             busyLock.leaveBusy();
         }
