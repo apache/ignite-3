@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite;
+package org.apache.ignite.customizer.example;
 
+import org.apache.ignite.IgniteClientPropertiesCustomizer;
+import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -26,13 +28,23 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
 /**
- * Example application.
+ * Example application that uses IgniteClientPropertiesCustomizer to set custom authenticator.
  */
 @SpringBootApplication
-public class ExampleApplication {
-
+public class ExampleApplicationWithCustomAuthenticator {
     public static void main(String[] args) {
-        SpringApplication.run(ExampleApplication.class, args);
+        SpringApplication.run(ExampleApplicationWithCustomAuthenticator.class, args);
+    }
+
+    /**
+     * This method can be used to set or override properties.
+     */
+    @Bean
+    public IgniteClientPropertiesCustomizer customizeClient() {
+        return cfg ->
+                cfg.setAuthenticator(
+                        BasicAuthenticator.builder().username("ignite").password("ignite").build()
+                );
     }
 
     @Bean
