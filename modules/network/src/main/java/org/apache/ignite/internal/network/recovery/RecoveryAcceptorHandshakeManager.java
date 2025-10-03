@@ -37,6 +37,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -361,7 +362,9 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             LOG.debug("Handshake rejected by initiator: {}", msg.message());
         }
 
-        HandshakeException err = new HandshakeException(msg.message());
+        Exception err = msg.reason() == HandshakeRejectionReason.STOPPING
+                ? new RecipientLeftException(msg.message())
+                : new HandshakeException(msg.message());
 
         handshakeCompleteFuture.completeExceptionally(err);
     }

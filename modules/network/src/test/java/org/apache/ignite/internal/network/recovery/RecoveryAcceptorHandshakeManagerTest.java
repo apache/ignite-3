@@ -52,6 +52,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
@@ -253,5 +254,25 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
         assertThat(finalHandshakeFuture.toCompletableFuture(), willThrow(NodeStoppingException.class));
 
         assertThat(recoveryDescriptor.holder(), is(nullValue()));
+    }
+
+    @Test
+    void gettingHandshakeRejectedMessageWithReasonStoppingCausesHandshakeToBeFinishedWithRecipientLeftException() {
+        RecoveryAcceptorHandshakeManager manager = acceptorHandshakeManager(LOWER_ID);
+
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
+
+        manager.onMessage(handshakeRejectedMessageWithReason(HandshakeRejectionReason.STOPPING));
+
+        assertWillThrowFast(localHandshakeFuture, RecipientLeftException.class);
+        assertWillThrowFast(finalHandshakeFuture.toCompletableFuture(), RecipientLeftException.class);
+    }
+
+    private static HandshakeRejectedMessage handshakeRejectedMessageWithReason(HandshakeRejectionReason reason) {
+        return MESSAGE_FACTORY.handshakeRejectedMessage()
+                .message("Rejected")
+                .reasonString(reason.toString())
+                .build();
     }
 }
