@@ -82,8 +82,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.IntGauge;
-import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
@@ -155,8 +153,6 @@ public class PersistentPageMemory implements PageMemory {
     /** Data region configuration. */
     private final PersistentDataRegionConfiguration dataRegionConfiguration;
 
-    private final PersistentPageMemoryMetricSource metricSource;
-
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
@@ -213,6 +209,8 @@ public class PersistentPageMemory implements PageMemory {
     /** Checkpoint timeout lock. */
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
+    private final PersistentPageMemoryMetrics metrics;
+
     /**
      * Constructor.
      *
@@ -240,8 +238,6 @@ public class PersistentPageMemory implements PageMemory {
             PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         this.dataRegionConfiguration = dataRegionConfiguration;
-        this.metricSource = metricSource;
-        initMetrics();
 
         this.ioRegistry = ioRegistry;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
@@ -274,30 +270,21 @@ public class PersistentPageMemory implements PageMemory {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
+        metrics = new PersistentPageMemoryMetrics(metricSource, this, dataRegionConfiguration);
+
         delayedPageReplacementTracker = new DelayedPageReplacementTracker(
                 pageSize,
-                flushDirtyPageForReplacement,
+                (pageMemory, fullPageId, buffer) -> {
+                    metrics.incrementWriteToDiskMetric();
+
+                    flushDirtyPageForReplacement.write(pageMemory, fullPageId, buffer);
+                },
                 LOG,
                 sizes.length - 1,
                 partitionDestructionLockManager
         );
 
         this.writeThrottle = null;
-    }
-
-    private void initMetrics() {
-        metricSource.addMetric(new IntGauge(
-                "UsedCheckpointBufferPages", "Number of currently used pages in checkpoint buffer.", this::usedCheckpointBufferPages
-        ));
-        metricSource.addMetric(new IntGauge(
-                "MaxCheckpointBufferPages", "The capacity of checkpoint buffer in pages.", this::maxCheckpointBufferPages
-        ));
-        // TODO: IGNITE-25702 Fix the concept of "region"
-        metricSource.addMetric(new LongGauge(
-                "MaxSize",
-                "Maximum in-memory region size in bytes.",
-                dataRegionConfiguration::sizeBytes
-        ));
     }
 
     /**
@@ -850,6 +837,8 @@ public class PersistentPageMemory implements PageMemory {
                     pageStoreManager.read(grpId, pageId, buf, false);
 
                     actualPageId = getPageId(buf);
+
+                    metrics.incrementReadFromDiskMetric();
                 } finally {
                     rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET, actualPageId == 0 ? TAG_LOCK_ALWAYS : tag(actualPageId));
                 }
@@ -2055,6 +2044,8 @@ public class PersistentPageMemory implements PageMemory {
                 pageStoreWriter.writePage(fullId, buf, partitionGeneration);
 
                 buf.rewind();
+
+                metrics.incrementWriteToDiskMetric();
             }
 
             // We pinned the page either when allocated the temp buffer, or when resolved abs pointer.
