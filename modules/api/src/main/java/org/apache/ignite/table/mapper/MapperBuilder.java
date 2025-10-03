@@ -279,7 +279,7 @@ public final class MapperBuilder<T> {
                     .map(MapperBuilder::getColumnToFieldMapping)
                     .filter(entry -> !fields.contains(entry.getValue()))
                     // Ignore manually mapped fields/columns.
-                    .forEach(entry -> mapping.putIfAbsent(entry.getKey().toUpperCase(), entry.getValue()));
+                    .forEach(entry -> mapping.putIfAbsent(entry.getKey(), entry.getValue()));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
@@ -289,9 +289,9 @@ public final class MapperBuilder<T> {
         String fldName = fld.getName();
         var column = fld.getAnnotation(Column.class);
         if (column == null) {
-            return new SimpleEntry<>(fldName, fldName);
+            return new SimpleEntry<>(fldName.toUpperCase(), fldName);
         } else {
-            var columnName = column.value().isEmpty() ? fldName : column.value();
+            var columnName = column.value().isEmpty() ? fldName.toUpperCase() : column.value();
             return new SimpleEntry<>(columnName, fldName);
         }
     }
