@@ -123,8 +123,10 @@ public class JdbcStatement2 implements Statement {
         return rs;
     }
 
-    JdbcResultSet createResultSet(ZoneId zoneId, org.apache.ignite.sql.ResultSet<SqlRow> resultSet) {
-        return new JdbcResultSet(resultSet, this, () -> zoneId, closeOnCompletion);
+    JdbcResultSet createResultSet(org.apache.ignite.sql.ResultSet<SqlRow> resultSet) throws SQLException {
+        JdbcConnection2 connection2 = connection.unwrap(JdbcConnection2.class);
+        ZoneId zoneId = connection2.properties().getConnectionTimeZone();
+        return new JdbcResultSet(resultSet, this, () -> zoneId, closeOnCompletion, maxRows);
     }
 
     /**
@@ -190,7 +192,7 @@ public class JdbcStatement2 implements Statement {
 
             SyncResultSetAdapter<SqlRow> syncRs = new SyncResultSetAdapter<>(clientRs);
 
-            resultSet = new JdbcResultSet(syncRs, this, () -> zoneId, closeOnCompletion);
+            resultSet = createResultSet(syncRs);
         } catch (Exception e) {
             Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
             throw new SQLException(cause.getMessage(), cause);

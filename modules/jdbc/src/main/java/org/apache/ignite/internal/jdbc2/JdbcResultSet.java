@@ -91,6 +91,10 @@ public class JdbcResultSet implements ResultSet {
 
     private final Statement statement;
 
+    private final JdbcResultSetMetadata jdbcMeta;
+
+    private final int maxRows;
+
     private boolean closeOnCompletion;
 
     private int fetchSize;
@@ -103,8 +107,6 @@ public class JdbcResultSet implements ResultSet {
 
     private boolean wasNull;
 
-    private JdbcResultSetMetadata jdbcMeta;
-
     /**
      * Constructor.
      */
@@ -112,7 +114,8 @@ public class JdbcResultSet implements ResultSet {
             org.apache.ignite.sql.ResultSet<SqlRow> rs,
             Statement statement,
             Supplier<ZoneId> zoneIdSupplier,
-            boolean closeOnCompletion
+            boolean closeOnCompletion,
+            int maxRows
     ) {
         this.rs = rs;
 
@@ -126,6 +129,7 @@ public class JdbcResultSet implements ResultSet {
         this.wasNull = false;
         this.jdbcMeta = new JdbcResultSetMetadata(rsMetadata);
         this.closeOnCompletion = closeOnCompletion;
+        this.maxRows = maxRows;
     }
 
     int updateCount() {
@@ -151,7 +155,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         try {
-            if (!rs.hasNext()) {
+            if (!rs.hasNext() || maxRows != 0 && currentPosition + 1 > maxRows) {
                 currentRow = null;
                 return false;
             }
