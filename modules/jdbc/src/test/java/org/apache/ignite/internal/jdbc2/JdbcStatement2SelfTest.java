@@ -31,8 +31,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
-import java.time.ZoneId;
 import java.util.List;
+import org.apache.ignite.internal.jdbc.ConnectionProperties;
+import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.IgniteSql;
@@ -383,7 +384,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
             when(igniteRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of()));
 
             {
-                ResultSet rs = jdbc.createResultSet(ZoneId.systemDefault(), igniteRs);
+                ResultSet rs = jdbc.createResultSet(igniteRs);
                 rs.close();
                 assertFalse(stmt.isClosed());
             }
@@ -391,7 +392,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
             stmt.closeOnCompletion();
 
             {
-                ResultSet rs = jdbc.createResultSet(ZoneId.systemDefault(), igniteRs);
+                ResultSet rs = jdbc.createResultSet(igniteRs);
                 rs.close();
                 assertTrue(stmt.isClosed());
             }
@@ -433,8 +434,15 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    protected Statement createStatement() {
+    protected Statement createStatement() throws SQLException {
         Connection connection = Mockito.mock(Connection.class);
+        JdbcConnection2 connection2 = Mockito.mock(JdbcConnection2.class);
+
+        ConnectionProperties properties = new ConnectionPropertiesImpl();
+
+        when(connection.unwrap(JdbcConnection2.class)).thenReturn(connection2);
+        when(connection2.properties()).thenReturn(properties);
+        
         return createStatement(connection);
     }
 

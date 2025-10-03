@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 import java.io.InputStream;
 import java.io.StringReader;
@@ -41,7 +42,6 @@ import java.sql.Ref;
 import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
@@ -56,6 +56,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.jdbc.ConnectionProperties;
+import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -706,8 +708,15 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     }
 
     @Override
-    protected PreparedStatement createStatement() {
+    protected PreparedStatement createStatement() throws SQLException {
         Connection connection = Mockito.mock(Connection.class);
+        JdbcConnection2 connection2 = Mockito.mock(JdbcConnection2.class);
+
+        ConnectionProperties properties = new ConnectionPropertiesImpl();
+
+        when(connection.unwrap(JdbcConnection2.class)).thenReturn(connection2);
+        when(connection2.properties()).thenReturn(properties);
+
         return createStatement(connection);
     }
 

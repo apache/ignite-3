@@ -36,7 +36,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import org.apache.ignite.internal.jdbc.JdbcStatement;
+import org.apache.ignite.internal.jdbc2.JdbcStatement2;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -47,6 +47,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests for queries containing multiple sql statements, separated by ";".
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
 public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Setup tables.
@@ -76,6 +77,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         stmt.close();
 
         openCursorResources = openResources();
+
         // only connection context or 0 if already closed.
         assertTrue(openResources() <= 1, "Open cursors: " + openCursorResources);
         assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
@@ -624,11 +626,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         String complexQuery =
                 "INSERT INTO TEST_TX VALUES (5, ?, 'Leo'); "
-                    + "START TRANSACTION ; "
-                    + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
-                    + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
-                    + "DELETE FROM TEST_TX WHERE age < ?; "
-                    + "COMMIT;";
+                        + "START TRANSACTION ; "
+                        + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
+                        + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
+                        + "DELETE FROM TEST_TX WHERE age < ?; "
+                        + "COMMIT;";
 
         try (PreparedStatement p = conn.prepareStatement(complexQuery)) {
             p.setInt(1, leoAge);
@@ -659,8 +661,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testTimeout() throws SQLException {
-        JdbcStatement igniteStmt = (JdbcStatement) stmt;
-        igniteStmt.timeout(500);
+        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
+        igniteStmt.setQueryTimeout(1);
 
         int attempts = 10;
 

@@ -145,7 +145,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             RuntimeException cause = new RuntimeException("Some error");
             when(igniteRs.hasNext()).thenThrow(cause);
 
-            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false);
+            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false, 0);
 
             SQLException err = assertThrows(SQLException.class, rs::next);
             assertEquals("Some error", err.getMessage());
@@ -163,7 +163,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             when(igniteRs.hasNext()).thenReturn(true);
             when(igniteRs.next()).thenThrow(cause);
 
-            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false);
+            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false, 0);
 
             SQLException err = assertThrows(SQLException.class, rs::next);
             assertEquals("Some error", err.getMessage());
@@ -183,7 +183,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         JdbcStatement2 statement2 = Mockito.mock(JdbcStatement2.class);
         when(statement.unwrap(JdbcStatement2.class)).thenReturn(statement2);
 
-        ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, true);
+        ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, true, 0);
 
         rs.close();
         rs.close();
@@ -206,7 +206,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         RuntimeException cause = new RuntimeException("Some error");
         doAnswer(new ThrowsException(cause)).when(igniteRs).close();
 
-        ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, closeOnCompletion);
+        ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, closeOnCompletion, 0);
 
         SQLException err = assertThrows(SQLException.class, rs::close);
         assertEquals("Some error", err.getMessage());
@@ -230,13 +230,48 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         RuntimeException cause = new RuntimeException("Corrupted value");
         when(row.value(0)).thenThrow(cause);
 
-        JdbcResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false);
+        JdbcResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false, 0);
         assertTrue(rs.next());
 
         SQLException err = assertThrows(SQLException.class, () -> rs.getValue(1));
         assertEquals("Unable to value for column: 1", err.getMessage());
         assertInstanceOf(IgniteException.class, err.getCause());
         assertSame(cause, err.getCause().getCause());
+    }
+
+    @Test
+    public void maxRows() throws SQLException {
+        ColumnMetadataImpl column = new ColumnMetadataImpl("C1", ColumnType.INT32, 0, 0, false, null);
+        ResultSetMetadata apiMeta = new ResultSetMetadataImpl(List.of(column));
+        Statement statement = Mockito.mock(Statement.class);
+        Supplier<ZoneId> zoneIdSupplier = ZoneId::systemDefault;
+
+        List<List<Object>> rows = List.of(
+                List.of(1),
+                List.of(2),
+                List.of(3),
+                List.of(4)
+        );
+
+        try (ResultSet rs = new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false, 3)) {
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            // MaxRows exceeded
+            assertFalse(rs.next());
+            assertFalse(rs.next());
+        }
+
+        // no limit
+
+        try (ResultSet rs = new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false, 0)) {
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            // No more rows
+            assertFalse(rs.next());
+        }
     }
 
     @Override
@@ -246,13 +281,24 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         return createResultSet(statement, zoneId, cols, rows);
     }
 
-    @SuppressWarnings("unchecked")
     private static ResultSet createResultSet(
             Statement statement,
             @SuppressWarnings("unused")
             @Nullable ZoneId zoneId,
             List<ColumnDefinition> cols,
             List<List<Object>> rows
+    ) {
+        return createResultSet(statement, zoneId, cols, rows, 0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ResultSet createResultSet(
+            Statement statement,
+            @SuppressWarnings("unused")
+            @Nullable ZoneId zoneId,
+            List<ColumnDefinition> cols,
+            List<List<Object>> rows,
+            int maxRows
     ) {
 
         Supplier<ZoneId> zoneIdSupplier = () -> {
@@ -268,7 +314,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             org.apache.ignite.sql.ResultSet<SqlRow> rs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
             when(rs.metadata()).thenReturn(null);
 
-            return new JdbcResultSet(rs, statement, zoneIdSupplier, false);
+            return new JdbcResultSet(rs, statement, zoneIdSupplier, false, 0);
         }
 
         List<ColumnMetadata> apiCols = new ArrayList<>();
@@ -283,7 +329,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         ResultSetMetadata apiMeta = new ResultSetMetadataImpl(apiCols);
 
-        return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false);
+        return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false, maxRows);
     }
 
     private static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {

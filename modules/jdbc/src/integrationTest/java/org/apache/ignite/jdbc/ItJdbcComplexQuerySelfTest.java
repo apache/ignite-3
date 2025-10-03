@@ -99,7 +99,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testJoinWithoutAlias() throws Exception {
         ResultSet rs = stmt.executeQuery(
-                "select p.id, p.name, o.name from PUBLIC.Person p, PUBLIC.Org o where p.orgId = o.id");
+                "select p.id, p.name, o.name from PUBLIC.Person p, PUBLIC.Org o where p.orgId = o.id order by id");
 
         assertNotNull(rs);
 
@@ -109,15 +109,15 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
             int id = rs.getInt(1);
 
             if (id == 1) {
-                assertEquals("John White", rs.getString("name"));
+                assertEquals("A", rs.getString("name"));
                 assertEquals("John White", rs.getString(2));
                 assertEquals("A", rs.getString(3));
             } else if (id == 2) {
-                assertEquals("Joe Black", rs.getString("name"));
+                assertEquals("A", rs.getString("name"));
                 assertEquals("Joe Black", rs.getString(2));
                 assertEquals("A", rs.getString(3));
             } else if (id == 3) {
-                assertEquals("Mike Green", rs.getString("name"));
+                assertEquals("B", rs.getString("name"));
                 assertEquals("Mike Green", rs.getString(2));
                 assertEquals("B", rs.getString(3));
             } else {

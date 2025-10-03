@@ -32,6 +32,7 @@ import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,7 +77,9 @@ public class JdbcStatement2 implements Statement {
 
     private static final String STATEMENT_IS_CLOSED =
             "Statement is closed.";
-    public static final String ONLY_FORWARD_DIRECTION_IS_SUPPORTED = "Only forward direction is supported.";
+
+    private static final String ONLY_FORWARD_DIRECTION_IS_SUPPORTED =
+            "Only forward direction is supported.";
 
     private final IgniteSql igniteSql;
 
@@ -125,8 +127,11 @@ public class JdbcStatement2 implements Statement {
         return rs;
     }
 
-    JdbcResultSet createResultSet(ZoneId zoneId, org.apache.ignite.sql.ResultSet<SqlRow> resultSet) {
-        return new JdbcResultSet(resultSet, this, () -> zoneId, closeOnCompletion);
+    JdbcResultSet createResultSet(org.apache.ignite.sql.ResultSet<SqlRow> resultSet) throws SQLException {
+        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
+        ZoneId zoneId = conn.properties().getConnectionTimeZone();
+
+        return new JdbcResultSet(resultSet, this, () -> zoneId, closeOnCompletion, maxRows);
     }
 
     /**
@@ -150,6 +155,7 @@ public class JdbcStatement2 implements Statement {
             throw new UnsupportedOperationException("Explicit transactions are not supported yet.");
         }
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-26142 multistatement.
         if (sql.indexOf(';') == -1 || sql.indexOf(';') == sql.length() - 1) {
             queryModifiers.remove(QueryModifier.ALLOW_MULTISTATEMENT);
         }
@@ -180,9 +186,9 @@ public class JdbcStatement2 implements Statement {
 
         ClientSql clientSql = (ClientSql) igniteSql;
 
-        AsyncResultSet<SqlRow> clientRs;
+        ClientAsyncResultSet<SqlRow> clientRs;
         try {
-            clientRs = clientSql.executeAsyncInternal(null,
+            clientRs = (ClientAsyncResultSet<SqlRow>) clientSql.executeAsyncInternal(null,
                     (Mapper<SqlRow>) null,
                     null,
                     queryModifiers,
@@ -192,7 +198,7 @@ public class JdbcStatement2 implements Statement {
 
             SyncResultSetAdapter<SqlRow> syncRs = new SyncResultSetAdapter<>(clientRs);
 
-            resultSet = new JdbcResultSet(syncRs, this, () -> zoneId, closeOnCompletion);
+            resultSet = new JdbcResultSet(syncRs, this, () -> zoneId, closeOnCompletion, maxRows);
         } catch (Exception e) {
             Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
             throw new SQLException(cause.getMessage(), cause);
@@ -443,6 +449,14 @@ public class JdbcStatement2 implements Statement {
 
         switch (current) {
             case CLOSE_CURRENT_RESULT:
+
+                JdbcResultSet currentRs = resultSet;
+                if (currentRs == null) {
+                    return false;
+                }
+
+                currentRs.close();
+                resultSet = null;
                 return false;
 
             case CLOSE_ALL_RESULTS:
