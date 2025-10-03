@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.Test;
@@ -31,9 +32,17 @@ class ItIndexAndRestartTest extends BaseSqlIntegrationTest {
 
     private static final String TABLE_NAME = "TEST_TABLE";
 
+    /** Must be at least 2 to have a node without the partition; 3 is best as it allows to keep CMG/MG majority despite node restarts. */
+    private static final int NODE_COUNT = 3;
+
+    @Override
+    protected int initialNodes() {
+        return NODE_COUNT;
+    }
+
     @Override
     protected int[] cmgMetastoreNodes() {
-        return new int[] {0, 1, 2};
+        return IntStream.range(0, NODE_COUNT).toArray();
     }
 
     @Test
@@ -47,9 +56,9 @@ class ItIndexAndRestartTest extends BaseSqlIntegrationTest {
                 TABLE_NAME, ZONE_NAME
         ));
 
-        CLUSTER.restartNode(0);
-        CLUSTER.restartNode(1);
-        CLUSTER.restartNode(2);
+        for (int i = 0; i < NODE_COUNT; i++) {
+            CLUSTER.restartNode(i);
+        }
 
         assertTimeoutPreemptively(
                 Duration.ofSeconds(10),
