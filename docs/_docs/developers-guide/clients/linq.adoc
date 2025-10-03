@@ -132,7 +132,7 @@ All generated SQL will be logged with `Debug` level to the specified logger.
 
 === Transactions
 
-Transaction can be passed to the LINQ provider by using the `AsQueryeable` parameter:
+Transaction can be passed to the LINQ provider by using the `AsQueryable` parameter:
 
 [source, csharp]
 ----
@@ -299,7 +299,7 @@ tab:Single Column[]
 ----
 var bookCountByAuthor = bookTable.GetRecordView<Book>().AsQueryable()
     .GroupBy(book => book.Author)
-    .Select(grp => new { Author = grp.Key, Count = x.Count() })
+    .Select(grp => new { Author = grp.Key, Count = grp.Count() })
     .ToList();
 ----
 
@@ -310,7 +310,7 @@ var bookCountByAuthorAndYear = bookTable.GetRecordView<Book>().AsQueryable()
     .GroupBy(book => new { book.Author, book.Year })
     .Select(grp => new { Author = grp.Key.Author,
                                   Year = grp.Key.Year,
-                                  Count = x.Count() })
+                                  Count = grp.Count() })
     .ToList();
 ----
 --

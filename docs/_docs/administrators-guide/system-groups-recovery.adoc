@@ -14,7 +14,7 @@
 // limitations under the License.
 = Disaster Recovery for System Groups
 
-A Ignite 3 cluster includes two system RAFT groups, both of which are essential for the cluster's normal operation:
+An Apache Ignite cluster includes two system RAFT groups, both of which are essential for the cluster's normal operation:
 
 * link:administrators-guide/lifecycle#cluster-management-group[Cluster Management Group (CMG)] 
 * link:administrators-guide/lifecycle#cluster-metastorage-group[Metastorage Group (MG)]
@@ -58,7 +58,7 @@ The above procedure might fail for the following reasons:
 
 If MG loses majority:
 
-. Restart MG nodes (or at least their RAFT nodes inside Ignite nodes).
+. Restart MG nodes (or at least their RAFT nodes inside Apache Ignite nodes).
 . If the above fails:
 .. Make sure that every node that could be started had started and joined the cluster.
 .. Forcefully assign a new majority using the following link:ignite-cli-tool#disaster-recovery-commands[CLI command] (manually or via REST): `recovery cluster reset --url=<existing-node-url> [--cluster-management-group=<new-cmg-nodes>] --metastorage-replication-factor=N`.

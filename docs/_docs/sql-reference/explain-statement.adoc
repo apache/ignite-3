@@ -14,7 +14,7 @@
 // limitations under the License.
 = EXPLAIN Command
 
-The `EXPLAIN` command is used to display the execution plan of an SQL query, showing how the query will be processed by the sql engine.
+The `EXPLAIN` command is used to display the execution plan of an SQL query, showing how the query will be processed by the SQL engine.
 It provides insights into the relational operators used, their configuration, and the estimated number of rows processed at each step.
 This information is essential for diagnosing performance bottlenecks and understanding query optimization decisions.
 
@@ -22,18 +22,18 @@ This information is essential for diagnosing performance bottlenecks and underst
 
 [.diagram-container]
 Diagram(
-    Terminal('EXPLAIN'),
-    Optional(
-        Sequence(
-            Choice(
-                0,
-                Terminal('PLAN'),
-                Terminal('MAPPING')
-            ),
-            Terminal('FOR')
-        )
-    ),
-    NonTerminal('query_or_dml')
+Terminal('EXPLAIN'),
+Optional(
+Sequence(
+Choice(
+0,
+Terminal('PLAN'),
+Terminal('MAPPING')
+),
+Terminal('FOR')
+)
+),
+NonTerminal('query_or_dml')
 )
 
 If neither `PLAN` nor `MAPPING` is specified, then `PLAN` is implicit.
@@ -119,7 +119,7 @@ The plan is structured as a **tree**, where:
 [source,sql]
 ----
 EXPLAIN PLAN FOR
- SELECT 
+ SELECT
       U.UserName, P.ProductName, R.ReviewText, R.Rating
    FROM Users U, Reviews R, Products P
   WHERE U.UserID = R.UserID
@@ -196,13 +196,13 @@ Each node includes:
 
 === Example: Query Mapping
 
-A result of EXPLAIN MAPPING command includes additional metadata providing insight at how the query is mapped on cluster topology.
+A result of the EXPLAIN MAPPING command includes additional metadata providing insight into how the query is mapped on cluster topology.
 So, for the command like below:
 
 [source,sql]
 ----
 EXPLAIN MAPPING FOR
- SELECT 
+ SELECT
       U.UserName, P.ProductName, R.ReviewText, R.Rating
    FROM Users U, Reviews R, Products P
   WHERE U.UserID = R.UserID
@@ -217,7 +217,7 @@ The resulting output is:
 Fragment#0 root
   distribution: single
   executionNodes: [node_1]
-  tree: 
+  tree:
     Project
         fieldNames: [USERNAME, PRODUCTNAME, REVIEWTEXT, RATING]
         projection: [USERNAME, PRODUCTNAME, REVIEWTEXT, RATING]
@@ -249,7 +249,7 @@ Fragment#1
   distribution: random
   executionNodes: [node_1, node_2, node_3]
   partitions: [REVIEWS=[node_1={0, 2, 5, 6, 7, 8, 9, 10, 12, 13, 20}, node_2={1, 3, 11, 19, 21, 22, 23, 24}, node_3={4, 14, 15, 16, 17, 18}]]
-  tree: 
+  tree:
     Sender
         distribution: single
         targetFragmentId: 0
@@ -263,7 +263,7 @@ Fragment#2
   distribution: table PUBLIC.PRODUCTS in zone "Default"
   executionNodes: [node_1, node_2, node_3]
   partitions: [PRODUCTS=[node_1={0, 2, 5, 6, 7, 8, 9, 10, 12, 13, 20}, node_2={1, 3, 11, 19, 21, 22, 23, 24}, node_3={4, 14, 15, 16, 17, 18}]]
-  tree: 
+  tree:
     Sender
         distribution: single
         targetFragmentId: 0
@@ -278,7 +278,7 @@ Fragment#3
   distribution: table PUBLIC.USERS in zone "Default"
   executionNodes: [node_1, node_2, node_3]
   partitions: [USERS=[node_1={0, 2, 5, 6, 7, 8, 9, 10, 12, 13, 20}, node_2={1, 3, 11, 19, 21, 22, 23, 24}, node_3={4, 14, 15, 16, 17, 18}]]
-  tree: 
+  tree:
     Sender
         distribution: single
         targetFragmentId: 0

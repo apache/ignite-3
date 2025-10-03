@@ -18,25 +18,25 @@
 
 Apache Ignite Volatile storage is designed to provide a quick and responsive storage without guarantees of data persistence.
 
-When it is enabled for the data region, Ignite stores all data in the data region in RAM. Data will be lost on cluster shutdown, so make sure to have a separate data region for persistent storage.
+When it is enabled for the data region, Apache Ignite stores all data in the data region in RAM. Data will be lost on cluster shutdown, so make sure to have a separate data region for persistent storage.
 
 == Profile Configuration
 
-Each storage engine can have several storage profiles. Each profile has the following properties:
+Each Apache Ignite storage engine can have several storage profiles. Each profile has the following properties:
 
-[cols="1,1,3a",opts="header", stripes=none]
+[cols="1,1,3",opts="header", stripes=none]
 |===
 |Property|Default|Description
 
 |engine|| The name of the storage engine.
 |name|| The name of the storage profile.
-|initSizeBytes|268435456| Initial profile size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS.
-|maxSizeBytes|268435456| Maximum memory region size in bytes.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS.
+|initSizeBytes|268435456| Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.
+|maxSizeBytes|268435456| Maximum memory region size in bytes.
 |===
 
 == Configuration Example
 
-In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node. The example below shows how to configure one data region that uses volatile storage.
+In Apache Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node. The example below shows how to configure one data region that uses volatile storage.
 
 [source, json]
 ----

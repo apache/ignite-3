@@ -14,7 +14,7 @@
 // limitations under the License.
 = REST API
 
-The Ignite 3 clusters provide an link:https://www.openapis.org/[OpenAPI] specification that can be used to work with Ignite 3 by standard REST methods.
+The Apache Ignite clusters provide an link:https://www.openapis.org/[OpenAPI] specification that can be used to work with Apache Ignite by standard REST methods.
 
 == REST Connector Configuration
 
@@ -29,7 +29,7 @@ Once the cluster is started, you can use external tools to monitor the cluster o
 curl 'http://localhost:10300/management/v1/cluster/state'
 ----
 
-You are not limited to only monitoring, as Ignite REST API provides endpoints that can be used to manage the cluster as well. For example, you can create a link:administrators-guide/snapshots/snapshots-and-recovery[snapshot] via REST:
+You are not limited to only monitoring, as Apache Ignite REST API provides endpoints that can be used to manage the cluster as well. For example, you can create a link:administrators-guide/snapshots/snapshots-and-recovery[snapshot] via REST:
 
 [source, bash]
 ----
@@ -38,7 +38,7 @@ curl -H "Content-Type: application/json" -d '{"snapshotType": "FULL","tableNames
 
 == Java Project Configuration
 
-If you want to integrate Ignite REST API closer into your application, we recommend using an link:https://github.com/OpenAPITools/openapi-generator[OpenAPI generator] to generate a Java client. Once the client is generated, you can use it to work with REST API from code, for example:
+If you want to integrate Apache Ignite REST API closer into your application, we recommend using an link:https://github.com/OpenAPITools/openapi-generator[OpenAPI generator] to generate a Java client. Once the client is generated, you can use it to work with REST API from code, for example:
 
 [source,java]
 ----

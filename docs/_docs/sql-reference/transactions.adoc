@@ -18,7 +18,7 @@ A transaction is a sequence of SQL operations that starts with the `START TRANSA
 
 WARNING: Transaction control statements are only allowed within a link:developers-guide/sql/sql-api#sql-scripts[script].
 
-In Ignite 3, you start the transaction by using the `START TRANSACTION` statement:
+In Apache Ignite 3, you start the transaction by using the `START TRANSACTION` statement:
 
 [.diagram-container]
 Diagram(

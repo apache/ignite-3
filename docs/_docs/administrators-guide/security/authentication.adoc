@@ -14,17 +14,51 @@
 // limitations under the License.
 = Authentication
 
-Ignite 3 provides basic Authentication capabilities.
+Apache Ignite 3 provides basic Authentication capabilities.
 
-== Basic Authentication
+== Authentication Configuration
 
-To start using basic authentication on the cluster, you need to enable it and create an initial administrator user. By default, the role that grants administrator permissions is called `admin`, but you can change it in cluster configuration. Here is an example of configuration that initializes the cluster and enables security on it:
+=== Basic Authentication
 
+To start using basic authentication on the cluster, you need to enable it and create an initial administrator user. By default, the role that grants administrator permissions is called `admin`, but you can change it in cluster configuration.
+
+Here is an example of configuration that initializes the cluster and enables security on it:
+
+- Prepare cluster configuration file with security configuration:
++
 ----
-cluster init --name=sampleCluster --config=ignite{security{enabled:true,authentication.providers:[{name:default,type:basic,users:[{username:ignite,displayName:administrator,password:ignite,roles:["system"]}]}]}}
+ignite {
+  security {
+    enabled:true
+	authentication {
+	  providers=[
+	    {
+          name=default
+          type=basic
+          users=[
+            {
+              displayName=administrator
+              password="ignite"
+              roles=[
+                system
+              ]
+              username=ignite
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+----
++
+- Initialize the cluster with the security configuration:
++
+----
+cluster init --name=sampleCluster --config-files=/cluster-config.conf
 ----
 
-When cluster has been initialized, it has basic authorization configured for `ignite` user name and `ignite` password with system level access. However, by default security is disabled. To enable it:
+When the cluster has been initialized, it has basic authorization configured for `ignite` user name and `ignite` password with system level access. However, by default security is disabled. To enable it:
 
 ----
 cluster config update ignite.security.enabled=true
@@ -42,4 +76,4 @@ You can change the password for the default user by updating cluster configurati
 
 ----
 cluster config update  ignite.security.authentication.providers.default.users.ignite.password=myPass
----
+----

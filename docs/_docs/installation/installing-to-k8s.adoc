@@ -14,50 +14,86 @@
 // limitations under the License.
 = Installing on Kubernetes
 
-You can install Ignite 3 and run a Ignite cluster on Kubernetes cluster. This section describes all the necessary steps, as well as provides the configurations and manifests that you can copy and paste into your environment.
+You can install Apache Ignite 3 and run an Apache Ignite cluster on Kubernetes cluster. This section describes all the necessary steps, as well as provides the configurations and manifests that you can copy and paste into your environment.
+
+NOTE: Using the link:installing-with-helm[Helm chart] is recommended, however, if you choose not to use Helm, this guide will walk you through installing Apache Ignite on Kubernetes.
 
 == Prerequisites
 
-* Ignite 3.0.0 or more recent
-* Access to a running Kubernetes cluster
-* `kubectl` installed and configured to interact with your Kubernetes cluster
-* A namespace exists for Ignite 3 to be deployed.
+=== Recommended Kubernetes Version
+
+include::includes/prereqs-k8s.adoc[]
 
 == Installation Steps
 
 === Create ConfigMaps
 
-. Create the Ignite configuration file. The minimum node configuration is as follows:
+. Create the Apache Ignite configuration file. The minimum node configuration is as follows:
 +
 .ignite-config.conf
 [source,json]
 ----
-{
-  ignite: {
-    network: {
-      # Ignite 3 node port
-      port: 3344,
-      nodeFinder: {
-        netClusterNodes: [
-          # Kubernetes service to access the Ignite 3 cluster on the Kubernetes network
-          "ignite-svc-headless:3344"
-        ]
-      }
+ignite: {
+  network: {
+    # Apache Ignite 3 node port
+    port = 3344
+    nodeFinder = {
+      netClusterNodes = [
+        # Kubernetes service to access the Apache Ignite 3 cluster on the Kubernetes network
+        "ignite-svc-headless:3344"
+      ]
     }
+  }
+
+  storage: {
+    profiles = [
+      {
+        engine = "aipersist"
+        name = "default"
+        replacementMode = "CLOCK"
+        # Explicit storage size configuration
+        sizeBytes = 2147483648
+      }
+    ]
   }
 }
 ----
 +
-. Create the ConfigMap object for Ignite configuration:
+. Create the ConfigMap object for Apache Ignite configuration:
 +
 [source,shell]
 ----
 kubectl create configmap ignite-config -n <namespace> --from-file=ignite-config.conf
 ----
++
+Replace `<namespace>` with the name of the namespace where you want to deploy Apache Ignite.
++
+NOTE: In Kubernetes deployments, the `ignite-config.conf` file is mounted as a read-only ConfigMap, so any attempt to update it with the `node config update` command will fail.
++
+To update Apache Ignite node configuration, modify the existing ConfigMap and restart all Apache Ignite pods.
++
+- Modify previously configured ConfigMap object:
++
+[source, bash]
+----
+kubectl edit configmap ignite-config -n <namespace>
+----
++
+- Restart Apache Ignite pod, repeat for every pod:
++
+[source, bash]
+----
+kubectl delete pod <Apache Ignite pod name> -n <namespace>
+----
 
-=== Deploy the Service
+=== Create and Deploy the Service
 
-. Prepare the `service.yaml` for service deployment:
+Depending on your requirements, define and deploy a Kubernetes service. Apache Ignite 3 use two types of services: one for internal cluster discovery, and the other -- for external client access.
+
+1. First, choose a type of service you need and prepare the `service.yaml` file.
+
+- For communication inside the Kubernetes cluster, Use a headless service by setting the `clusterIP` parameter to `None`. This will expose each pod's IP, enabling Apache Ignite to be partition‑aware: clients discover every node's address, determine which partition resides on which node, and send requests directly where the data is located.
+
 +
 .service.yaml
 [source,yaml]
@@ -96,9 +132,36 @@ spec:
   sessionAffinity: None
   type: ClusterIP
 ----
+
+- Use a `LoadBalancer` service to allow external clients to connect. Keep in mind, that with this option you giving up partition awareness.
 +
-. Apply the `service.yaml` file to set up the service:
+If your environments does not support `LoadBalancer`, you can use `type: NodePort` instead. Refer to the Kubernetes link:https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/[documentation] for details.
 +
+[source, yaml]
+----
+apiVersion: v1
+kind: Service
+metadata:
+  name: ignite-loadbalancer
+  labels:
+    app: ignite
+spec:
+  type: LoadBalancer
+  selector:
+    app: ignite
+  ports:
+    - name: rest
+      protocol: TCP
+      port: 10800
+      targetPort: 10800
+    - name: client
+      port: 10300
+      protocol: TCP
+      targetPort: 10300
+----
+
+2. Then apply the `service.yaml` file to set up this service:
+
 [source,shell]
 ----
 kubectl apply -f service.yaml
@@ -144,16 +207,16 @@ spec:
             cpu: "4"
             memory: 4Gi
         env:
-          # Must be specified to ensure that Ignite 3 cluster replicas are visible to each other.
+          # Must be specified to ensure that Apache Ignite 3 cluster replicas are visible to each other.
           - name: IGNITE_NODE_NAME
             valueFrom:
-              fieldRef: 
+              fieldRef:
                 fieldPath: metadata.name
-          # Ignite 3 working directory.
+          # Apache Ignite 3 working directory.
           - name: IGNITE_WORK_DIR
             value: /ai3-work
-        # Ignites Docker image and it's version.
-        image: ignite/ignite3:9.0.5
+        # Apache Ignite Docker image and its version.
+        image: apache/ignite3:{version}
         ports:
         - containerPort: 10300
         - containerPort: 10800
@@ -164,7 +227,7 @@ spec:
           name: config-vol
           subPath: ignite-config.conf
         # Ignite 3 working directory.
-        - mountPath: /gg9-work
+        - mountPath: /ai3-work
           name: persistence
       volumes:
       - name: config-vol
@@ -184,7 +247,7 @@ spec:
       volumeMode: Filesystem
 ----
 +
-. Apply the `statefulset.yaml` file to deploy the main components of Ignite 3:
+. Apply the `statefulset.yaml` file to deploy the main components of Apache Ignite 3:
 +
 [source,shell]
 ----
@@ -223,11 +286,13 @@ spec:
       - args:
         - -ec
         - |
+          apt update && apt-get install -y bind9-host
+          IGNITE_NODES=$(host -tsrv _cluster._tcp.ignite-svc-headless | grep 'SRV record' | awk '{print $8}' | awk -F. '{print $1}' | paste -sd ',')
           /opt/ignite3cli/bin/ignite3 cluster init --name=ignite --url=http://ignite-svc-headless:10300
         command:
         - /bin/sh
-        # Specify the Docker image with the Ignite 3 CLI and its version.
-        image: ignite/ignite3:3.0.0
+        # Specify the Docker image with the Apache Ignite 3 CLI and its version.
+        image: apache/ignite3:{version}
         imagePullPolicy: IfNotPresent
         name: cluster-init
         resources: {}

@@ -14,11 +14,11 @@
 // limitations under the License.
 = Object Serialization
 
-Ignite 3 provides a way to serialize your java objects and types and send the data between servers and clients.
+Apache Ignite provides a way to serialize your java objects and types and send the data between servers and clients.
 
 == Native Types
 
-Ignite handles native type serialization automatically. For example, the following Compute job accepts an Integer and returns an Integer:
+Apache Ignite handles native type serialization automatically. For example, the following Compute job accepts an Integer and returns an Integer:
 
 [source, java]
 ----
@@ -65,7 +65,7 @@ int result = await jobExec.GetResultAsync();
 
 == Tuples
 
-Ignite is designed around working with Tuples, and handles tuple serialization automatically. For example, the following Job accepts Tuple and returns Tuple:
+Apache Ignite is designed around working with Tuples, and handles tuple serialization automatically. For example, the following Job accepts Tuple and returns Tuple:
 
 [source, java]
 ----
@@ -116,7 +116,7 @@ IIgniteTuple result = await jobExec.GetResultAsync();
 User objects are marshalled automatically in the following way:
 
 - If a custom marshaller is defined, it is used.
-- In no marshaller is defined, user Java objects are marshalled to binary tuples.
+- If no marshaller is defined, user Java objects are marshalled to binary tuples.
 - If there are nested objects, they are recursively marshalled to tuples.
 
 Below is an example of user objects marshalled with custom logic (using JSON serialization with `ObjectMapper`, but you can do whatever you think is good for your use case).
@@ -197,7 +197,7 @@ class ResultCustomServerObjectMarshaller implements Marshaller<ResultCustomServe
 }
 ----
 
-The marshallers above define how to represent corresponding objects as `byte[]`, and how to read these objects from `byte[]`. However, defining these classes does not enable custom serialization, as you need to specify the marshaller to use when serializing objects. In Ignite, this is done by overriding two methods in  Compute job definition to use them as factory methods for marshallers:
+The marshallers above define how to represent corresponding objects as `byte[]`, and how to read these objects from `byte[]`. However, defining these classes does not enable custom serialization, as you need to specify the marshaller to use when serializing objects. In Apache Ignite, this is done by overriding two methods in  Compute job definition to use them as factory methods for marshallers:
 
 The code below provides an example of implementing marshallers in a compute job:
 
@@ -230,7 +230,7 @@ class PojoComputeJob implements ComputeJob<ArgumentCustomServerObject, ResultCus
 }
 ----
 
-With this, the Ignite server will be able to handle marshalling the required objects to sending them to clients, and unmarshalling the client responses.
+With this, the Apache Ignite server will be able to handle marshalling the required objects to sending them to clients, and unmarshalling the client responses.
 
 === Client-Side
 

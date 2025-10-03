@@ -76,7 +76,7 @@ The CMG stores the following information:
 - Consistent IDs of all nodes in the logical topology.
 - Node validation status.
 
-By default, the information is stored in the `work` folder, but it can be configured on each CMG node by setting the `igite.system.cmgPath` property.
+By default, the information is stored in the `work` folder, but it can be configured on each CMG node by setting the `ignite.system.cmgPath` property.
 
 === Cluster Metastorage Group
 
@@ -92,7 +92,7 @@ The metastorage contains the following information:
 - Logical topology history.
 - Other data required for cluster operation.
 
-By default, the information is stored in the `work` folder, but it can be configured on each node by setting the `igite.system.metastoragePath` property.
+By default, the information is stored in the `work` folder, but it can be configured on each node by setting the `ignite.system.metastoragePath` property.
 
 == Node Join Scenarios
 

@@ -29,7 +29,7 @@ attribute-value ::= character-string
 ----
 
 
-In simple terms, an ODBC connection URL is a string with parameters of the choice separated by semicolon.
+In simple terms, an ODBC connection URL is a string with parameters of your choice separated by semicolons.
 
 == Supported Arguments
 
