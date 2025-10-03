@@ -30,9 +30,15 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
 {
     private IgniteClientGroup _clientGroup = null!;
 
+    // Override the base client to avoid causality issues due to a separate client instance.
+    private new IIgnite Client { get; set; }
+
     [OneTimeSetUp]
-    public void InitClientGroup() =>
+    public async Task InitClientGroup()
+    {
         _clientGroup = new IgniteClientGroup(new IgniteClientGroupConfiguration { ClientConfiguration = GetConfig() });
+        Client = await _clientGroup.GetIgniteAsync();
+    }
 
     [OneTimeTearDown]
     public void StopClientGroup() =>
