@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -31,6 +32,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -43,12 +45,25 @@ import org.testcontainers.utility.MountableFile;
 /** Container of an Ignite 2 cluster. */
 public class Ignite2ClusterContainer implements Startable {
     private static final Logger LOGGER = LogManager.getLogger(Ignite2ClusterContainer.class);
+    private static final int THIN_CLIENT_PORT = 10_800;
 
     public final Network network;
 
     private final List<GenericContainer<?>> containers;
 
-    public Ignite2ClusterContainer(Path cfgFilePath, Path storagePathOnHost, List<String> nodeIds) {
+    private final boolean storagePathMappedToExternal;
+
+    /**
+     * Port on host which binds container's 10800.
+     */
+    private int thinClientMappedPort;
+
+    /**
+     * Docker host address.
+     */
+    private String dockerHost;
+
+    public Ignite2ClusterContainer(Path cfgFilePath, @Nullable Path storagePathOnHost, List<String> nodeIds) {
         this(Network.newNetwork(), cfgFilePath, storagePathOnHost, nodeIds);
     }
 
@@ -60,15 +75,16 @@ public class Ignite2ClusterContainer implements Startable {
      * @param storagePathOnHost Storage path mounted on the host.
      * @param nodeIds List of node consistent ids.
      */
-    public Ignite2ClusterContainer(Network network, Path cfgFilePath, Path storagePathOnHost, List<String> nodeIds) {
+    public Ignite2ClusterContainer(Network network, Path cfgFilePath, @Nullable Path storagePathOnHost, List<String> nodeIds) {
         this.network = network;
         this.containers = new ArrayList<>(nodeIds.size());
+        this.storagePathMappedToExternal = storagePathOnHost != null;
+
         for (int i = 0; i < nodeIds.size(); i++) {
             String hostname = "node" + (1 + i);
             String nodeId = nodeIds.get(i);
 
             var nodeContainer = createIgnite2Container(
-                    network,
                     hostname,
                     nodeId,
                     cfgFilePath,
@@ -79,36 +95,41 @@ public class Ignite2ClusterContainer implements Startable {
         }
 
         // Expose a SQL port on the first node.
-        this.containers.get(0).withExposedPorts(10_800);
+        this.containers.get(0).withExposedPorts(THIN_CLIENT_PORT);
     }
 
     public Network getNetwork() {
         return network;
     }
 
-    private static GenericContainer createIgnite2Container(
-            Network network,
+    private GenericContainer<?> createIgnite2Container(
             String hostName,
             String nodeId,
             Path cfgFilePath,
-            Path storagePathOnHost
+            @Nullable Path storagePathOnHost
     ) {
         Consumer<OutputFrame> logConsumer = new CheckpointerLogConsumer();
         String heapSize = System.getProperty("ai2.sampleCluster.Xmx", "10g");
         String ignite2DockerImage = System.getProperty("ignite2.docker.image");
         assert ignite2DockerImage != null : "ignite2.docker.image must be defined";
 
-        return new GenericContainer<>(ignite2DockerImage)
+        GenericContainer<?> container = new GenericContainer<>(ignite2DockerImage);
+
+        if (storagePathMappedToExternal) {
+            container.withFileSystemBind(storagePathOnHost.toString(), "/storage", BindMode.READ_WRITE)
+                    .withEnv("IGNITE_WORK_DIR", "/storage");
+        }
+
+        return container
                 .withLabel("ai2.sample-cluster.node", hostName)
                 .withNetwork(network)
                 .withNetworkAliases(hostName)
                 .withCopyFileToContainer(MountableFile.forHostPath(cfgFilePath), "/config-file.xml")
-                .withFileSystemBind(storagePathOnHost.toString(), "/storage", BindMode.READ_WRITE)
                 .withEnv("CONFIG_URI", "/config-file.xml")
-                .withEnv("IGNITE_WORK_DIR", "/storage")
                 .withEnv("IGNITE_QUIET", "false")
                 .withEnv("IGNITE_NODE_NAME", nodeId)
                 .withEnv("JVM_OPTS", String.format("-Xmx%s", heapSize))
+                .withEnv("TZ", ZoneId.systemDefault().toString())
                 .withLogConsumer(logConsumer)
                 .waitingFor(Wait.forLogMessage(".*Node started .*", 1));
     }
@@ -116,6 +137,11 @@ public class Ignite2ClusterContainer implements Startable {
     @Override
     public void start() {
         Startables.deepStart(this.containers).join();
+
+        GenericContainer<?> firstContainer = containers.get(0);
+
+        thinClientMappedPort = firstContainer.getMappedPort(THIN_CLIENT_PORT);
+        dockerHost = firstContainer.getHost();
     }
 
     @Override
@@ -141,15 +167,17 @@ public class Ignite2ClusterContainer implements Startable {
         }
 
         // TODO: CHMOD This is a hack for team city
-        try {
-            var firstContainer = this.containers.get(0);
-            var chmodOp = firstContainer.execInContainer("chmod", "-R", "777", "/storage");
-            assertThat(chmodOp.getExitCode()).withFailMessage("CHMOD must be successfull").isZero();
-        } catch (IOException ex) {
-            LOGGER.error("Error executing chmod", ex);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            LOGGER.error("Interrupted while executing chmod", ex);
+        if (storagePathMappedToExternal) {
+            try {
+                var firstContainer = this.containers.get(0);
+                var chmodOp = firstContainer.execInContainer("chmod", "-R", "777", "/storage");
+                assertThat(chmodOp.getExitCode()).withFailMessage("CHMOD must be successfull").isZero();
+            } catch (IOException ex) {
+                LOGGER.error("Error executing chmod", ex);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                LOGGER.error("Interrupted while executing chmod", ex);
+            }
         }
 
         // TODO: Close all at the same time.
@@ -203,6 +231,24 @@ public class Ignite2ClusterContainer implements Startable {
                 pollingSeconds * 1_000, maxWaitSeconds * 1_000);
 
         LOGGER.info("Finished waiting for checkpoints: {}", success);
+    }
+
+    /**
+     * Returns host's port which can be used for thin client connection.
+     *
+     * @return Host's port for thin client connection.
+     */
+    public int thinClientMappedPort() {
+        return thinClientMappedPort;
+    }
+
+    /**
+     * Returns docker host address.
+     *
+     * @return Docker host address.
+     */
+    public String dockerHost() {
+        return dockerHost;
     }
 
     private static class CheckpointerLogConsumer implements Consumer<OutputFrame> {
