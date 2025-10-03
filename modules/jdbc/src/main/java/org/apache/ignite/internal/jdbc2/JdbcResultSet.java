@@ -149,7 +149,7 @@ public class JdbcResultSet implements ResultSet {
     void closeStatement(boolean close) {
         closeOnCompletion = close;
     }
-    
+
     private boolean hasNext() {
         return rs.hasNext() && (maxRows == 0 || currentPosition < maxRows);
     }
