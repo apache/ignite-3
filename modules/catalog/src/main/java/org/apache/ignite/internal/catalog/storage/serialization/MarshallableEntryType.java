@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableVersionSerializers;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptorSerializers;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntrySerializers;
+import org.apache.ignite.internal.catalog.storage.AlterTablePropertiesEntrySerializers;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntrySerializers;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntrySerializers;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntrySerializers;
@@ -90,7 +91,8 @@ public enum MarshallableEntryType implements CatalogSerializerTypeDefinition {
     DESCRIPTOR_TABLE_COLUMN(29, CatalogTableColumnDescriptorSerializers.class),
     DESCRIPTOR_TABLE_VERSION(30, CatalogTableVersionSerializers.class),
     DESCRIPTOR_TABLE_SCHEMA_VERSIONS(31, CatalogTableSchemaVersionsSerializers.class),
-    DESCRIPTOR_ZONE(32, CatalogZoneDescriptorSerializers.class);
+    DESCRIPTOR_ZONE(32, CatalogZoneDescriptorSerializers.class),
+    ALTER_TABLE_PROPERTIES(33, AlterTablePropertiesEntrySerializers.class);
 
     /** Type ID. */
     private final int id;

@@ -64,6 +64,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
 
     private final String storageProfile;
 
+    private final double staleRowsFraction;
+    private final long minStaleRowsCount;
+
     /**
      * Internal constructor.
      *
@@ -87,7 +90,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
-            HybridTimestamp timestamp
+            HybridTimestamp timestamp,
+            double staleRowsFraction,
+            long minStaleRowsCount
     ) {
         super(id, Type.TABLE, name, timestamp);
 
@@ -107,6 +112,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
+        this.staleRowsFraction = staleRowsFraction;
+        this.minStaleRowsCount = minStaleRowsCount;
     }
 
     /**
@@ -126,7 +133,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 .columns(columns)
                 .primaryKeyColumns(primaryKeyColumns())
                 .colocationColumns(colocationColumns())
-                .storageProfile(storageProfile());
+                .storageProfile(storageProfile())
+                .staleRowsFraction(staleRowsFraction)
+                .minStaleRowsCount(minStaleRowsCount);
     }
 
     public static Builder builder() {
@@ -242,6 +251,22 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     }
 
     /**
+     * Returns {@code double} value in the range [0.0, 1] representing fraction of a partition to be modified before the data is considered
+     * to be "stale". That is, any computation made on a data snapshot is considered obsolete and need to be refreshed.
+     */
+    public double staleRowsFraction() {
+        return staleRowsFraction;
+    }
+
+    /**
+     * Returns minimal number of rows in partition to be modified before the data is considered to be "stale". That is, any computation made
+     * on a data snapshot is considered obsolete and need to be refreshed.
+     */
+    public long minStaleRowsCount() {
+        return minStaleRowsCount;
+    }
+
+    /**
      * {@code CatalogTableDescriptor} builder static inner class.
      */
     public static final class Builder {
@@ -257,6 +282,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         private String storageProfile;
         private HybridTimestamp timestamp = INITIAL_TIMESTAMP;
         private int latestSchemaVersion = 0;
+        private double staleRowsFraction;
+        private long minStaleRowsCount;
 
         /**
          * Sets the {@code id} and returns a reference to this Builder enabling method chaining.
@@ -391,6 +418,30 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         }
 
         /**
+         * Sets the {@code minStaleRowsCount} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param minStaleRowsCount The {@code minStaleRowsCount} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableDescriptor#minStaleRowsCount()
+         */
+        public Builder minStaleRowsCount(long minStaleRowsCount) {
+            this.minStaleRowsCount = minStaleRowsCount;
+            return this;
+        }
+
+        /**
+         * Sets the {@code staleRowsFraction} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param staleRowsFraction The {@code staleRowsFraction} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableDescriptor#staleRowsFraction()
+         */
+        public Builder staleRowsFraction(double staleRowsFraction) {
+            this.staleRowsFraction = staleRowsFraction;
+            return this;
+        }
+
+        /**
          * Returns a {@code CatalogTableDescriptor} built from the parameters previously set.
          *
          * @return a {@code CatalogTableDescriptor} built with parameters of this {@code CatalogTableDescriptor.Builder}
@@ -449,7 +500,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                     colocationColumns,
                     newSchemaVersions,
                     storageProfile,
-                    timestamp
+                    timestamp,
+                    staleRowsFraction,
+                    minStaleRowsCount
             );
         }
     }

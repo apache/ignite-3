@@ -202,7 +202,7 @@ public class CatalogTableDescriptorSerializers {
             HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             CatalogTableSchemaVersions schemaVersions =  input.readEntry(CatalogTableSchemaVersions.class);
-            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
+            List<CatalogTableColumnDescriptor> columns = schemaVersions.get(schemaVersions.latestVersion()).columns();
             String storageProfile = input.readUTF();
 
             int schemaId = input.readVarIntAsInt();
@@ -233,6 +233,9 @@ public class CatalogTableDescriptorSerializers {
                 }
             }
 
+            double staleRowsFraction = input.readDouble();
+            long minStaleRowsCount = input.readVarInt();
+
             return CatalogTableDescriptor.builder()
                     .id(id)
                     .schemaId(schemaId)
@@ -245,6 +248,8 @@ public class CatalogTableDescriptorSerializers {
                     .schemaVersions(schemaVersions)
                     .storageProfile(storageProfile)
                     .timestamp(updateTimestamp)
+                    .staleRowsFraction(staleRowsFraction)
+                    .minStaleRowsCount(minStaleRowsCount)
                     .build();
         }
 
@@ -255,7 +260,6 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.updateTimestamp().longValue());
 
             output.writeEntry(descriptor.schemaVersions());
-            output.writeEntryList(descriptor.columns());
             output.writeUTF(descriptor.storageProfile());
 
             output.writeVarInt(descriptor.schemaId());
@@ -275,6 +279,9 @@ public class CatalogTableDescriptorSerializers {
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
             }
+
+            output.writeDouble(descriptor.staleRowsFraction());
+            output.writeVarInt(descriptor.minStaleRowsCount());
         }
 
         private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {
