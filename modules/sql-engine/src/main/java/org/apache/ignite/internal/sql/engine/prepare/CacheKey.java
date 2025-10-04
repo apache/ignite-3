@@ -79,10 +79,6 @@ public class CacheKey {
         return schemaName;
     }
 
-    SchemaPlus defaultSchema() {
-        return defaultSchema;
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
@@ -104,9 +100,6 @@ public class CacheKey {
         if (!query.equals(cacheKey.query)) {
             return false;
         }
-        if (!defaultSchema.equals(cacheKey.defaultSchema)) {
-            return false;
-        }
         if (!Objects.equals(contextKey, cacheKey.contextKey)) {
             return false;
         }
@@ -120,7 +113,6 @@ public class CacheKey {
             int result = catalogVersion;
             result = 31 * result + schemaName.hashCode();
             result = 31 * result + query.hashCode();
-            result = 31 * result + defaultSchema.hashCode();
             result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
             result = 31 * result + Arrays.deepHashCode(paramTypes);
 

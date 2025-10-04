@@ -45,6 +45,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
@@ -495,7 +496,7 @@ public class PrepareServiceImpl implements PrepareService {
         });
     }
 
-    private CompletableFuture<PlanInfo> rebuildQueryPlan(
+    private CompletableFuture<Void> rebuildQueryPlan(
             ParsedResult parsedResult,
             PlanningContext ctx,
             CacheKey key
@@ -508,13 +509,11 @@ public class PrepareServiceImpl implements PrepareService {
         return fut.handle((info, err) -> {
             if (err != null) {
                 LOG.debug("Failed to re-planning query: " + parsedResult.originalQuery(), err);
-
-                return null;
             } else {
                 cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
-
-                return info;
             }
+
+            return null;
         });
     }
 
@@ -596,13 +595,13 @@ public class PrepareServiceImpl implements PrepareService {
                     .parameters(ctx.parameters())
                     .build();
 
-            return PlanInfo.createRefreshable(plan, stmt, state, sources);
+            return PlanInfo.createRefreshable(plan, stmt, state, sources, ctx.defaultSchema());
         }
 
         return PlanInfo.create(plan);
     }
 
-    private CompletableFuture<PlanInfo> recalculatePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
+    private CompletableFuture<Void> recalculatePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
         int currentCatalogVersion = directCatalogVersion();
 
         // no need to re-calculate outdated plans
@@ -697,7 +696,7 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.completedFuture(PlanInfo.create(plan));
     }
 
-    private CompletableFuture<PlanInfo> rebuildDmlPlan(
+    private CompletableFuture<Void> rebuildDmlPlan(
             ParsedResult parsedResult,
             PlanningContext ctx,
             CacheKey key
@@ -708,13 +707,11 @@ public class PrepareServiceImpl implements PrepareService {
         return fut.handle((info, err) -> {
             if (err != null) {
                 LOG.debug("Failed to re-planning query: " + parsedResult.originalQuery(), err);
-
-                return null;
             } else {
                 cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
-
-                return info;
             }
+
+            return null;
         });
     }
 
@@ -791,7 +788,7 @@ public class PrepareServiceImpl implements PrepareService {
                     .parameters(ctx.parameters())
                     .build();
 
-            return PlanInfo.createRefreshable(plan, stmt, state, sources);
+            return PlanInfo.createRefreshable(plan, stmt, state, sources, ctx.defaultSchema());
         }
 
         return PlanInfo.create(plan);
@@ -1058,7 +1055,7 @@ public class PrepareServiceImpl implements PrepareService {
     private static class PlanUpdater {
         private final ScheduledExecutorService planUpdater;
 
-        private final AtomicReference<CompletableFuture<PlanInfo>> rePlanningFut = new AtomicReference<>(nullCompletedFuture());
+        private final AtomicBoolean inProgress = new AtomicBoolean();
 
         private volatile boolean recalculatePlans;
 
@@ -1122,13 +1119,11 @@ public class PrepareServiceImpl implements PrepareService {
                     return;
                 }
 
-                CompletableFuture<PlanInfo> planFut = rePlanningFut.get();
-                if (planFut != null && !planFut.isDone()) {
-                    // some work still in progress
+                if (!inProgress.compareAndSet(false, true)) {
                     return;
-                } else {
-                    rePlanningFut.set(null);
                 }
+
+                CompletableFuture<Void> rePlanningFut = nullCompletedFuture();
 
                 while (recalculatePlans) {
                     recalculatePlans = false;
@@ -1154,7 +1149,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                                 PlanningContext planningContext = PlanningContext.builder()
                                         .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                                .defaultSchema(key.defaultSchema()).build())
+                                                .defaultSchema(info.defaultSchema()).build())
                                         .query(info.statement.parsedResult().originalQuery())
                                         .plannerTimeout(plannerTimeout)
                                         .catalogVersion(key.catalogVersion())
@@ -1162,14 +1157,16 @@ public class PrepareServiceImpl implements PrepareService {
                                         .parameters(info.context.parameters())
                                         .build();
 
-                                CompletableFuture<PlanInfo> newPlanFut =
+                                CompletableFuture<Void> newPlanFut =
                                         prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
 
-                                rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
+                                rePlanningFut.thenCompose(v -> newPlanFut);
                             }
                         }
                     }
                 }
+
+                rePlanningFut.whenComplete((k, err) -> inProgress.set(false));
 
             }, PLAN_UPDATER_INITIAL_DELAY, 1_000, TimeUnit.MILLISECONDS);
         }
@@ -1177,7 +1174,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     @FunctionalInterface
     private interface PlanPrepare {
-        CompletableFuture<PlanInfo> recalculatePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key);
+        CompletableFuture<Void> recalculatePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key);
     }
 
     private static class ParsedResultImpl implements ParsedResult {
@@ -1349,6 +1346,7 @@ public class PrepareServiceImpl implements PrepareService {
         private final QueryPlan queryPlan;
         @Nullable private final ValidStatement<ValidationResult> statement;
         @Nullable private final PlanningContextState context;
+        @Nullable private final SchemaPlus defaultSchema;
         private final IntSet sources;
         private volatile boolean needToInvalidate;
 
@@ -1356,11 +1354,13 @@ public class PrepareServiceImpl implements PrepareService {
                 QueryPlan plan,
                 @Nullable ValidStatement<ValidationResult> statement,
                 @Nullable PlanningContextState context,
+                @Nullable SchemaPlus defaultSchema,
                 IntSet sources
         ) {
             this.queryPlan = plan;
             this.statement = statement;
             this.context = context;
+            this.defaultSchema = defaultSchema;
             this.sources = sources;
         }
 
@@ -1372,17 +1372,22 @@ public class PrepareServiceImpl implements PrepareService {
             return needToInvalidate;
         }
 
+        @Nullable SchemaPlus defaultSchema() {
+            return defaultSchema;
+        }
+
         static PlanInfo createRefreshable(
                 QueryPlan plan,
                 ValidStatement<ValidationResult> statement,
                 PlanningContextState context,
-                IntSet sources
+                IntSet sources,
+                SchemaPlus defaultSchema
         ) {
-            return new PlanInfo(plan, statement, context, sources);
+            return new PlanInfo(plan, statement, context, defaultSchema, sources);
         }
 
         static PlanInfo create(QueryPlan plan) {
-            return new PlanInfo(plan, null, null, IntSet.of());
+            return new PlanInfo(plan, null, null, null, IntSet.of());
         }
     }
 }
