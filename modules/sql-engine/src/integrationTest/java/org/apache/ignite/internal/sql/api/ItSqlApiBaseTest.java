@@ -240,7 +240,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // No new transactions through ddl.
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager.pending());
     }
 
     /** Check correctness of implicit and explicit transactions. */
@@ -301,7 +301,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManagerInternal.pending());
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -552,7 +552,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT, txManager.finished() - txPrevCnt);
         // No new transactions through ddl.
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager.pending());
 
         checkDml(ROW_COUNT, sql, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -772,7 +772,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         execute(1, sql, "SELECT * FROM TEST");
 
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
     /**
@@ -810,7 +810,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, execute(sql, "SELECT ID FROM TEST WHERE ID = -1").result().size());
         }
 
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager().pending());
     }
 
     @Test
@@ -829,11 +829,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 .build();
 
         ResultSet<?> rs = executeForRead(sql, statement);
-        waitUntilActiveTransactionsCount(is(1));
-
+        assertEquals(1, txManager().pending());
         rs.close();
-
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
     @Test
@@ -967,6 +965,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // Wait until FIRST script statement is started to execute.
         waitUntilRunningQueriesCount(greaterThan(1));
+        // We have to make sure that execution is started.
+        waitUntilActiveTransactionsCount(is(1));
 
         assertThat(scriptFut.isDone(), is(false));
 
@@ -975,13 +975,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         expectQueryCancelled(() -> await(scriptFut));
 
         waitUntilRunningQueriesCount(is(0));
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
         expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
 
         waitUntilRunningQueriesCount(is(0));
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     @Test
@@ -1011,7 +1011,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         // Query was actually cancelled.
         waitUntilRunningQueriesCount(is(0));
         expectQueryCancelled(() -> await(f));
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     @ParameterizedTest
@@ -1058,7 +1058,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             // Query was actually cancelled.
             waitUntilRunningQueriesCount(is(0));
             expectQueryCancelled(() -> await(fut));
-            waitUntilActiveTransactionsCount(is(0));
+            assertThat(txManager().pending(), is(0));
         }
     }
 
