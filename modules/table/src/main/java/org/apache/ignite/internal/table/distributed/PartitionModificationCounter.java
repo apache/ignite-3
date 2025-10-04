@@ -43,6 +43,10 @@ public class PartitionModificationCounter {
     private final double staleRowsFraction;
     private final long minStaleRowsCount;
 
+    int tableId;
+    int partitionId;
+    LongSupplier estimateSize;
+
     private final AtomicLong counter = new AtomicLong(0);
     private volatile long nextMilestone;
     private volatile HybridTimestamp lastMilestoneReachedTimestamp;
@@ -58,7 +62,8 @@ public class PartitionModificationCounter {
             long minStaleRowsCount,
             int tableId,
             int partitionId,
-            MessagingService messagingService
+            MessagingService messagingService,
+            LongSupplier estimateSize
     ) {
         Objects.requireNonNull(initTimestamp, "initTimestamp");
         Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
@@ -81,6 +86,10 @@ public class PartitionModificationCounter {
         this.messagingService = messagingService;
 
         messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
+
+        this.tableId = tableId;
+        this.partitionId = partitionId;
+        this.estimateSize = estimateSize;
     }
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
@@ -94,48 +103,18 @@ public class PartitionModificationCounter {
             InternalClusterNode sender,
             @Nullable Long correlationId
     ) {
-        GetEstimatedSizeWithLastModifiedTsRequest msg = (GetEstimatedSizeWithLastModifiedTsRequest) message;
+        long estSize = estimateSize.getAsLong();
 
-        CompletableFuture<Void> fut = messagingService.respond(
-                sender,
-                PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(100).ts(HybridTimestamp.MAX_VALUE).build(),
-                correlationId
-        );
+        if (tableId == message.tableId() && estSize != -1) {
+            System.err.println("!!!!! send size: " + estSize);
 
-        System.err.println();
-
-/*        messagingService.respond(
-                sender,
-                PARTITION_REPLICATION_MESSAGES_FACTORY.hasDataResponse().build(),
-                correlationId
-        );*/
-
-
-/*        TableViewInternal tableView = tableManager.cachedTable(msg.tableId());
-
-        if (tableView == null) {
-            LOG.debug("No table found to update statistics [id={}].", msg.tableId());
-
-            return;
+            messagingService.respond(
+                    sender,
+                    PARTITION_REPLICATION_MESSAGES_FACTORY
+                            .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(estSize).ts(lastMilestoneTimestamp()).build(),
+                    correlationId
+            );
         }
-
-        InternalTable table = tableView.internalTable();
-
-        for (int p = 0 ; p < table.partitions(); ++p) {
-            MvPartitionStorage mvPartition = table.storage().getMvPartition(p);
-
-            if (mvPartition != null) {
-                LeaseInfo info = mvPartition.leaseInfo();
-
-                if (info != null) {
-                    if (info.primaryReplicaNodeName().equals(nodeName)) {
-                        mvPartition.estimatedSize();
-                    }
-                }
-            }
-        }
-
-        storageAccessExecutor.execute(() -> handleHasDataRequest(msg, sender, correlationId));*/
     }
 
     /** Returns the current counter value. */

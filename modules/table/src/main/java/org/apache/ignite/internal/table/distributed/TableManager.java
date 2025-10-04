@@ -1041,13 +1041,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionStorages.getMvPartitionStorage()
         );
 
+        LongSupplier estSizeSupplier = () -> {
+            @Nullable MvPartitionStorage partition = table.internalTable().storage().getMvPartition(partId);
+            return partition == null ? -1 : partition.estimatedSize();
+        };
+
         PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                 partId,
                 partitionDataStorage,
                 table,
                 safeTimeTracker,
                 replicationConfiguration,
-                messagingService0
+                messagingService0,
+                estSizeSupplier
         );
 
         internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -1393,13 +1399,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
+                    LongSupplier estSizeSupplier = () -> {
+                        @Nullable MvPartitionStorage partition = table.internalTable().storage().getMvPartition(partId);
+                        return partition == null ? -1 : partition.estimatedSize();
+                    };
+
                     PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                             partId,
                             partitionDataStorage,
                             table,
                             safeTimeTracker,
                             replicationConfiguration,
-                            messagingService0
+                            messagingService0,
+                            estSizeSupplier
                     );
 
                     internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -3157,7 +3169,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             ReplicationConfiguration replicationConfiguration,
-            MessagingService messagingService
+            MessagingService messagingService,
+            LongSupplier estimateSize
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
 
@@ -3167,7 +3180,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         LongSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
         PartitionModificationCounter modificationCounter = partitionModificationCounterFactory
-                .create(table.tableId(), partitionId, partSizeSupplier, messagingService);
+                .create(table.tableId(), partitionId, partSizeSupplier, messagingService, estimateSize);
         registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(

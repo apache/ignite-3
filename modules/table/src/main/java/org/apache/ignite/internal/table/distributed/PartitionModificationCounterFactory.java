@@ -46,7 +46,8 @@ public class PartitionModificationCounterFactory {
             int tableId,
             int partitionId,
             LongSupplier partitionSizeSupplier,
-            MessagingService messagingService
+            MessagingService messagingService,
+            LongSupplier estimateSize
     ) {
         return new PartitionModificationCounter(
                 currentTimestampSupplier.get(),
@@ -55,7 +56,8 @@ public class PartitionModificationCounterFactory {
                 DEFAULT_MIN_STALE_ROWS_COUNT,
                 tableId,
                 partitionId,
-                messagingService
+                messagingService,
+                estimateSize
         );
     }
 }

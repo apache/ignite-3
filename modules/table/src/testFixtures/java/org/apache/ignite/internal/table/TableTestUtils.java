@@ -67,7 +67,7 @@ public class TableTestUtils {
 
     /** No-op partition modification counter. */
     public static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
-            new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, 0, 0, 0, 0, null);
+            new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, 0, 0, 0, 0, null, () -> 0L);
 
     /** No-op partition modification counter factory. */
     public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
@@ -77,7 +77,8 @@ public class TableTestUtils {
                         int tableId,
                         int partitionId,
                         LongSupplier partitionSizeSupplier,
-                        MessagingService messagingService
+                        MessagingService messagingService,
+                        LongSupplier estimateSize
                 ) {
                     return NOOP_PARTITION_MODIFICATION_COUNTER;
                 }

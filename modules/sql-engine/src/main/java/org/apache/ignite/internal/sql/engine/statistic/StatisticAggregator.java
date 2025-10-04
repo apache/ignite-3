@@ -63,49 +63,6 @@ public class StatisticAggregator {
 
     public void messaging(MessagingService messagingService) {
         this.messagingService = messagingService;
-
-        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
-
-/*        messagingService.addMessageHandler(SqlQueryMessageGroup.class, (message, sender, correlationId) -> {
-            if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
-                GetEstimatedSizeWithLastModifiedTsRequest msg = (GetEstimatedSizeWithLastModifiedTsRequest) message;
-
-                TableViewInternal tableView = tableManager.cachedTable(msg.tableId());
-
-                if (tableView == null) {
-                    LOG.debug("No table found to update statistics [id={}].", msg.tableId());
-
-                    return;
-                }
-
-                InternalTable table = tableView.internalTable();
-
-                for (int p = 0 ; p < table.partitions(); ++p) {
-                    MvPartitionStorage mvPartition = table.storage().getMvPartition(p);
-
-                    if (mvPartition != null) {
-                        LeaseInfo info = mvPartition.leaseInfo();
-
-                        if (info != null) {
-                            if (info.primaryReplicaNodeName().equals(nodeName)) {
-                                mvPartition.estimatedSize();
-                            }
-                        }
-                    }
-                }
-
-                storageAccessExecutor.execute(() -> handleHasDataRequest(msg, sender, correlationId));
-            }
-        });*/
-
-        //InternalClusterNode localNode = clusterSrvc.topologyService().localMember();
-        //String nodeName = localNode.name();
-    }
-
-    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
-        if (message instanceof GetEstimatedSizeWithLastModifiedTsResponse) {
-            System.err.println("!!!!");
-        }
     }
 
     /**
@@ -137,24 +94,6 @@ public class StatisticAggregator {
 
         GetEstimatedSizeWithLastModifiedTsRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
                 .tableId(table.tableId()).build();
-
-/*        for (String p : peers) {
-            @Nullable InternalClusterNode cons = topologyService.getByConsistentId(p);
-            if (cons == null)
-                continue;
-
-            CompletableFuture<NetworkMessage> fut = messagingService.invoke(cons, request, REQUEST_ESTIMATION_TIMEOUT_MILLIS);
-
-            fut.thenApply(res -> {
-                System.err.println();
-                return null;
-            }).exceptionally(ex -> {
-                System.err.println();
-                return null;
-            });
-
-            fut.join();
-        }*/
 
         CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>[] invokeFutures = peers.stream()
                 .map(topologyService::getByConsistentId)
