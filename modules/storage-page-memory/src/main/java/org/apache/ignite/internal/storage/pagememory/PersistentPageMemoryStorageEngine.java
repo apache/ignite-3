@@ -269,8 +269,15 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         destructionExecutor = executor;
 
+        var storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
+
+        PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
+
         metricManager.registerSource(checkpointMetricSource);
+        metricManager.registerSource(storageMetricSource);
+
         metricManager.enable(checkpointMetricSource);
+        metricManager.enable(storageMetricSource);
     }
 
     /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */

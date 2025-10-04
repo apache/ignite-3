@@ -119,9 +119,14 @@ public class GroupPageStoresMap<T extends PageStore> {
 
         private final T pageStore;
 
+        /** Constructor. */
+        public GroupPartitionPageStore(GroupPartitionId groupPartitionId, T pageStore) {
+            this.groupPartitionId = groupPartitionId;
+            this.pageStore = pageStore;
+        }
+
         private GroupPartitionPageStore(Map.Entry<GroupPartitionId, T> entry) {
-            this.groupPartitionId = entry.getKey();
-            this.pageStore = entry.getValue();
+            this(entry.getKey(), entry.getValue());
         }
 
         /**

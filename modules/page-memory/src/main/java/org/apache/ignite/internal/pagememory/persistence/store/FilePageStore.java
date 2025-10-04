@@ -253,6 +253,24 @@ public class FilePageStore implements PageStore {
     }
 
     /**
+     * Returns full size of the page store and its delta files in bytes.
+     *
+     * <p>May differ from {@link #pages} * {@link FilePageStoreIo#pageSize()} due to delayed writes or due to other implementation specific
+     * details.
+     *
+     * @throws IgniteInternalCheckedException If an I/O error occurs.
+     */
+    public long fullSize() throws IgniteInternalCheckedException {
+        long size = filePageStoreIo.size();
+
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            size += deltaFilePageStoreIo.size();
+        }
+
+        return size;
+    }
+
+    /**
      * Returns file page store path.
      */
     public Path filePath() {
