@@ -81,6 +81,7 @@ import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -148,7 +149,9 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -167,6 +170,7 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -176,6 +180,7 @@ import org.mockito.ArgumentMatchers;
  * Test class to verify {@link ExecutionServiceImpl}.
  */
 @SuppressWarnings("ThrowableNotThrown")
+@ExtendWith(ExecutorServiceExtension.class)
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Tag allows to skip default cluster setup. */
     private static final String CUSTOM_CLUSTER_SETUP_TAG = "skipDefaultClusterSetup";
@@ -198,6 +203,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static final FailureManager NOOP_FAILURE_PROCESSOR = new FailureManager(new NoOpFailureHandler());
 
     private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonExecutor;
 
     private final Map<String, List<Object[]>> dataPerNode = Map.of(
             nodeNames.get(0), List.of(new Object[]{0, 0}, new Object[]{3, 3}, new Object[]{6, 6}),
@@ -253,6 +261,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .map(node -> create(node, mappingCacheFactory, executorsFactory.apply(node)))
                 .collect(Collectors.toList());
 
+        ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+        when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
+
         prepareService = new PrepareServiceImpl(
                 "test",
                 0,
@@ -262,7 +274,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 PLANNING_THREAD_COUNT,
                 PLAN_EXPIRATION_SECONDS,
                 metricManager,
-                new PredefinedSchemaManager(schema)
+                new PredefinedSchemaManager(schema),
+                clockService::currentLong,
+                commonExecutor
         );
         parserService = new ParserServiceImpl();
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.DEFAULT_TABLE_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,6 +118,40 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
 
         verify(internalTable, times(1)).estimatedSize();
+    }
+
+    @Test
+    public void testEstimationFailure() {
+        int tableId = ThreadLocalRandom.current().nextInt();
+
+        prepareCatalogWithTable(tableId);
+
+        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
+        when(tableViewInternal.internalTable()).thenReturn(internalTable);
+        when(internalTable.estimatedSize()).thenReturn(
+                CompletableFuture.completedFuture(1L),
+                CompletableFuture.completedFuture(2L),
+                CompletableFuture.failedFuture(new IgniteCheckedException(INTERNAL_ERR, "Test exception"))
+        );
+
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        StatisticUpdatesSupplier notifier = mock(StatisticUpdatesSupplier.class);
+        sqlStatisticManager.changesNotifier(notifier);
+        sqlStatisticManager.start();
+
+        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
+
+        // table size 1
+        assertEquals(1L, sqlStatisticManager.tableSize(tableId));
+        verify(notifier, times(1)).accept(anyInt());
+
+        // table size 2
+        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+
+        // exceptionable table size
+        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+        verify(notifier, times(2)).accept(anyInt());
+        verify(internalTable, times(3)).estimatedSize();
     }
 
     @Test

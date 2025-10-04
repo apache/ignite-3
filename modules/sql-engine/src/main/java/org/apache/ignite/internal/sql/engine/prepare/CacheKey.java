@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
 import java.util.Objects;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -41,6 +42,8 @@ public class CacheKey {
 
     private int hashCode = 0;
 
+    private final SchemaPlus defaultSchema;
+
     /**
      * Constructor.
      *
@@ -50,13 +53,30 @@ public class CacheKey {
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
+     * @param defaultSchema Default schema.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, ColumnType[] paramTypes) {
+    public CacheKey(
+            int catalogVersion,
+            String schemaName,
+            String query,
+            Object contextKey,
+            ColumnType[] paramTypes,
+            SchemaPlus defaultSchema
+    ) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
         this.contextKey = contextKey;
         this.paramTypes = paramTypes;
+        this.defaultSchema = defaultSchema;
+    }
+
+    int catalogVersion() {
+        return catalogVersion;
+    }
+
+    String schemaName() {
+        return schemaName;
     }
 
     /** {@inheritDoc} */
