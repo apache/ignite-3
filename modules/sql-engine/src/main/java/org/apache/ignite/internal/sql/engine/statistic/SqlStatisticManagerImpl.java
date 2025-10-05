@@ -83,7 +83,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     @Override
     public void changesNotifier(StatisticUpdatesSupplier updater) {
         if (!this.changesSupplier.compareAndSet(null, updater)) {
-            throw new AssertionError("Statistics notifier unexpected change");
+            throw new AssertionError("Statistics updater unexpected change");
         }
     }
 
@@ -115,6 +115,13 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
             // has been concurrently cleaned up, no need more update statistic for the table.
             return;
         }
+
+        StatisticUpdatesSupplier supplier = changesSupplier.get();
+        if (supplier == null) {
+            // nobody listen statistic changes
+            return;
+        }
+
         long currTimestamp = FastTimestamps.coarseCurrentTimeMillis();
         long lastUpdateTime = tableSize.getTimestamp();
 
@@ -142,10 +149,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
                             return null;
                         } else {
-                            StatisticUpdatesSupplier supplier = changesSupplier.get();
-                            if (supplier != null) {
-                                supplier.accept(tableId);
-                            }
+                            supplier.accept(tableId);
 
                             return res;
                         }
