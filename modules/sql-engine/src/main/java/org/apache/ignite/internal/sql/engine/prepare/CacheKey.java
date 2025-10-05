@@ -42,8 +42,6 @@ public class CacheKey {
 
     private int hashCode = 0;
 
-    private final SchemaPlus defaultSchema;
-
     /**
      * Constructor.
      *
@@ -53,7 +51,6 @@ public class CacheKey {
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
-     * @param defaultSchema Default schema.
      */
     public CacheKey(
             int catalogVersion,
@@ -68,7 +65,6 @@ public class CacheKey {
         this.query = query;
         this.contextKey = contextKey;
         this.paramTypes = paramTypes;
-        this.defaultSchema = defaultSchema;
     }
 
     int catalogVersion() {
