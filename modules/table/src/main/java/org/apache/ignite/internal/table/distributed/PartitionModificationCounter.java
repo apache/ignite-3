@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -27,7 +26,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -106,8 +105,6 @@ public class PartitionModificationCounter {
         long estSize = estimateSize.getAsLong();
 
         if (tableId == message.tableId() && estSize != -1) {
-            System.err.println("!!!!! send size: " + estSize);
-
             messagingService.respond(
                     sender,
                     PARTITION_REPLICATION_MESSAGES_FACTORY

@@ -95,6 +95,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -3179,6 +3180,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
         LongSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
+
         PartitionModificationCounter modificationCounter = partitionModificationCounterFactory
                 .create(table.tableId(), partitionId, partSizeSupplier, messagingService, estimateSize);
         registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);

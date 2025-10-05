@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.replication;
+package org.apache.ignite.internal.partition.replicator.network.message;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 
-@Transferable(PartitionReplicationMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST)
-public interface GetEstimatedSizeWithLastModifiedTsRequest extends NetworkMessage {
-    /** ID of the table. */
-    int tableId();
+@Transferable(PartitionReplicationMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_RESPONSE)
+public interface GetEstimatedSizeWithLastModifiedTsResponse extends NetworkMessage {
+    HybridTimestamp ts();
+
+    long estimatedSize();
+
+    int partitionId();
 }

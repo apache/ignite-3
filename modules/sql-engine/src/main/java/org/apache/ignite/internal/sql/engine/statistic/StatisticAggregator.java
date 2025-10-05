@@ -1,12 +1,9 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toList;
 
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -15,16 +12,11 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.message.DataPresence;
-import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
-import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeWithLastModifiedTsRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeWithLastModifiedTsResponse;
+import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsResponse;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
