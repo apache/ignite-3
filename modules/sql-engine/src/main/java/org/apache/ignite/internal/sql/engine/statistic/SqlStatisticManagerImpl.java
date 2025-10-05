@@ -116,12 +116,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
             return;
         }
 
-        StatisticUpdatesSupplier supplier = changesSupplier.get();
-        if (supplier == null) {
-            // nobody listen statistic changes
-            return;
-        }
-
         long currTimestamp = FastTimestamps.coarseCurrentTimeMillis();
         long lastUpdateTime = tableSize.getTimestamp();
 
@@ -149,7 +143,10 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
                             return null;
                         } else {
-                            supplier.accept(tableId);
+                            StatisticUpdatesSupplier supplier = changesSupplier.get();
+                            if (supplier != null) {
+                                supplier.accept(tableId);
+                            }
 
                             return res;
                         }
