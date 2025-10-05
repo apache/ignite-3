@@ -255,7 +255,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        statAggregator = new StatisticAggregator(placementDriver, clockService::current, tableManager, clusterSrvc.topologyService());
+        statAggregator = new StatisticAggregator(placementDriver, clockService::current);
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler, statAggregator);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -312,7 +312,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ));
 
         statAggregator.messaging(clusterSrvc.messagingService());
-        statAggregator.nodeName(nodeName);
 
         var exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry,

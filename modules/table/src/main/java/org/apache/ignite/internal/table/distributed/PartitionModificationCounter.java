@@ -104,6 +104,8 @@ public class PartitionModificationCounter {
     ) {
         long estSize = estimateSize.getAsLong();
 
+        System.err.println("!!! handleRequestCounter");
+
         if (tableId == message.tableId() && estSize != -1) {
             messagingService.respond(
                     sender,

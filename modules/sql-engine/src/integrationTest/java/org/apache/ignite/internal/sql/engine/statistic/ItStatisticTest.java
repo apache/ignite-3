@@ -39,20 +39,20 @@ import org.junit.jupiter.api.Test;
 public class ItStatisticTest extends BaseSqlIntegrationTest {
     private SqlStatisticManagerImpl sqlStatisticManager;
 
-    private static final String SINGLE_PART_ZONE = "zone_single_partition";
+    private static final String TWO_PART_ZONE = "zone_single_partition";
 
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
 
-        sql(format("CREATE ZONE {} (PARTITIONS 1, REPLICAS 1) storage profiles ['default'];", SINGLE_PART_ZONE));
-        sql(format("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE {}", SINGLE_PART_ZONE));
+        sql(format("CREATE ZONE {} (PARTITIONS 2, REPLICAS 2) storage profiles ['default'];", TWO_PART_ZONE));
+        sql(format("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE {}", TWO_PART_ZONE));
     }
 
     @AfterAll
     void afterAll() {
         sql("DROP TABLE IF EXISTS t;");
-        sql(format("DROP ZONE IF EXISTS {}", SINGLE_PART_ZONE));
+        sql(format("DROP ZONE IF EXISTS {}", TWO_PART_ZONE));
     }
 
     @AfterEach
