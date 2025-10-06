@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.engine;
 
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema.DEFAULT_PAGE_SIZE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
@@ -137,5 +138,6 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
 
         table.createMvPartition(0);
         assertThat(totalAllocatedSize.value(), is(greaterThan(0L)));
+        assertEquals(0, totalAllocatedSize.value() % DEFAULT_PAGE_SIZE);
     }
 }
