@@ -91,6 +91,12 @@ public class JdbcResultSet implements ResultSet {
 
     private final Statement statement;
 
+    private final JdbcResultSetMetadata jdbcMeta;
+
+    private final int maxRows;
+
+    private boolean closeOnCompletion;
+
     private int fetchSize;
 
     private @Nullable SqlRow currentRow;
@@ -101,15 +107,15 @@ public class JdbcResultSet implements ResultSet {
 
     private boolean wasNull;
 
-    private JdbcResultSetMetadata jdbcMeta;
-
     /**
      * Constructor.
      */
     public JdbcResultSet(
             org.apache.ignite.sql.ResultSet<SqlRow> rs,
             Statement statement,
-            Supplier<ZoneId> zoneIdSupplier
+            Supplier<ZoneId> zoneIdSupplier,
+            boolean closeOnCompletion,
+            int maxRows
     ) {
         this.rs = rs;
 
@@ -122,6 +128,30 @@ public class JdbcResultSet implements ResultSet {
         this.closed = false;
         this.wasNull = false;
         this.jdbcMeta = new JdbcResultSetMetadata(rsMetadata);
+        this.closeOnCompletion = closeOnCompletion;
+        this.maxRows = maxRows;
+    }
+
+    int updateCount() {
+        assert !isQuery() : "Should not be called on a query";
+        if (rs.wasApplied() || rs.affectedRows() == -1) {
+            return 0;
+        } else {
+            //noinspection NumericCastThatLosesPrecision
+            return (int) rs.affectedRows();
+        }
+    }
+
+    boolean isQuery() {
+        return rs.hasRowSet();
+    }
+
+    void closeStatement(boolean close) {
+        closeOnCompletion = close;
+    }
+
+    private boolean hasNext() {
+        return rs.hasNext() && (maxRows == 0 || currentPosition < maxRows);
     }
 
     @Override
@@ -129,7 +159,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         try {
-            if (!rs.hasNext()) {
+            if (!hasNext()) {
                 currentRow = null;
                 return false;
             }
@@ -154,6 +184,11 @@ public class JdbcResultSet implements ResultSet {
         } catch (Exception e) {
             Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
             throw new SQLException(cause.getMessage(), cause);
+        } finally {
+            if (closeOnCompletion) {
+                JdbcStatement2 statement2 = statement.unwrap(JdbcStatement2.class);
+                statement2.closeIfAllResultsClosed();
+            }
         }
     }
 
@@ -913,7 +948,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isBeforeFirst() throws SQLException {
         ensureNotClosed();
 
-        return currentRow == null && rs.hasNext();
+        return currentRow == null && hasNext();
     }
 
     /** {@inheritDoc} */
@@ -921,7 +956,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isAfterLast() throws SQLException {
         ensureNotClosed();
 
-        boolean hasNext = rs.hasNext();
+        boolean hasNext = hasNext();
         // Result set is empty
         if (currentPosition == 0 && !hasNext) {
             return false;
@@ -943,7 +978,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isLast() throws SQLException {
         ensureNotClosed();
 
-        return currentRow != null && !rs.hasNext();
+        return currentRow != null && !hasNext();
     }
 
     /** {@inheritDoc} */
@@ -2277,6 +2312,7 @@ public class JdbcResultSet implements ResultSet {
 
             // Append nano seconds according to the specified precision.
             long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
+            //noinspection NumericCastThatLosesPrecision
             long scaled = nanos / (long) Math.pow(10, 9 - precision);
 
             sb.append('.');
