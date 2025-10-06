@@ -471,7 +471,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     void addTableMetrics(StorageTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
         PersistentPageMemoryTableStorage tableStorage = tableStorages.get(tableDescriptor.getId());
 
-        assert tableStorage != null : "Foo";
+        assert tableStorage != null : "Adding metrics for a non-existent table: " + tableDescriptor;
 
         metricConsumer.accept(new LongGauge(
                 "TotalAllocatedSize",
