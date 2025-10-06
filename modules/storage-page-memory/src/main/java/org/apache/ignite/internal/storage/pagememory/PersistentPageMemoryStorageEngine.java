@@ -32,7 +32,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -357,8 +356,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     }
 
     @Override
-    public void addTableMetrics(CatalogTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
-        PersistentPageMemoryDataRegion region = regions.get(tableDescriptor.storageProfile());
+    public void addTableMetrics(StorageTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
+        PersistentPageMemoryDataRegion region = regions.get(tableDescriptor.getStorageProfile());
 
         assert region != null : "Adding metrics to the table with non-existent data region: " + tableDescriptor;
 

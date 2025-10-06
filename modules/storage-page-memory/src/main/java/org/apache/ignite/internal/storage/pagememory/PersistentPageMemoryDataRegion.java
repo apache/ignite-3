@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -62,6 +61,7 @@ import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioP
 import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
@@ -468,8 +468,8 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
      * @param tableDescriptor Table descriptor.
      * @param metricConsumer Abstract metric consumer for registering metrics.
      */
-    void addTableMetrics(CatalogTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
-        PersistentPageMemoryTableStorage tableStorage = tableStorages.get(tableDescriptor.id());
+    void addTableMetrics(StorageTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
+        PersistentPageMemoryTableStorage tableStorage = tableStorages.get(tableDescriptor.getId());
 
         assert tableStorage != null : "Foo";
 

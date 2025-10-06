@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailabl
 
 import java.util.Set;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -82,7 +81,7 @@ public interface StorageEngine {
      * @param tableDescriptor Table descriptor.
      * @param metricConsumer Metric consumer.
      */
-    default void addTableMetrics(CatalogTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
+    default void addTableMetrics(StorageTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
         // No-op.
     }
 

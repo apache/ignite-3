@@ -17,13 +17,21 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyCollectionOf;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -57,4 +65,15 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
      * directory.
      */
     protected abstract StorageEngine createEngine();
+
+    @Test
+    protected void tableMetrics() {
+        var tableDescriptor = new StorageTableDescriptor(10, 1, CatalogService.DEFAULT_STORAGE_PROFILE);
+        storageEngine.createMvTable(tableDescriptor, indexId -> null);
+
+        List<Metric> metricsList = new ArrayList<>();
+        storageEngine.addTableMetrics(tableDescriptor, metricsList::add);
+
+        assertThat(metricsList, is(emptyCollectionOf(Metric.class)));
+    }
 }

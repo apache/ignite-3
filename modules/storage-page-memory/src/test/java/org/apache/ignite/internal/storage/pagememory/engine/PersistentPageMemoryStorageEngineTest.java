@@ -18,20 +18,30 @@
 package org.apache.ignite.internal.storage.pagememory.engine;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.AbstractPersistentStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -97,5 +107,35 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
     @Override
     protected void persistTableDestructionIfNeeded() {
         // No-op as table destruction is durable for this engine.
+    }
+
+    @Test
+    @Override
+    protected void tableMetrics() {
+        var engine = (PersistentPageMemoryStorageEngine) storageEngine;
+
+        var tableDescriptor = new StorageTableDescriptor(10, 1, CatalogService.DEFAULT_STORAGE_PROFILE);
+        MvTableStorage table = engine.createMvTable(tableDescriptor, indexId -> null);
+
+        List<Metric> metricsList = new ArrayList<>();
+        engine.addTableMetrics(tableDescriptor, metricsList::add);
+
+        assertThat(metricsList.size(), is(1));
+
+        Metric metric = metricsList.get(0);
+        assertThat(metric.name(), is("TotalAllocatedSize"));
+        assertThat(metric, is(instanceOf(LongMetric.class)));
+
+        LongMetric totalAllocatedSize = (LongMetric) metric;
+        assertEquals(0, totalAllocatedSize.value());
+
+        var otherTableDescriptor = new StorageTableDescriptor(20, 1, CatalogService.DEFAULT_STORAGE_PROFILE);
+        MvTableStorage otherTable = engine.createMvTable(otherTableDescriptor, indexId -> null);
+
+        otherTable.createMvPartition(0);
+        assertEquals(0, totalAllocatedSize.value());
+
+        table.createMvPartition(0);
+        assertThat(totalAllocatedSize.value(), is(greaterThan(0L)));
     }
 }

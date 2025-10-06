@@ -1820,7 +1820,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
                 nodeProperties.colocationEnabled(),
-                createAndRegisterMetricsSource(tableDescriptor, tableName)
+                createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
         return new TableImpl(
@@ -3611,10 +3611,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private TableMetricSource createAndRegisterMetricsSource(CatalogTableDescriptor tableDescriptor, QualifiedName tableName) {
+    private TableMetricSource createAndRegisterMetricsSource(StorageTableDescriptor tableDescriptor, QualifiedName tableName) {
         TableMetricSource source = new TableMetricSource(tableName);
 
-        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
+        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
         if (engine != null) {
             engine.addTableMetrics(tableDescriptor, source::addMetric);
         }

@@ -75,11 +75,6 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
 
         engine.start();
 
-        tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
-                indexDescriptorSupplier
-        );
-
         initialize();
     }
 
