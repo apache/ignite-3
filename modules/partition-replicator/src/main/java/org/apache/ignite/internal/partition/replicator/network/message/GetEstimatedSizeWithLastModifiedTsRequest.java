@@ -25,4 +25,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 public interface GetEstimatedSizeWithLastModifiedTsRequest extends NetworkMessage {
     /** ID of the table. */
     int tableId();
+
+    /** Partition ID. */
+    int partitionId();
 }

@@ -2,6 +2,8 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.HashSet;
 import java.util.Set;
@@ -48,14 +50,14 @@ public class StatisticAggregator {
 
         int partitions = table.partitions();
 
-        Set<String> peers = new HashSet<>();
+        Int2ObjectMap<String> peers = new Int2ObjectOpenHashMap<>();
 
         for (int p = 0; p < partitions; ++p) {
             ReplicaMeta repl = placementDriver.getCurrentPrimaryReplica(
                     table.targetReplicationGroupId(p), currentClock.get());
 
             if (repl != null) {
-                peers.add(repl.getLeaseholder());
+                peers.put(p, repl.getLeaseholder());
             } else {
                 //assert false; // !!! delete
             }

@@ -143,6 +143,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                 continue;
             }
 
+            System.err.println("!!!call estimatedSizeWithLastUpdate " + tableView.internalTable().tableId());
+
             CompletableFuture<Void> updateResult = statAggregator.estimatedSizeWithLastUpdate(tableView.internalTable())
                     .thenAccept(res -> {
                         // the table can be concurrently dropped and we shouldn't put new value in this case.

@@ -61,12 +61,12 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     }
 
     @Override
-    protected int initialNodes() {
+    protected int initialNodes() { // change  !!!
         return 1;
     }
 
     @Test
-    public void testTableSizeUpdates() {
+    public void testTableSizeUpdates() throws InterruptedException {
         long milestone1 = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
         String selectQuery = "select * from t";
