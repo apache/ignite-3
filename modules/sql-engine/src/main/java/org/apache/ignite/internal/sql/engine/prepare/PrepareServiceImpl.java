@@ -964,8 +964,8 @@ public class PrepareServiceImpl implements PrepareService {
         return deriveTypeFromDynamicParamValue(value);
     }
 
-    // This method was introduced during https://issues.apache.org/jira/browse/IGNITE-25716 and moved here after refactoring
-    // And it`s questionable, why it can`t be changed into: native2relationalType(Commons.typeFactory(), NativeTypes.fromObject(param))
+    // This method was moved here after refactoring.
+    // Why it can`t be changed into: native2relationalType(Commons.typeFactory(), NativeTypes.fromObject(param))
     @Nullable
     private static RelDataType deriveTypeFromDynamicParamValue(@Nullable Object value) {
         if (value == null) {
