@@ -211,8 +211,10 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
-            var key = Random.Shared.NextInt64(1000, long.MaxValue);
+            // TODO: Upserts go to different channels for this key - why?
+            var key = 2373697073179453717;
             var keyPoco = new Poco { Key = key };
+            Console.WriteLine(key);
 
             await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
@@ -227,8 +229,6 @@ namespace Apache.Ignite.Tests.Transactions
             await PocoView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
             // Old read-only tx sees old data.
-            // TODO: This fails if (somehow??) the upserts are on different channels - see the log in the ticket.
-            // Imitate this to reproduce.
             Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
 
             // New tx sees new data
