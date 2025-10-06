@@ -43,6 +43,7 @@ public class MetricsTests
     [TearDown]
     public void TearDown()
     {
+        AssertMetric(MetricNames.ConnectionsActive, 0);
         _listener.Dispose();
 
         TestUtils.CheckByteArrayPoolLeak(5000);
@@ -329,7 +330,8 @@ public class MetricsTests
         new()
         {
             SocketTimeout = TimeSpan.FromMilliseconds(100),
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            ReconnectInterval = TimeSpan.Zero
         };
 
     private static IgniteClientConfiguration GetConfigWithDelay() =>
@@ -337,7 +339,8 @@ public class MetricsTests
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(50),
             SocketTimeout = TimeSpan.FromMilliseconds(50),
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            ReconnectInterval = TimeSpan.Zero
         };
 
     private static Guid? GetClientId(IIgniteClient? client) => ((IgniteClientInternal?)client)?.Socket.ClientId;
