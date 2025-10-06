@@ -726,6 +726,9 @@ public class ErrorGroups {
 
         /** Error while restarting the cluster with clean up. */
         public static final int RESTART_WITH_CLEAN_UP_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Node names are not in valid set. */
+        public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Embedded API error group. */

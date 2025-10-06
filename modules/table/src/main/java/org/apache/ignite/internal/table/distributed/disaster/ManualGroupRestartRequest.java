@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.table.distributed.disaster.DisasterReco
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.MULTI_NODE;
 import static org.apache.ignite.internal.table.distributed.disaster.GroupUpdateRequestHandler.getAliveNodesWithData;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.RESTART_WITH_CLEAN_UP_ERR;
 
 import java.util.ArrayList;
@@ -123,30 +125,33 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     @Override
     public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long revision, HybridTimestamp timestamp) {
-        if (!nodeNames.isEmpty() && !nodeNames.contains(disasterRecoveryManager.localNode().name())) {
-            return nullCompletedFuture();
-        }
-
-        Catalog catalog = disasterRecoveryManager.catalogManager.activeCatalog(timestamp.longValue());
-        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-
-        var restartFutures = new ArrayList<CompletableFuture<?>>();
-
-        disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
-            ReplicationGroupId replicationGroupId = raftNodeId.groupId();
-
-            if (shouldProcessPartition(replicationGroupId, zoneDescriptor)) {
-                if (cleanUp) {
-                    restartFutures.add(
-                            createRestartWithCleanupFuture(disasterRecoveryManager, replicationGroupId, revision, zoneDescriptor, catalog)
-                    );
-                } else {
-                    restartFutures.add(createRestartFuture(disasterRecoveryManager, replicationGroupId, revision));
-                }
+        return inBusyLockAsync(disasterRecoveryManager.busyLock(), () -> {
+            if (!nodeNames.isEmpty() && !nodeNames.contains(disasterRecoveryManager.localNode().name())) {
+                return nullCompletedFuture();
             }
-        });
 
-        return restartFutures.isEmpty() ? nullCompletedFuture() : allOf(restartFutures.toArray(CompletableFuture[]::new));
+            Catalog catalog = disasterRecoveryManager.catalogManager.activeCatalog(timestamp.longValue());
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+            var restartFutures = new ArrayList<CompletableFuture<?>>();
+
+            disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
+                ReplicationGroupId replicationGroupId = raftNodeId.groupId();
+
+                if (shouldProcessPartition(replicationGroupId, zoneDescriptor)) {
+                    if (cleanUp) {
+                        restartFutures.add(
+                                createRestartWithCleanupFuture(disasterRecoveryManager, replicationGroupId, revision, zoneDescriptor,
+                                        catalog)
+                        );
+                    } else {
+                        restartFutures.add(createRestartFuture(disasterRecoveryManager, replicationGroupId, revision));
+                    }
+                }
+            });
+
+            return restartFutures.isEmpty() ? nullCompletedFuture() : allOf(restartFutures.toArray(CompletableFuture[]::new));
+        });
     }
 
     private boolean shouldProcessPartition(ReplicationGroupId replicationGroupId, CatalogZoneDescriptor zoneDescriptor) {
@@ -216,31 +221,33 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             CatalogZoneDescriptor zoneDescriptor,
             Catalog catalog
     ) {
-        if (zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
-            if (zoneDescriptor.replicas() >= 2) {
-                return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
-            } else {
-                return notEnoughAliveNodes();
-            }
-        } else {
-            if (zoneDescriptor.replicas() <= 2) {
-                return notEnoughAliveNodes();
-            }
-
-            return enoughAliveNodesToRestartWithCleanUp(
-                    disasterRecoveryManager,
-                    revision,
-                    replicationGroupId,
-                    zoneDescriptor,
-                    catalog
-            ).thenCompose(enoughNodes -> {
-                if (enoughNodes) {
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            if (zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
+                if (zoneDescriptor.replicas() >= 2) {
                     return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
                 } else {
                     return notEnoughAliveNodes();
                 }
-            });
-        }
+            } else {
+                if (zoneDescriptor.replicas() <= 2) {
+                    return notEnoughAliveNodes();
+                }
+
+                return enoughAliveNodesToRestartWithCleanUp(
+                        disasterRecoveryManager,
+                        revision,
+                        replicationGroupId,
+                        zoneDescriptor,
+                        catalog
+                ).thenApply(enoughNodes -> {
+                    if (enoughNodes) {
+                        return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
+                    } else {
+                        return notEnoughAliveNodes();
+                    }
+                });
+            }
+        });
     }
 
     private static <U> CompletableFuture<U> notEnoughAliveNodes() {
@@ -303,29 +310,33 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             Function<LocalPartitionStateMessage, T> keyExtractor,
             CompletableFuture<Map<Integer, Assignments>> stableAssignments
     ) {
-        Set<String> aliveNodesConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
-                .stream()
-                .map(NodeWithAttributes::nodeName)
-                .collect(Collectors.toSet());
+        return inBusyLockAsync(disasterRecoveryManager.busyLock(), () -> {
+            Set<String> aliveNodesConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
+                    .stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(Collectors.toSet());
 
-        CompletableFuture<Map<T, LocalPartitionStateMessageByNode>> localStatesFuture =
-                disasterRecoveryManager.localPartitionStatesInternal(
-                        Set.of(zoneDescriptor.name()),
-                        emptySet(),
-                        Set.of(partitionGroupId.partitionId()),
-                        catalog,
-                        keyExtractor
-                );
+            CompletableFuture<Map<T, LocalPartitionStateMessageByNode>> localStatesFuture =
+                    disasterRecoveryManager.localPartitionStatesInternal(
+                            Set.of(zoneDescriptor.name()),
+                            emptySet(),
+                            Set.of(partitionGroupId.partitionId()),
+                            catalog,
+                            keyExtractor
+                    );
 
-        return localStatesFuture.thenCombine(stableAssignments, (localPartitionStatesMap, currentAssignments) -> {
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode = localPartitionStatesMap.get(partitionGroupId);
+            return localStatesFuture.thenCombine(stableAssignments, (localPartitionStatesMap, currentAssignments) -> {
+                return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+                    LocalPartitionStateMessageByNode localPartitionStateMessageByNode = localPartitionStatesMap.get(partitionGroupId);
 
-            Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
-            Set<Assignment> currentStableAssignments = currentAssignments.get(partitionGroupId.partitionId()).nodes();
+                    Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
+                    Set<Assignment> currentStableAssignments = currentAssignments.get(partitionGroupId.partitionId()).nodes();
 
-            Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentStableAssignments, partAssignments);
+                    Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentStableAssignments, partAssignments);
 
-            return aliveStableNodes.size() > (zoneDescriptor.replicas() / 2 + 1);
+                    return aliveStableNodes.size() > (zoneDescriptor.replicas() / 2 + 1);
+                });
+            });
         });
     }
 
