@@ -475,10 +475,14 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
         metricConsumer.accept(new LongGauge(
                 "TotalAllocatedSize",
-                "desc",
-                () -> pageSize * tableStorage.mvPartitionStorages.stream()
-                        .mapToLong(PersistentPageMemoryMvPartitionStorage::pageCount)
-                        .sum()
+                "Total size of all pages allocated by '" + ENGINE_NAME + "' storage engine for a given table, in bytes.",
+                () -> {
+                    long totalPages = tableStorage.mvPartitionStorages.stream()
+                            .mapToLong(PersistentPageMemoryMvPartitionStorage::pageCount)
+                            .sum();
+
+                    return pageSize * totalPages;
+                }
         ));
     }
 
