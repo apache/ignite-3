@@ -57,8 +57,7 @@ public class CacheKey {
             String schemaName,
             String query,
             Object contextKey,
-            ColumnType[] paramTypes,
-            SchemaPlus defaultSchema
+            ColumnType[] paramTypes
     ) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;

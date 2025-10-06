@@ -885,7 +885,7 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes[idx++] = columnType;
         }
 
-        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), true /* distributed */, paramTypes, defaultSchema);
+        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), true /* distributed */, paramTypes);
     }
 
     private static CacheKey createCacheKeyFromParameterMetadata(
@@ -911,7 +911,7 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes = result;
         }
 
-        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes, defaultSchema);
+        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
     private static IntSet resolveSources(IgniteRel rel) {
