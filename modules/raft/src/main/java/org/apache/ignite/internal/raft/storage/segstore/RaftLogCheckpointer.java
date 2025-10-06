@@ -97,7 +97,7 @@ class RaftLogCheckpointer {
         public void run() {
             while (true) {
                 try {
-                    CheckpointQueue.Entry entry = queue.peek();
+                    CheckpointQueue.Entry entry = queue.peekHead();
 
                     entry.segmentFile().sync();
 

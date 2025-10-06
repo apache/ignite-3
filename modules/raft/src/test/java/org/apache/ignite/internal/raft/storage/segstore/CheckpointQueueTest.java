@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,11 +36,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.raft.storage.segstore.CheckpointQueue.Entry;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -52,6 +55,11 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
 
     private final CheckpointQueue queue = new CheckpointQueue(MAX_QUEUE_SIZE);
 
+    @AfterEach
+    void tearDown() {
+        queue.close();
+    }
+
     @Test
     void testAddPeekRemove(
             @Mock SegmentFile segmentFile1,
@@ -62,20 +70,20 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
         queue.add(segmentFile1, memTable1);
         queue.add(segmentFile2, memTable2);
 
-        Entry entry = queue.peek();
+        Entry entry = queue.peekHead();
 
         assertThat(entry.segmentFile(), is(segmentFile1));
         assertThat(entry.memTable(), is(memTable1));
 
         // Head remains the same if we didn't remove it.
-        entry = queue.peek();
+        entry = queue.peekHead();
 
         assertThat(entry.segmentFile(), is(segmentFile1));
         assertThat(entry.memTable(), is(memTable1));
 
         queue.removeHead();
 
-        entry = queue.peek();
+        entry = queue.peekHead();
 
         assertThat(entry.segmentFile(), is(segmentFile2));
         assertThat(entry.memTable(), is(memTable2));
@@ -89,7 +97,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
     ) throws InterruptedException {
         CompletableFuture<Entry> peekFuture = supplyAsync(() -> {
             try {
-                return queue.peek();
+                return queue.peekHead();
             } catch (InterruptedException e) {
                 throw new CompletionException(e);
             }
@@ -182,7 +190,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
 
         RunnableX consumerTask = () -> {
             for (int i = 0; i < numEntries; i++) {
-                Entry entry = queue.peek();
+                Entry entry = queue.peekHead();
 
                 assertThat(entry.memTable().getSegmentFileOffset(0, 0), is(i));
 
@@ -211,7 +219,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
 
         RunnableX consumerTask = () -> {
             for (int i = 0; i < numEntries; i++) {
-                Entry entry = queue.peek();
+                Entry entry = queue.peekHead();
 
                 assertThat(entry.memTable().getSegmentFileOffset(0, 0), is(i));
 
@@ -243,5 +251,47 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
         };
 
         runRace(producerTask, consumerTask, searchTask, searchTask, searchTask);
+    }
+
+    @Test
+    void testCloseUnblocksWaitingThreadsOnAdd(
+            @InjectExecutorService(threadCount = 1) ExecutorService executor,
+            @Mock SegmentFile segmentFile,
+            @Mock ReadModeIndexMemTable memTable
+    ) throws InterruptedException {
+        for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
+            queue.add(segmentFile, memTable);
+        }
+
+        CompletableFuture<Void> addFuture = runAsync(() -> {
+            try {
+                queue.add(segmentFile, memTable);
+            } catch (InterruptedException e) {
+                throw new CompletionException(e);
+            }
+        }, executor);
+
+        assertThat(addFuture, willTimeoutFast());
+
+        queue.close();
+
+        assertThat(addFuture, willThrow(IgniteInternalException.class));
+    }
+
+    @Test
+    void testCloseUnblocksWaitingThreadsOnRemove(@InjectExecutorService(threadCount = 1) ExecutorService executor) {
+        CompletableFuture<Void> removeFuture = runAsync(() -> {
+            try {
+                queue.peekHead();
+            } catch (InterruptedException e) {
+                throw new CompletionException(e);
+            }
+        }, executor);
+
+        assertThat(removeFuture, willTimeoutFast());
+
+        queue.close();
+
+        assertThat(removeFuture, willThrow(IgniteInternalException.class));
     }
 }
