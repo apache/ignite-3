@@ -69,7 +69,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     HttpClient client;
 
     @BeforeAll
-    public void setUp() {
+    public void setUp() throws InterruptedException {
         sql(String.format(
                 "CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
                 FIRST_ZONE,
@@ -80,6 +80,8 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
                 FIRST_ZONE));
 
         sql(String.format("INSERT INTO PUBLIC.\"%s\" VALUES (1, 1)", TABLE_NAME));
+
+        Thread.sleep(5_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
     }
 
     @Test

@@ -44,9 +44,16 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
     @BeforeAll
-    public void createTables() {
-        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']", ZONE, 3, DEFAULT_AIPERSIST_PROFILE_NAME));
+    public void createTables() throws InterruptedException {
+        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
+                ZONE,
+                initialNodes(),
+                DEFAULT_AIPERSIST_PROFILE_NAME
+        ));
+
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
+
+        Thread.sleep(5_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
     }
 
     @Test
