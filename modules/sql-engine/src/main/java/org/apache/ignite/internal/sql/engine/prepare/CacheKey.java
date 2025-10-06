@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
 import java.util.Objects;
-import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.sql.ColumnType;
 
 /**
