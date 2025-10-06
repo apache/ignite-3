@@ -211,7 +211,8 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
-            // Use single-node connection to work around TODO ticket.
+            // TODO IGNITE-26619 Implicit client ro tx does not include observableTimestamp - remove workaround below.
+            // Use single-node connection to work around causality issues due to round-robin in GetNextSocketWithoutReconnect.
             var cfg = GetConfig();
             cfg.Endpoints.Clear();
             cfg.Endpoints.Add($"127.0.0.1:{ServerPort}");
