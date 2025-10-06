@@ -30,6 +30,8 @@ import org.jetbrains.annotations.Nullable;
 public class EmptyAssignmentsException extends IgniteException {
     private static final long serialVersionUID = 1698246028174494488L;
 
+    private final ReplicationGroupId groupId;
+
     /**
      * Constructor.
      *
@@ -38,5 +40,16 @@ public class EmptyAssignmentsException extends IgniteException {
      */
     public EmptyAssignmentsException(ReplicationGroupId groupId, @Nullable Throwable cause) {
         super(EMPTY_ASSIGNMENTS_ERR, format("Empty assignments for group [groupId={}].", groupId), cause);
+
+        this.groupId = groupId;
+    }
+
+    /**
+     * Gets replication group id.
+     *
+     * @return Replication group id.
+     */
+    public ReplicationGroupId groupId() {
+        return groupId;
     }
 }

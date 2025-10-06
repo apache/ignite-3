@@ -42,6 +42,7 @@ import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.placementdriver.EmptyAssignmentsException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
@@ -107,8 +108,8 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
         sql("SELECT * FROM " + TABLE_NAME + " WHERE id = 1");
     }
 
-    @Test
-    public void testInitialEmptyAssignmentsWithSuccessfulWaiting() {
+    @RepeatedTest(10)
+    public void testInitialEmptyAssignmentsWithSuccessfulWaiting() throws InterruptedException {
         createZoneAndTableWithEmptyDataNodes();
 
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
@@ -118,12 +119,13 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
 
         setAdditionalNodeFilter(null);
 
+        // Assignments placement driver should wait for non-empty assignments for SQL.
+        CompletableFuture<?> sqlFut = sqlAsync("SELECT * FROM " + TABLE_NAME);
+
         // Trigger scale down and data nodes recalculation.
         stopNode(2);
 
-        // No waiting inside test for non-empty data nodes and assignments. Assignments placement driver should wait for non-empty
-        // assignments for SQL.
-        sql("SELECT * FROM " + TABLE_NAME);
+        assertThat(sqlFut, willCompleteSuccessfully());
     }
 
     @Test
@@ -161,6 +163,10 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
 
     private void sql(String sql) {
         cluster.aliveNode().sql().execute(null, sql);
+    }
+
+    private CompletableFuture<?> sqlAsync(String sql) {
+        return cluster.aliveNode().sql().executeAsync(null, sql);
     }
 
     private void setAdditionalNodeFilter(@Nullable Predicate<NodeWithAttributes> filter) {

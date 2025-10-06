@@ -27,8 +27,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.placementdriver.Utils.extractZoneIdFromGroupId;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCompletionThrowable;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -216,18 +216,16 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
             TokenizedAssignments a = assignmentsMap.get(groupId);
 
-            if (a != null) {
-                result.add(a);
-
-                if (a.nodes().isEmpty()) {
-                    if (timeoutMillis > 0) {
-                        futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
-                    } else {
-                        // If timeout is zero or less, then this group is failed, the correct exception will be thrown
-                        // in #checkEmptyAssignmentsReasons().
-                        futures.put(i, failedFuture(new TimeoutException()));
-                    }
+            if (a == null || a.nodes().isEmpty()) {
+                if (timeoutMillis > 0) {
+                    futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
+                } else {
+                    // If timeout is zero or less, then this group is failed, the correct exception will be thrown
+                    // in #checkEmptyAssignmentsReasons().
+                    futures.put(i, failedFuture(new TimeoutException()));
                 }
+            } else {
+                result.add(a);
             }
         }
 
@@ -235,66 +233,63 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             return completedFuture(result);
         } else {
             return allOf(futures.values())
-                    .handle((unused, ex) -> {
-                        if (ex == null) {
+                    .handle((unused, e) -> {
+                        CompletableFuture<List<TokenizedAssignments>> r;
+                        Throwable cause = unwrapCompletionThrowable(e);
+
+                        if (cause == null) {
                             // Get the most recent assignments after the waiting.
                             long now = System.currentTimeMillis();
                             long newTimeoutMillis = timeoutMillis - (now - startTime);
-                            return awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, startTime, newTimeoutMillis);
+                            r = awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, startTime, newTimeoutMillis);
+                        } else if (cause instanceof EmptyAssignmentsException) {
+                            r = checkEmptyAssignmentsReason((EmptyAssignmentsException) cause);
                         } else {
-                            return checkEmptyAssignmentsReasons(replicationGroupIds, futures, ex);
+                            r = failedFuture(cause);
                         }
+
+                        return r;
                     })
                     .thenCompose(identity());
         }
     }
 
-    private CompletableFuture<List<TokenizedAssignments>> checkEmptyAssignmentsReasons(
-            List<? extends ReplicationGroupId> replicationGroupIds,
-            Map<Integer, CompletableFuture<TokenizedAssignments>> assignmentFuturesMap,
-            Throwable defaultThrowable
-    ) {
-        for (Map.Entry<Integer, CompletableFuture<TokenizedAssignments>> e : assignmentFuturesMap.entrySet()) {
-            if (e.getValue().isCompletedExceptionally()) {
-                return e.getValue()
-                        .handle((v, ex) -> {
-                            CompletableFuture<List<TokenizedAssignments>> result = null;
+    private CompletableFuture<List<TokenizedAssignments>> checkEmptyAssignmentsReason(EmptyAssignmentsException ex) {
+        Integer zoneId = extractZoneIdFromGroupId(
+                ex.groupId(),
+                nodeProperties.colocationEnabled(),
+                zoneIdByTableIdResolver
+        );
 
-                            ReplicationGroupId groupId = replicationGroupIds.get(e.getKey());
-
-                            if (hasCause(ex, TimeoutException.class)) {
-                                Integer zoneId = extractZoneIdFromGroupId(
-                                        groupId,
-                                        nodeProperties.colocationEnabled(),
-                                        zoneIdByTableIdResolver
-                                );
-
-                                result = currentDataNodesProvider.apply(zoneId)
-                                        .thenApply(dataNodes -> {
-                                            if (dataNodes.isEmpty()) {
-                                                throw new EmptyAssignmentsException(groupId, new EmptyDataNodesException(zoneId));
-                                            } else {
-                                                sneakyThrow(ex);
-                                                return null;
-                                            }
-                                        });
-                            } else {
-                                throw new EmptyAssignmentsException(groupId, ex);
-                            }
-
-                            return result;
-                        })
-                        .thenCompose(identity());
-            }
+        if (zoneId == null) {
+            return failedFuture(ex);
+        } else {
+            return currentDataNodesProvider.apply(zoneId)
+                    .thenApply(dataNodes -> {
+                        if (dataNodes.isEmpty()) {
+                            throw new EmptyAssignmentsException(ex.groupId(), new EmptyDataNodesException(zoneId));
+                        } else {
+                            sneakyThrow(ex);
+                            return null;
+                        }
+                    });
         }
-
-        return failedFuture(defaultThrowable);
     }
 
     private CompletableFuture<TokenizedAssignments> nonEmptyAssignmentFuture(ReplicationGroupId groupId, long futureTimeoutMillis) {
         CompletableFuture<TokenizedAssignments> result = nonEmptyAssignmentsFutures.computeIfAbsent(groupId, k ->
                 new CompletableFuture<TokenizedAssignments>()
                         .orTimeout(futureTimeoutMillis, TimeUnit.MILLISECONDS)
+                        .handle((v, e) -> {
+                            if (e instanceof TimeoutException) {
+                                throw new EmptyAssignmentsException(groupId, e);
+                            } else if (e != null) {
+                                sneakyThrow(e);
+                                return null;
+                            } else {
+                                return v;
+                            }
+                        })
         );
 
         TokenizedAssignments assignments = groupStableAssignments.get(groupId);
