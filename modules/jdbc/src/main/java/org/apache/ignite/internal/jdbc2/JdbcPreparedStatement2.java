@@ -712,18 +712,18 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
 
     /** {@inheritDoc} */
     @Override
-    public long executeLargeUpdate() throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public long[] executeLargeBatch() throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("executeLargeBatch not implemented.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long executeLargeUpdate() throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("executeLargeUpdate not implemented.");
     }
 
     @Override
