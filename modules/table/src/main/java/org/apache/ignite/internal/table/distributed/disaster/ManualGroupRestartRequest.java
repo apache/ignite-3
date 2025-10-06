@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.table.distributed.disaster.GroupUpdateR
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.RESTART_WITH_CLEAN_UP_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,7 +50,7 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -251,10 +250,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
     }
 
     private static <U> CompletableFuture<U> notEnoughAliveNodes() {
-        return CompletableFuture.failedFuture(
-                new DisasterRecoveryException(RESTART_WITH_CLEAN_UP_ERR, "Not enough alive nodes "
-                        + "to perform reset with clean up.")
-        );
+        return CompletableFuture.failedFuture(new NotEnoughAliveNodesException());
     }
 
     private static CompletableFuture<Boolean> enoughAliveNodesToRestartWithCleanUp(

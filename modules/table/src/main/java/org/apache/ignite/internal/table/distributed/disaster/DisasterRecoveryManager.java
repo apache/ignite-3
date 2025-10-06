@@ -46,6 +46,7 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
 
@@ -127,6 +128,7 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.Disaster
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalNodesException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -1275,7 +1277,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             copyStateTo(operationFuture).accept(res, ex);
 
                             if (ex != null) {
-                                failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
+                                if (!hasCause(ex, NodeStoppingException.class)) {
+                                    failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
+                                }
                             }
 
                             return null;
@@ -1289,7 +1293,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             }
 
                             if (ex != null) {
-                                failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
+                                if (!hasCause(ex, NodeStoppingException.class, NotEnoughAliveNodesException.class)) {
+                                    failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
+                                }
                             }
 
                             return null;
