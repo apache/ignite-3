@@ -73,6 +73,10 @@ public class DistributionZonesUtil {
     /** Key prefix for zone's data nodes history. */
     public static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
 
+    /** Key prefix for zone's data nodes. Deprecated, preserved for backward compatibility. */
+    @Deprecated
+    public static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
+
     /** Key prefix for zone's data nodes history, in {@code byte[]} representation. */
     public static final byte[] DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES =
             DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(StandardCharsets.UTF_8);
@@ -165,6 +169,18 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zoneDataNodesHistoryPrefix() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
+     * Preserved for backward compatibility.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    @Deprecated
+    public static ByteArray zoneDataNodesKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX + zoneId);
     }
 
     /**

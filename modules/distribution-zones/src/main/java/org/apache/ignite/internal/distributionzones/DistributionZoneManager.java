@@ -379,6 +379,14 @@ public class DistributionZoneManager extends
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
 
+    public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
+    }
+
+    public static Set<Node> parseDataNodes(byte[] dataNodesBytes) {
+        return dataNodesBytes == null ? null : dataNodes(DataNodesMapSerializer.deserialize(dataNodesBytes));
+    }
+
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
 

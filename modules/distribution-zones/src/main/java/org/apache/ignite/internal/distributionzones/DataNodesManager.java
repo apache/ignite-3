@@ -23,6 +23,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
@@ -37,6 +38,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonePartitionResetTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerPrefix;
@@ -57,6 +59,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -65,6 +68,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -91,6 +95,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -229,9 +234,12 @@ public class DataNodesManager {
             allKeys.add(zoneScaleUpTimerKey(zone.id()));
             allKeys.add(zoneScaleDownTimerKey(zone.id()));
             allKeys.add(zonePartitionResetTimerKey(zone.id()));
+            allKeys.add(zoneDataNodesKey(zone.id()));
 
             descriptors.put(zone.id(), zone);
         }
+
+        List<IgniteBiTuple<CatalogZoneDescriptor, CompletableFuture<?>>> legacyInitFutures = new ArrayList<>();
 
         return metaStorageManager.getAll(allKeys)
                 .thenAccept(entriesMap -> {
@@ -240,10 +248,18 @@ public class DataNodesManager {
                         Entry scaleUpEntry = entriesMap.get(zoneScaleUpTimerKey(zone.id()));
                         Entry scaleDownEntry = entriesMap.get(zoneScaleDownTimerKey(zone.id()));
                         Entry partitionResetEntry = entriesMap.get(zonePartitionResetTimerKey(zone.id()));
+                        Entry legacyDataNodesEntry = entriesMap.get(zoneDataNodesKey(zone.id()));
 
                         if (missingEntry(historyEntry)) {
-                            // Not critical because if we have no history in this map, we look into meta storage.
-                            LOG.warn("Couldn't recover data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry);
+                            if (missingEntry(legacyDataNodesEntry)) {
+                                // Not critical because if we have no history in this map, we look into meta storage.
+                                LOG.warn("Couldn't recover data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry);
+                            } else {
+                                legacyInitFutures.add(new IgniteBiTuple<>(
+                                        zone,
+                                        initZoneWithLegacyDataNodes(zone, legacyDataNodesEntry.value()))
+                                );
+                            }
 
                             continue;
                         }
@@ -264,7 +280,17 @@ public class DataNodesManager {
                         onScaleDownTimerChange(zone, scaleDownTimer);
                         restorePartitionResetTimer(zone.id(), scaleDownTimer, recoveryRevision);
                     }
-                });
+                })
+                .thenCompose(unused -> allOf(legacyInitFutures.stream().map(IgniteBiTuple::getValue).collect(toList()))
+                        .handle((v, e) -> {
+                            if (e != null) {
+                                LOG.error("Could not recover legacy data nodes for zone.", e);
+                            }
+
+                            return nullCompletedFuture();
+                        })
+                )
+                .thenAccept(unused -> { /* No-op. */ });
     }
 
     private static boolean missingEntry(Entry e) {
@@ -1002,7 +1028,7 @@ public class DataNodesManager {
         return completedFuture(dataNodeHistoryContextFromValues(entries));
     }
 
-    private CompletableFuture<DataNodesHistoryContext> ensureContextIsPresent(
+    private CompletableFuture<DataNodesHistoryContext> ensureContextIsPresentAndInitZoneIfNeeded(
             @Nullable DataNodesHistoryContext context,
             List<ByteArray> keys,
             int zoneId
@@ -1084,7 +1110,7 @@ public class DataNodesManager {
                 : this::getDataNodeHistoryContextMs;
 
         DataNodeHistoryContextMetaStorageGetter msGetter = ensureContextIsPresent
-                ? keys -> msGetter0.get(keys).thenCompose(context -> ensureContextIsPresent(context, keys, zone.id()))
+                ? keys -> msGetter0.get(keys).thenCompose(context -> ensureContextIsPresentAndInitZoneIfNeeded(context, keys, zone.id()))
                 : msGetter0;
 
         CompletableFuture<DataNodesHistoryMetaStorageOperation> metaStorageOperationFuture =
@@ -1140,6 +1166,14 @@ public class DataNodesManager {
             Set<NodeWithAttributes> dataNodes
     ) {
         return initZone(zoneId, timestamp, dataNodes);
+    }
+
+    private CompletableFuture<?> initZoneWithLegacyDataNodes(CatalogZoneDescriptor zone, byte[] legacyDataNodesBytes) {
+        Set<NodeWithAttributes> dataNodes = DataNodesMapSerializer.deserialize(legacyDataNodesBytes).keySet().stream()
+                .map(node -> new NodeWithAttributes(node.nodeName(), node.nodeId(), null))
+                .collect(toSet());
+
+        return initZone(zone.id(), clockService.current(), dataNodes);
     }
 
     private CompletableFuture<?> initZone(int zoneId) {
@@ -1361,9 +1395,7 @@ public class DataNodesManager {
     }
 
     private CatalogZoneDescriptor zoneDescriptor(int zoneId) {
-        int catalogVersion = catalogManager.activeCatalogVersion(clockService.currentLong());
-
-        CatalogZoneDescriptor zone = catalogManager.catalog(catalogVersion).zone(zoneId);
+        CatalogZoneDescriptor zone = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneId);
 
         if (zone == null) {
             throw new DistributionZoneNotFoundException(zoneId);
