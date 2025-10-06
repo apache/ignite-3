@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.table.distributed.disaster.DisasterReco
 import static org.apache.ignite.internal.table.distributed.disaster.GroupUpdateRequestHandler.getAliveNodesWithData;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -124,7 +123,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     @Override
     public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long revision, HybridTimestamp timestamp) {
-        return inBusyLockAsync(disasterRecoveryManager.busyLock(), () -> {
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
             if (!nodeNames.isEmpty() && !nodeNames.contains(disasterRecoveryManager.localNode().name())) {
                 return nullCompletedFuture();
             }
@@ -238,7 +237,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                         replicationGroupId,
                         zoneDescriptor,
                         catalog
-                ).thenApply(enoughNodes -> {
+                ).thenCompose(enoughNodes -> {
                     if (enoughNodes) {
                         return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
                     } else {
@@ -306,7 +305,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             Function<LocalPartitionStateMessage, T> keyExtractor,
             CompletableFuture<Map<Integer, Assignments>> stableAssignments
     ) {
-        return inBusyLockAsync(disasterRecoveryManager.busyLock(), () -> {
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
             Set<String> aliveNodesConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
                     .stream()
                     .map(NodeWithAttributes::nodeName)

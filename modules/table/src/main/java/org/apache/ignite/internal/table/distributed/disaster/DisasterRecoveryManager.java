@@ -47,7 +47,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
 
 import java.util.ArrayList;
@@ -254,7 +254,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.nodeProperties = nodeProperties;
         this.systemViewManager = systemViewManager;
 
-        watchListener = event -> inBusyLockAsync(busyLock, () -> {
+        watchListener = event -> inBusyLock(busyLock, () -> {
             handleTriggerKeyUpdate(event);
 
             // There is no need to block a watch thread any longer.
@@ -264,7 +264,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             systemViewManager.register(this);
 
             messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
@@ -327,7 +327,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private CompletableFuture<Boolean> onHaZoneTablePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             int zoneId = params.zoneId();
             long revision = params.causalityToken();
             long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
@@ -361,7 +361,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private CompletableFuture<Boolean> onHaZonePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             int zoneId = params.zoneId();
             long revision = params.causalityToken();
             long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
@@ -425,7 +425,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetTablePartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
             return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1, false);
@@ -454,7 +454,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             boolean manualUpdate,
             long triggerRevision
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
             return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision, false);
@@ -472,7 +472,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetPartitions(String zoneName, Set<Integer> partitionIds) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
 
             return resetPartitions(zoneName, Map.of(zoneId, partitionIds), true, -1, true);
@@ -497,7 +497,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             boolean manualUpdate,
             long triggerRevision
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
 
             return resetPartitions(zoneName, Map.of(zoneId, partitionIds), manualUpdate, triggerRevision, true);
@@ -524,7 +524,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             long triggerRevision,
             boolean colocationEnabled
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 Catalog catalog = catalogLatestVersion();
 
@@ -566,7 +566,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String tableName,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 // Validates passed node names.
                 getNodes(nodeNames);
@@ -611,7 +611,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String tableName,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 // Validates passed node names.
                 getNodes(nodeNames);
@@ -654,7 +654,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String zoneName,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 // Validates passed node names.
                 getNodes(nodeNames);
@@ -696,7 +696,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String zoneName,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 // Validates passed node names.
                 getNodes(nodeNames);
@@ -741,7 +741,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<String> nodeNames,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 assert nodeProperties.colocationEnabled() : "Zone based replication is unavailable use localTablePartitionStates";
 
@@ -771,7 +771,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<String> zoneNames,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 assert nodeProperties.colocationEnabled() : "Zone based replication is unavailable use globalTablePartitionStates";
 
@@ -803,7 +803,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Catalog catalog,
             Function<LocalPartitionStateMessage, T> keyExtractor
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             Collection<CatalogZoneDescriptor> zones = filterZones(zoneNames, catalog.zones());
 
             checkPartitionsRange(partitionIds, zones);
@@ -872,7 +872,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<String> nodeNames,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 Catalog catalog = catalogLatestVersion();
 
@@ -915,7 +915,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<String> zoneNames,
             Set<Integer> partitionIds
     ) {
-        return inBusyLockAsync(busyLock, () -> {
+        return inBusyLock(busyLock, () -> {
             try {
                 Catalog catalog = catalogLatestVersion();
 
@@ -1273,7 +1273,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 }
 
                 request.handle(this, watchEvent.revision(), watchEvent.timestamp())
-                        .handle((res, ex) -> {
+                        .handle((res, ex) -> inBusyLock(busyLock, () -> {
                             copyStateTo(operationFuture).accept(res, ex);
 
                             if (ex != null) {
@@ -1283,11 +1283,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             }
 
                             return null;
-                        });
+                        }));
                 break;
             case MULTI_NODE:
                 request.handle(this, watchEvent.revision(), watchEvent.timestamp())
-                        .handle((res, ex) -> {
+                        .handle((res, ex) -> inBusyLock(busyLock, () -> {
                             if (operationFuture != null) {
                                 copyStateTo(operationFuture).accept(res, ex);
                             }
@@ -1299,7 +1299,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             }
 
                             return null;
-                        });
+                        }));
                 break;
             default:
                 var error = new AssertionError("Unexpected request type: " + request.getClass());
