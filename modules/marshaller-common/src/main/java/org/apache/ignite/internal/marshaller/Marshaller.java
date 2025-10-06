@@ -56,7 +56,7 @@ public abstract class Marshaller {
         }
 
         if (mapper.targetType().isPrimitive()) {
-            throw new IllegalArgumentException("Mappers for primitive types are not supported: " + mapper.targetType());
+            throw new MarshallerException("Mappers for primitive types are not supported: " + mapper.targetType());
         }
 
         if (mapper instanceof OneColumnMapper) {
@@ -64,7 +64,7 @@ public abstract class Marshaller {
         } else if (mapper instanceof PojoMapper) {
             return pojoMarshaller(cols, (PojoMapper<?>) mapper, requireAllFields, allowUnmappedFields);
         } else {
-            throw new IllegalArgumentException("Mapper of unsupported type: " + mapper.getClass());
+            throw new MarshallerException("Mapper of unsupported type: " + mapper.getClass());
         }
     }
 
@@ -84,7 +84,7 @@ public abstract class Marshaller {
     private static MarshallerColumn findColumnIndex(MarshallerColumn[] cols, @Nullable String name) {
         if (name == null) {
             if (cols.length != 1) {
-                throw new IllegalArgumentException(String.format(
+                throw new MarshallerException(String.format(
                         "Failed to map object to a single column: schema contains %d columns but no mapped columns were provided",
                         cols.length
                 ));
@@ -99,7 +99,7 @@ public abstract class Marshaller {
             }
         }
 
-        throw new IllegalArgumentException(String.format(
+        throw new MarshallerException(String.format(
                 "Failed to map object to a single column: mappedColumn '%s' is not present in the schema",
                 name
         ));
@@ -131,7 +131,7 @@ public abstract class Marshaller {
 
             if (fieldName == null) {
                 if (requireAllFields) {
-                    throw new IllegalArgumentException(String.format("No mapped object field found for column '%s'", columnName));
+                    throw new MarshallerException(String.format("No mapped object field found for column '%s'", columnName));
                 }
 
                 fieldAccessors[i] = FieldAccessor.noopAccessor(col);
@@ -158,7 +158,7 @@ public abstract class Marshaller {
                     fieldSet.remove(fieldName);
                 }
 
-                throw new IllegalArgumentException(
+                throw new MarshallerException(
                         String.format("Fields %s of type %s are not mapped to columns", fieldSet, mapper.targetType().getName()),
                         new UnmappedColumnsException()
                 );

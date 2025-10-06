@@ -50,6 +50,7 @@ import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -444,6 +445,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
             marsh = marshallerFactory.apply(schema);
             this.marsh = marsh;
+        } catch (IgniteException e) {
+            throw e;
         } catch (Exception ex) {
             throw new MarshallerException(ex.getMessage(), ex);
         }
