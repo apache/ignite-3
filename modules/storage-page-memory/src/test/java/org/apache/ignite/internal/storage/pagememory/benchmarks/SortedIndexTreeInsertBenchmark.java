@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.benchmarks;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryStorageEngine.createNewJitComparator;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -115,6 +116,8 @@ public class SortedIndexTreeInsertBenchmark extends VolatilePageMemoryBenchmarkB
     public void setup() throws Exception {
         super.setup();
 
+        StorageSortedIndexDescriptor indexDescriptor = new StorageSortedIndexDescriptor(INDEX_ID, columnTypes.columnDescriptors(), false);
+
         sortedIndexTree = SortedIndexTree.createNew(
                 GROUP_ID,
                 "sortedIndex",
@@ -123,7 +126,8 @@ public class SortedIndexTreeInsertBenchmark extends VolatilePageMemoryBenchmarkB
                 new AtomicLong(),
                 volatilePageMemory.allocatePageNoReuse(GROUP_ID, PARTITION_ID, FLAG_AUX),
                 freeList,
-                new StorageSortedIndexDescriptor(INDEX_ID, columnTypes.columnDescriptors(), false)
+                indexDescriptor,
+                createNewJitComparator(indexDescriptor)
         );
     }
 
