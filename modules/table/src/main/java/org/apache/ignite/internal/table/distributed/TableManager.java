@@ -1699,7 +1699,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     fullStateTransferIndexChooser,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> {
                         ScheduledExecutorService streamerFlushExecutor;
 
@@ -2182,7 +2181,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         try {
-            return localPartitionsVv.get(causalityToken).thenApply(unused -> localPartsByTableId.get(tableId));
+            return localPartitionsVv.get(causalityToken)
+                    .thenApply(unused -> localPartsByTableId.getOrDefault(tableId, PartitionSet.EMPTY_SET));
         } finally {
             busyLock.leaveBusy();
         }

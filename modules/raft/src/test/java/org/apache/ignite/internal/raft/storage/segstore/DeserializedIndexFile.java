@@ -27,15 +27,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Test-only class representing a deserialized {@link IndexFile}.
+ * Test-only class representing a deserialized index file.
  */
 class DeserializedIndexFile {
     /** groupId -> logIndex -> segmentFileOffset. */
@@ -46,28 +48,21 @@ class DeserializedIndexFile {
     }
 
     static DeserializedIndexFile fromFile(Path path) throws IOException {
-        try (var indexFile = new RandomAccessFile(path.toFile(), "r")) {
+        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
             // Read common meta part of the header.
-            byte[] commonMetaBytes = new byte[COMMON_META_SIZE];
-
-            indexFile.readFully(commonMetaBytes);
-
-            ByteBuffer commonMeta = ByteBuffer.wrap(commonMetaBytes).order(IndexFileManager.BYTE_ORDER);
+            ByteBuffer commonMeta = readFully(channel, COMMON_META_SIZE);
 
             assertThat(commonMeta.getInt(), is(MAGIC_NUMBER));
             assertThat(commonMeta.getInt(), is(FORMAT_VERSION));
 
             int numGroups = commonMeta.getInt();
 
+            // groupId -> logIndex -> segmentFileOffset.
             Map<Long, Map<Long, Integer>> content = newHashMap(numGroups);
 
             for (int i = 0; i < numGroups; i++) {
                 // Read group meta part of the header.
-                byte[] groupMetaBytes = new byte[GROUP_META_SIZE];
-
-                indexFile.readFully(groupMetaBytes);
-
-                ByteBuffer groupMeta = ByteBuffer.wrap(groupMetaBytes).order(IndexFileManager.BYTE_ORDER);
+                ByteBuffer groupMeta = readFully(channel, GROUP_META_SIZE);
 
                 long groupId = groupMeta.getLong();
 
@@ -80,25 +75,21 @@ class DeserializedIndexFile {
                 long lastIndex = groupMeta.getLong();
 
                 // Read the payload of the group.
-                int payloadEntriesNum = (int) (lastIndex - firstIndex);
+                int payloadEntriesNum = (int) (lastIndex - firstIndex + 1);
 
                 Map<Long, Integer> logIndexToSegmentFileOffset = newHashMap(payloadEntriesNum);
 
                 content.put(groupId, logIndexToSegmentFileOffset);
 
-                byte[] payloadBytes = new byte[Integer.BYTES * payloadEntriesNum];
+                long currentPosition = channel.position();
 
-                long currentHeaderOffset = indexFile.getFilePointer();
+                channel.position(indexPayloadOffset);
 
-                indexFile.seek(indexPayloadOffset);
+                ByteBuffer indexPayload = readFully(channel, Integer.BYTES * payloadEntriesNum);
 
-                indexFile.readFully(payloadBytes);
+                channel.position(currentPosition);
 
-                indexFile.seek(currentHeaderOffset);
-
-                ByteBuffer indexPayload = ByteBuffer.wrap(payloadBytes).order(IndexFileManager.BYTE_ORDER);
-
-                for (long logIndex = firstIndex; logIndex < lastIndex; logIndex++) {
+                for (long logIndex = firstIndex; logIndex <= lastIndex; logIndex++) {
                     logIndexToSegmentFileOffset.put(logIndex, indexPayload.getInt());
                 }
             }
@@ -108,7 +99,7 @@ class DeserializedIndexFile {
     }
 
     @Nullable
-    Integer getOffset(long groupId, long logIndex) {
+    Integer getSegmentFileOffset(long groupId, long logIndex) {
         Map<Long, Integer> logIndexToSegmentFileOffset = content.get(groupId);
 
         return logIndexToSegmentFileOffset == null ? null : logIndexToSegmentFileOffset.get(logIndex);
@@ -131,6 +122,10 @@ class DeserializedIndexFile {
                             });
                 })
                 .collect(toList());
+    }
+
+    private static ByteBuffer readFully(ReadableByteChannel byteChannel, int len) throws IOException {
+        return ByteChannelUtils.readFully(byteChannel, len).order(IndexFileManager.BYTE_ORDER);
     }
 
     static class Entry {

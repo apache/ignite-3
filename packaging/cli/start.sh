@@ -28,4 +28,4 @@ DEFAULT_JVM_OPTS="-Dfile.encoding=UTF-8 \
     -XX:+ExitOnOutOfMemoryError \
     -XX:HeapDumpPath=${LOG_DIR}"
 
-${JAVACMD} ${DEFAULT_JVM_OPTS} -classpath ${CLASSPATH} ${MAIN_CLASS} "$@"
+${JAVACMD} ${DEFAULT_JVM_OPTS} ${IGNITE3_OPTS} -classpath ${CLASSPATH} ${MAIN_CLASS} "$@"

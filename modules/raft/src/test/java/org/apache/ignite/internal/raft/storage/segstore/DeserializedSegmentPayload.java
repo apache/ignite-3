@@ -25,9 +25,8 @@ import static org.hamcrest.Matchers.is;
 
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 import org.apache.ignite.internal.util.FastCrc;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,11 +43,48 @@ class DeserializedSegmentPayload {
         this.payload = payload;
     }
 
-    static DeserializedSegmentPayload fromBytes(byte[] bytes) {
-        return fromByteBuffer(wrap(bytes));
+    static @Nullable DeserializedSegmentPayload fromByteChannel(ReadableByteChannel channel) throws IOException {
+        ByteBuffer groupIdBytes;
+
+        try {
+            groupIdBytes = readFully(channel, GROUP_ID_SIZE_BYTES);
+        } catch (EOFException e) {
+            // EOF reached.
+            return null;
+        }
+
+        long groupId = groupIdBytes.getLong();
+
+        if (groupId == 0) {
+            // EOF reached.
+            return null;
+        }
+
+        int payloadLength = readFully(channel, LENGTH_SIZE_BYTES).getInt();
+
+        ByteBuffer remaining = readFully(channel, payloadLength + HASH_SIZE);
+
+        ByteBuffer fullEntry = ByteBuffer.allocate(payloadLength + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE)
+                .order(SegmentFile.BYTE_ORDER)
+                .putLong(groupId)
+                .putInt(payloadLength)
+                .put(remaining)
+                .rewind();
+
+        int crcOffset = payloadLength + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES;
+
+        int actualCrc = fullEntry.getInt(crcOffset);
+
+        int expectedCrc = FastCrc.calcCrc(fullEntry, crcOffset);
+
+        assertThat(actualCrc, is(expectedCrc));
+
+        fullEntry.rewind();
+
+        return fromByteBuffer(fullEntry);
     }
 
-    static DeserializedSegmentPayload fromByteBuffer(ByteBuffer entryBuf) {
+    private static DeserializedSegmentPayload fromByteBuffer(ByteBuffer entryBuf) {
         long groupId = entryBuf.getLong();
 
         int payloadLength = entryBuf.getInt();
@@ -57,78 +93,7 @@ class DeserializedSegmentPayload {
 
         entryBuf.get(payload);
 
-        int entrySizeWithoutCrc = entryBuf.position();
-        int actualCrc = entryBuf.getInt();
-        int expectedCrc = FastCrc.calcCrc(entryBuf.rewind(), entrySizeWithoutCrc);
-
-        assertThat(actualCrc, is(expectedCrc));
-
         return new DeserializedSegmentPayload(groupId, payload);
-    }
-
-    static @Nullable DeserializedSegmentPayload fromInputStream(InputStream is) throws IOException {
-        byte[] groupIdBytes = is.readNBytes(GROUP_ID_SIZE_BYTES);
-
-        if (groupIdBytes.length < GROUP_ID_SIZE_BYTES) {
-            // EOF reached.
-            return null;
-        }
-
-        long groupId = wrap(groupIdBytes).getLong();
-
-        if (groupId == 0) {
-            // EOF reached.
-            return null;
-        }
-
-        int payloadLength = wrap(is.readNBytes(LENGTH_SIZE_BYTES)).getInt();
-
-        byte[] remaining = is.readNBytes(payloadLength + HASH_SIZE);
-
-        ByteBuffer entry = ByteBuffer.allocate(GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payloadLength + HASH_SIZE)
-                .order(SegmentFile.BYTE_ORDER)
-                .putLong(groupId)
-                .putInt(payloadLength)
-                .put(remaining)
-                .flip();
-
-        return fromByteBuffer(entry);
-    }
-
-    static @Nullable DeserializedSegmentPayload fromRandomAccessFile(RandomAccessFile file) throws IOException {
-        byte[] groupIdBytes = new byte[GROUP_ID_SIZE_BYTES];
-
-        try {
-            file.readFully(groupIdBytes);
-        } catch (EOFException e) {
-            return null;
-        }
-
-        long groupId = wrap(groupIdBytes).getLong();
-
-        if (groupId == 0) {
-            // EOF reached.
-            return null;
-        }
-
-        byte[] payloadLengthBytes = new byte[LENGTH_SIZE_BYTES];
-
-        file.readFully(payloadLengthBytes);
-
-        int payloadLength = wrap(payloadLengthBytes).getInt();
-
-        byte[] remaining = new byte[payloadLength + HASH_SIZE];
-
-        file.readFully(remaining);
-
-        ByteBuffer entry = ByteBuffer.allocate(GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payloadLength + HASH_SIZE)
-                .order(SegmentFile.BYTE_ORDER)
-                .putLong(groupId)
-                .putInt(payloadLength)
-                .put(remaining)
-                .flip();
-
-        return fromByteBuffer(entry);
     }
 
     long groupId() {
@@ -143,7 +108,7 @@ class DeserializedSegmentPayload {
         return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payload.length + HASH_SIZE;
     }
 
-    private static ByteBuffer wrap(byte[] bytes) {
-        return ByteBuffer.wrap(bytes).order(SegmentFile.BYTE_ORDER);
+    private static ByteBuffer readFully(ReadableByteChannel byteChannel, int len) throws IOException {
+        return ByteChannelUtils.readFully(byteChannel, len).order(SegmentFile.BYTE_ORDER);
     }
 }

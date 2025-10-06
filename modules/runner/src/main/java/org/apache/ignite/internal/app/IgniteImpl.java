@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -50,8 +49,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
 import java.util.function.LongSupplier;
@@ -908,9 +905,6 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                IgniteThreadFactory.create(name, "rebalance-scheduler", LOG));
-
         // TODO: IGNITE-22222 this instantiation should be moved inside ReplicaManager's constructor
         Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
 
@@ -1091,7 +1085,7 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler,
+                threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 clockService,
                 placementDriverMgr.placementDriver(),
@@ -1141,7 +1135,7 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                rebalanceScheduler,
+                threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
