@@ -42,7 +42,6 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
@@ -234,7 +233,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Channel> connectFut = NettyUtils.toChannelCompletableFuture(
                 new Bootstrap()
-                        .channel(NioSocketChannel.class)
+                        .channel(NioSocketChannelEx.class)
                         .group(new NioEventLoopGroup())
                         .handler(new ChannelInitializer<>() {
                             /** {@inheritDoc} */
