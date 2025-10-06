@@ -99,6 +99,8 @@
       items:
         - title: Overview
           url: developers-guide/rest/rest-api
+    - title: Spring Data integration
+      url: spring-data/spring-data
 - title: Administrator’s Guide
   url: administrators-guide/config/config
   items:
