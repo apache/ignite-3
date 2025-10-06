@@ -80,6 +80,8 @@ class RaftLogCheckpointer {
 
             throw new IgniteInternalException(COMMON_ERR, "Interrupted while waiting for the checkpoint thread to finish.", e);
         }
+
+        queue.close();
     }
 
     void onRollover(SegmentFile segmentFile, ReadModeIndexMemTable indexMemTable) {
