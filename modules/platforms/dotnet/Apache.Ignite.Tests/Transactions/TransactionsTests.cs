@@ -211,10 +211,14 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
-            // TODO: Upserts go to different channels for this key - why?
-            var key = 2373697073179453717;
+            // Use single-node connection to work around TODO ticket.
+            var cfg = GetConfig();
+            cfg.Endpoints.Clear();
+            cfg.Endpoints.Add($"127.0.0.1:{ServerPort}");
+
+            using var client = await IgniteClient.StartAsync(GetConfig());
+            var key = Random.Shared.NextInt64(1000, long.MaxValue);
             var keyPoco = new Poco { Key = key };
-            Console.WriteLine(key);
 
             await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
