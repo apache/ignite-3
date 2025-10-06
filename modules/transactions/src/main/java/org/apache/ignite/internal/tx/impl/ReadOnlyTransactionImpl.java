@@ -152,8 +152,8 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         ((TxManagerImpl) txManager).onCompleteReadOnlyTransaction(
                 commitIntent,
-                new TxIdAndTimestamp(readTimestamp, id()),
-                timeoutExceeded);
+                new TxIdAndTimestamp(readTimestamp, id())
+        );
 
         this.timeoutExceeded = timeoutExceeded;
 
