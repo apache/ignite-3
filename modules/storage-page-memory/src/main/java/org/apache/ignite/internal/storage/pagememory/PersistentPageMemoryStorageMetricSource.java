@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.storage.pagememory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,10 +24,8 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Metric source for persistent page memory.
- */
-public class PersistentPageMemoryMetricSource implements MetricSource {
+/** Persistent page memory storage metric source. */
+class PersistentPageMemoryStorageMetricSource implements MetricSource {
     private final String name;
 
     /** Metrics map. Only modified in {@code synchronized} context. */
@@ -41,7 +39,7 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
      *
      * @param name Metric set name.
      */
-    public PersistentPageMemoryMetricSource(String name) {
+    PersistentPageMemoryStorageMetricSource(String name) {
         this.name = name;
     }
 
@@ -55,10 +53,8 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
         return "storage";
     }
 
-    /**
-     * Adds metric to the source.
-     */
-    public synchronized <T extends Metric> T addMetric(T metric) {
+    /** Adds metric to the source. */
+    synchronized <T extends Metric> T addMetric(T metric) {
         assert !enabled : "Cannot add metrics when source is enabled";
 
         metrics.put(metric.name(), metric);

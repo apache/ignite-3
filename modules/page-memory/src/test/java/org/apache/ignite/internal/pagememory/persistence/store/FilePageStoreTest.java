@@ -520,6 +520,29 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    void testFullSize() throws Exception {
+        DeltaFilePageStoreIo deltaFile0 = mock(DeltaFilePageStoreIo.class);
+        DeltaFilePageStoreIo deltaFile1 = mock(DeltaFilePageStoreIo.class);
+
+        when(deltaFile0.size()).thenReturn(100L);
+        when(deltaFile1.size()).thenReturn(200L);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), deltaFile0, deltaFile1)) {
+            assertEquals(300L, filePageStore.fullSize());
+
+            filePageStore.ensure();
+
+            assertEquals(300L + PAGE_SIZE, filePageStore.fullSize());
+
+            long pageId0 = createDataPageId(filePageStore::allocatePage);
+
+            filePageStore.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE));
+
+            assertEquals(300L + PAGE_SIZE * 2, filePageStore.fullSize());
+        }
+    }
+
     private static FilePageStore createFilePageStore(Path filePath) {
         return createFilePageStore(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
     }
