@@ -41,6 +41,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -109,7 +110,7 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
         Table table = operation.executeOn(catalogForPublicUse());
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
-                () -> table.keyValueView().queryAsync(null, null)
+                () -> table.keyValueView().queryAsync((Transaction) null, null)
                         .thenApply(unused -> currentThread())
         );
 
