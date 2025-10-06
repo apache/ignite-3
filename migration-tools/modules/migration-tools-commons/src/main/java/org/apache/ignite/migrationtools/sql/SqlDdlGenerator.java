@@ -615,9 +615,8 @@ public class SqlDdlGenerator {
      * @return Qualified Name.
      */
     public static QualifiedName qualifiedName(CacheConfiguration<?, ?> cacheCfg) {
-        String schema = Optional.ofNullable(cacheCfg.getSqlSchema()).orElse(QualifiedName.DEFAULT_SCHEMA_NAME);
         String tableName = IgniteNameUtils.quoteIfNeeded(cacheCfg.getName());
-        return QualifiedName.of(schema, tableName);
+        return QualifiedName.of(cacheCfg.getSqlSchema(), tableName);
     }
 
     /**
