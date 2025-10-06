@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -25,6 +27,8 @@ import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMa
 
 /** Persistent page memory storage metrics. */
 class PersistentPageMemoryStorageMetrics {
+    private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageMetrics.class);
+
     /** Initializes metrics in the given metric source. */
     static void initMetrics(
             PersistentPageMemoryStorageMetricSource source,
@@ -45,6 +49,8 @@ class PersistentPageMemoryStorageMetrics {
         try {
             return pageStore.pageStore().fullSize();
         } catch (IgniteInternalCheckedException e) {
+            LOG.warn("Error getting storage size: [groupPartitionId={}]", e, pageStore.groupPartitionId());
+
             return 0;
         }
     }
