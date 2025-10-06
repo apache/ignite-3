@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -31,9 +32,11 @@ public class PartitionModificationCounterFactory {
     public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
 
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
+    private final MessagingService messagingService;
 
-    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier) {
+    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier, MessagingService messagingService) {
         this.currentTimestampSupplier = currentTimestampSupplier;
+        this.messagingService = messagingService;
     }
 
     /**
@@ -42,22 +45,15 @@ public class PartitionModificationCounterFactory {
      * @param partitionSizeSupplier Partition size supplier.
      * @return New partition modification counter.
      */
-    public PartitionModificationCounter create(
-            int tableId,
-            int partitionId,
-            LongSupplier partitionSizeSupplier,
-            MessagingService messagingService,
-            LongSupplier estimateSize
-    ) {
+    public PartitionModificationCounter create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
         return new PartitionModificationCounter(
-                currentTimestampSupplier.get(),
-                partitionSizeSupplier,
-                DEFAULT_STALE_ROWS_FRACTION,
-                DEFAULT_MIN_STALE_ROWS_COUNT,
                 tableId,
                 partitionId,
                 messagingService,
-                estimateSize
+                currentTimestampSupplier.get(),
+                partitionSizeSupplier,
+                DEFAULT_STALE_ROWS_FRACTION,
+                DEFAULT_MIN_STALE_ROWS_COUNT
         );
     }
 }

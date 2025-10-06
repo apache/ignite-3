@@ -5,7 +5,9 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +52,7 @@ public class StatisticAggregator {
 
         int partitions = table.partitions();
 
-        Int2ObjectMap<String> peers = new Int2ObjectOpenHashMap<>();
+        Map<Integer, String> peers = new HashMap<>();
 
         for (int p = 0; p < partitions; ++p) {
             ReplicaMeta repl = placementDriver.getCurrentPrimaryReplica(
@@ -67,23 +69,25 @@ public class StatisticAggregator {
             return CompletableFuture.completedFuture(LongObjectImmutablePair.of(0, HybridTimestamp.MIN_VALUE));
         }
 
-        GetEstimatedSizeWithLastModifiedTsRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
-                .tableId(table.tableId()).build();
+/*        GetEstimatedSizeWithLastModifiedTsRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
+                .tableId(table.tableId()).build();*/
 
-        CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>[] invokeFutures = peers.stream()
-                //.map(topologyService::getByConsistentId)
-                //.filter(Objects::nonNull)
-                .map(node -> messagingService
-                        .invoke(node, request, REQUEST_ESTIMATION_TIMEOUT_MILLIS)
-                        .thenApply(response -> {
-                            assert response instanceof GetEstimatedSizeWithLastModifiedTsResponse : response;
+        CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>[] invokeFutures = peers.entrySet().stream()
+                .map(ent -> {
+                    GetEstimatedSizeWithLastModifiedTsRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
+                            .tableId(table.tableId()).partitionId(ent.getKey()).build();
 
-                            GetEstimatedSizeWithLastModifiedTsResponse response0 = (GetEstimatedSizeWithLastModifiedTsResponse) response;
+                    return messagingService.invoke(ent.getValue(), request, REQUEST_ESTIMATION_TIMEOUT_MILLIS)
+                            .thenApply(response -> {
+                                assert response instanceof GetEstimatedSizeWithLastModifiedTsResponse : response;
 
-                            return LongObjectImmutablePair.of(response0.estimatedSize(), response0.ts());
-                        })
-                        .exceptionally(unused -> LongObjectImmutablePair.of(0, HybridTimestamp.MIN_VALUE)))
-                .toArray(CompletableFuture[]::new);
+                                GetEstimatedSizeWithLastModifiedTsResponse response0 = (GetEstimatedSizeWithLastModifiedTsResponse) response;
+
+                                return LongObjectImmutablePair.of(response0.estimatedSize(), response0.ts());
+                            })
+                            .exceptionally(unused -> LongObjectImmutablePair.of(0, HybridTimestamp.MIN_VALUE));
+                })
+                .toArray(CompletableFuture[]::new);;
 
         return allOf(invokeFutures).thenApply(unused -> {
             HybridTimestamp last = HybridTimestamp.MIN_VALUE;

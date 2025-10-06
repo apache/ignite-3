@@ -39,20 +39,21 @@ import org.junit.jupiter.api.Test;
 public class ItStatisticTest extends BaseSqlIntegrationTest {
     private SqlStatisticManagerImpl sqlStatisticManager;
 
-    private static final String TWO_PART_ZONE = "zone_single_partition";
+    private static final String TWO_REPL_ZONE = "zone1";
 
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
 
-        sql(format("CREATE ZONE {} (PARTITIONS 2, REPLICAS 2) storage profiles ['default'];", TWO_PART_ZONE));
-        sql(format("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE {}", TWO_PART_ZONE));
+        sql(format("CREATE ZONE {} (REPLICAS 2) storage profiles ['default'];", TWO_REPL_ZONE));
+        sql(format("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE {}", TWO_REPL_ZONE));
+        //sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
     }
 
     @AfterAll
     void afterAll() {
         sql("DROP TABLE IF EXISTS t;");
-        sql(format("DROP ZONE IF EXISTS {}", TWO_PART_ZONE));
+        sql(format("DROP ZONE IF EXISTS {}", TWO_REPL_ZONE));
     }
 
     @AfterEach
@@ -60,10 +61,10 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         sql("DELETE FROM t;");
     }
 
-    @Override
+    /*@Override
     protected int initialNodes() { // change  !!!
         return 1;
-    }
+    }*/
 
     @Test
     public void testTableSizeUpdates() throws InterruptedException {

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.function.LongSupplier;
@@ -67,19 +68,13 @@ public class TableTestUtils {
 
     /** No-op partition modification counter. */
     public static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
-            new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, 0, 0, 0, 0, null, () -> 0L);
+            new PartitionModificationCounter(0, 0, mock(MessagingService.class), HybridTimestamp.MIN_VALUE, () -> 0, 0, 0);
 
     /** No-op partition modification counter factory. */
     public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
-            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE) {
+            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
                 @Override
-                public PartitionModificationCounter create(
-                        int tableId,
-                        int partitionId,
-                        LongSupplier partitionSizeSupplier,
-                        MessagingService messagingService,
-                        LongSupplier estimateSize
-                ) {
+                public PartitionModificationCounter create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
                     return NOOP_PARTITION_MODIFICATION_COUNTER;
                 }
             };

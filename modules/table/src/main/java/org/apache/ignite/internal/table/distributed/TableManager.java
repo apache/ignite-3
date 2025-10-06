@@ -95,7 +95,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -1042,19 +1041,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionStorages.getMvPartitionStorage()
         );
 
-        LongSupplier estSizeSupplier = () -> {
-            @Nullable MvPartitionStorage partition = table.internalTable().storage().getMvPartition(partId);
-            return partition == null ? -1 : partition.estimatedSize();
-        };
-
         PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                 partId,
                 partitionDataStorage,
                 table,
                 safeTimeTracker,
-                replicationConfiguration,
-                messagingService0,
-                estSizeSupplier
+                replicationConfiguration
         );
 
         internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -1400,19 +1392,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
-                    LongSupplier estSizeSupplier = () -> {
-                        @Nullable MvPartitionStorage partition = table.internalTable().storage().getMvPartition(partId);
-                        return partition == null ? -1 : partition.estimatedSize();
-                    };
-
                     PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                             partId,
                             partitionDataStorage,
                             table,
                             safeTimeTracker,
-                            replicationConfiguration,
-                            messagingService0,
-                            estSizeSupplier
+                            replicationConfiguration
                     );
 
                     internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -3169,9 +3154,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionDataStorage partitionDataStorage,
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            ReplicationConfiguration replicationConfiguration,
-            MessagingService messagingService,
-            LongSupplier estimateSize
+            ReplicationConfiguration replicationConfiguration
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
 
@@ -3181,8 +3164,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         LongSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
 
-        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory
-                .create(table.tableId(), partitionId, partSizeSupplier, messagingService, estimateSize);
+        PartitionModificationCounter modificationCounter =
+                partitionModificationCounterFactory.create(partSizeSupplier, table.tableId(), partitionId);
         registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(

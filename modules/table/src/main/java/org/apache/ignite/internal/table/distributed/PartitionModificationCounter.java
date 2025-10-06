@@ -21,13 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Keeps track of the number of modifications of a partition.
@@ -41,31 +35,28 @@ public class PartitionModificationCounter {
     private final LongSupplier partitionSizeSupplier;
     private final double staleRowsFraction;
     private final long minStaleRowsCount;
-
-    int tableId;
-    int partitionId;
-    LongSupplier estimateSize;
+    private final PartitionModificationRequestHandler partitionModificationRequestHandler;
 
     private final AtomicLong counter = new AtomicLong(0);
     private volatile long nextMilestone;
     private volatile HybridTimestamp lastMilestoneReachedTimestamp;
-    private final MessagingService messagingService;
-    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
-            new PartitionReplicationMessagesFactory();
 
     /** Constructor. */
     public PartitionModificationCounter(
-            HybridTimestamp initTimestamp,
-            LongSupplier partitionSizeSupplier,
-            double staleRowsFraction,
-            long minStaleRowsCount,
             int tableId,
             int partitionId,
             MessagingService messagingService,
-            LongSupplier estimateSize
+            HybridTimestamp initTimestamp,
+            LongSupplier partitionSizeSupplier,
+            double staleRowsFraction,
+            long minStaleRowsCount
     ) {
-        Objects.requireNonNull(initTimestamp, "initTimestamp");
-        Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
+        lastMilestoneReachedTimestamp = Objects.requireNonNull(initTimestamp, "initTimestamp");
+        this.partitionSizeSupplier = Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
+
+        this.partitionModificationRequestHandler =
+                new PartitionModificationRequestHandler(tableId, partitionId, messagingService, partitionSizeSupplier,
+                        this::lastMilestoneTimestamp);
 
         if (staleRowsFraction < 0 || staleRowsFraction > 1) {
             throw new IllegalArgumentException("staleRowsFraction must be in [0, 1] range");
@@ -77,43 +68,8 @@ public class PartitionModificationCounter {
 
         this.staleRowsFraction = staleRowsFraction;
         this.minStaleRowsCount = minStaleRowsCount;
-        this.partitionSizeSupplier = partitionSizeSupplier;
 
         nextMilestone = computeNextMilestone(partitionSizeSupplier.getAsLong(), staleRowsFraction, minStaleRowsCount);
-        lastMilestoneReachedTimestamp = initTimestamp;
-
-        this.messagingService = messagingService;
-
-        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
-
-        this.tableId = tableId;
-        this.partitionId = partitionId;
-        this.estimateSize = estimateSize;
-    }
-
-    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
-        if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
-            handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender, correlationId);
-        }
-    }
-
-    private void handleRequestCounter(
-            GetEstimatedSizeWithLastModifiedTsRequest message,
-            InternalClusterNode sender,
-            @Nullable Long correlationId
-    ) {
-        long estSize = estimateSize.getAsLong();
-
-        System.err.println("!!! handleRequestCounter");
-
-        if (tableId == message.tableId() && estSize != -1) {
-            messagingService.respond(
-                    sender,
-                    PARTITION_REPLICATION_MESSAGES_FACTORY
-                            .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(estSize).ts(lastMilestoneTimestamp()).build(),
-                    correlationId
-            );
-        }
     }
 
     /** Returns the current counter value. */
@@ -167,5 +123,9 @@ public class PartitionModificationCounter {
             long minStaleRowsCount
     ) {
         return Math.max((long) (currentSize * staleRowsFraction), minStaleRowsCount);
+    }
+
+    private static class PartitionModificationRequestsHandler {
+
     }
 }
