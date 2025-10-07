@@ -446,20 +446,23 @@ public class MetricsTests
 
         private void Handle<T>(Instrument instrument, T measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
         {
-            var newVal = Convert.ToInt64(measurement);
-
-            Console.WriteLine($"{_name} measurement: {instrument.Name} = {newVal}");
-
-            if (instrument.IsObservable)
+            lock (_listener)
             {
-                _metrics[instrument.Name] = newVal;
-            }
-            else
-            {
-                _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                var newVal = Convert.ToInt64(measurement);
 
-                var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
-                _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);
+                Console.WriteLine($"{_name} measurement: {instrument.Name} = {newVal}");
+
+                if (instrument.IsObservable)
+                {
+                    _metrics[instrument.Name] = newVal;
+                }
+                else
+                {
+                    _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+
+                    var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
+                    _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);
+                }
             }
         }
     }
