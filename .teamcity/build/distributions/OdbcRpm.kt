@@ -63,9 +63,4 @@ object OdbcRpm : BuildType({
             param("script.content", "./gradlew")
         }
     }
-
-    // DIND agents work differently with docker
-    requirements {
-        doesNotExist("env.DIND_ENABLED")
-    }
 })

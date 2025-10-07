@@ -21,7 +21,7 @@ object Project : Project({
         buildType(
             ApacheIgnite3CustomBuildType.Builder(it)
                 .ignite3VCS().ignite3BuildDependency()
-                .defaultBuildTypeSettings().requireLinux().requireNonDind()
+                .defaultBuildTypeSettings().requireLinux()
                 .build().buildType
         )
     }
