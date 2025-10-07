@@ -280,8 +280,8 @@ public class CatalogTableDescriptorSerializers {
                 output.writeIntArray(colocationIndexes);
             }
 
-            output.writeDouble(descriptor.staleRowsFraction());
-            output.writeVarInt(descriptor.minStaleRowsCount());
+            output.writeDouble(descriptor.properties().staleRowsFraction());
+            output.writeVarInt(descriptor.properties().minStaleRowsCount());
         }
 
         private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {

@@ -22,11 +22,11 @@ import static java.util.Objects.requireNonNullElse;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Container to store and atomically update pair of properties related to data staleness.
+ * Container to store and atomically update pair of properties related to {@link PartitionModificationCounter} staleness.
  *
  * @see PartitionModificationCounter
  */
-public class StalenessConfiguration {
+public class TableStatsStalenessConfiguration {
     private final double staleRowsFraction;
     private final long minStaleRowsCount;
 
@@ -38,7 +38,7 @@ public class StalenessConfiguration {
      * @param minStaleRowsCount Minimal number of rows in partition to be modified before the data is considered to be "stale".
      *         Should be non-negative.
      */
-    public StalenessConfiguration(double staleRowsFraction, long minStaleRowsCount) {
+    public TableStatsStalenessConfiguration(double staleRowsFraction, long minStaleRowsCount) {
         if (staleRowsFraction < 0 || staleRowsFraction > 1) {
             throw new IllegalArgumentException("staleRowsFraction must be in [0, 1] range");
         }
@@ -72,7 +72,7 @@ public class StalenessConfiguration {
      *         Should be non-negative.
      * @return New object representing updated configuration.
      */
-    public StalenessConfiguration update(
+    public TableStatsStalenessConfiguration update(
             @Nullable Double staleRowsFraction,
             @Nullable Long minStaleRowsCount
     ) {
@@ -80,7 +80,7 @@ public class StalenessConfiguration {
             return this;
         }
 
-        return new StalenessConfiguration(
+        return new TableStatsStalenessConfiguration(
                 requireNonNullElse(staleRowsFraction, this.staleRowsFraction),
                 requireNonNullElse(minStaleRowsCount, this.minStaleRowsCount)
         );

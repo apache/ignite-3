@@ -58,6 +58,6 @@ public class PartitionModificationCounterFactory {
     /** An interface representing supplier of current staleness configuration. */
     @FunctionalInterface
     public interface StalenessConfigurationSupplier {
-        StalenessConfiguration get();
+        TableStatsStalenessConfiguration get();
     }
 }

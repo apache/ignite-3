@@ -64,8 +64,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
 
     private final String storageProfile;
 
-    private final double staleRowsFraction;
-    private final long minStaleRowsCount;
+    private final CatalogTableProperties properties;
 
     /**
      * Internal constructor.
@@ -91,8 +90,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
             HybridTimestamp timestamp,
-            double staleRowsFraction,
-            long minStaleRowsCount
+            CatalogTableProperties properties
     ) {
         super(id, Type.TABLE, name, timestamp);
 
@@ -112,8 +110,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
-        this.staleRowsFraction = staleRowsFraction;
-        this.minStaleRowsCount = minStaleRowsCount;
+        this.properties = properties;
     }
 
     /**
@@ -134,8 +131,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 .primaryKeyColumns(primaryKeyColumns())
                 .colocationColumns(colocationColumns())
                 .storageProfile(storageProfile())
-                .staleRowsFraction(staleRowsFraction)
-                .minStaleRowsCount(minStaleRowsCount);
+                .staleRowsFraction(properties.staleRowsFraction())
+                .minStaleRowsCount(properties.minStaleRowsCount());
     }
 
     public static Builder builder() {
@@ -250,20 +247,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         return storageProfile;
     }
 
-    /**
-     * Returns {@code double} value in the range [0.0, 1] representing fraction of a partition to be modified before the data is considered
-     * to be "stale". That is, any computation made on a data snapshot is considered obsolete and need to be refreshed.
-     */
-    public double staleRowsFraction() {
-        return staleRowsFraction;
-    }
-
-    /**
-     * Returns minimal number of rows in partition to be modified before the data is considered to be "stale". That is, any computation made
-     * on a data snapshot is considered obsolete and need to be refreshed.
-     */
-    public long minStaleRowsCount() {
-        return minStaleRowsCount;
+    /** Returns holder for table-related properties. */
+    public CatalogTableProperties properties() {
+        return properties;
     }
 
     /**
@@ -422,7 +408,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          *
          * @param minStaleRowsCount The {@code minStaleRowsCount} to set.
          * @return A reference to this Builder.
-         * @see CatalogTableDescriptor#minStaleRowsCount()
+         * @see CatalogTableProperties#minStaleRowsCount()
          */
         public Builder minStaleRowsCount(long minStaleRowsCount) {
             this.minStaleRowsCount = minStaleRowsCount;
@@ -434,7 +420,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          *
          * @param staleRowsFraction The {@code staleRowsFraction} to set.
          * @return A reference to this Builder.
-         * @see CatalogTableDescriptor#staleRowsFraction()
+         * @see CatalogTableProperties#staleRowsFraction()
          */
         public Builder staleRowsFraction(double staleRowsFraction) {
             this.staleRowsFraction = staleRowsFraction;
@@ -501,8 +487,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                     newSchemaVersions,
                     storageProfile,
                     timestamp,
-                    staleRowsFraction,
-                    minStaleRowsCount
+                    new CatalogTableProperties(staleRowsFraction, minStaleRowsCount)
             );
         }
     }

@@ -43,9 +43,9 @@ import org.apache.ignite.internal.table.IndexWrapper.HashIndexWrapper;
 import org.apache.ignite.internal.table.IndexWrapper.SortedIndexWrapper;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
-import org.apache.ignite.internal.table.distributed.StalenessConfiguration;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
@@ -85,7 +85,7 @@ public class TableImpl implements TableViewInternal {
 
     private final int pkId;
 
-    private volatile StalenessConfiguration configuration;
+    private volatile TableStatsStalenessConfiguration configuration;
 
     /**
      * Constructor.
@@ -106,7 +106,7 @@ public class TableImpl implements TableViewInternal {
             IgniteSql sql,
             FailureProcessor failureProcessor,
             int pkId,
-            StalenessConfiguration stalenessConfiguration
+            TableStatsStalenessConfiguration tableStatsStalenessConfiguration
     ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
@@ -115,7 +115,7 @@ public class TableImpl implements TableViewInternal {
         this.sql = sql;
         this.failureProcessor = failureProcessor;
         this.pkId = pkId;
-        this.configuration = stalenessConfiguration;
+        this.configuration = tableStatsStalenessConfiguration;
     }
 
     /**
@@ -145,7 +145,7 @@ public class TableImpl implements TableViewInternal {
                 sql,
                 new FailureManager(new NoOpFailureHandler()),
                 pkId,
-                new StalenessConfiguration(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT)
+                new TableStatsStalenessConfiguration(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT)
         );
 
         this.schemaReg = schemaReg;
@@ -327,13 +327,13 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public void updateStalenessConfiguration(@Nullable Double staleRowsFraction, @Nullable Long minStaleRowsCount) {
-        StalenessConfiguration configuration = this.configuration;
+        TableStatsStalenessConfiguration configuration = this.configuration;
 
         this.configuration = configuration.update(staleRowsFraction, minStaleRowsCount);
     }
 
     @Override
-    public StalenessConfiguration stalenessConfiguration() {
+    public TableStatsStalenessConfiguration stalenessConfiguration() {
         return configuration;
     }
 }

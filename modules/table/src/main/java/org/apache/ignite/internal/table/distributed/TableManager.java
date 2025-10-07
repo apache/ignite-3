@@ -1851,9 +1851,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 sql.get(),
                 failureProcessor,
                 tableDescriptor.primaryKeyIndexId(),
-                new StalenessConfiguration(
-                        tableDescriptor.staleRowsFraction(),
-                        tableDescriptor.minStaleRowsCount()
+                new TableStatsStalenessConfiguration(
+                        tableDescriptor.properties().staleRowsFraction(),
+                        tableDescriptor.properties().minStaleRowsCount()
                 )
         );
     }

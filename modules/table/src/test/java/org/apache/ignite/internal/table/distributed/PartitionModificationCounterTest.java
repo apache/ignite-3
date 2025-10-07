@@ -38,7 +38,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
         // Empty table.
         {
             PartitionModificationCounter counter = factory.create(
-                    () -> 0L, () -> new StalenessConfiguration(0.5, 200)
+                    () -> 0L, () -> new TableStatsStalenessConfiguration(0.5, 200)
             );
 
             assertThat(counter.value(), is(0L));
@@ -49,7 +49,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
         // Table with 10k rows.
         {
             PartitionModificationCounter counter = factory.create(
-                    () -> 10_000L, () -> new StalenessConfiguration(0.2, 200)
+                    () -> 10_000L, () -> new TableStatsStalenessConfiguration(0.2, 200)
             );
 
             assertThat(counter.value(), is(0L));
@@ -71,7 +71,9 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
         int threshold = (int) (rowsCount * CatalogUtils.DEFAULT_STALE_ROWS_FRACTION);
         PartitionModificationCounter counter = factory.create(
                 () -> rowsCount,
-                () -> new StalenessConfiguration(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT)
+                () -> new TableStatsStalenessConfiguration(
+                        CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                )
         );
 
         assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
@@ -100,7 +102,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
     @SuppressWarnings({"ThrowableNotThrown", "ResultOfObjectAllocationIgnored", "DataFlowIssue"})
     void invalidUpdateValues() {
         PartitionModificationCounter counter = factory.create(
-                () -> 0L, () -> new StalenessConfiguration(0.2, 500)
+                () -> 0L, () -> new TableStatsStalenessConfiguration(0.2, 500)
         );
 
         IgniteTestUtils.assertThrows(NullPointerException.class,
@@ -114,13 +116,17 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> new PartitionModificationCounter(null, () -> 0L, () -> new StalenessConfiguration(0.2, 500)),
+                () -> new PartitionModificationCounter(null, () -> 0L, () -> new TableStatsStalenessConfiguration(
+                        0.2, 500
+                )),
                 "initTimestamp"
         );
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, null, () -> new StalenessConfiguration(0.2, 500)),
+                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, null, () -> new TableStatsStalenessConfiguration(
+                        0.2, 500
+                )),
                 "partitionSizeSupplier"
         );
 

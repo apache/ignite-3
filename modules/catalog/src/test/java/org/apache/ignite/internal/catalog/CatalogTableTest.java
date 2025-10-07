@@ -1293,20 +1293,20 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(manager.catalog(manager.latestCatalogVersion()).tables(), hasItems(
                 tableThatSatisfies("table with stale rows conf that matches defaults", d -> 
                         "defaults".equals(d.name())
-                                && d.minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
-                                && compare(d.staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
+                                && d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
                 tableThatSatisfies("table with non-default stale rows fraction conf", d ->
                         "stale_rows".equals(d.name())
-                                && d.minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
-                                && compare(d.staleRowsFraction(), 0.8) == 0),
+                                && d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                && compare(d.properties().staleRowsFraction(), 0.8) == 0),
                 tableThatSatisfies("table with non-default min stale rows conf", d ->
                         "min_rows".equals(d.name())
-                                && d.minStaleRowsCount() == 2000L
-                                && compare(d.staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
+                                && d.properties().minStaleRowsCount() == 2000L
+                                && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
                 tableThatSatisfies("table with non-deafult stale rows con", d ->
                         "everything".equals(d.name())
-                                && d.minStaleRowsCount() == 4000L
-                                && compare(d.staleRowsFraction(), 0.5) == 0)
+                                && d.properties().minStaleRowsCount() == 4000L
+                                && compare(d.properties().staleRowsFraction(), 0.5) == 0)
         ));
     }
 
@@ -1325,8 +1325,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
             assertThat(
                     actualTable(TABLE_NAME),
                     tableThatSatisfies("table with default configuration", d ->
-                            d.minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
-                                    && compare(d.staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
             );
         }
 
@@ -1341,8 +1341,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
             assertThat(
                     actualTable(TABLE_NAME),
                     tableThatSatisfies("table with default configuration", d ->
-                            d.minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
-                                    && compare(d.staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
             );
         }
 
@@ -1357,8 +1357,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
             assertThat(
                     actualTable(TABLE_NAME),
                     tableThatSatisfies("table with default configuration", d ->
-                            d.minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT * 2
-                                    && compare(d.staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT * 2
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
             );
         }
 
@@ -1374,8 +1374,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
             assertThat(
                     actualTable(TABLE_NAME),
                     tableThatSatisfies("table with default configuration", d ->
-                            d.minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
-                                    && compare(d.staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
             );
         }
     }

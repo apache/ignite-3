@@ -52,10 +52,12 @@ public class PartitionModificationCounter {
         this.partitionSizeSupplier = partitionSizeSupplier;
         this.stalenessConfigurationSupplier = stalenessConfigurationSupplier;
 
-        StalenessConfiguration stalenessConfiguration = stalenessConfigurationSupplier.get();
+        TableStatsStalenessConfiguration tableStatsStalenessConfiguration = stalenessConfigurationSupplier.get();
 
         nextMilestone = computeNextMilestone(
-                partitionSizeSupplier.get(), stalenessConfiguration.staleRowsFraction(), stalenessConfiguration.minStaleRowsCount()
+                partitionSizeSupplier.get(),
+                tableStatsStalenessConfiguration.staleRowsFraction(),
+                tableStatsStalenessConfiguration.minStaleRowsCount()
         );
         lastMilestoneReachedTimestamp = initTimestamp;
     }
@@ -101,10 +103,13 @@ public class PartitionModificationCounter {
 
         if (newCounter >= nextMilestone) {
             long currentSize = partitionSizeSupplier.get();
-            StalenessConfiguration stalenessConfiguration = stalenessConfigurationSupplier.get();
+            TableStatsStalenessConfiguration tableStatsStalenessConfiguration = stalenessConfigurationSupplier.get();
 
             this.nextMilestone = newCounter + computeNextMilestone(
-                    currentSize, stalenessConfiguration.staleRowsFraction(), stalenessConfiguration.minStaleRowsCount());
+                    currentSize,
+                    tableStatsStalenessConfiguration.staleRowsFraction(),
+                    tableStatsStalenessConfiguration.minStaleRowsCount()
+            );
             this.lastMilestoneReachedTimestamp = commitTimestamp;
         }
     }
