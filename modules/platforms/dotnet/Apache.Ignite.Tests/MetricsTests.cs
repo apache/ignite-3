@@ -439,7 +439,9 @@ public class MetricsTests
 
         public void Dispose()
         {
+            Console.WriteLine("Disposing listener: " + _name);
             _listener.Dispose();
+            Console.WriteLine("Disposed listener: " + _name);
         }
 
         private void Handle<T>(Instrument instrument, T measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
