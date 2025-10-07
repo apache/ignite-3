@@ -35,6 +35,7 @@ dependencies {
     testImplementation libs.swagger.parser
 
     integrationTestImplementation libs.netty.common
+    integrationTestImplementation libs.netty.buffer
 
     integrationTestImplementation testFixtures(project(':ignite-compatibility-tests'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
