@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessagingService;
 
 /**
- * Factory for producing {@link PartitionModificationCounter}.
+ * Factory for producing {@link PartitionModificationCounterHandler}.
  */
 public class PartitionModificationCounterFactory {
     public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
@@ -40,20 +39,27 @@ public class PartitionModificationCounterFactory {
     }
 
     /**
-     * Creates a new partition modification counter.
+     * Creates a new partition modification counter handler.
      *
      * @param partitionSizeSupplier Partition size supplier.
+     * @param tableId Table ID.
+     * @param partitionId partition ID.
      * @return New partition modification counter.
      */
-    public PartitionModificationCounter create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
-        return new PartitionModificationCounter(
-                tableId,
-                partitionId,
-                messagingService,
+    public PartitionModificationCounterHandler create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
+        PartitionModificationCounter modificationCounter = new PartitionModificationCounter(
                 currentTimestampSupplier.get(),
                 partitionSizeSupplier,
                 DEFAULT_STALE_ROWS_FRACTION,
                 DEFAULT_MIN_STALE_ROWS_COUNT
+        );
+
+        return new PartitionModificationCounterHandler(
+                tableId,
+                partitionId,
+                messagingService,
+                partitionSizeSupplier,
+                modificationCounter
         );
     }
 }

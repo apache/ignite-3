@@ -66,8 +66,8 @@ public class StorageUpdateHandler {
     /** Replication configuration. */
     private final ReplicationConfiguration replicationConfiguration;
 
-    /** Partition modification counter. */
-    private final PartitionModificationCounter modificationCounter;
+    /** Partition modification counter handler. */
+    private final PartitionModificationCounterHandler modificationCounter;
 
     /**
      * The constructor.
@@ -83,7 +83,7 @@ public class StorageUpdateHandler {
             PartitionDataStorage storage,
             IndexUpdateHandler indexUpdateHandler,
             ReplicationConfiguration replicationConfiguration,
-            PartitionModificationCounter modificationCounter
+            PartitionModificationCounterHandler modificationCounter
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
@@ -95,11 +95,6 @@ public class StorageUpdateHandler {
     /** Returns partition ID of the storage. */
     public int partitionId() {
         return partitionId;
-    }
-
-    /** Returns last milestone of modification observer. */
-    public HybridTimestamp lastModificationCounterMilestone() {
-        return modificationCounter.lastMilestoneTimestamp();
     }
 
     /**

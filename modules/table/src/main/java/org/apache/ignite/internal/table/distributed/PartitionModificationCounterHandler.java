@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -28,28 +27,27 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.jetbrains.annotations.Nullable;
 
-/** Process partition modification requests. */
-class PartitionModificationRequestHandler {
+public class PartitionModificationCounterHandler {
+    private final PartitionModificationCounter modificationCounter;
     private final int tableId;
     private final int partitionId;
-    private final MessagingService messagingService;
     private final LongSupplier partitionSizeSupplier;
-    private final Supplier<HybridTimestamp> lastMilestoneTsConsumer;
+    private final MessagingService messagingService;
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
-    PartitionModificationRequestHandler(
+    public PartitionModificationCounterHandler(
             int tableId,
             int partitionId,
             MessagingService messagingService,
             LongSupplier partitionSizeSupplier,
-            Supplier<HybridTimestamp> lastMilestoneTsConsumer
+            PartitionModificationCounter modificationCounter
     ) {
+        this.modificationCounter = modificationCounter;
         this.tableId = tableId;
         this.partitionId = partitionId;
         this.messagingService = messagingService;
         this.partitionSizeSupplier = partitionSizeSupplier;
-        this.lastMilestoneTsConsumer = lastMilestoneTsConsumer;
 
         messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
     }
@@ -66,13 +64,31 @@ class PartitionModificationRequestHandler {
             @Nullable Long correlationId
     ) {
         if (tableId == message.tableId() && partitionId == message.partitionId()) {
+            assert correlationId != null;
+
             messagingService.respond(
                     sender,
                     PARTITION_REPLICATION_MESSAGES_FACTORY
                             .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(partitionSizeSupplier.getAsLong())
-                            .ts(lastMilestoneTsConsumer.get()).build(),
+                            .ts(lastMilestoneTimestamp()).build(),
                     correlationId
             );
         }
+    }
+
+    public long value() {
+        return modificationCounter.value();
+    }
+
+    public HybridTimestamp lastMilestoneTimestamp() {
+        return modificationCounter.lastMilestoneTimestamp();
+    }
+
+    public long nextMilestone() {
+        return modificationCounter.nextMilestone();
+    }
+
+    public void updateValue(int delta, HybridTimestamp commitTimestamp) {
+        modificationCounter.updateValue(delta, commitTimestamp);
     }
 }

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandler;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,16 +67,19 @@ public class TableTestUtils {
     /** Column name. */
     public static final String COLUMN_NAME = "TEST_COLUMN";
 
+    private static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
+            new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, 0, 0);
+
     /** No-op partition modification counter. */
-    public static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
-            new PartitionModificationCounter(0, 0, mock(MessagingService.class), HybridTimestamp.MIN_VALUE, () -> 0, 0, 0);
+    public static final PartitionModificationCounterHandler NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER =
+            new PartitionModificationCounterHandler(0, 0, mock(MessagingService.class), () -> 0, NOOP_PARTITION_MODIFICATION_COUNTER);
 
     /** No-op partition modification counter factory. */
     public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
             new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
                 @Override
-                public PartitionModificationCounter create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
-                    return NOOP_PARTITION_MODIFICATION_COUNTER;
+                public PartitionModificationCounterHandler create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
+                    return NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER;
                 }
             };
 

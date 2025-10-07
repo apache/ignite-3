@@ -616,11 +616,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         return completedFuture(mvDataStorage.estimatedSize());
     }
 
-    private CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> processGetEstimatedSizeWithTsRequest() {
-        return completedFuture(LongObjectImmutablePair.of(mvDataStorage.estimatedSize(),
-                storageUpdateHandler.lastModificationCounterMilestone()));
-    }
-
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {
         TablePartitionId replicaGrpId = (TablePartitionId) request.groupId().asReplicationGroupId();
 

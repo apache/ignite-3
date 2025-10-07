@@ -35,7 +35,6 @@ public class PartitionModificationCounter {
     private final LongSupplier partitionSizeSupplier;
     private final double staleRowsFraction;
     private final long minStaleRowsCount;
-    private final PartitionModificationRequestHandler partitionModificationRequestHandler;
 
     private final AtomicLong counter = new AtomicLong(0);
     private volatile long nextMilestone;
@@ -43,21 +42,11 @@ public class PartitionModificationCounter {
 
     /** Constructor. */
     public PartitionModificationCounter(
-            int tableId,
-            int partitionId,
-            MessagingService messagingService,
             HybridTimestamp initTimestamp,
             LongSupplier partitionSizeSupplier,
             double staleRowsFraction,
             long minStaleRowsCount
     ) {
-        lastMilestoneReachedTimestamp = Objects.requireNonNull(initTimestamp, "initTimestamp");
-        this.partitionSizeSupplier = Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
-
-        this.partitionModificationRequestHandler =
-                new PartitionModificationRequestHandler(tableId, partitionId, messagingService, partitionSizeSupplier,
-                        this::lastMilestoneTimestamp);
-
         if (staleRowsFraction < 0 || staleRowsFraction > 1) {
             throw new IllegalArgumentException("staleRowsFraction must be in [0, 1] range");
         }
@@ -65,6 +54,9 @@ public class PartitionModificationCounter {
         if (minStaleRowsCount < 0) {
             throw new IllegalArgumentException("minStaleRowsCount must be non-negative");
         }
+
+        lastMilestoneReachedTimestamp = Objects.requireNonNull(initTimestamp, "initTimestamp");
+        this.partitionSizeSupplier = Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
 
         this.staleRowsFraction = staleRowsFraction;
         this.minStaleRowsCount = minStaleRowsCount;
@@ -123,9 +115,5 @@ public class PartitionModificationCounter {
             long minStaleRowsCount
     ) {
         return Math.max((long) (currentSize * staleRowsFraction), minStaleRowsCount);
-    }
-
-    private static class PartitionModificationRequestsHandler {
-
     }
 }

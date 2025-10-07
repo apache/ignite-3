@@ -264,7 +264,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER
         ));
 
         catalogService = mock(CatalogService.class);
@@ -524,7 +524,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER
         );
 
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
