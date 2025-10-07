@@ -81,7 +81,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
         sql(String.format("INSERT INTO PUBLIC.\"%s\" VALUES (1, 1)", TABLE_NAME));
 
-        Thread.sleep(5_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
+        Thread.sleep(10_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
     }
 
     @Test

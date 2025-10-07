@@ -53,7 +53,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
 
-        Thread.sleep(5_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
+        Thread.sleep(10_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
     }
 
     @Test
