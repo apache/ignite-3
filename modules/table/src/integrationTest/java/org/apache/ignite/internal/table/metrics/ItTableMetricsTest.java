@@ -19,9 +19,7 @@ package org.apache.ignite.internal.table.metrics;
 
 import static java.util.List.of;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RO_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RW_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.WRITES;
@@ -69,10 +67,6 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON PUBLIC." + TABLE_NAME + " USING SORTED (id)");
         sql("CREATE INDEX IF NOT EXISTS " + HASH_IDX + " ON PUBLIC." + TABLE_NAME + " USING HASH (val)");
-
-        if (colocationEnabled()) {
-            awaitAssignmentsStabilizationOnDefaultZone(CLUSTER.aliveNode());
-        }
     }
 
     /**
