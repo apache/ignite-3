@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Marshalling.COMMON_ERR;
 
 import java.io.IOException;
@@ -70,7 +71,11 @@ class RaftLogCheckpointer {
         checkpointThread.start();
     }
 
-    void stop() {
+    void stop() throws Exception {
+        closeAllManually(this::stopCheckpointThread, queue);
+    }
+
+    private void stopCheckpointThread() {
         checkpointThread.interrupt();
 
         try {
@@ -97,7 +102,7 @@ class RaftLogCheckpointer {
         public void run() {
             while (true) {
                 try {
-                    CheckpointQueue.Entry entry = queue.peek();
+                    CheckpointQueue.Entry entry = queue.peekHead();
 
                     entry.segmentFile().sync();
 

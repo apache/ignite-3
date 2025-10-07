@@ -58,7 +58,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (checkpointer != null) {
             checkpointer.stop();
         }

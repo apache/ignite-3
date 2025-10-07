@@ -438,7 +438,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
             giveUpClinch();
         } else {
-            localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
+            localHandshakeCompleteFuture.completeExceptionally(HandshakeManagerUtils.createExceptionFromRejectionMessage(msg));
         }
     }
 
