@@ -1,25 +1,25 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsResponse;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
 public class StatisticAggregator {
@@ -47,30 +47,32 @@ public class StatisticAggregator {
      *
      * @return Estimated size of this table with last modification timestamp.
      */
-    public CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate(InternalTable table) {
+    CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate(InternalTable table) {
         assert messagingService != null;
 
         int partitions = table.partitions();
 
-        Map<Integer, String> peers = new HashMap<>();
+        Map<Integer, String> peers = newHashMap(partitions);
 
         for (int p = 0; p < partitions; ++p) {
-            ReplicaMeta repl = placementDriver.getCurrentPrimaryReplica(
-                    table.targetReplicationGroupId(p), currentClock.get());
+            ReplicationGroupId replicationGroupId = table.targetReplicationGroupId(p);
 
-            if (repl != null) {
+            ReplicaMeta repl = placementDriver.getCurrentPrimaryReplica(
+                    replicationGroupId, currentClock.get());
+
+            if (repl != null && repl.getLeaseholder() != null) {
                 peers.put(p, repl.getLeaseholder());
             } else {
-                //assert false; // !!! delete
+                System.err.println("!!!! Failed to get the primary replica");
+                CompletableFuture.failedFuture(new IgniteInternalException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
+                        + " [replicationGroupId=" + replicationGroupId + ']'));
             }
         }
 
         if (peers.isEmpty()) {
-            return CompletableFuture.completedFuture(LongObjectImmutablePair.of(0, HybridTimestamp.MIN_VALUE));
+            throw new IgniteInternalException(Common.INTERNAL_ERR, "Table peers are not available"
+                    + " [tableId=" + table.tableId() + ']');
         }
-
-/*        GetEstimatedSizeWithLastModifiedTsRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
-                .tableId(table.tableId()).build();*/
 
         CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>[] invokeFutures = peers.entrySet().stream()
                 .map(ent -> {
@@ -78,14 +80,13 @@ public class StatisticAggregator {
                             .tableId(table.tableId()).partitionId(ent.getKey()).build();
 
                     return messagingService.invoke(ent.getValue(), request, REQUEST_ESTIMATION_TIMEOUT_MILLIS)
-                            .thenApply(response -> {
-                                assert response instanceof GetEstimatedSizeWithLastModifiedTsResponse : response;
+                            .thenApply(networkMessage -> {
+                                assert networkMessage instanceof GetEstimatedSizeWithLastModifiedTsResponse : networkMessage;
 
-                                GetEstimatedSizeWithLastModifiedTsResponse response0 = (GetEstimatedSizeWithLastModifiedTsResponse) response;
+                                GetEstimatedSizeWithLastModifiedTsResponse response = (GetEstimatedSizeWithLastModifiedTsResponse) networkMessage;
 
-                                return LongObjectImmutablePair.of(response0.estimatedSize(), response0.ts());
-                            })
-                            .exceptionally(unused -> LongObjectImmutablePair.of(0, HybridTimestamp.MIN_VALUE));
+                                return LongObjectImmutablePair.of(response.estimatedSize(), response.lastModified());
+                            });
                 })
                 .toArray(CompletableFuture[]::new);;
 
@@ -93,7 +94,7 @@ public class StatisticAggregator {
             HybridTimestamp last = HybridTimestamp.MIN_VALUE;
             long count = 0L;
 
-            System.err.println("invokeFutures size: " + invokeFutures.length);
+            System.err.println("!!!! invokeFutures " + invokeFutures.length);
 
             for (CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> requestFut : invokeFutures) {
                 LongObjectImmutablePair<HybridTimestamp> result = requestFut.join();
@@ -106,10 +107,8 @@ public class StatisticAggregator {
                     }
                 }
                 count += result.keyLong();
-                System.err.println("!!!!! requestFut " + result.keyLong());
             }
 
-            System.err.println("!!!!! requestFut final:" + count);
             return LongObjectImmutablePair.of(count, last);
         });
     }

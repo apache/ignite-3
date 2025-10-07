@@ -70,7 +70,7 @@ public class PartitionModificationCounterHandler {
                     sender,
                     PARTITION_REPLICATION_MESSAGES_FACTORY
                             .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(partitionSizeSupplier.getAsLong())
-                            .ts(lastMilestoneTimestamp()).build(),
+                            .lastModified(lastMilestoneTimestamp()).build(),
                     correlationId
             );
         }

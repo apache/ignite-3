@@ -129,8 +129,11 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     }
 
     private void update() {
+        System.err.println("!!!! update call");
         for (Map.Entry<Integer, ActualSize> ent : tableSizeMap.entrySet()) {
             Integer tableId = ent.getKey();
+
+            System.err.println("!!!! update call " + tableId);
 
             if (droppedTables.contains(tableId)) {
                 continue;
@@ -142,8 +145,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                 LOG.debug("No table found to update statistics [id={}].", ent.getKey());
                 continue;
             }
-
-            System.err.println("!!!call estimatedSizeWithLastUpdate " + tableView.internalTable().tableId());
 
             CompletableFuture<Void> updateResult = statAggregator.estimatedSizeWithLastUpdate(tableView.internalTable())
                     .thenAccept(res -> {
@@ -157,6 +158,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                             return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
                         });
                     }).exceptionally(e -> {
+                        System.err.println("Can't calculate size for table: " + tableId);
                         LOG.info("Can't calculate size for table [id={}].", e, tableId);
                         return null;
                     });
