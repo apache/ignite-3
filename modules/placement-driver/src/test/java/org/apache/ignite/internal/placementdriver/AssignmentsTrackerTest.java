@@ -46,6 +46,7 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link AssignmentsTracker}.
  */
-public class AssignmentsTrackerTest {
+public class AssignmentsTrackerTest extends BaseIgniteAbstractTest {
     private final ReplicationGroupId groupId0 = colocationEnabled() ? new ZonePartitionId(0, 0) : new TablePartitionId(0, 0);
     private final ReplicationGroupId groupId1 = colocationEnabled() ? new ZonePartitionId(1, 0) : new TablePartitionId(1, 0);
 
