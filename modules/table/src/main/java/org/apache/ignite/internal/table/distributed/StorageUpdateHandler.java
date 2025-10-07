@@ -117,7 +117,7 @@ public class StorageUpdateHandler {
             @Nullable BinaryRow row,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
-            @Nullable HybridTimestamp commitTs,
+            HybridTimestamp commitTs,
             @Nullable HybridTimestamp lastCommitTs,
             @Nullable List<Integer> indexIds
     ) {
@@ -138,11 +138,9 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowId(txId, rowId);
-            } else
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26411 No need to check commiTs for null
-                if (commitTs != null) {
-                    modificationCounter.updateValue(1, commitTs);
-                }
+            } else {
+                modificationCounter.updateValue(1, commitTs);
+            }
 
             if (onApplication != null) {
                 onApplication.run();
@@ -273,12 +271,9 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
-            } else
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26411 No need to check commiTs for null
-                if (commitTs != null) {
-                    modificationCounter.updateValue(processedRowIds.size(), commitTs);
-                }
-
+            } else {
+                modificationCounter.updateValue(processedRowIds.size(), commitTs);
+            }
             if (entryToProcess == null && onApplication != null) {
                 onApplication.run();
             }
