@@ -135,7 +135,7 @@ public abstract class ItTablePutGetBaseTest extends ClusterPerClassIntegrationTe
     }
 
     @Test
-    public void testCustomMapping() {
+    public void testCaseSensitiveMapping() {
         sql("CREATE TABLE sampleTable (\"lowercase\" varchar(255), id int primary key)");
 
         RecordView<PojoExample> sampleTable = tables().table("sampleTable").recordView(PojoExample.class);
@@ -169,7 +169,7 @@ public abstract class ItTablePutGetBaseTest extends ClusterPerClassIntegrationTe
     static class PojoExample {
         int id;
 
-        @Column("lowercase")
+        @Column("\"lowercase\"")
         String lowercase;
 
         @Override
