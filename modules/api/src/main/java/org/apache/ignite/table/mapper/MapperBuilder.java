@@ -17,6 +17,9 @@
 
 package org.apache.ignite.table.mapper;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
+import static org.apache.ignite.table.QualifiedName.fromSimple;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.AbstractMap.SimpleEntry;
@@ -27,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Mapper builder provides methods for mapping object fields to columns.
@@ -170,7 +174,7 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(String fieldName, String columnName, String... fieldColumnPairs) {
         ensureNotStale();
 
-        String colName0 = IgniteNameUtils.parseIdentifier(columnName);
+        String colName0 = parseIdentifier(columnName);
 
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
@@ -182,7 +186,7 @@ public final class MapperBuilder<T> {
 
         for (int i = 0; i < fieldColumnPairs.length; i += 2) {
             if (columnToFields.put(
-                    IgniteNameUtils.parseIdentifier(Objects.requireNonNull(fieldColumnPairs[i + 1])),
+                    parseIdentifier(Objects.requireNonNull(fieldColumnPairs[i + 1])),
                     requireValidField(fieldColumnPairs[i])) != null
             ) {
                 throw new IllegalArgumentException("Mapping for a column already exists: " + colName0);
@@ -229,7 +233,7 @@ public final class MapperBuilder<T> {
     public <ObjectT, ColumnT> MapperBuilder<T> convert(String columnName, TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
-        if (columnConverters.put(IgniteNameUtils.parseIdentifier(columnName), converter) != null) {
+        if (columnConverters.put(parseIdentifier(columnName), converter) != null) {
             throw new IllegalArgumentException("Column converter already exists: " + columnName);
         }
 
@@ -289,10 +293,10 @@ public final class MapperBuilder<T> {
         String fldName = fld.getName();
         var column = fld.getAnnotation(Column.class);
         if (column == null) {
-            return new SimpleEntry<>(fldName.toUpperCase(), fldName);
+            return new SimpleEntry<>(parseIdentifier(fldName), fldName);
         } else {
-            var columnName = column.value().isEmpty() ? fldName.toUpperCase() : column.value();
-            return new SimpleEntry<>(columnName, fldName);
+            var columnName = column.value().isEmpty() ? fldName : column.value();
+            return new SimpleEntry<>(parseIdentifier(columnName), fldName);
         }
     }
 }
