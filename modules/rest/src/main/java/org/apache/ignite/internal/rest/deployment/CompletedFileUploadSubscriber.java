@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.deployment;
 
 import io.micronaut.http.multipart.CompletedFileUpload;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
@@ -53,16 +54,22 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
 
     @Override
     public void onNext(CompletedFileUpload item) {
+        String filename = item.getFilename();
         try {
-            collector.addInputStream(item.getFilename(), item.getInputStream());
+            LOG.info("Receiving file: " + filename + ", size: " + item.getSize());
+            InputStream is = item.getInputStream();
+            LOG.info("Input stream obtained for file: " + filename + ", is: " + is);
+            collector.addInputStream(filename, is);
+            LOG.info("File added to collector: " + filename);
         } catch (IOException e) {
-            LOG.error("Failed to read file: " + item.getFilename(), e);
+            LOG.error("Failed to read file: " + filename, e);
             suppressException(e);
         }
     }
 
     @Override
     public void onError(Throwable throwable) {
+        LOG.error("Subscriber failed: ", throwable);
         try {
             collector.rollback();
         } catch (Exception e) {
@@ -74,6 +81,7 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
 
     @Override
     public void onComplete() {
+        LOG.info("Subscriber completed");
         if (ex != null) {
             result.completeExceptionally(ex);
         } else {
