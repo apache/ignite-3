@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.deployment.version.Version.parseVersion;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
+import io.micronaut.http.multipart.FileUpload;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
+import reactor.core.publisher.Mono;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
@@ -89,9 +92,19 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             Optional<List<String>> initialNodes,
             boolean zip
     ) {
-        Version version = parseVersion(unitVersion);
+        Version version;
+        TempStorage tempStorage;
+        try {
+            version = parseVersion(unitVersion);
+            tempStorage = tempStorageProvider.tempStorage(unitId, version);
+        } catch (Exception e) {
+            // In case of any exception during initialization of temp storage we need to discard the uploaded file.
+            // In case of normal operation the Netty resource will be properly released
+            // by the CompletedFileUpload#getInputStream call in the CompletedFileUploadSubscriber.
+            return Mono.from(unitContent).doOnNext(FileUpload::discard).toFuture()
+                    .thenCompose(unused -> failedFuture(e));
+        }
 
-        TempStorage tempStorage = tempStorageProvider.tempStorage(unitId, version);
         CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(tempStorage, zip);
         unitContent.subscribe(subscriber);
 
