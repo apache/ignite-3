@@ -47,6 +47,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
@@ -248,7 +249,8 @@ public class PrepareServiceImpl implements PrepareService {
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
 
-        planUpdater = new PlanUpdater(scheduler, cache, plannerTimeout, this::recalculatePlan, this::directCatalogVersion);
+        planUpdater = new PlanUpdater(scheduler, cache, plannerTimeout, this::recalculatePlan, this::directCatalogVersion,
+                this::getDefaultSchema);
     }
 
     /** {@inheritDoc} */
@@ -298,18 +300,7 @@ public class PrepareServiceImpl implements PrepareService {
         long timestamp = operationContext.operationTime().longValue();
         int catalogVersion = schemaManager.catalogVersion(timestamp);
 
-        IgniteSchemas rootSchema = schemaManager.schemas(catalogVersion);
-        assert rootSchema != null : "Root schema does not exist";
-
-        SchemaPlus schemaPlus = rootSchema.root();
-        SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
-        // If default schema does not exist or misconfigured, we should use the root schema as default one
-        // because there is no other schema for the validator to use.
-        if (defaultSchema == null) {
-            defaultSchema = schemaPlus;
-        }
-
-        CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters(), defaultSchema);
+        CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters());
 
         CompletableFuture<PlanInfo> planFuture = cache.get(key);
 
@@ -332,6 +323,8 @@ public class PrepareServiceImpl implements PrepareService {
             });
         }
 
+        SchemaPlus defaultSchema = getDefaultSchema(catalogVersion, schemaName);
+
         PlanningContext planningContext = PlanningContext.builder()
                 .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(defaultSchema).build())
@@ -339,7 +332,6 @@ public class PrepareServiceImpl implements PrepareService {
                 .plannerTimeout(plannerTimeout)
                 .catalogVersion(catalogVersion)
                 .defaultSchemaName(schemaName)
-                .defaultSchema(defaultSchema)
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .explicitTx(explicitTx)
                 .build();
@@ -350,6 +342,21 @@ public class PrepareServiceImpl implements PrepareService {
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
+    }
+
+    private SchemaPlus getDefaultSchema(int catalogVersion, String schemaName) {
+        IgniteSchemas rootSchema = schemaManager.schemas(catalogVersion);
+        assert rootSchema != null : "Root schema does not exist";
+
+        SchemaPlus schemaPlus = rootSchema.root();
+        SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
+        // If default schema does not exist or misconfigured, we should use the root schema as default one
+        // because there is no other schema for the validator to use.
+        if (defaultSchema == null) {
+            defaultSchema = schemaPlus;
+        }
+
+        return defaultSchema;
     }
 
     /** {@inheritDoc} */
@@ -488,7 +495,7 @@ public class PrepareServiceImpl implements PrepareService {
             }
 
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata, ctx.defaultSchema());
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
@@ -594,7 +601,7 @@ public class PrepareServiceImpl implements PrepareService {
                     .parameters(ctx.parameters())
                     .build();
 
-            return PlanInfo.createRefreshable(plan, stmt, state, sources, ctx.defaultSchema());
+            return PlanInfo.createRefreshable(plan, stmt, state, sources);
         }
 
         return PlanInfo.create(plan);
@@ -730,7 +737,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         return validateDml(parsedResult, sqlNode, ctx).thenCompose(stmt -> {
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata, ctx.defaultSchema());
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
@@ -787,7 +794,7 @@ public class PrepareServiceImpl implements PrepareService {
                     .parameters(ctx.parameters())
                     .build();
 
-            return PlanInfo.createRefreshable(plan, stmt, state, sources, ctx.defaultSchema());
+            return PlanInfo.createRefreshable(plan, stmt, state, sources);
         }
 
         return PlanInfo.create(plan);
@@ -863,8 +870,7 @@ public class PrepareServiceImpl implements PrepareService {
             ParsedResult parsedResult,
             int catalogVersion,
             String schemaName,
-            Object[] params,
-            SchemaPlus defaultSchema
+            Object[] params
     ) {
         ColumnType[] paramTypes = new ColumnType[params.length];
 
@@ -891,8 +897,7 @@ public class PrepareServiceImpl implements PrepareService {
     private static CacheKey createCacheKeyFromParameterMetadata(
             ParsedResult parsedResult,
             PlanningContext ctx,
-            ParameterMetadata parameterMetadata,
-            SchemaPlus defaultSchema
+            ParameterMetadata parameterMetadata
     ) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
         int catalogVersion = ctx.catalogVersion();
@@ -1066,18 +1071,22 @@ public class PrepareServiceImpl implements PrepareService {
 
         private final IntSupplier catalogVersionSupplier;
 
+        private final BiFunction<Integer, String, SchemaPlus> defaultSchemaFunc;
+
         PlanUpdater(
                 ScheduledExecutorService planUpdater,
                 Cache<CacheKey, CompletableFuture<PlanInfo>> cache,
                 long plannerTimeout,
                 PlanPrepare prepare,
-                IntSupplier catalogVersionSupplier
+                IntSupplier catalogVersionSupplier,
+                BiFunction<Integer, String, SchemaPlus> defaultSchema
         ) {
             this.planUpdater = planUpdater;
             this.cache = cache;
             this.plannerTimeout = plannerTimeout;
             this.prepare = prepare;
             this.catalogVersionSupplier = catalogVersionSupplier;
+            this.defaultSchemaFunc = defaultSchema;
         }
 
         /**
@@ -1127,6 +1136,8 @@ public class PrepareServiceImpl implements PrepareService {
                 while (recalculatePlans) {
                     recalculatePlans = false;
 
+                    int currentCatalogVersion = catalogVersionSupplier.getAsInt();
+
                     for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
                         CacheKey key = ent.getKey();
                         CompletableFuture<PlanInfo> fut = cache.get(key);
@@ -1141,14 +1152,14 @@ public class PrepareServiceImpl implements PrepareService {
 
                             assert info.context != null && info.statement != null;
 
-                            int currentCatalogVersion = catalogVersionSupplier.getAsInt();
-
                             if (currentCatalogVersion == key.catalogVersion()) {
                                 SqlQueryType queryType = info.statement.parsedResult().queryType();
 
+                                SchemaPlus defaultSchema = defaultSchemaFunc.apply(key.catalogVersion(), key.schemaName());
+
                                 PlanningContext planningContext = PlanningContext.builder()
                                         .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                                .defaultSchema(info.defaultSchema()).build())
+                                                .defaultSchema(defaultSchema).build())
                                         .query(info.statement.parsedResult().originalQuery())
                                         .plannerTimeout(plannerTimeout)
                                         .catalogVersion(key.catalogVersion())
@@ -1345,7 +1356,6 @@ public class PrepareServiceImpl implements PrepareService {
         private final QueryPlan queryPlan;
         @Nullable private final ValidStatement<ValidationResult> statement;
         @Nullable private final PlanningContextState context;
-        @Nullable private final SchemaPlus defaultSchema;
         private final IntSet sources;
         private volatile boolean needToInvalidate;
 
@@ -1353,13 +1363,11 @@ public class PrepareServiceImpl implements PrepareService {
                 QueryPlan plan,
                 @Nullable ValidStatement<ValidationResult> statement,
                 @Nullable PlanningContextState context,
-                @Nullable SchemaPlus defaultSchema,
                 IntSet sources
         ) {
             this.queryPlan = plan;
             this.statement = statement;
             this.context = context;
-            this.defaultSchema = defaultSchema;
             this.sources = sources;
         }
 
@@ -1371,22 +1379,17 @@ public class PrepareServiceImpl implements PrepareService {
             return needToInvalidate;
         }
 
-        @Nullable SchemaPlus defaultSchema() {
-            return defaultSchema;
-        }
-
         static PlanInfo createRefreshable(
                 QueryPlan plan,
                 ValidStatement<ValidationResult> statement,
                 PlanningContextState context,
-                IntSet sources,
-                SchemaPlus defaultSchema
+                IntSet sources
         ) {
-            return new PlanInfo(plan, statement, context, defaultSchema, sources);
+            return new PlanInfo(plan, statement, context, sources);
         }
 
         static PlanInfo create(QueryPlan plan) {
-            return new PlanInfo(plan, null, null, null, IntSet.of());
+            return new PlanInfo(plan, null, null, IntSet.of());
         }
     }
 }
