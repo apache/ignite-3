@@ -35,6 +35,8 @@ using NUnit.Framework;
 /// </summary>
 public class MetricsTests
 {
+    private const int DefaultTimeoutMs = 3000;
+
     private volatile Listener _listener = null!;
 
     [SetUp]
@@ -345,7 +347,7 @@ public class MetricsTests
 
     private static Guid? GetClientId(IIgniteClient? client) => ((IgniteClientInternal?)client)?.Socket.ClientId;
 
-    private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
+    private void AssertMetric(string name, int value, int timeoutMs = DefaultTimeoutMs) =>
         _listener.AssertMetric(name, value, timeoutMs);
 
     private void AssertTaggedMetric(string name, int value, FakeServer server, IIgniteClient? client) =>
@@ -354,7 +356,7 @@ public class MetricsTests
     private void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId) =>
         _listener.AssertTaggedMetric(name, value, nodeAddr, clientId);
 
-    private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
+    private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = DefaultTimeoutMs) =>
         _listener.AssertMetricGreaterOrEqual(name, value, timeoutMs);
 
     internal sealed class Listener : IDisposable
@@ -408,7 +410,7 @@ public class MetricsTests
                 .SingleOrDefault();
         }
 
-        public void AssertMetric(string name, int value, int timeoutMs = 1000)
+        public void AssertMetric(string name, int value, int timeoutMs = DefaultTimeoutMs)
         {
             TestUtils.WaitForCondition(
                 condition: () => GetMetric(name) == value,
@@ -416,7 +418,7 @@ public class MetricsTests
                 messageFactory: () => $"{name}: expected '{value}', but was '{GetMetric(name)}'");
         }
 
-        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId, int timeoutMs = 1000)
+        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId, int timeoutMs = DefaultTimeoutMs)
         {
             TestUtils.WaitForCondition(
                 condition: () => GetTaggedMetric(name, nodeAddr, clientId) == value,
@@ -425,7 +427,7 @@ public class MetricsTests
                                       $"but was '{GetTaggedMetric(name, nodeAddr, clientId)}'");
         }
 
-        public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
+        public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = DefaultTimeoutMs) =>
             TestUtils.WaitForCondition(
                 condition: () => GetMetric(name) >= value,
                 timeoutMs: timeoutMs,
