@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /**

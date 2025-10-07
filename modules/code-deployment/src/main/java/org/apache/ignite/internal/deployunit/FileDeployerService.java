@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.BiConsumer;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.DeployerProcessor.DeployArg;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;

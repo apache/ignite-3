@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResour
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.netty.util.ResourceLeakDetector;
-import io.netty.util.ResourceLeakDetector.Level;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;

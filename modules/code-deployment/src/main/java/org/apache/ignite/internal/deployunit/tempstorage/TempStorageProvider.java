@@ -19,6 +19,15 @@ package org.apache.ignite.internal.deployunit.tempstorage;
 
 import org.apache.ignite.deployment.version.Version;
 
+/**
+ * Provider of temporary storages for deployment units.
+ */
 public interface TempStorageProvider {
+    /**
+     * Creates a new temporary storage for the given deployment unit id and version.
+     *
+     * @param id Deployment unit id.
+     * @param version Deployment unit version.
+     */
     TempStorage tempStorage(String id, Version version);
 }

@@ -32,6 +32,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
 
+/**
+ * Implementation of {@link TempStorage} that stores files in a local file system directory.
+ */
 public class TempStorageImpl implements TempStorage {
     private static final IgniteLogger LOG = Loggers.forClass(TempStorageImpl.class);
 
@@ -62,8 +65,7 @@ public class TempStorageImpl implements TempStorage {
                 LOG.error("Failed to process unit storage action.", e);
                 throw new DeploymentUnitWriteException("Failed to write unit to storage.", e);
             }
-        },
-        executor);
+        }, executor);
 
         files.put(fileName, result);
         return result;

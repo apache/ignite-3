@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.deployunit.exception;
 
 import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_WRITE_ERR;

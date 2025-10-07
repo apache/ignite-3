@@ -21,11 +21,25 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Temporary storage for deployment unit files.
+ */
 public interface TempStorage {
-
+    /**
+     * Stores the given input stream as a file with the given name in the temporary storage.
+     *
+     * @param fileName the name of the file to store.
+     * @param is the input stream to store.
+     */
     CompletableFuture<Path> store(String fileName, InputStream is);
 
+    /**
+     * Rollbacks the temporary storage, deleting all stored files.
+     */
     void rollback();
 
+    /**
+     * Closes the temporary storage, releasing any resources held.
+     */
     void close();
 }

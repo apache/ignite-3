@@ -27,6 +27,9 @@ import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
+/**
+ * Exception handler that handles {@link DeploymentUnitWriteException} and returns an appropriate HTTP response.
+ */
 @Singleton
 @Requires(classes = {DeploymentUnitWriteException.class, ExceptionHandler.class})
 public class DeploymentUnitWriteExceptionHandler

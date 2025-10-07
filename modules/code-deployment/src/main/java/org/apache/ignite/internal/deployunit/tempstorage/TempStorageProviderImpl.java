@@ -22,11 +22,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Executor;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.deployunit.CachedDeploymentUnit;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitWriteException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
+/**
+ * Implementation of {@link TempStorageProvider} that creates temporary storage directories on the local file system.
+ */
 public class TempStorageProviderImpl implements TempStorageProvider {
     private static final IgniteLogger LOG = Loggers.forClass(TempStorageProviderImpl.class);
 
