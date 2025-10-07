@@ -40,7 +40,7 @@ public class MetricsTests
     private volatile Listener _listener = null!;
 
     [SetUp]
-    public void SetUp() => _listener = new Listener();
+    public void SetUp() => _listener = new Listener(TestContext.CurrentContext.Test.Name);
 
     [TearDown]
     public void TearDown()
@@ -361,14 +361,18 @@ public class MetricsTests
 
     internal sealed class Listener : IDisposable
     {
+        private readonly string _name;
+
         private readonly MeterListener _listener = new();
 
         private readonly ConcurrentDictionary<string, long> _metrics = new();
 
         private readonly ConcurrentDictionary<string, long> _metricsWithTags = new();
 
-        public Listener()
+        public Listener(string name)
         {
+            _name = name;
+
             _listener.InstrumentPublished = (instrument, listener) =>
             {
                 if (instrument.Meter.Name == "Apache.Ignite")
@@ -441,6 +445,8 @@ public class MetricsTests
         private void Handle<T>(Instrument instrument, T measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
         {
             var newVal = Convert.ToInt64(measurement);
+
+            Console.WriteLine($"{_name} measurement: {instrument.Name} = {newVal}");
 
             if (instrument.IsObservable)
             {
