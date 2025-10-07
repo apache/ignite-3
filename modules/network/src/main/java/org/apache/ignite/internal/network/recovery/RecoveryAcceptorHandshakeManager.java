@@ -361,9 +361,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             LOG.debug("Handshake rejected by initiator: {}", msg.message());
         }
 
-        HandshakeException err = new HandshakeException(msg.message());
-
-        handshakeCompleteFuture.completeExceptionally(err);
+        handshakeCompleteFuture.completeExceptionally(HandshakeManagerUtils.createExceptionFromRejectionMessage(msg));
     }
 
     private void rejectHandshakeDueToLosingClinch(RecoveryDescriptor descriptor) {
