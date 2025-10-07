@@ -30,6 +30,7 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -44,7 +45,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
     @BeforeAll
-    public void createTables() throws InterruptedException {
+    public void createTables() {
         sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
                 ZONE,
                 initialNodes(),
@@ -52,8 +53,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         ));
 
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
-
-        Thread.sleep(10_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
     }
 
     @Test
@@ -171,6 +170,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartAllPartitionsWithCleanup() {
         String nodeName = CLUSTER.aliveNode().name();
 

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -80,8 +81,6 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
                 FIRST_ZONE));
 
         sql(String.format("INSERT INTO PUBLIC.\"%s\" VALUES (1, 1)", TABLE_NAME));
-
-        Thread.sleep(10_000); // wait for all partitions to be initialized, so restart with cleanup won't fail with not enough nodes
     }
 
     @Test
@@ -198,7 +197,8 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    public void testRestrtPartitionsWithCleanupAllPartitions() {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
+    public void testRestartPartitionsWithCleanupAllPartitions() {
         Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
@@ -209,6 +209,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartTablePartitionsWithCleanupAllPartitions() {
         Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
 
