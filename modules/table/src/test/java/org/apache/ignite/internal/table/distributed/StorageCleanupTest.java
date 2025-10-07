@@ -335,9 +335,9 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         UUID row2Id = UUID.randomUUID();
         UUID row3Id = UUID.randomUUID();
 
-        storageUpdateHandler.handleUpdate(txUuid, row1Id, partitionId, row1, false, null, null, null, null);
-        storageUpdateHandler.handleUpdate(txUuid, row2Id, partitionId, row2, false, null, null, null, null);
-        storageUpdateHandler.handleUpdate(txUuid, row3Id, partitionId, row3, false, null, null, null, null);
+        storageUpdateHandler.handleUpdate(txUuid, row1Id, partitionId, row1, false, null, commitTs, null, null);
+        storageUpdateHandler.handleUpdate(txUuid, row2Id, partitionId, row2, false, null, commitTs, null, null);
+        storageUpdateHandler.handleUpdate(txUuid, row3Id, partitionId, row3, false, null, commitTs, null, null);
 
         // Now run cleanup.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
@@ -403,7 +403,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 row3Id, tb3
         );
         // Do not track write intents to simulate the loss of a volatile state.
-        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, false, null, null, null);
+        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, false, null, commitTs, null);
 
         // Now run cleanup.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
@@ -432,7 +432,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         Map<UUID, TimedBinaryRow> rowsToUpdate2 = Map.of(
                 row1Id, tb4
         );
-        storageUpdateHandler.handleUpdateAll(newTxUuid, rowsToUpdate2, partitionId, true, null, null, null);
+        storageUpdateHandler.handleUpdateAll(newTxUuid, rowsToUpdate2, partitionId, true, null, commitTs, null);
 
         // And concurrently the other two intents were also resolved and scheduled for cleanup.
         storageUpdateHandler.handleWriteIntentRead(txUuid, new RowId(PARTITION_ID, row2Id));
@@ -460,7 +460,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         HybridTimestamp commitTs = CLOCK.now();
 
-        storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, false, null, null, commitTs, null);
+        storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, true, null, null, commitTs, null);
 
         verify(storage, never()).commitWrite(any(), any(), any());
         verify(storage, never()).abortWrite(any(), any());
