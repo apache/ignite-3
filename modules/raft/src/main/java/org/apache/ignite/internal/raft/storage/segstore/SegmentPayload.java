@@ -66,17 +66,22 @@ class SegmentPayload {
 
         verifyCrc(buffer, entrySize);
 
-        buffer.position(buffer.position() + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES);
+        int oldLimit = buffer.limit();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-26623.
-        byte[] entryBytes = new byte[entrySize];
+        int logEntryPosition = buffer.position() + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES;
 
-        buffer.get(entryBytes);
+        buffer
+                .position(logEntryPosition)
+                .limit(logEntryPosition + entrySize);
+
+        LogEntry entry = logEntryDecoder.decode(buffer);
 
         // Move the position as if we have read the whole payload.
-        buffer.position(buffer.position() + HASH_SIZE);
+        buffer
+                .position(buffer.position() + HASH_SIZE)
+                .limit(oldLimit);
 
-        return logEntryDecoder.decode(entryBytes);
+        return entry;
     }
 
     private static void verifyCrc(ByteBuffer buffer, int entrySize) {

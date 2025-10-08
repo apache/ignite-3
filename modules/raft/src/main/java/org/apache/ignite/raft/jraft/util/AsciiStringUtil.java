@@ -47,6 +47,14 @@ public final class AsciiStringUtil {
         return unsafeDecode(in, 0, in.length);
     }
 
+    public static String unsafeDecode(final ByteBuffer in, final int len) {
+        byte[] bytes = new byte[len];
+
+        in.get(bytes);
+
+        return new String(bytes, StandardCharsets.ISO_8859_1);
+    }
+
     private AsciiStringUtil() {
     }
 

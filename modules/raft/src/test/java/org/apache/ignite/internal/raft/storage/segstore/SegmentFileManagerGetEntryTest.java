@@ -207,7 +207,17 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
                 }
             };
 
-            decoder = bs -> logEntry;
+            decoder = new LogEntryDecoder() {
+                @Override
+                public LogEntry decode(byte[] bs) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public LogEntry decode(ByteBuffer bs) {
+                    return logEntry;
+                }
+            };
         }
 
         long logIndex() {

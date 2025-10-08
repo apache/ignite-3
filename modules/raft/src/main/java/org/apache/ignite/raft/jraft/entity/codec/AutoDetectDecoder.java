@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.V1Decoder;
 
@@ -45,4 +46,12 @@ public class AutoDetectDecoder implements LogEntryDecoder {
 //        }
     }
 
+    @Override
+    public LogEntry decode(ByteBuffer bs) {
+        if (bs == null || bs.remaining() < 1) {
+            return null;
+        }
+
+        return V1Decoder.INSTANCE.decode(bs);
+    }
 }
