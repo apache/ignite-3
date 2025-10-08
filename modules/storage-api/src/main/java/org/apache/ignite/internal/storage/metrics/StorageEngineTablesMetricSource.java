@@ -40,7 +40,7 @@ public class StorageEngineTablesMetricSource extends AbstractMetricSource<Storag
      * @param tableName Table qualified name.
      */
     public StorageEngineTablesMetricSource(String engine, QualifiedName tableName) {
-        super(sourceName(engine, tableName),"\"" + engine + "\" storage engine metrics for the specific table.", METRIC_GROUP);
+        super(sourceName(engine, tableName), "\"" + engine + "\" storage engine metrics for the specific table.", METRIC_GROUP);
     }
 
     private static String sourceName(String engine, QualifiedName tableName) {
