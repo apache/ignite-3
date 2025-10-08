@@ -51,6 +51,18 @@ public class CacheKey {
         this.paramTypes = paramTypes;
     }
 
+    int catalogVersion() {
+        return catalogVersion;
+    }
+
+    String schemaName() {
+        return schemaName;
+    }
+
+    RelDataType[] paramTypes() {
+        return paramTypes;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {

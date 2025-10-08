@@ -17,21 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-
-/**
- * Defined interface to manage SQL statistics.
- */
+/** Statistic updates notifier. */
 @FunctionalInterface
-public interface SqlStatisticManager extends LifecycleAware {
-    /**
-     * Returns approximate number of rows in table by their id.
-     */
-    long tableSize(int tableId);
-
-    @Override
-    default void start(){}
-
-    @Override
-    default void stop(){}
+public interface StatisticUpdatesNotifier {
+    /** Changes callback. */
+    void changesNotifier(StatisticUpdatesSupplier updater);
 }
