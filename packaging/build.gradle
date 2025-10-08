@@ -28,7 +28,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
-
 import com.github.jk1.license.filter.LicenseBundleNormalizer
 import com.github.jk1.license.render.InventoryHtmlReportRenderer
 import org.apache.tools.ant.filters.ReplaceTokens
@@ -199,5 +198,5 @@ licenseReport {
     excludeBoms = true
     renderers = [new InventoryHtmlReportRenderer()]
     allowedLicensesFile = new File("$rootDir/check-rules/allowed-licenses.json")
-    filters = [new LicenseBundleNormalizer(bundlePath: "$rootDir/check-rules/license-normalizer-bundle.json")]
+    filters = [new LicenseBundleNormalizer()]
 }
