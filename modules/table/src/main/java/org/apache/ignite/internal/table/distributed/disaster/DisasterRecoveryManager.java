@@ -830,21 +830,23 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 );
 
                 futures[i++] = invokeFuture.thenAccept(networkMessage -> {
-                    assert networkMessage instanceof LocalPartitionStatesResponse : networkMessage;
+                    inBusyLock(busyLock, () -> {
+                        assert networkMessage instanceof LocalPartitionStatesResponse : networkMessage;
 
-                    var response = (LocalPartitionStatesResponse) networkMessage;
+                        var response = (LocalPartitionStatesResponse) networkMessage;
 
-                    for (LocalPartitionStateMessage state : response.states()) {
-                        result.compute(keyExtractor.apply(state), (partitionId, messageByNode) -> {
-                            if (messageByNode == null) {
-                                return new LocalPartitionStateMessageByNode(Map.of(node.nodeName(), state));
-                            }
+                        for (LocalPartitionStateMessage state : response.states()) {
+                            result.compute(keyExtractor.apply(state), (partitionId, messageByNode) -> {
+                                if (messageByNode == null) {
+                                    return new LocalPartitionStateMessageByNode(Map.of(node.nodeName(), state));
+                                }
 
-                            messageByNode = new LocalPartitionStateMessageByNode(messageByNode);
-                            messageByNode.put(node.nodeName(), state);
-                            return messageByNode;
-                        });
-                    }
+                                messageByNode = new LocalPartitionStateMessageByNode(messageByNode);
+                                messageByNode.put(node.nodeName(), state);
+                                return messageByNode;
+                            });
+                        }
+                    });
                 });
             }
 
