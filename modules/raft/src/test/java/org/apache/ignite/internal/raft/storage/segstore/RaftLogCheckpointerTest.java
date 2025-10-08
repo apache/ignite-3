@@ -22,11 +22,9 @@ import static org.apache.ignite.internal.raft.storage.segstore.RaftLogCheckpoint
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
@@ -53,17 +51,14 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     private IndexFileManager indexFileManager;
 
     @BeforeEach
-    void setUp(@Mock IndexFile indexFile) throws IOException {
-        // To avoid NPE in the checkpoint thread.
-        when(indexFileManager.saveIndexMemtable(any())).thenReturn(indexFile);
-
+    void setUp() {
         checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager());
 
         checkpointer.start();
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (checkpointer != null) {
             checkpointer.stop();
         }

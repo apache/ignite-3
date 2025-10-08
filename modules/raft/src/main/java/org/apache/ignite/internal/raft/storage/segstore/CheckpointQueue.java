@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,13 +35,13 @@ import org.jetbrains.annotations.Nullable;
  *
  * <ol>
  *     <li>One thread writes to the queue at a time, adding new entries via the {@link #add} call;</li>
- *     <li>One thread peeks at the head of the queue via the {@link #peek} method and, possibly after some time, removes the head
- *     using the {@link #removeHead} method. Since only one thread performs these actions, there's no need for additional synchronization
- *     between the {@code peek} and {@code removeHead} calls.</li>
+ *     <li>One thread peeks at the head of the queue via the {@link #peekHead} method and, possibly after some time, removes the
+ *     head using the {@link #removeHead} method. Since only one thread performs these actions, there's no need for additional
+ *     synchronization between the {@code peek} and {@code removeHead} calls.</li>
  *     <li>Multiple threads can read from the queue using the {@link #tailIterator} method.</li>
  * </ol>
  */
-class CheckpointQueue {
+class CheckpointQueue implements ManuallyCloseable {
     static class Entry {
         private final SegmentFile segmentFile;
 
@@ -70,6 +74,13 @@ class CheckpointQueue {
     private final Condition notEmpty = lock.newCondition();
 
     private final Condition notFull = lock.newCondition();
+
+    /**
+     * Flag indicating whether the queue is closed.
+     *
+     * <p>Multi-threaded access is guarded by {@link #lock}.
+     */
+    private boolean isClosed = false;
 
     /**
      * Pointer to the first entry (oldest in terms of being added) in the queue.
@@ -108,6 +119,10 @@ class CheckpointQueue {
 
         try {
             while (size == maxSize) {
+                if (isClosed) {
+                    throw new IgniteInternalException(NODE_STOPPING_ERR, "The queue is closed.");
+                }
+
                 notFull.await();
             }
 
@@ -136,11 +151,15 @@ class CheckpointQueue {
     /**
      * Returns the head element of the queue (not removing it), blocking if the queue is empty.
      */
-    Entry peek() throws InterruptedException {
+    Entry peekHead() throws InterruptedException {
         lock.lock();
 
         try {
             while (size == 0) {
+                if (isClosed) {
+                    throw new IgniteInternalException(NODE_STOPPING_ERR, "The queue is closed.");
+                }
+
                 notEmpty.await();
             }
 
@@ -157,7 +176,7 @@ class CheckpointQueue {
     /**
      * Removes the head element of the queue.
      *
-     * <p>This method must only be called after a successful call to {@link #peek}.
+     * <p>This method must only be called after a successful call to {@link #peekHead}.
      */
     void removeHead() {
         lock.lock();
@@ -213,5 +232,20 @@ class CheckpointQueue {
                 return result;
             }
         };
+    }
+
+    @Override
+    public void close() {
+        lock.lock();
+
+        try {
+            isClosed = true;
+
+            // Unblock all waiting threads.
+            notFull.signalAll();
+            notEmpty.signalAll();
+        } finally {
+            lock.unlock();
+        }
     }
 }

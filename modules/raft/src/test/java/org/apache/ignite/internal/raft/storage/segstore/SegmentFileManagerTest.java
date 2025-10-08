@@ -22,11 +22,13 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.raft.storage.segstore.ByteChannelUtils.readFully;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.awaitility.Awaitility.await;
@@ -43,8 +45,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.ByteChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -53,7 +57,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -169,11 +172,11 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         Path segmentFile = findSoleSegmentFile();
 
-        try (InputStream is = Files.newInputStream(segmentFile)) {
-            assertThat(is.readNBytes(HEADER_RECORD.length), is(HEADER_RECORD));
+        try (ByteChannel channel = Files.newByteChannel(segmentFile)) {
+            assertThat(readFully(channel, HEADER_RECORD.length).array(), is(HEADER_RECORD));
 
             for (byte[] expectedBatch : batches) {
-                validateSegmentEntry(is.readNBytes(expectedBatch.length + SegmentPayload.overheadSize()), expectedBatch);
+                validateSegmentEntry(channel, expectedBatch);
             }
         }
 
@@ -198,14 +201,14 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         for (int i = 0; i < batches.size(); i++) {
             byte[] expectedBatch = batches.get(i);
 
-            try (InputStream is = Files.newInputStream(segmentFiles.get(i))) {
-                assertThat(is.readNBytes(HEADER_RECORD.length), is(HEADER_RECORD));
+            try (ByteChannel channel = Files.newByteChannel(segmentFiles.get(i))) {
+                assertThat(readFully(channel, HEADER_RECORD.length).array(), is(HEADER_RECORD));
 
-                validateSegmentEntry(is.readNBytes(expectedBatch.length + SegmentPayload.overheadSize()), expectedBatch);
+                validateSegmentEntry(channel, expectedBatch);
 
                 if (i != batches.size() - 1) {
                     // All segment files except the last one must contain a segment switch record.
-                    assertThat(is.readNBytes(SWITCH_SEGMENT_RECORD.length), is(SWITCH_SEGMENT_RECORD));
+                    assertThat(readFully(channel, SWITCH_SEGMENT_RECORD.length).array(), is(SWITCH_SEGMENT_RECORD));
                 }
             }
         }
@@ -280,7 +283,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
             if (i == batches.size() - 1) {
                 assertNotNull(stopTask);
 
-                stopTask.get(1, TimeUnit.SECONDS);
+                assertThat(stopTask, willCompleteSuccessfully());
             }
 
             byte[] batch = batches.get(i);
@@ -381,21 +384,23 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         int entrySize = batchLength + SegmentPayload.overheadSize();
 
         for (Path segmentFile : segmentFiles()) {
-            try (InputStream is = Files.newInputStream(segmentFile)) {
-                assertThat(is.readNBytes(HEADER_RECORD.length), is(HEADER_RECORD));
+            try (SeekableByteChannel channel = Files.newByteChannel(segmentFile)) {
+                assertThat(readFully(channel, HEADER_RECORD.length).array(), is(HEADER_RECORD));
 
                 int bytesRead = HEADER_RECORD.length;
 
                 while (bytesRead + entrySize < FILE_SIZE && result.size() < numBatches) {
-                    byte[] entry = is.readNBytes(entrySize);
+                    long position = channel.position();
 
-                    result.add(DeserializedSegmentPayload.fromBytes(entry));
+                    result.add(DeserializedSegmentPayload.fromByteChannel(channel));
+
+                    assertThat(channel.position(), is(position + entrySize));
 
                     bytesRead += entrySize;
                 }
 
                 if (FILE_SIZE - bytesRead >= SWITCH_SEGMENT_RECORD.length) {
-                    assertThat(is.readNBytes(SWITCH_SEGMENT_RECORD.length), is(SWITCH_SEGMENT_RECORD));
+                    assertThat(readFully(channel, SWITCH_SEGMENT_RECORD.length).array(), is(SWITCH_SEGMENT_RECORD));
                 }
             }
         }
@@ -430,9 +435,10 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         });
     }
 
-    private static void validateSegmentEntry(byte[] entry, byte[] expectedPayload) {
-        DeserializedSegmentPayload deserializedSegmentPayload = DeserializedSegmentPayload.fromBytes(entry);
+    private static void validateSegmentEntry(ReadableByteChannel channel, byte[] expectedPayload) throws IOException {
+        DeserializedSegmentPayload deserializedSegmentPayload = DeserializedSegmentPayload.fromByteChannel(channel);
 
+        assertThat(deserializedSegmentPayload, is(notNullValue()));
         assertThat(deserializedSegmentPayload.groupId(), is(GROUP_ID));
         assertThat(deserializedSegmentPayload.payload(), is(expectedPayload));
     }
@@ -440,11 +446,11 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     private static void validateIndexFile(Path indexFilePath, Path segmentFilePath) throws IOException {
         DeserializedIndexFile indexFile = DeserializedIndexFile.fromFile(indexFilePath);
 
-        try (var segmentFile = new RandomAccessFile(segmentFilePath.toFile(), "r")) {
+        try (SeekableByteChannel channel = Files.newByteChannel(segmentFilePath)) {
             for (DeserializedIndexFile.Entry indexEntry : indexFile.entries()) {
-                segmentFile.seek(indexEntry.segmentFileOffset());
+                channel.position(indexEntry.segmentFileOffset());
 
-                DeserializedSegmentPayload segmentPayload = DeserializedSegmentPayload.fromRandomAccessFile(segmentFile);
+                DeserializedSegmentPayload segmentPayload = DeserializedSegmentPayload.fromByteChannel(channel);
 
                 assertThat(segmentPayload, is(notNullValue()));
                 assertThat(segmentPayload.groupId(), is(indexEntry.groupId()));

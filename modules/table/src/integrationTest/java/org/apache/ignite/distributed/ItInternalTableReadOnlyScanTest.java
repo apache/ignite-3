@@ -57,7 +57,7 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
     }
 
     @Override
-    protected void validateTxAbortedState(InternalTransaction tx) {
+    protected void validateTxFinished(InternalTransaction tx) {
         // noop since we do not store state for readonly transactions.
     }
 
