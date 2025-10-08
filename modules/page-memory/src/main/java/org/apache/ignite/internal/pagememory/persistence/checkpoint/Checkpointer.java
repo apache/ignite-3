@@ -99,6 +99,7 @@ import org.jetbrains.annotations.Nullable;
  * <li>Finish the checkpoint.
  * </ul>
  */
+// TODO: IGNITE-26593 Fix the counting and output of the written dirty pages metric
 public class Checkpointer extends IgniteWorker {
     private static final String CHECKPOINT_STARTED_LOG_TEMPLATE = "Checkpoint started ["
             + "checkpointId={}, "
@@ -186,6 +187,8 @@ public class Checkpointer extends IgniteWorker {
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
 
+    private final CheckpointMetrics checkpointMetrics;
+
     /**
      * Constructor.
      *
@@ -213,7 +216,8 @@ public class Checkpointer extends IgniteWorker {
             int pageSize,
             CheckpointConfiguration checkpointConfig,
             LogSyncer logSyncer,
-            PartitionDestructionLockManager partitionDestructionLockManager
+            PartitionDestructionLockManager partitionDestructionLockManager,
+            CheckpointMetricSource checkpointMetricSource
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread");
 
@@ -245,6 +249,8 @@ public class Checkpointer extends IgniteWorker {
         } else {
             checkpointWritePagesPool = null;
         }
+
+        checkpointMetrics = new CheckpointMetrics(checkpointMetricSource);
     }
 
     @Override
@@ -434,6 +440,8 @@ public class Checkpointer extends IgniteWorker {
                     );
                 }
             }
+
+            checkpointMetrics.update(tracker, chp.dirtyPagesSize);
         } catch (IgniteInternalCheckedException e) {
             if (chp != null) {
                 chp.progress.fail(e);

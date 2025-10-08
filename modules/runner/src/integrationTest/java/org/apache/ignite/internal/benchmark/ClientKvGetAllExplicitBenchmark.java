@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.runner.RunnerException;
@@ -28,12 +29,15 @@ import org.openjdk.jmh.runner.RunnerException;
 /**
  * Put then Get benchmark.
  */
-public class ClientKvGetBenchmark extends ClientKvBenchmark {
+public class ClientKvGetAllExplicitBenchmark extends ClientKvBenchmark {
     @Param("1000")
     private int keysPerThread;
 
     @Param("1000")
     private int loadBatchSize;
+
+    @Param("5")
+    private int batch;
 
     @Override
     public void setUp() {
@@ -85,25 +89,30 @@ public class ClientKvGetBenchmark extends ClientKvBenchmark {
     private final ThreadLocal<long[]> gen = ThreadLocal.withInitial(() -> new long[1]);
 
     /**
-     * Benchmark for KV upsert via embedded client.
+     * Benchmark for KV get via embedded client.
      */
     @Benchmark
     public void get() {
-        long[] cur = gen.get();
-        cur[0] = cur[0] + 1;
+        Transaction tx = publicIgnite.transactions().begin();
 
-        int id = (int) (base.get() + cur[0] % keysPerThread);
+        for (int i = 0; i < batch; i++) {
+            long[] cur = gen.get();
+            cur[0] = cur[0] + 1;
 
-        Tuple key = Tuple.create().set("ycsb_key", id);
-        Tuple val = kvView.get(null, key);
-        assert val != null : Thread.currentThread().getName() + " " + key;
+            int id = (int) (base.get() + cur[0] % keysPerThread);
+            Tuple key = Tuple.create().set("ycsb_key", id);
+            Tuple val = kvView.get(null, key);
+            assert val != null : Thread.currentThread().getName() + " " + key;
+        }
+
+        tx.commit();
     }
 
     /**
      * Benchmark's entry point. Can be started from command line:
-     * ./gradlew ":ignite-runner:runClientGetBenchmark" --args='jmh.batch=10 jmh.threads=1'
+     * ./gradlew ":ignite-runner:runClientGetAllExplicitBenchmark" --args='jmh.batch=10 jmh.threads=1'
      */
     public static void main(String[] args) throws RunnerException {
-        runBenchmark(ClientKvGetBenchmark.class, args);
+        runBenchmark(ClientKvGetAllExplicitBenchmark.class, args);
     }
 }

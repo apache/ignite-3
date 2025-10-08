@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManage
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.awaitility.Awaitility.await;
@@ -56,7 +57,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -283,7 +283,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
             if (i == batches.size() - 1) {
                 assertNotNull(stopTask);
 
-                stopTask.get(1, TimeUnit.SECONDS);
+                assertThat(stopTask, willCompleteSuccessfully());
             }
 
             byte[] batch = batches.get(i);

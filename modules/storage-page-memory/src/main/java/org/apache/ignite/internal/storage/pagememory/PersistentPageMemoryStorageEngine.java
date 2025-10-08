@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
@@ -219,6 +220,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize, StoragePartitionMeta.FACTORY);
 
+        var checkpointMetricSource = new CheckpointMetricSource("storage." + ENGINE_NAME + ".checkpoint");
+
         try {
             checkpointManager = new CheckpointManager(
                     igniteInstanceName,
@@ -231,6 +234,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     ioRegistry,
                     logSyncer,
                     commonExecutorService,
+                    checkpointMetricSource,
                     pageSize
             );
 
@@ -264,6 +268,16 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         executor.allowCoreThreadTimeOut(true);
 
         destructionExecutor = executor;
+
+        var storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
+
+        PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
+
+        metricManager.registerSource(checkpointMetricSource);
+        metricManager.registerSource(storageMetricSource);
+
+        metricManager.enable(checkpointMetricSource);
+        metricManager.enable(storageMetricSource);
     }
 
     /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
