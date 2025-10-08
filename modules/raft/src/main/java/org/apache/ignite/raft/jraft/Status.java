@@ -16,7 +16,8 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import static org.apache.ignite.raft.jraft.error.RaftError.ECANCELED;import org.apache.ignite.raft.jraft.error.RaftError;
+import static org.apache.ignite.raft.jraft.error.RaftError.ECANCELED;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.util.Copiable;
 
 //A Status encapsulates the result of an operation. It may indicate success,
