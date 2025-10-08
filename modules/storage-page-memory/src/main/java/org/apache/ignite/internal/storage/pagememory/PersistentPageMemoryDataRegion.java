@@ -441,7 +441,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     public void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
         PersistentPageMemoryTableStorage old = tableStorages.put(tableStorage.getTableId(), tableStorage);
 
-        assert old == null : tableStorage.getTableId();
+        assert old == null : "Table storage for tableId=" + tableStorage.getTableId() + " already exists";
     }
 
     void removeTableStorage(PersistentPageMemoryTableStorage tableStorage) {

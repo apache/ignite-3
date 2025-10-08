@@ -358,7 +358,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     public void addTableMetrics(StorageTableDescriptor tableDescriptor, StorageEngineTablesMetricSource metricSource) {
         PersistentPageMemoryDataRegion region = regions.get(tableDescriptor.getStorageProfile());
 
-        assert region != null : "Adding metrics to the table with non-existent data region: " + tableDescriptor;
+        assert region != null : "Adding metrics to the table with non-existent data region. [tableDescriptor=" + tableDescriptor + ']';
 
         region.addTableMetrics(tableDescriptor, metricSource);
     }
