@@ -115,6 +115,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
+
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
         assert catalog != null;
@@ -126,8 +128,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         partitions = zoneDescriptor.partitions();
 
         assertThat(partitions, greaterThan(4));
-
-        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach

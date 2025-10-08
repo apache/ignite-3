@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
@@ -28,6 +27,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnPara
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;

@@ -229,6 +229,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
     }
 
+    protected void setDefaultZone(String zoneName) {
+        DistributionZonesTestUtil.setDefaultZone(catalogManager, zoneName);
+    }
+
     protected CatalogZoneDescriptor getDefaultZone() {
         assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 

@@ -48,9 +48,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItColocatedDataTest extends BaseSqlIntegrationTest {
     @BeforeAll
-    public static void beforeTestsStarted() throws InterruptedException {
-        waitForDefaultZoneAssignments();
-
+    public static void beforeTestsStarted() {
         //noinspection ConcatenationWithEmptyString
         sqlScript(""
                 + "CREATE TABLE T1 (id INT PRIMARY KEY, c1 INT);"
