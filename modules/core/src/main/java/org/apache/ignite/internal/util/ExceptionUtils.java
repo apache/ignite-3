@@ -504,7 +504,8 @@ public final class ExceptionUtils {
      * @param t Given throwable.
      * @return Unwrapped throwable.
      */
-    public static Throwable unwrapCompletionThrowable(Throwable t) {
+    @Nullable
+    public static Throwable unwrapCompletionThrowable(@Nullable Throwable t) {
         if (t instanceof CompletionException) {
             return t.getCause();
         } else {

@@ -42,7 +42,6 @@ import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.placementdriver.EmptyAssignmentsException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
@@ -108,7 +107,7 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
         sql("SELECT * FROM " + TABLE_NAME + " WHERE id = 1");
     }
 
-    @RepeatedTest(10)
+    @Test
     public void testInitialEmptyAssignmentsWithSuccessfulWaiting() throws InterruptedException {
         createZoneAndTableWithEmptyDataNodes();
 

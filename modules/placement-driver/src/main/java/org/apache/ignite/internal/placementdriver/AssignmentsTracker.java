@@ -66,6 +66,7 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class tracks assignment of all replication groups.
@@ -221,7 +222,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                     futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
                 } else {
                     // If timeout is zero or less, then this group is failed, the correct exception will be thrown
-                    // in #checkEmptyAssignmentsReasons().
+                    // in #checkEmptyAssignmentsReason().
                     futures.put(i, failedFuture(new TimeoutException()));
                 }
             } else {
@@ -361,6 +362,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
             if (entry.tombstone()) {
                 groupIdToAssignmentsMap.remove(grpId);
+                completeNonEmptyAssignmentsFutureIfExists(grpId, null);
             } else {
                 updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer, isStable);
             }
@@ -410,11 +412,15 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         groupIdToAssignmentsMap.put(grpId, assignments);
 
         if (isStable && !assignments.nodes().isEmpty()) {
-            CompletableFuture<TokenizedAssignments> fut = nonEmptyAssignmentsFutures.remove(grpId);
+            completeNonEmptyAssignmentsFutureIfExists(grpId, assignments);
+        }
+    }
 
-            if (fut != null) {
-                fut.complete(assignments);
-            }
+    private void completeNonEmptyAssignmentsFutureIfExists(ReplicationGroupId grpId, @Nullable TokenizedAssignments assignments) {
+        CompletableFuture<TokenizedAssignments> fut = nonEmptyAssignmentsFutures.remove(grpId);
+
+        if (fut != null) {
+            fut.complete(assignments);
         }
     }
 
