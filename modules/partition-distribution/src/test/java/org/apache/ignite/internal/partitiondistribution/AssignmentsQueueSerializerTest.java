@@ -73,6 +73,17 @@ class AssignmentsQueueSerializerTest {
         assertThrows(AssertionError.class, restoredAssignmentsQueue::poll);
     }
 
+    @Test
+    void assignmentsCanBeDeserialized() {
+        AssignmentsSerializer assignmentsSerializer = new AssignmentsSerializer();
+        Assignments assignments = testAssignments(true, false);
+        byte[] assignmentsBytes = VersionedSerialization.toBytes(assignments, assignmentsSerializer);
+
+        AssignmentsQueue restoredAssignmentsQueue = VersionedSerialization.fromBytes(assignmentsBytes, serializer);
+
+        assertThat(restoredAssignmentsQueue.poll(), equalTo(assignments));
+    }
+
     private static Assignments testAssignments(boolean force, boolean fromReset) {
         Set<Assignment> nodes = Set.of(Assignment.forPeer("abc"), Assignment.forLearner("def"));
 
