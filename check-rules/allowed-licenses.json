@@ -6,12 +6,22 @@
       "moduleVersion": ".*"
     },
     {
-      "moduleLicense": "Universal Permissive License v 1.0",
+      "moduleLicense": "BSD Zero Clause License",
       "moduleName": ".*",
       "moduleVersion": ".*"
     },
     {
-      "moduleLicense": "Eclipse Public License - v 1.0",
+      "moduleLicense": "BSD-style",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "Bouncy Castle Licence",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "CDDL + GPLv2 with classpath exception",
       "moduleName": ".*",
       "moduleVersion": ".*"
     },
@@ -26,22 +36,12 @@
       "moduleVersion": ".*"
     },
     {
-      "moduleLicense": "CDDL + GPLv2 with classpath exception",
-      "moduleName": ".*",
-      "moduleVersion": ".*"
-    },
-    {
-      "moduleLicense": "COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0",
+      "moduleLicense": "MIT License",
       "moduleName": ".*",
       "moduleVersion": ".*"
     },
     {
       "moduleLicense": "MIT-0",
-      "moduleName": ".*",
-      "moduleVersion": ".*"
-    },
-    {
-      "moduleLicense": "JSR-000107 JCACHE 2.9 Public Review - Updated Specification\n                License\n            ",
       "moduleName": ".*",
       "moduleVersion": ".*"
     },

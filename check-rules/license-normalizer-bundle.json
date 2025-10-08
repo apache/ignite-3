@@ -1,27 +1,12 @@
 {
-  "bundles": [
-    {
-      "bundleName": "apache2",
-      "licenseName": "Apache License, Version 2.0",
-      "licenseUrl": "http://www.apache.org/licenses/LICENSE-2.0"
-    }
-  ],
   "transformationRules": [
     {
-      "bundleName": "apache2",
-      "licenseNamePattern": "The Apache Software License, Version 2.0"
+      "bundleName": "GPL-2.0 WITH Classpath-exception-2.0",
+      "licenseNamePattern": "GNU General Public License (GPL), version 2, with the Classpath exception"
     },
     {
-      "bundleName": "apache2",
-      "licenseNamePattern": "The Apache License, Version 2.0"
-    },
-    {
-      "bundleName": "apache2",
-      "licenseNamePattern": ".*Apache 2.0.*"
-    },
-    {
-      "bundleName": "apache2",
-      "licenseUrlPattern": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+      "bundleName": "0BSD",
+      "licenseNamePattern": "The BSD License"
     }
   ]
 }
