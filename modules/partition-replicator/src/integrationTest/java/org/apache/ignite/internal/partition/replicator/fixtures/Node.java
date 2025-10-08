@@ -705,6 +705,7 @@ public class Node {
 
         distributionZoneManager = new DistributionZoneManager(
                 name,
+                () -> clusterService.topologyService().localMember().id(),
                 registry,
                 metaStorageManager,
                 logicalTopologyService,

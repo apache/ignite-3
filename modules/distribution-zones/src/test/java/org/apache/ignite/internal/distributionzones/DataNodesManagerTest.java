@@ -139,8 +139,11 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
 
+        UUID nodeId = UUID.randomUUID();
+
         dataNodesManager = new DataNodesManager(
                 NODE_NAME,
+                () -> nodeId,
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 catalogManager,

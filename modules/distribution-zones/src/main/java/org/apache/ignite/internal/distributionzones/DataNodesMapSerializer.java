@@ -40,7 +40,7 @@ public class DataNodesMapSerializer extends VersionedSerializer<Map<Node, Intege
 
     @Override
     protected void writeExternalData(Map<Node, Integer> map, IgniteDataOutput out) throws IOException {
-        throw new UnsupportedOperationException("Data nodes map is a legacy structure that should be not used anymore.");
+        throw new UnsupportedOperationException("Data nodes map is a legacy structure that should not be used anymore.");
     }
 
     @Override

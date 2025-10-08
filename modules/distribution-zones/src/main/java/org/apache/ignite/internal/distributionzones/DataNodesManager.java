@@ -23,7 +23,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
@@ -76,6 +75,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -95,7 +95,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -113,6 +112,7 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -154,7 +154,7 @@ public class DataNodesManager {
     /** Executor for scheduling tasks for scale up and scale down processes. */
     private final StripedScheduledThreadPoolExecutor executor;
 
-    private final String localNodeName;
+    private final Lazy<UUID> localNodeId;
 
     private final WatchListener scaleUpTimerPrefixListener;
 
@@ -174,6 +174,7 @@ public class DataNodesManager {
      * Constructor.
      *
      * @param nodeName Local node name.
+     * @param nodeIdSupplier Node id supplier.
      * @param busyLock External busy lock.
      * @param metaStorageManager Meta storage manager.
      * @param catalogManager Catalog manager.
@@ -185,6 +186,7 @@ public class DataNodesManager {
      */
     public DataNodesManager(
             String nodeName,
+            Supplier<UUID> nodeIdSupplier,
             IgniteSpinBusyLock busyLock,
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
@@ -198,7 +200,7 @@ public class DataNodesManager {
         this.catalogManager = catalogManager;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
-        this.localNodeName = nodeName;
+        this.localNodeId = new Lazy<>(nodeIdSupplier);
         this.partitionResetClosure = partitionResetClosure;
         this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
         this.latestLogicalTopologyProvider = latestLogicalTopologyProvider;
@@ -239,7 +241,7 @@ public class DataNodesManager {
             descriptors.put(zone.id(), zone);
         }
 
-        List<IgniteBiTuple<CatalogZoneDescriptor, CompletableFuture<?>>> legacyInitFutures = new ArrayList<>();
+        List<CompletableFuture<?>> legacyInitFutures = new ArrayList<>();
 
         return metaStorageManager.getAll(allKeys)
                 .thenAccept(entriesMap -> {
@@ -255,10 +257,7 @@ public class DataNodesManager {
                                 // Not critical because if we have no history in this map, we look into meta storage.
                                 LOG.warn("Couldn't recover data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry);
                             } else {
-                                legacyInitFutures.add(new IgniteBiTuple<>(
-                                        zone,
-                                        initZoneWithLegacyDataNodes(zone, legacyDataNodesEntry.value()))
-                                );
+                                legacyInitFutures.add(initZoneWithLegacyDataNodes(zone, legacyDataNodesEntry.value()));
                             }
 
                             continue;
@@ -281,7 +280,7 @@ public class DataNodesManager {
                         restorePartitionResetTimer(zone.id(), scaleDownTimer, recoveryRevision);
                     }
                 })
-                .thenCompose(unused -> allOf(legacyInitFutures.stream().map(IgniteBiTuple::getValue).collect(toList()))
+                .thenCompose(unused -> allOf(legacyInitFutures)
                         .handle((v, e) -> {
                             if (e != null) {
                                 LOG.error("Could not recover legacy data nodes for zone.", e);
@@ -402,7 +401,7 @@ public class DataNodesManager {
                 .collect(toSet());
 
         Set<NodeWithAttributes> removedNodes = latestDataNodes.dataNodes().stream()
-                .filter(node -> !newLogicalTopology.contains(node) && !Objects.equals(node.nodeName(), localNodeName))
+                .filter(node -> !newLogicalTopology.contains(node) && !Objects.equals(node.nodeId(), localNodeId.get()))
                 .filter(node -> !scaleDownTimer.nodes().contains(node))
                 .collect(toSet());
 
@@ -1165,7 +1164,7 @@ public class DataNodesManager {
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> dataNodes
     ) {
-        return initZone(zoneId, timestamp, dataNodes);
+        return initZone(zoneId, timestamp, dataNodes, false);
     }
 
     private CompletableFuture<?> initZoneWithLegacyDataNodes(CatalogZoneDescriptor zone, byte[] legacyDataNodesBytes) {
@@ -1173,7 +1172,7 @@ public class DataNodesManager {
                 .map(node -> new NodeWithAttributes(node.nodeName(), node.nodeId(), null))
                 .collect(toSet());
 
-        return initZone(zone.id(), clockService.current(), dataNodes);
+        return initZone(zone.id(), clockService.current(), dataNodes, true);
     }
 
     private CompletableFuture<?> initZone(int zoneId) {
@@ -1181,13 +1180,14 @@ public class DataNodesManager {
         Set<NodeWithAttributes> topologyNodes = latestLogicalTopologyProvider.get();
         Set<NodeWithAttributes> filteredNodes = filterDataNodes(topologyNodes, zone);
 
-        return initZone(zoneId, clockService.now(), filteredNodes);
+        return initZone(zoneId, clockService.now(), filteredNodes, true);
     }
 
     private CompletableFuture<?> initZone(
             int zoneId,
             HybridTimestamp timestamp,
-            Set<NodeWithAttributes> dataNodes
+            Set<NodeWithAttributes> dataNodes,
+            boolean removeLegacyDataNodes
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -1204,7 +1204,8 @@ public class DataNodesManager {
                     addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
                     clearTimer(zoneScaleUpTimerKey(zoneId)),
                     clearTimer(zoneScaleDownTimerKey(zoneId)),
-                    clearTimer(zonePartitionResetTimerKey(zoneId))
+                    clearTimer(zonePartitionResetTimerKey(zoneId)),
+                    removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop()
             ).yield(true);
 
             Iif iif = iif(condition, update, ops().yield(false));

@@ -69,6 +69,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -190,6 +191,7 @@ public class DistributionZoneManager extends
     @TestOnly
     public DistributionZoneManager(
             String nodeName,
+            Supplier<UUID> nodeIdSupplier,
             RevisionListenerRegistry registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
@@ -200,6 +202,7 @@ public class DistributionZoneManager extends
     ) {
         this(
                 nodeName,
+                nodeIdSupplier,
                 registry,
                 metaStorageManager,
                 logicalTopologyService,
@@ -216,6 +219,7 @@ public class DistributionZoneManager extends
      * Creates a new distribution zone manager.
      *
      * @param nodeName Node name.
+     * @param nodeIdSupplier Node id supplier.
      * @param registry Registry for versioned values.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
@@ -226,6 +230,7 @@ public class DistributionZoneManager extends
      */
     public DistributionZoneManager(
             String nodeName,
+            Supplier<UUID> nodeIdSupplier,
             RevisionListenerRegistry registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
@@ -266,6 +271,7 @@ public class DistributionZoneManager extends
 
         dataNodesManager = new DataNodesManager(
                 nodeName,
+                nodeIdSupplier,
                 busyLock,
                 metaStorageManager,
                 catalogManager,
@@ -381,10 +387,6 @@ public class DistributionZoneManager extends
 
     public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
         return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
-    }
-
-    public static Set<Node> parseDataNodes(byte[] dataNodesBytes) {
-        return dataNodesBytes == null ? null : dataNodes(DataNodesMapSerializer.deserialize(dataNodesBytes));
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {

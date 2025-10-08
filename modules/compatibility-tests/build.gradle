@@ -41,6 +41,8 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-cli')
     integrationTestImplementation project(':ignite-page-memory')
