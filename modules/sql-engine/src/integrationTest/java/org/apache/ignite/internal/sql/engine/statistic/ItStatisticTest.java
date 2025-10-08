@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.INITIAL_DELAY;
+import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.DEFAULT_STALE_ROWS_FRACTION;
 import static org.hamcrest.Matchers.is;
 
-import java.util.concurrent.ExecutionException;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -41,51 +47,78 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
     @AfterAll
     void afterAll() {
-        sql("DROP TABLE IF EXISTS t");
+        sql("DROP TABLE IF EXISTS t;");
+    }
+
+    @AfterEach
+    void tearDown() {
+        sql("DELETE FROM t;");
+    }
+
+    /** Simple case demonstrating that the tables size is being updated during statistic refresh interval. */
+    @Test
+    public void testTableSizeUpdates() {
+        long milestone1 = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+
+        String selectQuery = "select * from t";
+
+        insert(0, milestone1);
+
+        sql(selectQuery);
+
+        AtomicInteger inc = new AtomicInteger();
+
+        long timeout = 2 * Math.max(REFRESH_PERIOD, INITIAL_DELAY);
+        // max 4 times cache pollution
+        long pollInterval = timeout / 4;
+
+        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
+                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                        assertQuery(format("select {} from t", inc.incrementAndGet()))
+                                .matches(nodeRowCount("TableScan", is((int) milestone1)))
+                                .check()
+        );
     }
 
     @Test
-    public void testStatisticsRowCount() throws Exception {
-        // For test we should always update statistics.
-        long prevValueOfThreshold = sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
-        try {
-            insertAndUpdateRunQuery(500);
-            assertQuery(getUniqueQuery())
-                    .matches(nodeRowCount("TableScan", is(500)))
-                    .check();
+    public void testTableSizeUpdatesForcibly() {
+        long milestone1 = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-            insertAndUpdateRunQuery(600);
-            assertQuery(getUniqueQuery())
-                    .matches(nodeRowCount("TableScan", is(1100)))
-                    .check();
+        insert(0, milestone1);
 
-            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
-            insertAndUpdateRunQuery(900);
+        sqlStatisticManager.forceUpdateAll();
+        sqlStatisticManager.lastUpdateStatisticFuture().join();
 
-            // Statistics shouldn't be updated despite we inserted new rows.
-            assertQuery(getUniqueQuery())
-                    .matches(nodeRowCount("TableScan", is(1100)))
-                    .check();
-        } finally {
-            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(prevValueOfThreshold);
-        }
+        // query not cached in plans
+        assertQuery("select 1 from t")
+                .matches(nodeRowCount("TableScan", is((int) milestone1)))
+                .check();
+
+        long milestone2 = computeNextMilestone(milestone1, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+
+        insert(milestone1, milestone1 + milestone2);
+
+        sqlStatisticManager.forceUpdateAll();
+        sqlStatisticManager.lastUpdateStatisticFuture().join();
+
+        // query not cached in plans
+        assertQuery("select 2 from t")
+                .matches(nodeRowCount("TableScan", is((int) (milestone1 + milestone2))))
+                .check();
     }
 
-    private static AtomicInteger counter = new AtomicInteger(0);
-
-    private void insertAndUpdateRunQuery(int numberOfRecords) throws ExecutionException, TimeoutException, InterruptedException {
-        int start = counter.get();
-        int end = counter.addAndGet(numberOfRecords) - 1;
-        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", start, end);
-
-        // run unique sql to update statistics
-        sql(getUniqueQuery());
-
-        // wait to update statistics
-        sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
+    // copy-paste from private method: PartitionModificationCounter.computeNextMilestone
+    // if implementation will changes, it need to be changed too
+    private static long computeNextMilestone(
+            long currentSize,
+            double staleRowsFraction,
+            long minStaleRowsCount
+    ) {
+        return Math.max((long) (currentSize * staleRowsFraction), minStaleRowsCount);
     }
 
-    private static String getUniqueQuery() {
-        return "SELECT " + counter.incrementAndGet() + " FROM t";
+    /** Inclusively 'from', exclusively 'to' bounds. */
+    private static void insert(long from, long to) {
+        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", from, to - 1);
     }
 }

@@ -20,33 +20,49 @@ package org.apache.ignite.internal.table.distributed;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
 
 /**
- * Factory for producing {@link PartitionModificationCounter}.
+ * Factory for producing {@link PartitionModificationCounterHandler}.
  */
-public class PartitionModificationCounterFactory {
+public class PartitionModificationCounterHandlerFactory {
     public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
 
     public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
 
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
+    private final MessagingService messagingService;
 
-    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier) {
+    public PartitionModificationCounterHandlerFactory(
+            Supplier<HybridTimestamp> currentTimestampSupplier,
+            MessagingService messagingService
+    ) {
         this.currentTimestampSupplier = currentTimestampSupplier;
+        this.messagingService = messagingService;
     }
 
     /**
-     * Creates a new partition modification counter.
+     * Creates a new partition modification counter handler.
      *
      * @param partitionSizeSupplier Partition size supplier.
-     * @return New partition modification counter.
+     * @param tableId Table ID.
+     * @param partitionId partition ID.
+     * @return New partition modification handler.
      */
-    public PartitionModificationCounter create(LongSupplier partitionSizeSupplier) {
-        return new PartitionModificationCounter(
+    public PartitionModificationCounterHandler create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
+        PartitionModificationCounter modificationCounter = new PartitionModificationCounter(
                 currentTimestampSupplier.get(),
                 partitionSizeSupplier,
                 DEFAULT_STALE_ROWS_FRACTION,
                 DEFAULT_MIN_STALE_ROWS_COUNT
+        );
+
+        return new PartitionModificationCounterHandler(
+                tableId,
+                partitionId,
+                messagingService,
+                partitionSizeSupplier,
+                modificationCounter
         );
     }
 }

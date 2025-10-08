@@ -20,11 +20,16 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -33,15 +38,16 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -50,7 +56,7 @@ import org.jetbrains.annotations.TestOnly;
 public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
     static final long DEFAULT_TABLE_SIZE = 1L;
-    private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, 0L);
+    private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, HybridTimestamp.MIN_VALUE);
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
@@ -66,20 +72,34 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private final LowWatermark lowWatermark;
 
     /* Contains all known table id's with statistics. */
-    private final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
+    final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
 
-    private volatile long thresholdTimeToPostponeUpdateMs = TimeUnit.MINUTES.toMillis(1);
+    /* Contain dropped tables, can`t update statistic for such case. */
+    Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    private final ScheduledExecutorService scheduler;
+    private final StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> statSupplier;
+
+    static final long INITIAL_DELAY = 5_000;
+    static final long REFRESH_PERIOD = 20_000;
 
     /** Constructor. */
-    public SqlStatisticManagerImpl(TableManager tableManager, CatalogService catalogService, LowWatermark lowWatermark) {
+    public SqlStatisticManagerImpl(
+            TableManager tableManager,
+            CatalogService catalogService,
+            LowWatermark lowWatermark,
+            ScheduledExecutorService scheduler,
+            StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> statSupplier
+    ) {
         this.tableManager = tableManager;
         this.catalogService = catalogService;
         this.lowWatermark = lowWatermark;
+        this.scheduler = scheduler;
+        this.statSupplier = statSupplier;
     }
 
-
     /**
-     * Returns approximate number of rows in table by their id.
+     * Returns approximate number of rows in table.
      *
      * <p>Returns the previous known value or {@value SqlStatisticManagerImpl#DEFAULT_TABLE_SIZE} as default value. Can start process to
      * update asked statistics in background to have updated values for future requests.
@@ -88,52 +108,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
      */
     @Override
     public long tableSize(int tableId) {
-        updateTableSizeStatistics(tableId, false);
-
-        return tableSizeMap.getOrDefault(tableId, DEFAULT_VALUE).getSize();
-    }
-
-    /** Update table size statistic in the background if it required. */
-    private void updateTableSizeStatistics(int tableId, boolean force) {
-        TableViewInternal tableView = tableManager.cachedTable(tableId);
-        if (tableView == null) {
-            LOG.debug("There is no table to update statistics [id={}].", tableId);
-            return;
-        }
-
-        ActualSize tableSize = tableSizeMap.get(tableId);
-        if (tableSize == null) {
-            // has been concurrently cleaned up, no need more update statistic for the table.
-            return;
-        }
-        long currTimestamp = FastTimestamps.coarseCurrentTimeMillis();
-        long lastUpdateTime = tableSize.getTimestamp();
-
-        if (force || lastUpdateTime <= currTimestamp - thresholdTimeToPostponeUpdateMs) {
-            // Prevent to run update for the same table twice concurrently.
-            if (!force && !tableSizeMap.replace(tableId, tableSize, new ActualSize(tableSize.getSize(), currTimestamp - 1))) {
-                return;
-            }
-
-            // just request new table size in background.
-            CompletableFuture<Void> updateResult = tableView.internalTable().estimatedSize()
-                    .thenAccept(size -> {
-                        // the table can be concurrently dropped and we shouldn't put new value in this case.
-                        tableSizeMap.computeIfPresent(tableId, (k, v) -> {
-                            // Discard current computation if value in cache is newer than current one.
-                            if (v.timestamp >= currTimestamp) {
-                                return v;
-                            }
-
-                            return new ActualSize(Math.max(size, 1), currTimestamp);
-                        });
-                    }).exceptionally(e -> {
-                        LOG.info("Can't calculate size for table [id={}].", e, tableId);
-                        return null;
-                    });
-
-            latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
-        }
+        return tableSizeMap.computeIfAbsent(tableId, k -> DEFAULT_VALUE).getSize();
     }
 
     @Override
@@ -151,6 +126,57 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                 tableSizeMap.putIfAbsent(table.id(), DEFAULT_VALUE);
             }
         }
+
+        scheduler.scheduleAtFixedRate(this::update, INITIAL_DELAY, REFRESH_PERIOD, TimeUnit.MILLISECONDS);
+    }
+
+    private void update() {
+        if (!latestUpdateFut.get().isDone()) {
+            return;
+        }
+
+        for (Map.Entry<Integer, ActualSize> ent : tableSizeMap.entrySet()) {
+            Integer tableId = ent.getKey();
+
+            if (droppedTables.contains(tableId)) {
+                continue;
+            }
+
+            TableViewInternal tableView = tableManager.cachedTable(tableId);
+
+            if (tableView == null) {
+                LOG.debug("No table found to update statistics [id={}].", ent.getKey());
+                continue;
+            }
+
+            CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tableView.internalTable())
+                    .handle((res, err) -> {
+                            if (err != null) {
+                                LOG.debug("Failed to update table statistics for [tableId={}].", err, tableId);
+
+                                return null;
+                            } else {
+                                // the table can be concurrently dropped and we shouldn't put new value in this case.
+                                tableSizeMap.compute(tableId, (k, v) -> {
+                                    if (v == null) {
+                                        return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                    }
+
+                                    // check for stale update
+                                    if (v.timestamp.compareTo(res.value()) > 0) {
+                                        return v;
+                                    }
+
+                                    return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                });
+
+                                return null;
+                            }
+                        }
+                    );
+
+            latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
+        }
     }
 
     @Override
@@ -165,6 +191,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         int catalogVersion = parameters.catalogVersion();
 
         destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId));
+        droppedTables.add(tableId);
     }
 
     private void onTableCreate(CreateTableEventParameters parameters) {
@@ -176,19 +203,20 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
 
         events.forEach(event -> tableSizeMap.remove(event.tableId()));
+        events.forEach(event -> droppedTables.remove(event.tableId()));
     }
 
     /** Timestamped size. */
-    private static class ActualSize {
-        long timestamp;
+    static class ActualSize {
+        HybridTimestamp timestamp;
         long size;
 
-        public ActualSize(long size, long timestamp) {
+        public ActualSize(long size, HybridTimestamp timestamp) {
             this.timestamp = timestamp;
             this.size = size;
         }
 
-        public long getTimestamp() {
+        public HybridTimestamp getTimestamp() {
             return timestamp;
         }
 
@@ -217,17 +245,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     }
 
     /**
-     * Set threshold time to postpone update statistics.
-     */
-    @TestOnly
-    public long setThresholdTimeToPostponeUpdateMs(long milliseconds) {
-        assert milliseconds >= 0;
-        long prevValue = thresholdTimeToPostponeUpdateMs;
-        thresholdTimeToPostponeUpdateMs = milliseconds;
-        return prevValue;
-    }
-
-    /**
      * Returns feature for the last run update statistics to have ability wait update statistics.
      */
     @TestOnly
@@ -238,10 +255,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     /** Forcibly updates statistics for all known tables, ignoring throttling. */
     @TestOnly
     public void forceUpdateAll() {
-        List<Integer> tableIds = List.copyOf(tableSizeMap.keySet());
-
-        for (int tableId : tableIds) {
-            updateTableSizeStatistics(tableId, true);
-        }
+        update();
     }
 }

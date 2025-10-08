@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.function.LongSupplier;
@@ -44,9 +45,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandler;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,16 +67,19 @@ public class TableTestUtils {
     /** Column name. */
     public static final String COLUMN_NAME = "TEST_COLUMN";
 
-    /** No-op partition modification counter. */
-    public static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
+    private static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
             new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, 0, 0);
 
+    /** No-op partition modification counter. */
+    public static final PartitionModificationCounterHandler NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER =
+            new PartitionModificationCounterHandler(0, 0, mock(MessagingService.class), () -> 0, NOOP_PARTITION_MODIFICATION_COUNTER);
+
     /** No-op partition modification counter factory. */
-    public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
-            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE) {
+    public static PartitionModificationCounterHandlerFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
+            new PartitionModificationCounterHandlerFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
                 @Override
-                public PartitionModificationCounter create(LongSupplier partitionSizeSupplier) {
-                    return NOOP_PARTITION_MODIFICATION_COUNTER;
+                public PartitionModificationCounterHandler create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
+                    return NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER;
                 }
             };
 

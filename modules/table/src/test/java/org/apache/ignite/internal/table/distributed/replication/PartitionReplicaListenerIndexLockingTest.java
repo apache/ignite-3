@@ -282,7 +282,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         partitionDataStorage,
                         indexUpdateHandler,
                         replicationConfiguration,
-                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER
                 ),
                 new DummyValidationSchemasSource(schemaManager),
                 localNode,

@@ -469,7 +469,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final MetricManager metricManager;
-    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+    private final PartitionModificationCounterHandlerFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
 
     /**
@@ -544,7 +544,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             MetricManager metricManager,
-            PartitionModificationCounterFactory partitionModificationCounterFactory
+            PartitionModificationCounterHandlerFactory partitionModificationCounterFactory
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -3160,7 +3160,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
         LongSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
-        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(partSizeSupplier);
+
+        PartitionModificationCounterHandler modificationCounter =
+                partitionModificationCounterFactory.create(partSizeSupplier, table.tableId(), partitionId);
+
         registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
@@ -3175,7 +3178,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void registerPartitionModificationCounterMetrics(
-            int tableId, int partitionId, PartitionModificationCounter counter) {
+            int tableId, int partitionId, PartitionModificationCounterHandler counterHandler) {
 
         PartitionModificationCounterMetricSource metricSource =
                 new PartitionModificationCounterMetricSource(tableId, partitionId);
@@ -3184,21 +3187,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 PartitionModificationCounterMetricSource.METRIC_COUNTER,
                 "The value of the volatile counter of partition modifications. "
                         + "This value is used to determine staleness of the related SQL statistics.",
-                counter::value
+                counterHandler::value
         ));
 
         metricSource.addMetric(new LongGauge(
                 PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE,
                 "The value of the next milestone for the number of partition modifications. "
                         + "This value is used to determine staleness of the related SQL statistics.",
-                counter::nextMilestone
+                counterHandler::nextMilestone
         ));
 
         metricSource.addMetric(new LongGauge(
                 PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP,
                 "The timestamp value representing the commit time of the last modification operation that "
                         + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
-                () -> counter.lastMilestoneTimestamp().longValue()
+                () -> counterHandler.lastMilestoneTimestamp().longValue()
         ));
 
         metricManager.registerSource(metricSource);

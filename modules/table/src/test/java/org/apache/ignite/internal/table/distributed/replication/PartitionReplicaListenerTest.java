@@ -690,7 +690,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         partitionDataStorage,
                         indexUpdateHandler,
                         replicationConfiguration,
-                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER
                 ),
                 validationSchemasSource,
                 localNode,

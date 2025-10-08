@@ -182,7 +182,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER
         );
 
         TestStorageUtils.completeBuiltIndexes(storage, hashInnerStorage, sortedInnerStorage);

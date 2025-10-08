@@ -46,9 +46,6 @@ public class PartitionModificationCounter {
             double staleRowsFraction,
             long minStaleRowsCount
     ) {
-        Objects.requireNonNull(initTimestamp, "initTimestamp");
-        Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
-
         if (staleRowsFraction < 0 || staleRowsFraction > 1) {
             throw new IllegalArgumentException("staleRowsFraction must be in [0, 1] range");
         }
@@ -57,12 +54,13 @@ public class PartitionModificationCounter {
             throw new IllegalArgumentException("minStaleRowsCount must be non-negative");
         }
 
+        lastMilestoneReachedTimestamp = Objects.requireNonNull(initTimestamp, "initTimestamp");
+        this.partitionSizeSupplier = Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
+
         this.staleRowsFraction = staleRowsFraction;
         this.minStaleRowsCount = minStaleRowsCount;
-        this.partitionSizeSupplier = partitionSizeSupplier;
 
         nextMilestone = computeNextMilestone(partitionSizeSupplier.getAsLong(), staleRowsFraction, minStaleRowsCount);
-        lastMilestoneReachedTimestamp = initTimestamp;
     }
 
     /** Returns the current counter value. */
