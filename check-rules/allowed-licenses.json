@@ -6,32 +6,12 @@
       "moduleVersion": ".*"
     },
     {
-      "moduleLicense": "BSD Zero Clause License",
-      "moduleName": ".*",
-      "moduleVersion": ".*"
-    },
-    {
-      "moduleLicense": "BSD-style",
-      "moduleName": ".*",
-      "moduleVersion": ".*"
-    },
-    {
-      "moduleLicense": "Bouncy Castle Licence",
-      "moduleName": ".*",
-      "moduleVersion": ".*"
-    },
-    {
       "moduleLicense": "CDDL + GPLv2 with classpath exception",
       "moduleName": ".*",
       "moduleVersion": ".*"
     },
     {
       "moduleLicense": "Eclipse Public License - v 2.0",
-      "moduleName": ".*",
-      "moduleVersion": ".*"
-    },
-    {
-      "moduleLicense": "GNU GENERAL PUBLIC LICENSE, Version 2 + Classpath Exception",
       "moduleName": ".*",
       "moduleVersion": ".*"
     },
