@@ -15,39 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
+package org.apache.ignite.internal.deployunit.exception;
 
-import java.nio.file.Path;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_WRITE_ERR;
+
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Implementation of {@link DeploymentUnit} that handles regular deployment content in local FS path.
+ * Throws when deployment unit content failed to write.
  */
-public class FilesDeploymentUnit implements DeploymentUnit {
-    private final Map<String, Path> content;
+public class DeploymentUnitWriteException extends IgniteException {
+    private static final long serialVersionUID = 232238720847777174L;
 
     /**
      * Constructor.
      */
-    public FilesDeploymentUnit(Map<String, Path> content) {
-        this.content = content;
-    }
-
-    /**
-     * Returns the deployment unit content as a map of file names to input streams.
-     */
-    public Map<String, Path> content() {
-        return content;
-    }
-
-    @Override
-    public void close() throws Exception {
-
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> process(DeploymentUnitProcessor<T, R> processor, T arg) {
-        return processor.processFilesContent(this, arg);
+    public DeploymentUnitWriteException(String message, Exception cause) {
+        super(UNIT_WRITE_ERR, message, cause);
     }
 }

@@ -15,39 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
+package org.apache.ignite.internal.deployunit.tempstorage;
 
+import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Implementation of {@link DeploymentUnit} that handles regular deployment content in local FS path.
+ * Temporary storage for deployment unit files.
  */
-public class FilesDeploymentUnit implements DeploymentUnit {
-    private final Map<String, Path> content;
+public interface TempStorage {
+    /**
+     * Stores the given input stream as a file with the given name in the temporary storage.
+     *
+     * @param fileName the name of the file to store.
+     * @param is the input stream to store.
+     */
+    CompletableFuture<Path> store(String fileName, InputStream is);
 
     /**
-     * Constructor.
+     * Rollbacks all in progress operations.
      */
-    public FilesDeploymentUnit(Map<String, Path> content) {
-        this.content = content;
-    }
+    void rollback();
 
     /**
-     * Returns the deployment unit content as a map of file names to input streams.
+     * Closes the temporary storage, releasing any resources held.
      */
-    public Map<String, Path> content() {
-        return content;
-    }
-
-    @Override
-    public void close() throws Exception {
-
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> process(DeploymentUnitProcessor<T, R> processor, T arg) {
-        return processor.processFilesContent(this, arg);
-    }
+    void close();
 }
