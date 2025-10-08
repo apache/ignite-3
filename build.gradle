@@ -20,6 +20,8 @@
 plugins {
     id('idea')
     alias(libs.plugins.ideaext)
+    alias(libs.plugins.license)
+
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.aggregateJavadoc)
     alias(libs.plugins.spotbugs) apply false
@@ -27,6 +29,9 @@ plugins {
     alias(libs.plugins.jmhReport) apply false
     alias(libs.plugins.dockerRemoteApi) apply false
 }
+
+import com.github.jk1.license.filter.LicenseBundleNormalizer
+import com.github.jk1.license.render.InventoryHtmlReportRenderer
 
 apply from: "$rootDir/buildscripts/javadoc.gradle"
 
@@ -198,4 +203,10 @@ idea.project.settings {
             jvmArgs = defaultJvmArgs.join(' ')
         }
     }
+}
+
+licenseReport {
+    renderers = [new InventoryHtmlReportRenderer()]
+    allowedLicensesFile = new File("$rootDir/check-rules/allowed-licenses.json")
+    filters = [new LicenseBundleNormalizer(bundlePath: "$rootDir/check-rules/license-normalizer-bundle.json")]
 }
