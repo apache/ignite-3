@@ -62,7 +62,7 @@ public class FileDeployerService {
 
     /** Constructor. */
     public FileDeployerService(String nodeName) {
-        this.executor = Executors.newFixedThreadPool(
+        executor = Executors.newFixedThreadPool(
                 DEPLOYMENT_EXECUTOR_SIZE,
                 IgniteThreadFactory.create(nodeName, "deployment", LOG)
         );

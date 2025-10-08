@@ -34,7 +34,7 @@ public interface TempStorage {
     CompletableFuture<Path> store(String fileName, InputStream is);
 
     /**
-     * Rollbacks the temporary storage, deleting all stored files.
+     * Rollbacks all in progress operations.
      */
     void rollback();
 
