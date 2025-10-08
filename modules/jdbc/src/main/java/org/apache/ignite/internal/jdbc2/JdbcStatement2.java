@@ -651,6 +651,9 @@ public class JdbcStatement2 implements Statement {
     }
 
     protected boolean isQuery() {
+        // This method is called after statement is executed, so the reference points to a correct result set.
+        // The statement is not expected to be used from multiple threads, so this reference points to a correct result set.
+        // getResultSet() performs its own result set checks.
         JdbcResultSet rs = resultSet;
         assert rs != null;
 
