@@ -23,11 +23,12 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -43,12 +44,14 @@ import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -118,14 +121,20 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
         var tableDescriptor = new StorageTableDescriptor(10, 1, CatalogService.DEFAULT_STORAGE_PROFILE);
         MvTableStorage table = engine.createMvTable(tableDescriptor, indexId -> null);
 
-        List<Metric> metricsList = new ArrayList<>();
-        engine.addTableMetrics(tableDescriptor, metricsList::add);
+        QualifiedName tableName = QualifiedName.of(QualifiedName.DEFAULT_SCHEMA_NAME, "foo");
 
-        assertThat(metricsList.size(), is(1));
+        StorageEngineTablesMetricSource metricSource = new StorageEngineTablesMetricSource(storageEngine.name(), tableName);
+        storageEngine.addTableMetrics(tableDescriptor, metricSource);
 
-        Metric metric = metricsList.get(0);
+        metricSource.enable();
+        Iterator<Metric> metrics = metricSource.holder().metrics().iterator();
+        assertTrue(metrics.hasNext());
+
+        Metric metric = metrics.next();
         assertThat(metric.name(), is("TotalAllocatedSize"));
         assertThat(metric, is(instanceOf(LongMetric.class)));
+
+        assertFalse(metrics.hasNext());
 
         LongMetric totalAllocatedSize = (LongMetric) metric;
         assertEquals(0, totalAllocatedSize.value());

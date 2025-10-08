@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.table.metrics;
 
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -121,8 +118,6 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
 
     private final QualifiedName tableName;
 
-    private final Set<Metric> extraMetrics = new HashSet<>();
-
     /**
      * Creates a new instance of {@link TableMetricSource}.
      *
@@ -200,20 +195,7 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
 
     @Override
     protected Holder createHolder() {
-        return new Holder(extraMetrics);
-    }
-
-    /**
-     * Adds a custom metric to the source.
-     *
-     * <p>Note: This method cannot be called when the source is enabled.
-     *
-     * @param metric Metric to add.
-     */
-    public void addMetric(Metric metric) {
-        assert holder() == null : "Cannot add metrics when source is enabled";
-
-        extraMetrics.add(metric);
+        return new Holder();
     }
 
     /** Actual metrics holder. */
@@ -230,13 +212,7 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
                 WRITES,
                 "The total number of writes executed within read-write transactions.");
 
-        private final List<Metric> metrics;
-
-        protected Holder(Set<Metric> extraMetrics) {
-            metrics = new ArrayList<>(extraMetrics.size() + 3);
-            metrics.addAll(List.of(roReads, rwReads, writes));
-            metrics.addAll(extraMetrics);
-        }
+        private final List<Metric> metrics = List.of(roReads, rwReads, writes);
 
         @Override
         public Iterable<Metric> metrics() {

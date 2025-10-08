@@ -21,10 +21,9 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
 import java.util.Set;
-import java.util.function.Consumer;
-import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 
 /**
  * General storage engine interface.
@@ -76,12 +75,12 @@ public interface StorageEngine {
     void destroyMvTable(int tableId);
 
     /**
-     * Adds metrics related to the table to the given metric consumer.
+     * Adds metrics related to the table to the given metric source.
      *
      * @param tableDescriptor Table descriptor.
-     * @param metricConsumer Metric consumer.
+     * @param metricSource Metric source.
      */
-    default void addTableMetrics(StorageTableDescriptor tableDescriptor, Consumer<Metric> metricConsumer) {
+    default void addTableMetrics(StorageTableDescriptor tableDescriptor, StorageEngineTablesMetricSource metricSource) {
         // No-op.
     }
 

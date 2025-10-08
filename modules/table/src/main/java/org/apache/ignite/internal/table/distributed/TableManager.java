@@ -211,6 +211,7 @@ import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
@@ -3615,11 +3616,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TableMetricSource source = new TableMetricSource(tableName);
 
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
-        if (engine != null) {
-            engine.addTableMetrics(tableDescriptor, source::addMetric);
-        }
-
         try {
+            if (engine != null) {
+                StorageEngineTablesMetricSource engineMetricSource = new StorageEngineTablesMetricSource(engine.name(), tableName);
+
+                engine.addTableMetrics(tableDescriptor, engineMetricSource);
+
+                metricManager.registerSource(engineMetricSource);
+                metricManager.enable(engineMetricSource);
+            }
+
             metricManager.registerSource(source);
             metricManager.enable(source);
         } catch (Exception e) {
