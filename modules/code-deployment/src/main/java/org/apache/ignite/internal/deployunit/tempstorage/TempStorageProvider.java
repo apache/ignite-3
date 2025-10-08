@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.deployunit.tempstorage;
 
-import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.deployment.version.Version;
 
 /**
- * Tests to check that rows can be inserted and retrieved through embedded client.
+ * Provider of temporary storages for deployment units.
  */
-public class ItTablePutGetEmbeddedTest extends ItTablePutGetBaseTest {
-    @Override
-    IgniteTables tables() {
-        return CLUSTER.aliveNode().tables();
-    }
+public interface TempStorageProvider {
+    /**
+     * Creates a new temporary storage for the given deployment unit id and version.
+     *
+     * @param id Deployment unit id.
+     * @param version Deployment unit version.
+     */
+    TempStorage tempStorage(String id, Version version);
 }

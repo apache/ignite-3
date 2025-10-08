@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -45,11 +45,10 @@ public class ZipDeploymentUnit implements DeploymentUnit {
      * @param processor the processor that will handle both regular and ZIP content;
      *                 must implement both {@code processContent} and {@code processContentWithUnzip} methods.
      * @param arg the argument to be passed to the processor during both processing phases.
-     * @throws IOException if an I/O error occurs during either processing phase.
      */
     @Override
-    public <T> void process(DeploymentUnitProcessor<T> processor, T arg) throws IOException {
-        processor.processContentWithUnzip(this, arg);
+    public <T, R> CompletableFuture<R> process(DeploymentUnitProcessor<T, R> processor, T arg) {
+        return processor.processContentWithUnzip(this, arg);
     }
 
     /**

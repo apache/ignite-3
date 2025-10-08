@@ -31,31 +31,29 @@ import org.junit.jupiter.api.Test;
 class GroupIndexMetaTest extends BaseIgniteAbstractTest {
     @Test
     void testAddGet() {
-        var initialMeta = new IndexFileMeta(1, 50, 0);
+        var initialMeta = new IndexFileMeta(1, 50, 0, 0);
 
-        var groupMeta = new GroupIndexMeta(0, initialMeta);
+        var groupMeta = new GroupIndexMeta(initialMeta);
 
-        var additionalMeta = new IndexFileMeta(51, 100, 42);
+        var additionalMeta = new IndexFileMeta(51, 100, 42, 1);
 
         groupMeta.addIndexMeta(additionalMeta);
 
-        assertThat(groupMeta.indexFilePointer(0), is(nullValue()));
+        assertThat(groupMeta.indexMeta(0), is(nullValue()));
 
-        IndexFilePointer pointer = groupMeta.indexFilePointer(1);
+        IndexFileMeta indexFileMeta = groupMeta.indexMeta(1);
 
-        assertThat(pointer, is(notNullValue()));
-        assertThat(pointer.fileOrdinal(), is(0));
-        assertThat(pointer.fileMeta(), is(initialMeta));
+        assertThat(indexFileMeta, is(notNullValue()));
+        assertThat(indexFileMeta, is(initialMeta));
 
-        pointer = groupMeta.indexFilePointer(66);
+        indexFileMeta = groupMeta.indexMeta(66);
 
-        assertThat(pointer, is(notNullValue()));
-        assertThat(pointer.fileOrdinal(), is(1));
-        assertThat(pointer.fileMeta(), is(additionalMeta));
+        assertThat(indexFileMeta, is(notNullValue()));
+        assertThat(indexFileMeta, is(additionalMeta));
 
-        pointer = groupMeta.indexFilePointer(101);
+        indexFileMeta = groupMeta.indexMeta(101);
 
-        assertThat(pointer, is(nullValue()));
+        assertThat(indexFileMeta, is(nullValue()));
     }
 
     @RepeatedTest(10)
@@ -64,9 +62,9 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         int logEntriesPerFile = 50;
 
-        var initialMeta = new IndexFileMeta(0, logEntriesPerFile - 1, 0);
+        var initialMeta = new IndexFileMeta(0, logEntriesPerFile - 1, 0, startFileOrdinal);
 
-        var groupMeta = new GroupIndexMeta(startFileOrdinal, initialMeta);
+        var groupMeta = new GroupIndexMeta(initialMeta);
 
         int totalIndexFiles = 1000;
 
@@ -75,7 +73,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
                 long startLogIndex = relativeFileOrdinal * logEntriesPerFile;
                 long lastLogIndex = startLogIndex + logEntriesPerFile - 1;
 
-                groupMeta.addIndexMeta(new IndexFileMeta(startLogIndex, lastLogIndex, 0));
+                groupMeta.addIndexMeta(new IndexFileMeta(startLogIndex, lastLogIndex, 0, startFileOrdinal + relativeFileOrdinal));
             }
         };
 
@@ -83,9 +81,9 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         RunnableX reader = () -> {
             for (int logIndex = 0; logIndex < totalLogEntries; logIndex++) {
-                IndexFilePointer pointer = groupMeta.indexFilePointer(logIndex);
+                IndexFileMeta indexFileMeta = groupMeta.indexMeta(logIndex);
 
-                if (pointer != null) {
+                if (indexFileMeta != null) {
                     int relativeFileOrdinal = logIndex / logEntriesPerFile;
 
                     int expectedFileOrdinal = startFileOrdinal + relativeFileOrdinal;
@@ -94,10 +92,9 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
                     int expectedEndLogIndex = expectedStartLogIndex + logEntriesPerFile - 1;
 
-                    var expectedMeta = new IndexFileMeta(expectedStartLogIndex, expectedEndLogIndex, 0);
+                    var expectedMeta = new IndexFileMeta(expectedStartLogIndex, expectedEndLogIndex, 0, expectedFileOrdinal);
 
-                    assertThat(pointer.fileOrdinal(), is(expectedFileOrdinal));
-                    assertThat(pointer.fileMeta(), is(expectedMeta));
+                    assertThat(indexFileMeta, is(expectedMeta));
                 }
             }
         };

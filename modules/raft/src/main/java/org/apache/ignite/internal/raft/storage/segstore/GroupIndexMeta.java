@@ -35,16 +35,10 @@ class GroupIndexMeta {
         }
     }
 
-    /**
-     * Ordinal number of the first index file in the group.
-     */
-    private final int startFileOrdinal;
-
     @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
     private volatile IndexFileMetaArray fileMetas;
 
-    GroupIndexMeta(int startFileOrdinal, IndexFileMeta startFileMeta) {
-        this.startFileOrdinal = startFileOrdinal;
+    GroupIndexMeta(IndexFileMeta startFileMeta) {
         this.fileMetas = new IndexFileMetaArray(startFileMeta);
     }
 
@@ -65,17 +59,9 @@ class GroupIndexMeta {
      * is not found in any of the index files in this group.
      */
     @Nullable
-    IndexFilePointer indexFilePointer(long logIndex) {
+    IndexFileMeta indexMeta(long logIndex) {
         IndexFileMetaArray fileMetas = this.fileMetas;
 
-        int arrayIndex = fileMetas.find(logIndex);
-
-        if (arrayIndex < 0) {
-            return null;
-        }
-
-        IndexFileMeta meta = fileMetas.get(arrayIndex);
-
-        return new IndexFilePointer(startFileOrdinal + arrayIndex, meta);
+        return fileMetas.find(logIndex);
     }
 }

@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.deployunit.exception;
 
-import org.apache.ignite.table.IgniteTables;
+import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_WRITE_ERR;
+
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Tests to check that rows can be inserted and retrieved through embedded client.
+ * Throws when deployment unit content failed to write.
  */
-public class ItTablePutGetEmbeddedTest extends ItTablePutGetBaseTest {
-    @Override
-    IgniteTables tables() {
-        return CLUSTER.aliveNode().tables();
+public class DeploymentUnitWriteException extends IgniteException {
+    private static final long serialVersionUID = 232238720847777174L;
+
+    /**
+     * Constructor.
+     */
+    public DeploymentUnitWriteException(String message, Exception cause) {
+        super(UNIT_WRITE_ERR, message, cause);
     }
 }

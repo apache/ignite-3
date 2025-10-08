@@ -15,23 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage.segstore;
+package org.apache.ignite.internal.deployunit.tempstorage;
 
-class IndexFilePointer {
-    private final int fileOrdinal;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 
-    private final IndexFileMeta fileMeta;
+/**
+ * Temporary storage for deployment unit files.
+ */
+public interface TempStorage {
+    /**
+     * Stores the given input stream as a file with the given name in the temporary storage.
+     *
+     * @param fileName the name of the file to store.
+     * @param is the input stream to store.
+     */
+    CompletableFuture<Path> store(String fileName, InputStream is);
 
-    IndexFilePointer(int fileOrdinal, IndexFileMeta fileMeta) {
-        this.fileOrdinal = fileOrdinal;
-        this.fileMeta = fileMeta;
-    }
+    /**
+     * Rollbacks all in progress operations.
+     */
+    void rollback();
 
-    int fileOrdinal() {
-        return fileOrdinal;
-    }
-
-    IndexFileMeta fileMeta() {
-        return fileMeta;
-    }
+    /**
+     * Closes the temporary storage, releasing any resources held.
+     */
+    void close();
 }

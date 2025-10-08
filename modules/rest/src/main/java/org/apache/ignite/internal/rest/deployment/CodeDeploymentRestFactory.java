@@ -21,6 +21,7 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
 import org.apache.ignite.internal.rest.RestFactory;
 
 /**
@@ -30,8 +31,11 @@ import org.apache.ignite.internal.rest.RestFactory;
 public class CodeDeploymentRestFactory implements RestFactory {
     private IgniteDeployment igniteDeployment;
 
-    public CodeDeploymentRestFactory(IgniteDeployment igniteDeployment) {
+    private TempStorageProvider tempStorageProvider;
+
+    public CodeDeploymentRestFactory(IgniteDeployment igniteDeployment, TempStorageProvider tempStorageProvider) {
         this.igniteDeployment = igniteDeployment;
+        this.tempStorageProvider = tempStorageProvider;
     }
 
     @Bean
@@ -40,8 +44,15 @@ public class CodeDeploymentRestFactory implements RestFactory {
         return igniteDeployment;
     }
 
+    @Bean
+    @Singleton
+    public  TempStorageProvider storageProvider() {
+        return tempStorageProvider;
+    }
+
     @Override
     public void cleanResources() {
         igniteDeployment = null;
+        tempStorageProvider = null;
     }
 }
