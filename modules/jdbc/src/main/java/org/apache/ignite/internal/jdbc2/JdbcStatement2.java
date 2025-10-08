@@ -416,7 +416,7 @@ public class JdbcStatement2 implements Statement {
     public @Nullable ResultSet getResultSet() throws SQLException {
         ensureNotClosed();
 
-        return isQuery() ? resultSet : null;
+        return resultSet;
     }
 
     /** {@inheritDoc} */
@@ -650,16 +650,11 @@ public class JdbcStatement2 implements Statement {
         return iface != null && iface.isAssignableFrom(JdbcStatement2.class);
     }
 
-    /**
-     * Gets the isQuery flag from the first result.
-     *
-     * @return isQuery flag.
-     */
     protected boolean isQuery() {
-        if (resultSet == null) {
-            return false;
-        }
-        return resultSet.isQuery();
+        JdbcResultSet rs = resultSet;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
     void ensureNotClosed() throws SQLException {
