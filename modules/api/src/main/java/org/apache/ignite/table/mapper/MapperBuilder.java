@@ -18,7 +18,6 @@
 package org.apache.ignite.table.mapper;
 
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
-import static org.apache.ignite.table.QualifiedName.fromSimple;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -29,8 +28,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.catalog.annotations.Column;
-import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.table.QualifiedName;
 
 /**
  * Mapper builder provides methods for mapping object fields to columns.
@@ -292,11 +289,7 @@ public final class MapperBuilder<T> {
     private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
         String fldName = fld.getName();
         var column = fld.getAnnotation(Column.class);
-        if (column == null) {
-            return new SimpleEntry<>(parseIdentifier(fldName), fldName);
-        } else {
-            var columnName = column.value().isEmpty() ? fldName : column.value();
-            return new SimpleEntry<>(parseIdentifier(columnName), fldName);
-        }
+        var columnName = column != null && !column.value().isEmpty() ? column.value() : fldName;
+        return new SimpleEntry<>(parseIdentifier(columnName), fldName);
     }
 }
