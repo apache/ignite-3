@@ -186,6 +186,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartSpecifiedPartitionsWithCleanup() {
         String nodeName = CLUSTER.aliveNode().name();
 
