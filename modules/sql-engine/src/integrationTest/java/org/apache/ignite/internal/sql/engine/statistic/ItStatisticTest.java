@@ -84,10 +84,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     public void testTableSizeUpdatesForcibly() {
         long milestone1 = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-        String selectQuery = "select * from t";
-
-        sql(selectQuery);
-
         insert(0, milestone1);
 
         sqlStatisticManager.forceUpdateAll();

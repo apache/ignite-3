@@ -152,7 +152,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
             CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tableView.internalTable())
                     .handle((res, err) -> {
                             if (err != null) {
-                                LOG.debug("Can't calculate size for table [id={}].", err, tableId);
+                                LOG.debug("Failed to update table statistics for [tableId={}].", err, tableId);
 
                                 return null;
                             } else {
