@@ -102,7 +102,9 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public long getTerm(long index) {
-        throw new UnsupportedOperationException();
+        LogEntry entry = getEntry(index);
+
+        return entry == null ? 0 : entry.getId().getTerm();
     }
 
     @Override
