@@ -735,9 +735,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             // Validate value, if present.
             if (!isUnspecified(dynamicParam)) {
-                RelDataType param = getDynamicParamType(dynamicParam);
+                RelDataType paramType = getDynamicParamType(dynamicParam);
 
-                if (param == null) {
+                if (paramType == null) {
                     throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
                 }
 
@@ -1503,18 +1503,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /**
-     * Returns the value of the given dynamic parameter. If the value is not specified,
+     * Returns the type of the given dynamic parameter. If the type is not specified,
      * this method throws {@link IllegalArgumentException}.
      */
     @Nullable
     private RelDataType getDynamicParamType(SqlDynamicParam dynamicParam) {
-        int index = dynamicParam.getIndex();
-        DynamicParamState paramState = dynamicParameters.computeIfAbsent(index, (i) -> new DynamicParamState());
-        RelDataType value = paramState.relType;
-        if (!paramState.hasType) {
-            throw new IllegalArgumentException(format("Value of dynamic parameter#{} is not specified", index));
+        int paramIndex = dynamicParam.getIndex();
+
+        if (isUnspecified(dynamicParam)) {
+            throw new IllegalArgumentException(format("Value of dynamic parameter#{} is not specified", paramIndex));
         } else {
-            return value;
+            return dynamicParameters.get(paramIndex).relType;
         }
     }
 
