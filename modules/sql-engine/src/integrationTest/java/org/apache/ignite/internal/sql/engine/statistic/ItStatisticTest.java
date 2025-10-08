@@ -39,21 +39,16 @@ import org.junit.jupiter.api.Test;
 public class ItStatisticTest extends BaseSqlIntegrationTest {
     private SqlStatisticManagerImpl sqlStatisticManager;
 
-    private static final String TWO_REPL_ZONE = "zone1";
-
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
 
-        sql(format("CREATE ZONE {} (REPLICAS 2) storage profiles ['default'];", TWO_REPL_ZONE));
-        sql(format("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE {}", TWO_REPL_ZONE));
-        //sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
+        sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
     }
 
     @AfterAll
     void afterAll() {
         sql("DROP TABLE IF EXISTS t;");
-        sql(format("DROP ZONE IF EXISTS {}", TWO_REPL_ZONE));
     }
 
     @AfterEach
@@ -61,18 +56,13 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         sql("DELETE FROM t;");
     }
 
-    /*@Override
-    protected int initialNodes() { // change  !!!
-        return 1;
-    }*/
-
     @Test
     public void testTableSizeUpdates() throws InterruptedException {
         long milestone1 = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
         String selectQuery = "select * from t";
 
-        insert(0, milestone1 - 1);
+        insert(0, milestone1);
 
         sql(selectQuery);
 
@@ -98,7 +88,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         sql(selectQuery);
 
-        insert(0, milestone1 - 1);
+        insert(0, milestone1);
 
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().join();
@@ -110,7 +100,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         long milestone2 = computeNextMilestone(milestone1, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-        insert(milestone1, milestone1 + milestone2 - 1);
+        insert(milestone1, milestone1 + milestone2);
 
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().join();
@@ -130,7 +120,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         return Math.max((long) (currentSize * staleRowsFraction), minStaleRowsCount);
     }
 
+    /** Inclusively 'from', exclusively 'to' bounds. */
     private static void insert(long from, long to) {
-        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", from, to);
+        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", from, to - 1);
     }
 }

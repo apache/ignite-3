@@ -58,7 +58,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;

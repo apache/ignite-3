@@ -97,7 +97,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
-import org.apache.ignite.internal.sql.engine.statistic.StatisticAggregator;
+import org.apache.ignite.internal.sql.engine.statistic.StatisticAggregatorImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -206,8 +206,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final EventLog eventLog;
 
-    private final StatisticAggregator statAggregator;
-
     /** Constructor. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -255,7 +253,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        statAggregator = new StatisticAggregator(placementDriver, clockService::current);
+        StatisticAggregatorImpl statAggregator =
+                new StatisticAggregatorImpl(placementDriver, clockService::current, clusterSrvc.messagingService());
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler, statAggregator);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -310,8 +309,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 busyLock,
                 clockService
         ));
-
-        statAggregator.messaging(clusterSrvc.messagingService());
 
         var exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry,

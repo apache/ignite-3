@@ -27,6 +27,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.jetbrains.annotations.Nullable;
 
+/** Partition modification handler. */
 public class PartitionModificationCounterHandler {
     private final PartitionModificationCounter modificationCounter;
     private final int tableId;
@@ -36,6 +37,7 @@ public class PartitionModificationCounterHandler {
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
+    /** Constructor. */
     public PartitionModificationCounterHandler(
             int tableId,
             int partitionId,

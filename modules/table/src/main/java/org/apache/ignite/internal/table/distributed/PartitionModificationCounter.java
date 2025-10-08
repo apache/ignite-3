@@ -21,7 +21,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.MessagingService;
 
 /**
  * Keeps track of the number of modifications of a partition.

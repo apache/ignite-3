@@ -63,7 +63,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -2210,75 +2209,6 @@ public class InternalTableImpl implements InternalTable {
     public ScheduledExecutorService streamerFlushExecutor() {
         return streamerFlushExecutor.get();
     }
-
-/*
-    @Override
-    public CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate() {
-        //return CompletableFuture.completedFuture(null);
-
-        Set<String> peers = new HashSet<>();
-
-        for (int partId = 0; partId < partitions; partId++) {
-            ReplicationGroupId replicaGroupId = targetReplicationGroupId(partId);
-
-            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicaGroupId, clockService.current());
-
-            if (meta != null) {
-                peers.add(meta.getLeaseholder());
-            } else {
-                assert false; //!!! remove it
-            }
-        }
-
-        GetEstimatedSizeWithLastModifiedTsRequest request = TABLE_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
-                .tableId(tableId).build();
-
-        for (String leaseHolderName : peers) {
-
-        }
-
-*/
-/*        HybridTimestamp now = clockService.current();
-
-        var invokeFutures = new CompletableFuture<?>[partitions];
-
-        for (int partId = 0; partId < partitions; partId++) {
-            ReplicationGroupId replicaGroupId = targetReplicationGroupId(partId);
-            ReplicationGroupIdMessage partitionIdMessage = serializeReplicationGroupId(replicaGroupId);
-
-            Function<ReplicaMeta, ReplicaRequest> requestFactory = replicaMeta ->
-                    TABLE_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
-                            .groupId(partitionIdMessage)
-                            .tableId(tableId)
-                            .enlistmentConsistencyToken(enlistmentConsistencyToken(replicaMeta))
-                            .timestamp(now)
-                            .build();
-
-            invokeFutures[partId] = sendToPrimaryWithRetry(replicaGroupId, now, 5, requestFactory);
-        }
-
-        return allOf(invokeFutures).thenApply(v -> {
-            HybridTimestamp last = null;
-            long count = 0L;
-            for (CompletableFuture<?> fut : invokeFutures) {
-                CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> requestFut =
-                        (CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>) fut;
-                LongObjectImmutablePair<HybridTimestamp> result = requestFut.join();
-
-                if (last == null) {
-                    last = result.value();
-                } else {
-                    if (result.value().compareTo(last) > 0) {
-                        last = result.value();
-                    }
-                }
-                count += result.keyLong();
-            }
-            return LongObjectImmutablePair.of(count, last);
-        });*//*
-
-    }
-*/
 
     @Override
     public CompletableFuture<Long> estimatedSize() {

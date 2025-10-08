@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -76,10 +78,10 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;
-    private final StatisticAggregator statAggregator;
+    private final StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> statSupplier;
 
     static final long INITIAL_DELAY = 5_000;
-    static final long REFRESH_PERIOD = 5_000;
+    static final long REFRESH_PERIOD = 20_000;
 
     /** Constructor. */
     public SqlStatisticManagerImpl(
@@ -87,17 +89,17 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
             CatalogService catalogService,
             LowWatermark lowWatermark,
             ScheduledExecutorService scheduler,
-            StatisticAggregator statAggregator
+            StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> statSupplier
     ) {
         this.tableManager = tableManager;
         this.catalogService = catalogService;
         this.lowWatermark = lowWatermark;
         this.scheduler = scheduler;
-        this.statAggregator = statAggregator;
+        this.statSupplier = statSupplier;
     }
 
     /**
-     * Returns approximate number of rows in table by their id.
+     * Returns approximate number of rows in table.
      *
      * <p>Returns the previous known value or {@value SqlStatisticManagerImpl#DEFAULT_TABLE_SIZE} as default value. Can start process to
      * update asked statistics in background to have updated values for future requests.
@@ -129,11 +131,12 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     }
 
     private void update() {
-        System.err.println("!!!! update call");
+        if (!latestUpdateFut.get().isDone()) {
+            return;
+        }
+
         for (Map.Entry<Integer, ActualSize> ent : tableSizeMap.entrySet()) {
             Integer tableId = ent.getKey();
-
-            System.err.println("!!!! update call " + tableId);
 
             if (droppedTables.contains(tableId)) {
                 continue;
@@ -146,7 +149,11 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                 continue;
             }
 
-            CompletableFuture<Void> updateResult = statAggregator.estimatedSizeWithLastUpdate(tableView.internalTable())
+            CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tableView.internalTable())
+                    .exceptionally(e -> {
+                        LOG.debug("Can't calculate size for table [id={}].", e, tableId);
+                        return null;
+                    })
                     .thenAccept(res -> {
                         // the table can be concurrently dropped and we shouldn't put new value in this case.
                         tableSizeMap.computeIfPresent(tableId, (k, v) -> {
@@ -157,10 +164,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
 
                             return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
                         });
-                    }).exceptionally(e -> {
-                        System.err.println("Can't calculate size for table: " + tableId);
-                        LOG.info("Can't calculate size for table [id={}].", e, tableId);
-                        return null;
                     });
 
             latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));

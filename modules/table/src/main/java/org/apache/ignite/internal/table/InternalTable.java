@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;

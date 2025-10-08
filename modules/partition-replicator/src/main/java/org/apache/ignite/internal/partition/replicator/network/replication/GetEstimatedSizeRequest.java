@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;

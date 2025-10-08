@@ -38,6 +38,8 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
+import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsResponse;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
@@ -53,8 +55,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Binar
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsResponse;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
