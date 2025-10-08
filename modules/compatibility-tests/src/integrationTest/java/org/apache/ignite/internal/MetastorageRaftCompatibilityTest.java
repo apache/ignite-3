@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
@@ -41,7 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
-// Old version node starts with disabled colocation.
+// Old version node starts with disabled colocation. New version nodes that start from scratch would fail to join cluster.
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
 
@@ -59,7 +59,7 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     protected void setupBaseVersion(Ignite baseIgnite) {
         createDefaultTables(baseIgnite);;
 
-        Path nodeWorkDir = workDir.resolve("cluster").resolve(cluster.getRunnerNodes().get(0).nodeName());
+        Path nodeWorkDir = cluster.workDir(0, false);
 
         cluster.stop();
 
@@ -98,10 +98,10 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     }
 
     private static void deleteMetastorageDbDir(Path nodeWorkDir) {
-        try {
-            IgniteUtils.deleteIfExistsThrowable(new ComponentWorkingDir(nodeWorkDir.resolve("metastorage")).dbPath());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        Path metastorageDbDir = new ComponentWorkingDir(nodeWorkDir.resolve("metastorage")).dbPath();
+
+        // There is no IgniteUtils.delete() method yet.
+        assertTrue(Files.exists(metastorageDbDir));
+        assertTrue(IgniteUtils.deleteIfExists(metastorageDbDir));
     }
 }

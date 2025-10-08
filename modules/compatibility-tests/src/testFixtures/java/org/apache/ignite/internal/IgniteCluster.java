@@ -44,6 +44,7 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -389,6 +390,13 @@ public class IgniteCluster {
     /** Returns list of runner nodes. */
     public List<RunnerNode> getRunnerNodes() {
         return runnerNodes;
+    }
+
+    /** Returns node's work directory. */
+    public Path workDir(int nodeIndex, boolean embedded) {
+        String nodeName = embedded ? igniteServers.get(nodeIndex).name() : runnerNodes.get(nodeIndex).nodeName();
+
+        return clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
     }
 
     private static String seedAddressesString(ClusterConfiguration clusterConfiguration, int seedsCount) {
