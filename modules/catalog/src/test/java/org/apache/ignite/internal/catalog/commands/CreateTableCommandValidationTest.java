@@ -326,21 +326,6 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @Test
-    void exceptionIsThrownIfZoneNeitherSpecifiedExplicitlyNorDefaultWasSet() {
-        CreateTableCommandBuilder builder = CreateTableCommand.builder();
-
-        Catalog catalog = emptyCatalog();
-
-        CatalogCommand command = fillProperties(builder).zone(null).build();
-
-        assertThrowsWithCause(
-                () -> command.get(new UpdateContext(catalog)),
-                CatalogValidationException.class,
-                "The zone is not specified. Please specify zone explicitly or set default one."
-        );
-    }
-
     private static CreateTableCommandBuilder fillProperties(CreateTableCommandBuilder builder) {
         return builder
                 .schemaName(SCHEMA_NAME)

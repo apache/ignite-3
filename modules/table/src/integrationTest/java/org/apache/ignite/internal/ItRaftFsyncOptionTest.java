@@ -17,16 +17,10 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.function.Predicate;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -49,12 +43,6 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
     @ValueSource(booleans = {false, true})
     void fsyncOptionOnlyAffectsPartitions(boolean fsyncInConfig) {
         cluster.startAndInit(1, "ignite.raft.fsync = " + fsyncInConfig, paramsBuilder -> {});
-
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
-        }
 
         node(0).sql().executeScript("CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
 
@@ -93,13 +81,5 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
         WriteOptions writeOptions = logStorageFactory.writeOptions();
         assertNotNull(writeOptions);
         assertEquals(expectedFsync, writeOptions.sync());
-    }
-
-    private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
-        IgniteImpl node = unwrapIgniteImpl(node(0));
-        CatalogManager catalogManager = node.catalogManager();
-        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
-
-        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
     }
 }
