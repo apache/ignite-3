@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import org.apache.ignite.raft.jraft.error.RaftError;
+import static org.apache.ignite.raft.jraft.error.RaftError.ECANCELED;import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.util.Copiable;
 
 //A Status encapsulates the result of an operation. It may indicate success,
@@ -156,6 +156,13 @@ public class Status implements Copiable<Status> {
      */
     public boolean isOk() {
         return this.state == null || this.state.code == 0;
+    }
+
+    /**
+     * Returns true when status is canceled.
+     */
+    public boolean isCanceled() {
+        return this.state != null && this.state.code == ECANCELED.getNumber();
     }
 
     /**
