@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
-import java.util.Objects;
-import org.apache.ignite.sql.ColumnType;
+import org.apache.calcite.rel.type.RelDataType;
 
 /**
  * CacheKey.
@@ -27,17 +26,13 @@ import org.apache.ignite.sql.ColumnType;
  * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
-    static final ColumnType[] EMPTY_CLASS_ARRAY = {};
-
     private final int catalogVersion;
 
     private final String schemaName;
 
     private final String query;
 
-    private final Object contextKey;
-
-    private final Object[] paramTypes;
+    private final RelDataType[] paramTypes;
 
     private int hashCode = 0;
 
@@ -47,21 +42,12 @@ public class CacheKey {
      * @param catalogVersion Catalog version.
      * @param schemaName Schema name.
      * @param query      Query string.
-     * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
-     *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(
-            int catalogVersion,
-            String schemaName,
-            String query,
-            Object contextKey,
-            ColumnType[] paramTypes
-    ) {
+    public CacheKey(int catalogVersion, String schemaName, String query, RelDataType[] paramTypes) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
-        this.contextKey = contextKey;
         this.paramTypes = paramTypes;
     }
 
@@ -71,6 +57,10 @@ public class CacheKey {
 
     String schemaName() {
         return schemaName;
+    }
+
+    RelDataType[] paramTypes() {
+        return paramTypes;
     }
 
     /** {@inheritDoc} */
@@ -94,9 +84,6 @@ public class CacheKey {
         if (!query.equals(cacheKey.query)) {
             return false;
         }
-        if (!Objects.equals(contextKey, cacheKey.contextKey)) {
-            return false;
-        }
 
         return Arrays.deepEquals(paramTypes, cacheKey.paramTypes);
     }
@@ -107,7 +94,6 @@ public class CacheKey {
             int result = catalogVersion;
             result = 31 * result + schemaName.hashCode();
             result = 31 * result + query.hashCode();
-            result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
             result = 31 * result + Arrays.deepHashCode(paramTypes);
 
             hashCode = result;
