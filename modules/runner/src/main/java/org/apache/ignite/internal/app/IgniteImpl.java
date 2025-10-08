@@ -557,6 +557,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 configPath,
                 localConfigurationGenerator,
+                vaultMgr,
                 modules.local()
         );
 

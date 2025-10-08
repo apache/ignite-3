@@ -341,9 +341,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             node2.waitWatches();
 
-            CompletableFuture<Data> storageData = node2.cfgStorage.readDataOnRecovery();
+            CompletableFuture<ReadEntry> storageData = node2.cfgStorage.readDataOnRecovery();
 
-            assertThat(storageData.thenApply(Data::values), willBe(equalTo(data)));
+            assertThat(storageData.thenApply(ReadEntry::values), willBe(equalTo(data)));
         } finally {
             node2.stop();
         }

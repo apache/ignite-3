@@ -57,7 +57,7 @@ public abstract class ConfigurationStorageTest {
     public void testReadAllLatest() {
         var data = Map.of("foo1", "bar1", "foo2", "bar2");
 
-        assertThat(storage.write(data, 0), willBe(equalTo(true)));
+        assertThat(storage.write(new WriteEntryImpl(data, 0)), willBe(equalTo(true)));
 
         // test that reading without a prefix retrieves all data
         CompletableFuture<Map<String, ? extends Serializable>> latestData = storage.readAllLatest("");

@@ -32,7 +32,7 @@ public interface ConfigurationStorage extends ManuallyCloseable {
      *
      * @return Future that resolves into extracted values and version or a {@link StorageException} if the data could not be read.
      */
-    CompletableFuture<Data> readDataOnRecovery();
+    CompletableFuture<ReadEntry> readDataOnRecovery();
 
     /**
      * Retrieves the most recent values which keys start with the given prefix, regardless of the current storage version.
@@ -58,7 +58,7 @@ public interface ConfigurationStorage extends ManuallyCloseable {
      * @return Future that gives you {@code true} if successfully written, {@code false} if version of the storage is different from the
      *      passed argument and {@link StorageException} if failed to write data.
      */
-    CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long ver);
+    CompletableFuture<Boolean> write(WriteEntry writeEntry);
 
     /**
      * Add listener to the storage that notifies of data changes.
@@ -81,10 +81,6 @@ public interface ConfigurationStorage extends ManuallyCloseable {
 
     /** Returns a future that will be completed with the latest revision of the configuration storage. */
     CompletableFuture<Long> localRevision();
-
-    default boolean supportDefaults() {
-        return true;
-    }
 
     /**
      * Closes the storage.

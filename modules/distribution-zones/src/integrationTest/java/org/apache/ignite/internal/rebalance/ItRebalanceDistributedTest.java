@@ -270,6 +270,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
@@ -1296,7 +1297,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NodeConfiguration.KEY),
-                    new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
+                    new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, new InMemoryVaultService(), null),
                     nodeCfgGenerator,
                     new TestConfigurationValidator()
             );

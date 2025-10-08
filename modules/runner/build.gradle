@@ -109,6 +109,8 @@ dependencies {
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testAnnotationProcessor libs.auto.service
 
+    defaultsGeneratorImplementation testFixtures(project(':ignite-vault'))
+
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
