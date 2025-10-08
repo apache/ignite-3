@@ -48,8 +48,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandler;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
