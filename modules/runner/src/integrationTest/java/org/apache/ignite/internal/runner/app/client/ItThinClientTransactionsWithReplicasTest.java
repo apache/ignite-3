@@ -51,9 +51,9 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
         IgniteImpl server2 = TestWrappers.unwrapIgniteImpl(server(2));
 
-        List<Tuple> tuples0 = generateKeysForNode(100, 1, map, server0.clusterService().topologyService().localMember(), table);
-        List<Tuple> tuples1 = generateKeysForNode(100, 1, map, server1.clusterService().topologyService().localMember(), table);
-        List<Tuple> tuples2 = generateKeysForNode(100, 1, map, server2.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples0 = generateKeysForNode(100, 1, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples1 = generateKeysForNode(100, 1, map, server1.cluster().localNode(), table);
+        List<Tuple> tuples2 = generateKeysForNode(100, 1, map, server2.cluster().localNode(), table);
 
         if (tuples0.isEmpty() || tuples1.isEmpty() || tuples2.isEmpty()) {
             return; // Skip the test if assignments are bad.

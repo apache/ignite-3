@@ -113,6 +113,7 @@ public class CheckpointManager {
             PageIoRegistry ioRegistry,
             LogSyncer logSyncer,
             ExecutorService commonExecutorService,
+            CheckpointMetricSource checkpointMetricSource,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -168,7 +169,8 @@ public class CheckpointManager {
                 pageSize,
                 checkpointConfig,
                 logSyncer,
-                partitionDestructionLockManager
+                partitionDestructionLockManager,
+                checkpointMetricSource
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(

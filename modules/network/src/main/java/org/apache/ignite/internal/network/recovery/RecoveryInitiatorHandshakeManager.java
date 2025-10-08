@@ -380,7 +380,10 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
     private void handleClusterIdMismatch(HandshakeStartMessage msg) {
         String message = String.format(
-                "%s:%s belongs to cluster %s which is different from this one %s, connection rejected; should CMG/MG repair be finished?",
+                "%s:%s belongs to cluster %s which is different from this one %s, connection rejected. "
+                        + "Either another cluster is reachable for this one on the network (in this case make sure they can't connect), "
+                        + "or CMG/MG repair was made and then some node that did not participate one is started "
+                        + "(in this case, migrate the started node to the repaired cluster using CMG/MG repair tools)",
                 msg.serverNode().name(), msg.serverNode().id(), msg.serverClusterId(), clusterIdSupplier.clusterId()
         );
 
@@ -435,7 +438,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
             giveUpClinch();
         } else {
-            localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
+            localHandshakeCompleteFuture.completeExceptionally(HandshakeManagerUtils.createExceptionFromRejectionMessage(msg));
         }
     }
 

@@ -28,6 +28,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.RecipientLeftException;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
@@ -83,5 +85,11 @@ class HandshakeManagerUtils {
                 .host(node.address().host())
                 .port(node.address().port())
                 .build();
+    }
+
+    static Exception createExceptionFromRejectionMessage(HandshakeRejectedMessage msg) {
+        return msg.reason() == HandshakeRejectionReason.STOPPING
+                ? new RecipientLeftException(msg.message())
+                : new HandshakeException(msg.message());
     }
 }

@@ -134,7 +134,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class),
-                partitionDestructionLockManager
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         );
 
         assertNull(checkpointer.runner());
@@ -170,7 +171,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class),
-                new PartitionDestructionLockManager()
+                new PartitionDestructionLockManager(),
+                new CheckpointMetricSource("test")
         ));
 
         assertNull(checkpointer.lastCheckpointProgress());
@@ -277,7 +279,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class),
-                new PartitionDestructionLockManager()
+                new PartitionDestructionLockManager(),
+                new CheckpointMetricSource("test")
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -311,7 +314,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class),
-                partitionDestructionLockManager
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         ));
 
         checkpointer.scheduledProgress()
@@ -413,7 +417,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 PAGE_SIZE,
                 checkpointConfig,
                 mockLogSyncer,
-                partitionDestructionLockManager
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -451,7 +456,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class),
-                partitionDestructionLockManager
+                partitionDestructionLockManager,
+                new CheckpointMetricSource("test")
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -479,7 +485,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class),
-                new PartitionDestructionLockManager()
+                new PartitionDestructionLockManager(),
+                new CheckpointMetricSource("test")
         );
 
         // Checks case 0 deviation.

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
@@ -116,6 +117,15 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private volatile ExecutorService destructionExecutor;
 
+    /**
+     * Executor service for performing asynchronous I/O operations.
+     *
+     * <p>
+     * This field is initialized when the engine is configured to use asynchronous file I/O.
+     * If the engine is configured to use synchronous I/O, this field remains {@code null}.
+     */
+    private volatile @Nullable ExecutorService asyncIoExecutor;
+
     private final FailureManager failureManager;
 
     private final LogSyncer logSyncer;
@@ -182,9 +192,24 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         int pageSize = engineConfig.pageSizeBytes().value();
 
         try {
-            FileIoFactory fileIoFactory = engineConfig.checkpoint().useAsyncFileIoFactory().value()
-                    ? new AsyncFileIoFactory()
-                    : new RandomAccessFileIoFactory();
+            FileIoFactory fileIoFactory;
+
+            if (engineConfig.checkpoint().useAsyncFileIoFactory().value()) {
+                asyncIoExecutor = new ThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        Runtime.getRuntime().availableProcessors(),
+                        100,
+                        TimeUnit.MILLISECONDS,
+                        new LinkedBlockingQueue<>(),
+                        IgniteThreadFactory.create(igniteInstanceName, "persistent-mv-async-io", LOG)
+                );
+
+                fileIoFactory = new AsyncFileIoFactory(asyncIoExecutor);
+            } else {
+                asyncIoExecutor = null;
+
+                fileIoFactory = new RandomAccessFileIoFactory();
+            }
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 
@@ -194,6 +219,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         }
 
         partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize, StoragePartitionMeta.FACTORY);
+
+        var checkpointMetricSource = new CheckpointMetricSource("storage." + ENGINE_NAME + ".checkpoint");
 
         try {
             checkpointManager = new CheckpointManager(
@@ -207,6 +234,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     ioRegistry,
                     logSyncer,
                     commonExecutorService,
+                    checkpointMetricSource,
                     pageSize
             );
 
@@ -240,6 +268,16 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         executor.allowCoreThreadTimeOut(true);
 
         destructionExecutor = executor;
+
+        var storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
+
+        PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
+
+        metricManager.registerSource(checkpointMetricSource);
+        metricManager.registerSource(storageMetricSource);
+
+        metricManager.enable(checkpointMetricSource);
+        metricManager.enable(storageMetricSource);
     }
 
     /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
@@ -262,12 +300,16 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             ExecutorService destructionExecutor = this.destructionExecutor;
             CheckpointManager checkpointManager = this.checkpointManager;
             FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
+            ExecutorService asyncIoExecutor = this.asyncIoExecutor;
 
             Stream<AutoCloseable> resources = Stream.of(
                     destructionExecutor == null
                             ? null
                             : (AutoCloseable) () -> shutdownAndAwaitTermination(destructionExecutor, 30, TimeUnit.SECONDS),
                     checkpointManager == null ? null : (AutoCloseable) checkpointManager::stop,
+                    asyncIoExecutor == null
+                            ? null
+                            : (AutoCloseable) () -> shutdownAndAwaitTermination(asyncIoExecutor, 30, TimeUnit.SECONDS),
                     filePageStoreManager == null ? null : (AutoCloseable) filePageStoreManager::stop
             );
 
