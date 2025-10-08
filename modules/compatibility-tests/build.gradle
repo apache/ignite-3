@@ -47,6 +47,7 @@ dependencies {
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     integrationTestImplementation libs.micronaut.junit5
