@@ -469,7 +469,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final MetricManager metricManager;
-    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+    private final PartitionModificationCounterHandlerFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
 
     /**
@@ -544,7 +544,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             MetricManager metricManager,
-            PartitionModificationCounterFactory partitionModificationCounterFactory
+            PartitionModificationCounterHandlerFactory partitionModificationCounterFactory
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;

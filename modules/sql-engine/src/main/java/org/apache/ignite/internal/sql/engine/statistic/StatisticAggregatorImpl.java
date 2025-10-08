@@ -108,7 +108,7 @@ public class StatisticAggregatorImpl implements
                                 return LongObjectImmutablePair.of(response.estimatedSize(), response.lastModified());
                             });
                 })
-                .toArray(CompletableFuture[]::new);;
+                .toArray(CompletableFuture[]::new);
 
         return allOf(invokeFutures).thenApply(unused -> {
             HybridTimestamp last = HybridTimestamp.MIN_VALUE;

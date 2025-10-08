@@ -259,7 +259,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -1113,8 +1113,8 @@ public class IgniteImpl implements Ignite {
                 metricManager
         );
 
-        PartitionModificationCounterFactory partitionModificationCounterFactory =
-                new PartitionModificationCounterFactory(clockService::current, messagingServiceReturningToStorageOperationsPool);
+        PartitionModificationCounterHandlerFactory partitionModificationCounterFactory =
+                new PartitionModificationCounterHandlerFactory(clockService::current, clusterSvc.messagingService());
 
         distributedTblMgr = new TableManager(
                 name,

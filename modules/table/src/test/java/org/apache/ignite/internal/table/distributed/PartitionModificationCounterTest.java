@@ -31,8 +31,8 @@ import org.junit.jupiter.api.Test;
  * Tests for class {@link PartitionModificationCounter}.
  */
 public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
-    private final PartitionModificationCounterFactory factory =
-            new PartitionModificationCounterFactory(() -> HybridTimestamp.hybridTimestamp(1L), mock(MessagingService.class));
+    private final PartitionModificationCounterHandlerFactory factory =
+            new PartitionModificationCounterHandlerFactory(() -> HybridTimestamp.hybridTimestamp(1L), mock(MessagingService.class));
 
     @Test
     void initialValues() {
@@ -41,7 +41,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
             PartitionModificationCounterHandler counter = factory.create(() -> 0L, 0, 0);
 
             assertThat(counter.value(), is(0L));
-            assertThat(counter.nextMilestone(), is(PartitionModificationCounterFactory.DEFAULT_MIN_STALE_ROWS_COUNT));
+            assertThat(counter.nextMilestone(), is(PartitionModificationCounterHandlerFactory.DEFAULT_MIN_STALE_ROWS_COUNT));
             assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
         }
 
@@ -65,7 +65,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
     @Test
     void lastMilestoneTimestampUpdate() {
         int rowsCount = 10_000;
-        int threshold = (int) (rowsCount * PartitionModificationCounterFactory.DEFAULT_STALE_ROWS_FRACTION);
+        int threshold = (int) (rowsCount * PartitionModificationCounterHandlerFactory.DEFAULT_STALE_ROWS_FRACTION);
         PartitionModificationCounterHandler counter = factory.create(() -> rowsCount, 0, 0);
 
         assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));

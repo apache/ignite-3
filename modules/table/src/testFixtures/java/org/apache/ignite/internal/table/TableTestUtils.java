@@ -48,7 +48,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandler;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -75,8 +75,8 @@ public class TableTestUtils {
             new PartitionModificationCounterHandler(0, 0, mock(MessagingService.class), () -> 0, NOOP_PARTITION_MODIFICATION_COUNTER);
 
     /** No-op partition modification counter factory. */
-    public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
-            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
+    public static PartitionModificationCounterHandlerFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
+            new PartitionModificationCounterHandlerFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
                 @Override
                 public PartitionModificationCounterHandler create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
                     return NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER;

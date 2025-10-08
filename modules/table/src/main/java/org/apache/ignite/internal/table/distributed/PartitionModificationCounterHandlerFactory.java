@@ -25,7 +25,7 @@ import org.apache.ignite.internal.network.MessagingService;
 /**
  * Factory for producing {@link PartitionModificationCounterHandler}.
  */
-public class PartitionModificationCounterFactory {
+public class PartitionModificationCounterHandlerFactory {
     public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
 
     public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
@@ -33,7 +33,10 @@ public class PartitionModificationCounterFactory {
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
     private final MessagingService messagingService;
 
-    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier, MessagingService messagingService) {
+    public PartitionModificationCounterHandlerFactory(
+            Supplier<HybridTimestamp> currentTimestampSupplier,
+            MessagingService messagingService
+    ) {
         this.currentTimestampSupplier = currentTimestampSupplier;
         this.messagingService = messagingService;
     }
@@ -44,7 +47,7 @@ public class PartitionModificationCounterFactory {
      * @param partitionSizeSupplier Partition size supplier.
      * @param tableId Table ID.
      * @param partitionId partition ID.
-     * @return New partition modification counter.
+     * @return New partition modification handler.
      */
     public PartitionModificationCounterHandler create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
         PartitionModificationCounter modificationCounter = new PartitionModificationCounter(

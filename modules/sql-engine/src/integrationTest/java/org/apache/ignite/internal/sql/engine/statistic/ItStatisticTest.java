@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
-import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.DEFAULT_MIN_STALE_ROWS_COUNT;
-import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.DEFAULT_STALE_ROWS_FRACTION;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.DEFAULT_STALE_ROWS_FRACTION;
 import static org.hamcrest.Matchers.is;
 
 import java.time.Duration;
@@ -42,7 +42,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
-
         sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
     }
 
@@ -56,8 +55,9 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         sql("DELETE FROM t;");
     }
 
+    /** Simple case demonstrating that the tables size is being updated during statistic refresh interval. */
     @Test
-    public void testTableSizeUpdates() throws InterruptedException {
+    public void testTableSizeUpdates() {
         long milestone1 = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
         String selectQuery = "select * from t";
@@ -105,6 +105,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().join();
 
+        // query not cached in plans
         assertQuery("select 2 from t")
                 .matches(nodeRowCount("TableScan", is((int) (milestone1 + milestone2))))
                 .check();

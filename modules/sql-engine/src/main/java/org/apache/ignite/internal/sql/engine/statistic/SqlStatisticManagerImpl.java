@@ -150,21 +150,30 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
             }
 
             CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tableView.internalTable())
-                    .exceptionally(e -> {
-                        LOG.debug("Can't calculate size for table [id={}].", e, tableId);
-                        return null;
-                    })
-                    .thenAccept(res -> {
-                        // the table can be concurrently dropped and we shouldn't put new value in this case.
-                        tableSizeMap.computeIfPresent(tableId, (k, v) -> {
-                            // stale update
-                            if (v.timestamp.compareTo(res.value()) > 0) {
-                                return v;
-                            }
+                    .handle((res, err) -> {
+                            if (err != null) {
+                                LOG.debug("Can't calculate size for table [id={}].", err, tableId);
 
-                            return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
-                        });
-                    });
+                                return null;
+                            } else {
+                                // the table can be concurrently dropped and we shouldn't put new value in this case.
+                                tableSizeMap.compute(tableId, (k, v) -> {
+                                    if (v == null) {
+                                        return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                    }
+
+                                    // check for stale update
+                                    if (v.timestamp.compareTo(res.value()) > 0) {
+                                        return v;
+                                    }
+
+                                    return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                });
+
+                                return null;
+                            }
+                        }
+                    );
 
             latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
         }
