@@ -509,7 +509,8 @@ public class PrepareServiceImpl implements PrepareService {
             }
 
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey = createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
+            CacheKey cacheKey =
+                    createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
@@ -743,7 +744,8 @@ public class PrepareServiceImpl implements PrepareService {
 
         return validateDml(parsedResult, sqlNode, ctx).thenCompose(stmt -> {
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey = createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
+            CacheKey cacheKey =
+                    createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
