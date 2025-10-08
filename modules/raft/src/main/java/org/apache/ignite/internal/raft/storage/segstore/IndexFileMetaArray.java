@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import java.util.Arrays;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An array of {@link IndexFileMeta}.
@@ -72,9 +73,10 @@ class IndexFileMetaArray {
     }
 
     /**
-     * Returns the array index of the {@link IndexFileMeta} containing the given Raft log index or {@code -1} if no such meta exists.
+     * Returns the {@link IndexFileMeta} containing the given Raft log index or {@code null} if no such meta exists.
      */
-    int find(long logIndex) {
+    @Nullable
+    IndexFileMeta find(long logIndex) {
         int lowArrayIndex = 0;
         int highArrayIndex = size - 1;
 
@@ -88,10 +90,10 @@ class IndexFileMetaArray {
             } else if (logIndex > midValue.lastLogIndex()) {
                 lowArrayIndex = middleArrayIndex + 1;
             } else {
-                return middleArrayIndex;
+                return midValue;
             }
         }
 
-        return -1;
+        return null;
     }
 }
