@@ -73,6 +73,19 @@ public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
         });
     }
 
+    /**
+     * Tests that data nodes are correctly recovered on the newer version of cluster.
+     *
+     * <ul>
+     *     <li>write data nodes on old cluster, in legacy format, with some data nodes filter</li>
+     *     <li>start new version of cluster, check that data nodes are recovered correctly</li>
+     *     <li>changes filter to default and waits for data nodes recalculation</li>
+     *     <li>changes the filter once again, to another filter, waits for data nodes recalculation</li>
+     *     <li>restarts the cluster once again</li>
+     *     <li>checks that the latest data nodes version is still active</li>
+     * </ul>
+     * @throws Exception If failed.
+     */
     @Test
     void testDataNodesChange() throws Exception {
         cluster.stop();
