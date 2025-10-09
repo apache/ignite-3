@@ -1230,7 +1230,8 @@ public class DataNodesManager {
                     clearTimer(zoneScaleUpTimerKey(zoneId)),
                     clearTimer(zoneScaleDownTimerKey(zoneId)),
                     clearTimer(zonePartitionResetTimerKey(zoneId)),
-                    removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop()
+                    removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop(),
+                    removeLegacyDataNodes ? remove(zonesNodesAttributes()) : noop()
             ).yield(true);
 
             Iif iif = iif(condition, update, ops().yield(false));

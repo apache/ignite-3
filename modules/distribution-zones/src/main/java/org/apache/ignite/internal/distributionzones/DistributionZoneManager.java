@@ -550,17 +550,11 @@ public class DistributionZoneManager extends
             assert nodeAttributesEntry.value() != null;
 
             logicalTopologyByRevision.put(recoveryRevision, deserializeLogicalTopologySet(lastHandledTopologyEntry.value()));
-
-            nodesAttributes = DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value());
         }
 
         assert lastHandledTopologyEntry.value() == null
                 || logicalTopology(recoveryRevision).equals(deserializeLogicalTopologySet(lastHandledTopologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
-
-        assert nodeAttributesEntry.value() == null
-                || nodesAttributes.equals(DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value()))
-                : "Initial value of nodes' attributes was changed after initialization from the Meta Storage manager.";
     }
 
     /**
@@ -624,8 +618,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology},
-     * {@link DistributionZoneManager#nodesAttributes} are updated.
+     * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology}.
      * This fields are saved to Meta Storage, also timers are scheduled.
      * Note that all futures of Meta Storage updates that happen in this method are returned from this method.
      *
@@ -657,8 +650,6 @@ public class DistributionZoneManager extends
             futures.add(f);
         }
 
-        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
-
         futures.add(saveRecoverableStateToMetastorage(revision, newLogicalTopology));
 
         return allOf(futures.toArray(CompletableFuture[]::new));
@@ -686,7 +677,6 @@ public class DistributionZoneManager extends
             Set<NodeWithAttributes> newLogicalTopology
     ) {
         Operation[] puts = {
-                put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes())),
                 put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision)),
                 put(
                         zonesLastHandledTopology(),
@@ -757,16 +747,6 @@ public class DistributionZoneManager extends
     @TestOnly
     public void setAdditionalNodeFilter(Predicate<NodeWithAttributes> filter) {
         additionalNodeFilter = filter;
-    }
-
-    /**
-     * Returns local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
-     * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     *
-     * @return Mapping {@code nodeId} -> node's attributes.
-     */
-    public Map<UUID, NodeWithAttributes> nodesAttributes() {
-        return nodesAttributes;
     }
 
     public Set<NodeWithAttributes> logicalTopology() {
