@@ -1199,6 +1199,9 @@ public class DataNodesManager {
 
         Set<NodeWithAttributes> dataNodes = filterDataNodes(unfilteredDataNodes, zone);
 
+        LOG.info("Recovering data nodes of distribution zone from legacy data nodes [zoneId={}, unfilteredDataNodes={}, "
+                + "filter='{}', dataNodes={}]", zone.id(), nodeNames(unfilteredDataNodes), zone.filter(), nodeNames(dataNodes));
+
         return initZone(zone.id(), clockService.current(), dataNodes, true);
     }
 
