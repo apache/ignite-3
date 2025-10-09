@@ -84,6 +84,7 @@ public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
      *     <li>restarts the cluster once again</li>
      *     <li>checks that the latest data nodes version is still active</li>
      * </ul>
+     *
      * @throws Exception If failed.
      */
     @Test

@@ -150,15 +150,6 @@ public class DistributionZoneManager extends
      */
     private final ConcurrentSkipListMap<Long, Set<NodeWithAttributes>> logicalTopologyByRevision = new ConcurrentSkipListMap<>();
 
-    /**
-     * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
-     * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-24608 properly clean up this map
-     *
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
-     */
-    private Map<UUID, NodeWithAttributes> nodesAttributes = new ConcurrentHashMap<>();
-
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
 
