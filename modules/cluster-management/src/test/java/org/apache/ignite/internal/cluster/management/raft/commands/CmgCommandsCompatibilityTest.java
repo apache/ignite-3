@@ -41,6 +41,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Compatibility testing for serialization/deserialization of CMG raft commands. It is verified that deserialization of commands that were
  * created on earlier versions of the product will be error-free.
+ *
+ * <p> For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
+ * {@code GridUnsafe#unaligned()} for the tests to pass.</p>
  */
 public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     private static final MessageSerializationRegistry REGISTRY = new MessageSerializationRegistryImpl();
@@ -65,8 +68,8 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     @Test
     void testInitCmgStateCommand() {
         InitCmgStateCommand command = decodeCommand(
-                "CCkIPgg/ACoAAAAAAAAARQAAAAAAAAANY2x1c3Rlck5hbWUxAwljbWdOb2RlMgljbWdOb2RlMQIAKgAAAAAAAABFAAAAAAAAAAxpbml0Q29uZmlnMQMIbXNOb"
-                        + "2RlMghtc05vZGUxCXZlcnNpb24xCD0GaG9zdDEAKgAAAAAAAABFAAAAAAAAAAZuYW1lMekHAglwcm9maWxlMQIIc3lzS2V5MQhzeXNWYWwxAgl1"
+                "CCkIPgg/AAAAAAAAAAAqAAAAAAAAAEUNY2x1c3Rlck5hbWUxAwljbWdOb2RlMQljbWdOb2RlMgIAAAAAAAAAACoAAAAAAAAARQxpbml0Q29uZmlnMQMIbXNOb"
+                        + "2RlMQhtc05vZGUyCXZlcnNpb24xCD0GaG9zdDEAAAAAAAAAACoAAAAAAAAARQZuYW1lMekHAglwcm9maWxlMQIIc3lzS2V5MQhzeXNWYWwxAgl1"
                         + "c2VyS2V5MQl1c2VyVmFsMQ=="
         );
 
@@ -77,7 +80,7 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     @Test
     void testJoinReadyCommand() {
         JoinReadyCommand command = decodeCommand(
-                "CC0IPQZob3N0MQAqAAAAAAAAAEUAAAAAAAAABm5hbWUx6QcCCXByb2ZpbGUxAghzeXNLZXkxCHN5c1ZhbDECCXVzZXJLZXkxCXVzZXJWYWwx"
+                "CC0IPQZob3N0MQAAAAAAAAAAKgAAAAAAAABFBm5hbWUx6QcCCXByb2ZpbGUxAghzeXNLZXkxCHN5c1ZhbDECCXVzZXJLZXkxCXVzZXJWYWwx"
         );
 
         assertEquals(createClusterNodeMessage(), command.node());
@@ -86,7 +89,7 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     @Test
     void testJoinRequestCommand() {
         JoinRequestCommand command = decodeCommand(
-                "CCwIPwAqAAAAAAAAAEUAAAAAAAAADWNsdXN0ZXJOYW1lMQg9Bmhvc3QxACoAAAAAAAAARQAAAAAAAAAGbmFtZTHpBwIJcHJvZmlsZTECCHN5c0tleTEIc3lzV"
+                "CCwIPwAAAAAAAAAAKgAAAAAAAABFDWNsdXN0ZXJOYW1lMQg9Bmhvc3QxAAAAAAAAAAAqAAAAAAAAAEUGbmFtZTHpBwIJcHJvZmlsZTECCHN5c0tleTEIc3lzV"
                         + "mFsMQIJdXNlcktleTEJdXNlclZhbDEJdmVyc2lvbjE="
         );
 
@@ -98,7 +101,7 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     @Test
     void testNodesLeaveCommand() {
         NodesLeaveCommand command = decodeCommand(
-                "CC4CCD0GaG9zdDEAKgAAAAAAAABFAAAAAAAAAAZuYW1lMekHAglwcm9maWxlMQIIc3lzS2V5MQhzeXNWYWwxAgl1c2VyS2V5MQl1c2VyVmFsMQ=="
+                "CC4CCD0GaG9zdDEAAAAAAAAAACoAAAAAAAAARQZuYW1lMekHAglwcm9maWxlMQIIc3lzS2V5MQhzeXNWYWwxAgl1c2VyS2V5MQl1c2VyVmFsMQ=="
         );
 
         assertEquals(Set.of(createClusterNodeMessage()), command.nodes());
@@ -165,5 +168,82 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
 
     private static <T extends Command> T decodeCommand(String base64) {
         return deserializeCommand(Base64.getDecoder().decode(base64));
+    }
+
+    @SuppressWarnings("unused")
+    void serializeAll() {
+        List<Command> commands = List.of(
+                createChangeMetaStorageInfoCommand(),
+                createInitCmgStateCommand(),
+                createJoinReadyCommand(),
+                createJoinRequestCommand(),
+                createNodesLeaveCommand(),
+                createReadLogicalTopologyCommand(),
+                createReadMetaStorageInfoCommand(),
+                createReadStateCommand(),
+                createReadValidatedNodesCommand()
+        );
+
+        for (Command c : commands) {
+            log.info(">>>>> Serialized command: [c={}, base64='{}']", c.getClass().getSimpleName(), encodeCommand(c));
+        }
+    }
+
+    private static ReadValidatedNodesCommand createReadValidatedNodesCommand() {
+        return FACTORY.readValidatedNodesCommand().build();
+    }
+
+    private static ReadStateCommand createReadStateCommand() {
+        return FACTORY.readStateCommand().build();
+    }
+
+    private static ReadMetaStorageInfoCommand createReadMetaStorageInfoCommand() {
+        return FACTORY.readMetaStorageInfoCommand().build();
+    }
+
+    private static ReadLogicalTopologyCommand createReadLogicalTopologyCommand() {
+        return FACTORY.readLogicalTopologyCommand().build();
+    }
+
+    private static NodesLeaveCommand createNodesLeaveCommand() {
+        return FACTORY.nodesLeaveCommand()
+                .nodes(Set.of(createClusterNodeMessage()))
+                .build();
+    }
+
+    private static JoinRequestCommand createJoinRequestCommand() {
+        return FACTORY.joinRequestCommand()
+                .node(createClusterNodeMessage())
+                .version("version1")
+                .clusterTag(ClusterTag.clusterTag(FACTORY, "clusterName1", uuid()))
+                .build();
+    }
+
+    private static JoinReadyCommand createJoinReadyCommand() {
+        return FACTORY.joinReadyCommand()
+                .node(createClusterNodeMessage())
+                .build();
+    }
+
+    private static InitCmgStateCommand createInitCmgStateCommand() {
+        return FACTORY.initCmgStateCommand()
+                .node(createClusterNodeMessage())
+                .clusterState(createClusterState())
+                .build();
+    }
+
+    private static ChangeMetaStorageInfoCommand createChangeMetaStorageInfoCommand() {
+        return FACTORY.changeMetaStorageInfoCommand()
+                .metaStorageNodes(Set.of("msNode1", "msNode2"))
+                .metastorageRepairingConfigIndex(42L)
+                .build();
+    }
+
+    private static byte[] serializeCommand(Command c) {
+        return MARSHALLER.marshall(c);
+    }
+
+    private static String encodeCommand(Command c) {
+        return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
 }
