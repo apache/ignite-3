@@ -57,6 +57,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
@@ -330,6 +331,15 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         } catch (IOException e) {
             throw new StorageException("Failed to destroy table directory: {}", e, tableId);
         }
+    }
+
+    @Override
+    public void addTableMetrics(StorageTableDescriptor tableDescriptor, StorageEngineTablesMetricSource metricSource) {
+        PersistentPageMemoryDataRegion region = regions.get(tableDescriptor.getStorageProfile());
+
+        assert region != null : "Adding metrics to the table with non-existent data region. [tableDescriptor=" + tableDescriptor + ']';
+
+        region.addTableMetrics(tableDescriptor, metricSource);
     }
 
     /**

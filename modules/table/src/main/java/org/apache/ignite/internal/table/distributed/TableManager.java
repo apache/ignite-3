@@ -211,6 +211,7 @@ import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
@@ -1840,7 +1841,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
                 nodeProperties.colocationEnabled(),
-                createAndRegisterMetricsSource(tableName)
+                createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
         return new TableImpl(
@@ -3637,29 +3638,59 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private TableMetricSource createAndRegisterMetricsSource(QualifiedName tableName) {
+    private TableMetricSource createAndRegisterMetricsSource(StorageTableDescriptor tableDescriptor, QualifiedName tableName) {
+        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
+
+        // Engine can be null sometimes, see "TableManager.createTableStorage".
+        if (engine != null) {
+            StorageEngineTablesMetricSource engineMetricSource = new StorageEngineTablesMetricSource(engine.name(), tableName);
+
+            engine.addTableMetrics(tableDescriptor, engineMetricSource);
+
+            try {
+                metricManager.registerSource(engineMetricSource);
+                metricManager.enable(engineMetricSource);
+            } catch (Exception e) {
+                String message = "Failed to register storage engine metrics source for table [id={}, name={}].";
+                LOG.warn(message, e, tableDescriptor.getId(), tableName);
+            }
+        }
+
         TableMetricSource source = new TableMetricSource(tableName);
 
         try {
             metricManager.registerSource(source);
             metricManager.enable(source);
         } catch (Exception e) {
-            LOG.warn("Failed to register metrics source for table [name={}].", e, source.qualifiedTableName());
+            LOG.warn("Failed to register metrics source for table [id={}, name={}].", e, tableDescriptor.getId(), tableName);
         }
 
         return source;
     }
 
     private void unregisterMetricsSource(int tableId) {
-        try {
-            TableViewInternal table = startedTables.get(tableId);
-            if (table == null) {
-                return;
-            }
+        TableViewInternal table = startedTables.get(tableId);
+        if (table == null) {
+            return;
+        }
 
-            metricManager.unregisterSource(table.metrics());
+        QualifiedName tableName = table.qualifiedName();
+
+        try {
+            metricManager.unregisterSource(TableMetricSource.sourceName(tableName));
         } catch (Exception e) {
-            LOG.warn("Failed to unregister metrics source for table [tableId={}].", e, tableId);
+            LOG.warn("Failed to unregister metrics source for table [id={}, name={}].", e, tableId, tableName);
+        }
+
+        String storageProfile = table.internalTable().storage().getTableDescriptor().getStorageProfile();
+        StorageEngine engine = dataStorageMgr.engineByStorageProfile(storageProfile);
+        // Engine can be null sometimes, see "TableManager.createTableStorage".
+        if (engine != null) {
+            try {
+                metricManager.unregisterSource(StorageEngineTablesMetricSource.sourceName(engine.name(), tableName));
+            } catch (Exception e) {
+                LOG.warn("Failed to unregister storage engine metrics source for table [id={}, name={}].", e, tableId, tableName);
+            }
         }
     }
 
