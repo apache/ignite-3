@@ -285,7 +285,7 @@ public class IgniteCluster {
         return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
     }
 
-    public ServerRegistration startEmbeddedNode(
+    private ServerRegistration startEmbeddedNode(
             @Nullable TestInfo testInfo,
             int nodeIndex,
             int nodesCount
@@ -324,7 +324,6 @@ public class IgniteCluster {
 
         return new ServerRegistration(node, registrationFuture);
     }
-
 
     private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
         try (ProjectConnection connection = GradleConnector.newConnector()

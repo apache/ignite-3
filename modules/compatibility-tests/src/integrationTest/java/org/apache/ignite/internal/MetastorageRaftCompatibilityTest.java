@@ -17,18 +17,28 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -44,7 +54,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 // Old version node starts with disabled colocation. New version nodes that start from scratch would fail to join cluster.
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
-
     @Override
     protected boolean restartWithCurrentEmbeddedVersion() {
         return false;
@@ -57,9 +66,17 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-        createDefaultTables(baseIgnite);;
+        createDefaultTables(baseIgnite);
 
         Path nodeWorkDir = cluster.workDir(0, false);
+
+        try {
+            deployMetastorageJob();
+
+            runMetastorageJob();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         cluster.stop();
 
@@ -93,8 +110,11 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     }
 
     private static void checkMetastorage(Ignite ignite) {
-        // Won't work if metastorage is not restored correctly.
-        sql(ignite, "SELECT * FROM " + TABLE_NAME_TEST);
+        MetaStorageManager metaStorageManager = unwrapIgniteImpl(ignite).metaStorageManager();
+        CompletableFuture<Entry> valueFut = metaStorageManager.get(ByteArray.fromString("put"));
+        assertThat(valueFut, willCompleteSuccessfully());
+
+        assertThat(valueFut.join().value(), is("value".getBytes()));
     }
 
     private static void deleteMetastorageDbDir(Path nodeWorkDir) {
@@ -103,5 +123,20 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
         // There is no IgniteUtils.delete() method yet.
         assertTrue(Files.exists(metastorageDbDir));
         assertTrue(IgniteUtils.deleteIfExists(metastorageDbDir));
+    }
+
+    private <T, R> void deployMetastorageJob() throws IOException {
+        CompatibilityTestCommon.deployJob(MetastorageOperationsJob.class, workDir, deploymentClient);
+    }
+
+    private void runMetastorageJob() {
+        try (IgniteClient client = cluster.createClient()) {
+            JobDescriptor<String, Void> job = JobDescriptor.builder(MetastorageOperationsJob.class)
+                    .units(new DeploymentUnit(MetastorageOperationsJob.class.getName(), "1.0.0")).build();
+
+            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
+
+            client.compute().execute(jobTarget, job, "");
+        }
     }
 }
