@@ -31,6 +31,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Distribution metric source for a specific zone.
@@ -49,8 +50,14 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
     /** Node name, aka consistent identifier. */
     private final String nodeName;
 
-    /** Zone descriptor. */
-    private final CatalogZoneDescriptor zoneDescriptor;
+    /** Zone identifier. */
+    private final int zoneId;
+
+    /** Number of partitions in the zone. */
+    private final int partitions;
+
+    /** Zone name. */
+    private final String zoneName;
 
     /**
      * Creates a new zone metric source for a specific zone.
@@ -63,8 +70,10 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
         super(sourceName(zoneDescriptor.name()), "Distribution zone metrics.", "zones");
 
         this.nodeName = consistentId;
-        this.zoneDescriptor = zoneDescriptor;
         this.metaStorageManager = metaStorageManager;
+        this.zoneId = zoneDescriptor.id();
+        this.partitions = zoneDescriptor.partitions();
+        this.zoneName = zoneDescriptor.name();
     }
 
     /**
@@ -81,11 +90,18 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
             CatalogZoneDescriptor zoneDescriptor,
             ZoneMetricSource source
     ) {
-        super(sourceName(zoneDescriptor.name()), "Distribution zone metrics.", "zones", source.holder());
+        super(sourceName(zoneDescriptor.name()), "Distribution zone metrics.", "zones", Holder.copyFrom(source));
+
+        assert zoneDescriptor.id() == source.zoneId :
+                "Zone ID mismatch [expected=" + zoneDescriptor.id() + ", actual=" + source.zoneId + ']';
+        assert zoneDescriptor.partitions() == source.partitions :
+                "Partitions count mismatch [expected=" + zoneDescriptor.partitions() + ", actual=" + source.partitions + ']';
 
         this.nodeName = consistentId;
-        this.zoneDescriptor = zoneDescriptor;
         this.metaStorageManager = metaStorageManager;
+        this.zoneId = zoneDescriptor.id();
+        this.partitions = zoneDescriptor.partitions();
+        this.zoneName = zoneDescriptor.name();
     }
 
     /**
@@ -100,7 +116,7 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
 
     @Override
     protected Holder createHolder() {
-        return new Holder(this);
+        return new Holder(zoneId, partitions, metaStorageManager, nodeName);
     }
 
     /**
@@ -109,7 +125,7 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
      * @return Zone name.
      */
     public String zoneName() {
-        return zoneDescriptor.name();
+        return zoneName;
     }
 
     /** Holder. */
@@ -117,29 +133,35 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
         /** List of actual metrics. */
         private final List<Metric> metrics;
 
-        Holder(ZoneMetricSource source) {
+        static @Nullable Holder copyFrom(ZoneMetricSource source) {
+            // All metrics are gauge and must relate to the same zone.
+            // So, we can safely reuse the existing holder.
+            return source.holder();
+        }
+
+        Holder(int zoneId, int partitions, MetaStorageManager metaStorageManager, String nodeName) {
             var localUnrebalancedPartitionsCount = new IntGauge(
                     LOCAL_UNREBALANCED_PARTITIONS_COUNT,
                     "The number of partitions that should be moved to this node.",
                     () -> {
                         int unrebalancedParts = 0;
 
-                        for (int i = 0; i < source.zoneDescriptor.partitions(); ++i) {
-                            ZonePartitionId zonePartitionId = new ZonePartitionId(source.zoneDescriptor.id(), i);
+                        for (int i = 0; i < partitions; ++i) {
+                            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, i);
 
-                            Entry pendingEntry = source.metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
+                            Entry pendingEntry = metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
                             AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
 
                             if (pendingAssignmentsQueue != null) {
-                                Entry stableEntry = source.metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId));
+                                Entry stableEntry = metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId));
 
                                 Assignments stableAssignments = stableEntry.value() == null
                                         ? Assignments.EMPTY
                                         : Assignments.fromBytes(stableEntry.value());
                                 Assignments targetAssignments = pendingAssignmentsQueue.peekLast();
 
-                                boolean stable = presentInAssignments(stableAssignments, source.nodeName);
-                                boolean pending = presentInAssignments(targetAssignments, source.nodeName);
+                                boolean stable = presentInAssignments(stableAssignments, nodeName);
+                                boolean pending = presentInAssignments(targetAssignments, nodeName);
 
                                 if (!stable && pending) {
                                     unrebalancedParts += 1;
@@ -157,14 +179,14 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
                     () -> {
                         int unrebalancedParts = 0;
 
-                        for (int i = 0; i < source.zoneDescriptor.partitions(); ++i) {
-                            ZonePartitionId zonePartitionId = new ZonePartitionId(source.zoneDescriptor.id(), i);
+                        for (int i = 0; i < partitions; ++i) {
+                            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, i);
 
-                            Entry pendingEntry = source.metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
+                            Entry pendingEntry = metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
                             AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
 
                             if (pendingAssignmentsQueue != null) {
-                                Entry stableEntry = source.metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId));
+                                Entry stableEntry = metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId));
 
                                 Assignments stableAssignments = stableEntry.value() == null
                                         ? Assignments.EMPTY
