@@ -13,7 +13,6 @@ object Project : Project({
         AssembleTestClasses,
         CodeStyle,
         Javadoc,
-        MavenBuildCheck,
         MentionTicket,
         PMD,
         Spotbugs,
