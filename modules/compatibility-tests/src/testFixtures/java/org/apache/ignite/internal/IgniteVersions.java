@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.stream.Collectors.toMap;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import org.apache.ignite.internal.logger.Loggers;
 
 /**
@@ -37,7 +40,7 @@ public class IgniteVersions {
     private Map<String, String> configOverrides;
     private Map<String, String> storageProfilesOverrides;
     private List<String> apiExcludes;
-    private List<Version> versions;
+    private Map<String, Version> versions;
 
     public IgniteVersions() {
     }
@@ -62,8 +65,8 @@ public class IgniteVersions {
         this.artifacts = artifacts;
         this.configOverrides = configOverrides;
         this.storageProfilesOverrides = storageProfilesOverrides;
-        this.versions = versions;
-        this.apiExcludes = apiExcludes != null ? apiExcludes : List.of();
+        this.versions = versions.stream().collect(toMap(Version::version, Function.identity()));
+        this.apiExcludes = apiExcludes;
     }
 
     public List<String> artifacts() {
@@ -82,8 +85,24 @@ public class IgniteVersions {
         return apiExcludes;
     }
 
-    public List<Version> versions() {
+    public Map<String, Version> versions() {
         return versions;
+    }
+
+    /**
+     * Gets a value from a version data using specified accessor if the version exists, otherwise returns default value provided by the
+     * supplier using this instance.
+     *
+     * @param version Version to get data for.
+     * @param accessor Function to get the value from a version data.
+     * @param defaultSupplier Default value function.
+     * @param <T>
+     * @return
+     */
+    public <T> T getOrDefault(String version, Function<Version, T> accessor, Function<IgniteVersions, T> defaultSupplier) {
+        Version versionData = versions.get(version);
+        T result = versionData != null ? accessor.apply(versionData) : null;
+        return result != null ? result : defaultSupplier.apply(this);
     }
 
     /**
@@ -116,7 +135,7 @@ public class IgniteVersions {
             this.version = version;
             this.configOverrides = configOverrides;
             this.storageProfilesOverrides = storageProfilesOverrides;
-            this.apiExcludes = apiExcludes != null ? apiExcludes : List.of();
+            this.apiExcludes = apiExcludes;
         }
 
         public String version() {

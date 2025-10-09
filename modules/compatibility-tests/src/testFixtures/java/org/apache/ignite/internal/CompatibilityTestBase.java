@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -238,8 +237,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      */
     public static List<String> baseVersions(String... skipVersions) {
         Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
-        return IgniteVersions.INSTANCE.versions().stream()
-                .map(Version::version)
+        return IgniteVersions.INSTANCE.versions().keySet().stream()
                 .filter(Predicate.not(skipSet::contains))
                 .collect(Collectors.toList());
     }
