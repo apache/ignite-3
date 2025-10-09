@@ -118,7 +118,7 @@ object ReleaseBuild : BuildType({
             snapshot {}
             artifacts {
                 cleanDestination = true
-                artifactRules = "artifacts/openapi.yaml => openapi"
+                artifactRules = "openapi.yaml => openapi"
             }
         }
         dependency(Rpm) {
