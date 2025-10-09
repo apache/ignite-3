@@ -88,14 +88,14 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     void testReapplication() {
         cluster.startEmbedded(1, false);
 
-        checkMetastorage(cluster.node(0));
+        checkMetastorage();
     }
 
     @Test
     void testStreamToFollower() throws InterruptedException {
         cluster.startEmbedded(2, false);
 
-        checkMetastorage(cluster.node(0));
+        checkMetastorage();
 
         MetaStorageManager newNodeMetastorage = unwrapIgniteImpl(cluster.node(1)).metaStorageManager();
         MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
@@ -104,9 +104,9 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
         assertTrue(waitForCondition(() -> oldNodeMetastorage.appliedRevision() == newNodeMetastorage.appliedRevision(), 10_000));
     }
 
-    private void checkMetastorage(Ignite ignite) {
+    private void checkMetastorage() {
         // Will fail if metastorage is corrupted.
-        sql("SELECT * FROM" + TABLE_NAME_TEST);
+        sql("SELECT * FROM " + TABLE_NAME_TEST);
     }
 
     private static void deleteMetastorageDbDir(Path nodeWorkDir) {
