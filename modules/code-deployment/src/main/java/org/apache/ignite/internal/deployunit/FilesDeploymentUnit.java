@@ -17,48 +17,37 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-
-import java.io.IOException;
-import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Standard implementation of {@link DeploymentUnit} that handles regular (non-compressed) deployment content.
- *
- * <p>This class represents a deployment unit containing a collection of files, where each file is
- * represented as a mapping from file name to its corresponding {@link InputStream}. This implementation is designed for straightforward
- * deployment scenarios where the content does not require compression or special extraction handling.
- *
+ * Implementation of {@link DeploymentUnit} that handles regular deployment content in local FS path.
  */
 public class FilesDeploymentUnit implements DeploymentUnit {
-    /**
-     * The deployment unit content represented as a mapping from file names to their input streams. Each entry represents a file within the
-     * deployment unit.
-     */
-    private final Map<String, InputStream> content;
+    private final Map<String, Path> content;
 
     /**
      * Constructor.
      */
-    public FilesDeploymentUnit(Map<String, InputStream> content) {
+    public FilesDeploymentUnit(Map<String, Path> content) {
         this.content = content;
     }
 
     /**
      * Returns the deployment unit content as a map of file names to input streams.
      */
-    public Map<String, InputStream> content() {
+    public Map<String, Path> content() {
         return content;
     }
 
     @Override
     public void close() throws Exception {
-        closeAll(content.values());
+
     }
 
     @Override
-    public <T> void process(DeploymentUnitProcessor<T> processor, T arg) throws IOException {
-        processor.processContent(this, arg);
+    public <T, R> CompletableFuture<R> process(DeploymentUnitProcessor<T, R> processor, T arg) {
+        return processor.processFilesContent(this, arg);
     }
 }

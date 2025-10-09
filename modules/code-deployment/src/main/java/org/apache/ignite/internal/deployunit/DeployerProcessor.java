@@ -19,14 +19,25 @@ package org.apache.ignite.internal.deployunit;
 
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.apache.ignite.internal.deployunit.DeployerProcessor.DeployArg;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
+import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link DeploymentUnitProcessor} that deploys deployment unit content to the file system.
@@ -50,37 +61,103 @@ import java.util.zip.ZipInputStream;
  *     <li>{@code Path} - the argument type representing the target deployment directory</li>
  * </ul>
  */
-public class DeployerProcessor implements DeploymentUnitProcessor<Path> {
-    /** Suffix used for temporary files during the deployment process. */
-    private static final String TMP_SUFFIX = ".tmp";
+class DeployerProcessor implements DeploymentUnitProcessor<DeployArg, Boolean> {
+    private static final IgniteLogger LOG = Loggers.forClass(DeployerProcessor.class);
 
-    @Override
-    public void processContent(FilesDeploymentUnit unit, Path unitFolder) throws IOException {
-        for (Entry<String, InputStream> e : unit.content().entrySet()) {
-            doDeploy(unitFolder, e.getKey(), e.getValue());
-        }
+    private final Executor executor;
+
+    public DeployerProcessor(Executor executor) {
+        this.executor = executor;
     }
 
     @Override
-    public void processContentWithUnzip(ZipDeploymentUnit unit, Path unitFolder) throws IOException {
-        ZipInputStream zis = unit.zis();
-        ZipEntry ze;
-        while ((ze = zis.getNextEntry()) != null) {
-            if (ze.isDirectory()) {
-                // To support empty dirs.
-                Path entryPath = unitFolder.resolve(ze.getName());
-                Files.createDirectories(entryPath);
-            } else {
-                doDeploy(unitFolder, ze.getName(), zis);
+    public CompletableFuture<Boolean> processFilesContent(FilesDeploymentUnit unit, DeployArg deployArg) {
+        return wrap(() -> {
+            for (Entry<String, Path> e : unit.content().entrySet()) {
+                Files.move(e.getValue(), deployArg.unitFolder.resolve(e.getKey()), ATOMIC_MOVE, REPLACE_EXISTING);
             }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> processStreamContent(StreamDeploymentUnit unit, DeployArg deployArg) {
+        CompletableFuture<?>[] array = unit.content()
+                .entrySet()
+                .stream()
+                .map(e ->
+                        deployArg.tempStorage.store(e.getKey(), e.getValue())
+                                .thenCompose(path -> doDeploy(deployArg.unitFolder, e.getKey(), path))
+                ).toArray(CompletableFuture[]::new);
+        return allOf(array).handle(((unused, throwable) -> throwable == null));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> processContentWithUnzip(ZipDeploymentUnit unit, DeployArg deployArg) {
+        ZipInputStream zis = unit.zis();
+        try {
+            ZipEntry nextEntry = zis.getNextEntry();
+            return processZipFile(nextEntry, zis, deployArg)
+                    .handle((unused, throwable) -> throwable == null);
+        } catch (IOException e) {
+            return falseCompletedFuture();
         }
     }
 
-    private static void doDeploy(Path unitFolder, String entryName, InputStream is) throws IOException {
-        Path unitPath = unitFolder.resolve(entryName);
-        Files.createDirectories(unitPath.getParent());
-        Path unitPathTmp = unitFolder.resolve(entryName + TMP_SUFFIX);
-        Files.copy(is, unitPathTmp, REPLACE_EXISTING);
-        Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
+    private CompletableFuture<Void> processZipFile(@Nullable ZipEntry ze, ZipInputStream zis, DeployArg deployArg) {
+        if (ze == null) {
+            return nullCompletedFuture();
+        }
+        String entryName = ze.getName();
+        if (ze.isDirectory()) {
+            try {
+                // To support empty dirs.
+                Path entryPath = deployArg.unitFolder.resolve(entryName);
+                Files.createDirectories(entryPath);
+                return processZipFile(zis.getNextEntry(), zis, deployArg);
+            } catch (IOException e) {
+                return failedFuture(e);
+            }
+        } else {
+            return deployArg.tempStorage.store(entryName, zis)
+                    .thenCompose(path -> doDeploy(deployArg.unitFolder, entryName, path))
+                    .thenCompose(unused -> {
+                        try {
+                            return processZipFile(zis.getNextEntry(), zis, deployArg);
+                        } catch (IOException e) {
+                            return failedFuture(e);
+                        }
+                    });
+        }
+    }
+
+    private CompletableFuture<Boolean> wrap(RunnableX runnableX) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                runnableX.run();
+                return true;
+            } catch (Throwable t) {
+                LOG.error("Failed to process deploy action.", t);
+                return false;
+            }
+        }, executor);
+    }
+
+    private CompletableFuture<Boolean> doDeploy(Path unitFolder, String entryName, Path deployment) {
+        return wrap(() -> {
+            Path unitPath = unitFolder.resolve(entryName);
+            Files.createDirectories(unitPath.getParent());
+            Files.move(deployment, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
+        });
+    }
+
+    static class DeployArg {
+        private final Path unitFolder;
+
+        private final TempStorage tempStorage;
+
+        DeployArg(Path unitFolder, TempStorage tempStorage) {
+            this.unitFolder = unitFolder;
+            this.tempStorage = tempStorage;
+        }
     }
 }

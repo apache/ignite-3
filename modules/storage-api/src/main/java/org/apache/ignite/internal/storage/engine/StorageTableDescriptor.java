@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import org.apache.ignite.internal.tostring.S;
+
 /**
  * Table descriptor.
  */
@@ -59,5 +61,10 @@ public class StorageTableDescriptor {
      */
     public String getStorageProfile() {
         return storageProfile;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(StorageTableDescriptor.class, this);
     }
 }

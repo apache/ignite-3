@@ -32,4 +32,7 @@ public class DeploymentConfigurationSchema {
     @Value(hasDefault = true)
     @PublicName(legacyNames = "deploymentLocation")
     public final String location = "deployment";
+
+    @Value(hasDefault = true)
+    public final String tempLocation = "deployment.tmp";
 }

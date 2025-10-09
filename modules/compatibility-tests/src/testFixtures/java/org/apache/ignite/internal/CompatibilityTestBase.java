@@ -78,6 +78,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
+            + "  rest.ssl.port: {},\n"
             + "  failureHandler.dumpThreadsOnFailure: false,\n"
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: {nodeName: \"{}\", nodeIndex: \"{}\"}\n"

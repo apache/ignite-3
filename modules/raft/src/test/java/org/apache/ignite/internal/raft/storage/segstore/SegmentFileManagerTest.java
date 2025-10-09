@@ -153,8 +153,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         String expectedMessage = String.format(
                 "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.",
-                FILE_SIZE + SegmentPayload.overheadSize(),
-                FILE_SIZE - HEADER_RECORD.length
+                FILE_SIZE,
+                FILE_SIZE - HEADER_RECORD.length - SegmentPayload.overheadSize()
         );
 
         assertThat(e.getMessage(), is(expectedMessage));

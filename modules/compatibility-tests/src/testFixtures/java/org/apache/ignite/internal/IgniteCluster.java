@@ -421,6 +421,7 @@ public class IgniteCluster {
                 seedAddressesString(clusterConfiguration, nodesCount),
                 clusterConfiguration.baseClientPort() + nodeIndex,
                 clusterConfiguration.baseHttpPort() + nodeIndex,
+                clusterConfiguration.baseHttpsPort() + nodeIndex,
                 nodeName,
                 nodeIndex
         );

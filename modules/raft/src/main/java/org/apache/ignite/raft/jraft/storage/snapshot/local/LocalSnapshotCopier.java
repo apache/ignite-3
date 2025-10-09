@@ -260,6 +260,10 @@ public class LocalSnapshotCopier extends SnapshotCopier {
                 setError(session.status().getCode(), session.status().getErrorMsg());
                 return;
             }
+            // No need in further snapshot processing if it was already cancelled and the metaBuf is null.
+            if (metaBuf.getBuffer() == null && session.status().isCanceled()) {
+                return;
+            }
             if (!this.remoteSnapshot.getMetaTable().loadFromIoBufferAsRemote(metaBuf.getBuffer())) {
                 LOG.warn("Bad meta_table format");
                 setError(-1, "Bad meta_table format from remote");

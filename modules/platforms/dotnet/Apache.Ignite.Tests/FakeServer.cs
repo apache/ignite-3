@@ -36,6 +36,8 @@ namespace Apache.Ignite.Tests
     using Internal.Proto.BinaryTuple;
     using Internal.Proto.MsgPack;
     using MessagePack;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
     using Network;
 
     /// <summary>
@@ -147,6 +149,11 @@ namespace Apache.Ignite.Tests
 
             cfg.Endpoints.Clear();
             cfg.Endpoints.Add(Endpoint);
+
+            if (cfg.LoggerFactory is NullLoggerFactory)
+            {
+                cfg.LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+            }
 
             return await IgniteClient.StartAsync(cfg);
         }

@@ -30,6 +30,15 @@ public class MarshallerException extends IgniteException {
      * Creates a new exception with the given error message.
      *
      * @param msg Error message.
+     */
+    public MarshallerException(String msg) {
+        super(Marshalling.COMMON_ERR, msg);
+    }
+
+    /**
+     * Creates a new exception with the given error message.
+     *
+     * @param msg Error message.
      * @param cause Non-null throwable cause.
      */
     public MarshallerException(String msg, @Nullable Throwable cause) {
