@@ -50,7 +50,7 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
     private final String nodeName;
 
     /** Zone descriptor. */
-    public final CatalogZoneDescriptor zoneDescriptor;
+    private final CatalogZoneDescriptor zoneDescriptor;
 
     /**
      * Creates a new zone metric source for a specific zone.
@@ -60,16 +60,56 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
      * @param zoneDescriptor Zone descriptor.
      */
     public ZoneMetricSource(MetaStorageManager metaStorageManager, String consistentId, CatalogZoneDescriptor zoneDescriptor) {
-        super(SOURCE_NAME + '.' + zoneDescriptor.name(), "Distribution zone metrics.", "zones");
+        super(sourceName(zoneDescriptor.name()), "Distribution zone metrics.", "zones");
 
         this.nodeName = consistentId;
         this.zoneDescriptor = zoneDescriptor;
         this.metaStorageManager = metaStorageManager;
     }
 
+    /**
+     * Creates a new zone metric source for a specific zone.
+     *
+     * @param metaStorageManager Meta Storage manager.
+     * @param consistentId Name of the node.
+     * @param zoneDescriptor Zone descriptor.
+     * @param source Source to copy metrics from.
+     */
+    public ZoneMetricSource(
+            MetaStorageManager metaStorageManager,
+            String consistentId,
+            CatalogZoneDescriptor zoneDescriptor,
+            ZoneMetricSource source
+    ) {
+        super(sourceName(zoneDescriptor.name()), "Distribution zone metrics.", "zones", source.holder());
+
+        this.nodeName = consistentId;
+        this.zoneDescriptor = zoneDescriptor;
+        this.metaStorageManager = metaStorageManager;
+    }
+
+    /**
+     * Returns a metric source name for the given distribution zone.
+     *
+     * @param zoneName Zone name.
+     * @return Source name.
+     */
+    public static String sourceName(String zoneName) {
+        return SOURCE_NAME + '.' + zoneName;
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder(this);
+    }
+
+    /**
+     * Returns the name of the zone.
+     *
+     * @return Zone name.
+     */
+    public String zoneName() {
+        return zoneDescriptor.name();
     }
 
     /** Holder. */
