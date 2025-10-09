@@ -18,15 +18,11 @@
 package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -35,10 +31,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Compatibility tests for data nodes and data nodes history. */
+/** Partition Raft log compatibility tests when changing replicas. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
+public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends CompatibilityTestBase {
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -74,64 +70,18 @@ public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
     }
 
     @Test
-    void testDataNodesChange() throws Exception {
+    void testIncreaseReplicas() throws Exception {
         cluster.stop();
 
-        int initialNodesCount = nodesCount();
-        cluster.startEmbedded(initialNodesCount, false);
+        cluster.startEmbedded(nodesCount(), false);
 
-        IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
-        int zoneId = node.catalogManager().activeCatalog(node.clock().currentLong()).zone(ZONE_NAME).id();
-
-        log.info("Test: zoneId=" + zoneId);
-
-        Set<String> dataNodes = dataNodes(node, zoneId);
-
-        assertEquals(Set.of(cluster.node(0).name()), dataNodes);
-
-        log.info("Test: changing filter to default.");
-
-        sql(String.format(
-                "ALTER ZONE %s SET DATA_NODES_FILTER='%s'",
-                ZONE_NAME,
-                DEFAULT_FILTER
-        ));
+        sql(String.format("ALTER ZONE %s SET REPLICAS=3, DATA_NODES_FILTER='$..*'", ZONE_NAME));
 
         // Let's wait for replication to complete on other nodes.
-        waitForZoneState(ZONE_NAME, zone -> zone.filter().equals(DEFAULT_FILTER));
+        waitForZoneState(ZONE_NAME, zone -> zone.replicas() == 3);
 
-        waitForCondition(() -> dataNodes(node, zoneId).size() == nodesCount(), 10_000);
-
-        log.info("Test: changing filter.");
-
-        String newFilter = "$[?(@.nodeIndex == \"1\")]";
-        sql(String.format(
-                "ALTER ZONE %s SET DATA_NODES_FILTER='%s'",
-                ZONE_NAME,
-                newFilter
-        ));
-
-        // Let's wait for replication to complete on other nodes.
-        waitForZoneState(ZONE_NAME, zone -> zone.filter().equals(newFilter));
-
-        waitForCondition(() -> dataNodes(node, zoneId).equals(Set.of(cluster.node(1).name())), 10_000);
-
-        // Check that we read the new data nodes after one more restart.
-        cluster.stop();
-
-        cluster.startEmbedded(initialNodesCount, false);
-
-        IgniteImpl restartedNode = unwrapIgniteImpl(cluster.node(0));
-
-        Set<String> dataNodesAfterRestart = dataNodes(restartedNode, zoneId);
-
-        assertEquals(Set.of(cluster.node(1).name()), dataNodesAfterRestart);
-    }
-
-    private static Set<String> dataNodes(IgniteImpl node, int zoneId) {
-        CompletableFuture<Set<String>> fut = node.distributionZoneManager().currentDataNodes(zoneId);
-        assertThat(fut, willCompleteSuccessfully());
-        return fut.join();
+        assertThat(sql(cluster.node(1), String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
+        assertThat(sql(cluster.node(2), String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
     }
 
     private void waitForZoneState(String zoneName, Predicate<CatalogZoneDescriptor> predicate)
