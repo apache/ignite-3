@@ -55,7 +55,7 @@ public class JdbcStatement2 implements Statement {
     static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
             QueryModifier.ALLOW_AFFECTED_ROWS_RESULT, QueryModifier.ALLOW_APPLIED_RESULT);
 
-    static final EnumSet<QueryModifier> ALL = EnumSet.allOf(QueryModifier.class);
+    static final Set<QueryModifier> ALL = QueryModifier.ALL;
 
     private static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
             JdbcConnection2.RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED;
@@ -365,7 +365,7 @@ public class JdbcStatement2 implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(QueryModifier.ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         return isQuery();
     }

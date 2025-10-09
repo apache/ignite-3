@@ -752,6 +752,8 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
 
     @Override
     public long executeLargeUpdate(String sql, String[] columnNames) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLException("The method 'executeLargeUpdate(String, String[])' is called on PreparedStatement instance.",
                 SqlStateCode.UNSUPPORTED_OPERATION);
     }
