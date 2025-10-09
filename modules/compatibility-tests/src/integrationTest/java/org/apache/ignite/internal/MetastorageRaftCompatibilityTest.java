@@ -17,28 +17,23 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -68,12 +63,12 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     protected void setupBaseVersion(Ignite baseIgnite) {
         createDefaultTables(baseIgnite);
 
-        Path nodeWorkDir = cluster.workDir(0, false);
+        Path nodeWorkDir = cluster.runnerNodeWorkDir(0);
 
         try {
-            deployMetastorageJob();
+            deploySendAllMetastorageCommandTypesJob();
 
-            runMetastorageJob();
+            runSendAllMetastorageCommandTypesJob();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -109,12 +104,9 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
         assertTrue(waitForCondition(() -> oldNodeMetastorage.appliedRevision() == newNodeMetastorage.appliedRevision(), 10_000));
     }
 
-    private static void checkMetastorage(Ignite ignite) {
-        MetaStorageManager metaStorageManager = unwrapIgniteImpl(ignite).metaStorageManager();
-        CompletableFuture<Entry> valueFut = metaStorageManager.get(ByteArray.fromString("put"));
-        assertThat(valueFut, willCompleteSuccessfully());
-
-        assertThat(valueFut.join().value(), is("value".getBytes()));
+    private void checkMetastorage(Ignite ignite) {
+        // Will fail if metastorage is corrupted.
+        sql("SELECT * FROM" + TABLE_NAME_TEST);
     }
 
     private static void deleteMetastorageDbDir(Path nodeWorkDir) {
@@ -125,14 +117,14 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
         assertTrue(IgniteUtils.deleteIfExists(metastorageDbDir));
     }
 
-    private <T, R> void deployMetastorageJob() throws IOException {
-        CompatibilityTestCommon.deployJob(MetastorageOperationsJob.class, workDir, deploymentClient);
+    private <T, R> void deploySendAllMetastorageCommandTypesJob() throws IOException {
+        CompatibilityTestCommon.deployJob(SendAllMetastorageCommandTypesJob.class, workDir, deploymentClient);
     }
 
-    private void runMetastorageJob() {
+    private void runSendAllMetastorageCommandTypesJob() {
         try (IgniteClient client = cluster.createClient()) {
-            JobDescriptor<String, Void> job = JobDescriptor.builder(MetastorageOperationsJob.class)
-                    .units(new DeploymentUnit(MetastorageOperationsJob.class.getName(), "1.0.0")).build();
+            JobDescriptor<String, Void> job = JobDescriptor.builder(SendAllMetastorageCommandTypesJob.class)
+                    .units(new DeploymentUnit(SendAllMetastorageCommandTypesJob.class.getName(), "1.0.0")).build();
 
             JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
 

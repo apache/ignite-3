@@ -36,7 +36,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that runs different MetastorageWriteCommands. */
-class MetastorageOperationsJob implements ComputeJob<String, Void> {
+class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
         IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);

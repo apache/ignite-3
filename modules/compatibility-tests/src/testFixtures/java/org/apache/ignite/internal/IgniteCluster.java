@@ -391,8 +391,17 @@ public class IgniteCluster {
         return runnerNodes;
     }
 
-    /** Returns node's work directory. */
-    public Path workDir(int nodeIndex, boolean embedded) {
+    /** Returns embedded node's work directory. */
+    public Path embeddedNodeWorkDir(int nodeIndex) {
+        return workDir(nodeIndex, true);
+    }
+
+    /** Returns runner node's work directory. */
+    public Path runnerNodeWorkDir(int nodeIndex) {
+        return workDir(nodeIndex, false);
+    }
+
+    private Path workDir(int nodeIndex, boolean embedded) {
         String nodeName = embedded ? igniteServers.get(nodeIndex).name() : runnerNodes.get(nodeIndex).nodeName();
 
         return clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
