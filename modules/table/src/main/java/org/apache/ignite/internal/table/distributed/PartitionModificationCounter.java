@@ -19,8 +19,9 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.SizeSupplier;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.StalenessConfigurationSupplier;
 
 /**
  * Keeps track of the number of modifications of a partition.
@@ -31,9 +32,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * <p>The timestamp value is used to determine the staleness of related SQL statistics.
  */
 public class PartitionModificationCounter {
-    private final LongSupplier partitionSizeSupplier;
-    private final double staleRowsFraction;
-    private final long minStaleRowsCount;
+    private final SizeSupplier partitionSizeSupplier;
+    private final StalenessConfigurationSupplier stalenessConfigurationSupplier;
 
     private final AtomicLong counter = new AtomicLong(0);
     private volatile long nextMilestone;
@@ -42,26 +42,23 @@ public class PartitionModificationCounter {
     /** Constructor. */
     public PartitionModificationCounter(
             HybridTimestamp initTimestamp,
-            LongSupplier partitionSizeSupplier,
-            double staleRowsFraction,
-            long minStaleRowsCount
+            SizeSupplier partitionSizeSupplier,
+            StalenessConfigurationSupplier stalenessConfigurationSupplier
     ) {
         Objects.requireNonNull(initTimestamp, "initTimestamp");
         Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
+        Objects.requireNonNull(stalenessConfigurationSupplier, "configurationProvider");
 
-        if (staleRowsFraction < 0 || staleRowsFraction > 1) {
-            throw new IllegalArgumentException("staleRowsFraction must be in [0, 1] range");
-        }
-
-        if (minStaleRowsCount < 0) {
-            throw new IllegalArgumentException("minStaleRowsCount must be non-negative");
-        }
-
-        this.staleRowsFraction = staleRowsFraction;
-        this.minStaleRowsCount = minStaleRowsCount;
         this.partitionSizeSupplier = partitionSizeSupplier;
+        this.stalenessConfigurationSupplier = stalenessConfigurationSupplier;
 
-        nextMilestone = computeNextMilestone(partitionSizeSupplier.getAsLong(), staleRowsFraction, minStaleRowsCount);
+        TableStatsStalenessConfiguration tableStatsStalenessConfiguration = stalenessConfigurationSupplier.get();
+
+        nextMilestone = computeNextMilestone(
+                partitionSizeSupplier.get(),
+                tableStatsStalenessConfiguration.staleRowsFraction(),
+                tableStatsStalenessConfiguration.minStaleRowsCount()
+        );
         lastMilestoneReachedTimestamp = initTimestamp;
     }
 
@@ -105,7 +102,14 @@ public class PartitionModificationCounter {
         long newCounter = counter.addAndGet(delta);
 
         if (newCounter >= nextMilestone) {
-            this.nextMilestone = newCounter + computeNextMilestone(partitionSizeSupplier.getAsLong(), staleRowsFraction, minStaleRowsCount);
+            long currentSize = partitionSizeSupplier.get();
+            TableStatsStalenessConfiguration tableStatsStalenessConfiguration = stalenessConfigurationSupplier.get();
+
+            this.nextMilestone = newCounter + computeNextMilestone(
+                    currentSize,
+                    tableStatsStalenessConfiguration.staleRowsFraction(),
+                    tableStatsStalenessConfiguration.minStaleRowsCount()
+            );
             this.lastMilestoneReachedTimestamp = commitTimestamp;
         }
     }

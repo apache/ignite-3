@@ -23,9 +23,12 @@ import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
+import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.RetryReadPolicy;
 import org.apache.ignite.internal.Cluster;
@@ -140,6 +143,64 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
         contextRunner.run((ctx) -> {
             IgniteClient client = ctx.getBean(IgniteClient.class);
             assertEquals(connectTimeout, client.configuration().connectTimeout());
+        });
+    }
+
+    @Test
+    void testSetAuthenticatorViaCustomizer() {
+        String username = "user";
+        String password = "password";
+
+        // check that authenticator is not set by default
+        ApplicationContextRunner contextRunnerDefault = new ApplicationContextRunner()
+                .withPropertyValues("ignite.client.addresses=127.0.0.1:10800")
+                .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class));
+
+        contextRunnerDefault.run((ctx) -> {
+            IgniteClient client = ctx.getBean(IgniteClient.class);
+            assertNull(client.configuration().authenticator());
+        });
+
+        // check that authenticator can be set via customizer
+        ApplicationContextRunner contextRunnerCustomizer = new ApplicationContextRunner()
+                .withPropertyValues("ignite.client.addresses=127.0.0.1:10800")
+                .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class))
+                .withBean(IgniteClientPropertiesCustomizer.class, () -> (c) ->
+                        c.setAuthenticator(BasicAuthenticator.builder().username(username).password(password).build())
+                );
+
+        contextRunnerCustomizer.run((ctx) -> {
+            IgniteClient client = ctx.getBean(IgniteClient.class);
+            assertNotNull(client.configuration().authenticator());
+        });
+    }
+
+    @Test
+    void testSetAuthenticatorViaProperties() {
+        String username = "user";
+        String password = "password";
+
+        // check that authenticator is not set by default
+        ApplicationContextRunner contextRunnerDefault = new ApplicationContextRunner()
+                .withPropertyValues("ignite.client.addresses=127.0.0.1:10800")
+                .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class));
+
+        contextRunnerDefault.run((ctx) -> {
+            IgniteClient client = ctx.getBean(IgniteClient.class);
+            assertNull(client.configuration().authenticator());
+        });
+
+        // check that authenticator can be set via properties
+        ApplicationContextRunner contextRunnerCustomizer = new ApplicationContextRunner()
+                .withPropertyValues(
+                        "ignite.client.addresses=127.0.0.1:10800",
+                        "ignite.client.auth.basic.username=" + username,
+                        "ignite.client.auth.basic.password=" + password)
+                .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class));
+
+        contextRunnerCustomizer.run((ctx) -> {
+            IgniteClient client = ctx.getBean(IgniteClient.class);
+            assertNotNull(client.configuration().authenticator());
         });
     }
 

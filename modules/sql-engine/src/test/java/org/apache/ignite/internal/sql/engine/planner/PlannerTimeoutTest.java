@@ -26,10 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
@@ -76,7 +79,9 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 1,
                 Integer.MAX_VALUE,
                 new MetricManagerImpl(),
-                new PredefinedSchemaManager(schema)
+                new PredefinedSchemaManager(schema),
+                mock(LongSupplier.class),
+                mock(ScheduledExecutorService.class)
         );
         prepareService.start();
         try {

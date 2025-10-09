@@ -18,9 +18,13 @@
 package org.apache.ignite.internal;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
+import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.Dependencies.constructArgFile;
 import static org.apache.ignite.internal.Dependencies.getProjectRoot;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
@@ -40,6 +44,7 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,7 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -65,6 +70,8 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.model.build.BuildEnvironment;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Cluster of nodes. Can be started with nodes of previous Ignite versions running in the external processes or in the embedded mode
@@ -114,6 +121,15 @@ public class IgniteCluster {
      * @param nodesCount Number of nodes in the cluster.
      */
     public void startEmbedded(int nodesCount, boolean initCluster) {
+        startEmbedded(null, nodesCount, initCluster);
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param nodesCount Number of nodes in the cluster.
+     */
+    public void startEmbedded(@Nullable TestInfo testInfo, int nodesCount, boolean initCluster) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -123,7 +139,7 @@ public class IgniteCluster {
 
         List<ServerRegistration> nodeRegistrations = new ArrayList<>();
         for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
-            nodeRegistrations.add(startEmbeddedNode(nodeIndex));
+            nodeRegistrations.add(startEmbeddedNode(testInfo, nodeIndex, nodesCount));
         }
 
         if (initCluster) {
@@ -278,14 +294,27 @@ public class IgniteCluster {
         return nodes;
     }
 
-    private ServerRegistration startEmbeddedNode(int nodeIndex) {
+    private ServerRegistration startEmbeddedNode(
+            @Nullable TestInfo testInfo,
+            int nodeIndex,
+            int nodesCount
+    ) {
         String nodeName = nodeName(nodeIndex);
+        String config = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
 
-        IgniteServer node = TestIgnitionManager.start(
+        if (testInfo != null && containsOverrides(testInfo, nodeIndex)) {
+            config = TestIgnitionManager.applyOverridesToConfig(config, configOverrides(testInfo, nodeIndex));
+        }
+
+        IgniteServer node = clusterConfiguration.usePreConfiguredStorageProfiles()
+                ? TestIgnitionManager.start(
                 nodeName,
-                null,
-                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName)
-        );
+                config,
+                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName))
+                : TestIgnitionManager.startWithoutPreConfiguredStorageProfiles(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName));
 
         synchronized (igniteServers) {
             setListAtIndex(igniteServers, nodeIndex, node);
@@ -320,13 +349,16 @@ public class IgniteCluster {
 
             String dependenciesListNotation = dependencyIds.stream()
                     .map(dependency -> dependency + ":" + igniteVersion)
-                    .collect(Collectors.joining(","));
+                    .collect(joining(","));
 
             File argFile = constructArgFile(connection, dependenciesListNotation, false);
 
             List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
-                result.add(RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodesCount, nodeIndex));
+                String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
+                String nodeConfig = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
+
+                result.add(RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodeConfig, nodesCount, nodeName));
             }
 
             return result;
@@ -361,5 +393,46 @@ public class IgniteCluster {
     /** Returns cluster name. */
     public String clusterName() {
         return clusterConfiguration.clusterName();
+    }
+
+    /** Returns list of runner nodes. */
+    public List<RunnerNode> getRunnerNodes() {
+        return runnerNodes;
+    }
+
+    /** Returns embedded node's work directory. */
+    public Path embeddedNodeWorkDir(int nodeIndex) {
+        return workDir(nodeIndex, true);
+    }
+
+    /** Returns runner node's work directory. */
+    public Path runnerNodeWorkDir(int nodeIndex) {
+        return workDir(nodeIndex, false);
+    }
+
+    private Path workDir(int nodeIndex, boolean embedded) {
+        String nodeName = embedded ? igniteServers.get(nodeIndex).name() : runnerNodes.get(nodeIndex).nodeName();
+
+        return clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
+    }
+
+    private static String seedAddressesString(ClusterConfiguration clusterConfiguration, int seedsCount) {
+        return IntStream.range(0, seedsCount)
+                .map(nodeIndex -> clusterConfiguration.basePort() + nodeIndex)
+                .mapToObj(port -> "\"localhost:" + port + '\"')
+                .collect(joining(", "));
+    }
+
+    private static String formatConfig(ClusterConfiguration clusterConfiguration, String nodeName, int nodeIndex, int nodesCount) {
+        return format(
+                clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
+                clusterConfiguration.basePort() + nodeIndex,
+                seedAddressesString(clusterConfiguration, nodesCount),
+                clusterConfiguration.baseClientPort() + nodeIndex,
+                clusterConfiguration.baseHttpPort() + nodeIndex,
+                clusterConfiguration.baseHttpsPort() + nodeIndex,
+                nodeName,
+                nodeIndex
+        );
     }
 }

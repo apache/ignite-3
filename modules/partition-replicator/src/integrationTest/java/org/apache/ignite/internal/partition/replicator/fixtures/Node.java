@@ -556,7 +556,7 @@ public class Node {
                 Runnable::run,
                 metricManager,
                 zoneId -> completedFuture(Set.of()),
-                id -> null
+                zoneId -> null
         );
 
         var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
