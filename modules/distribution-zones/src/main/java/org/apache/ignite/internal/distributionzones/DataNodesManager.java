@@ -109,6 +109,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.OperationType;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -446,7 +448,7 @@ public class DataNodesManager {
                 )
         );
 
-        List<Operation> operations = List.of(
+        List<Operation> operations = operations(
                 addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
                         currentDataNodes.dataNodes(), addMandatoryEntry),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
@@ -588,7 +590,7 @@ public class DataNodesManager {
         return DataNodesHistoryMetaStorageOperation.builder()
                 .zoneId(zoneId)
                 .condition(dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory))
-                .operations(List.of(
+                .operations(operations(
                         addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
                         clearTimer(zoneScaleUpTimerKey(zoneId)),
                         clearTimer(zoneScaleDownTimerKey(zoneId)),
@@ -678,7 +680,7 @@ public class DataNodesManager {
                 )
         );
 
-        List<Operation> operations = List.of(
+        List<Operation> operations = operations(
                 addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, currentDataNodes.timestamp(),
                         currentDataNodes.dataNodes()),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
@@ -786,7 +788,7 @@ public class DataNodesManager {
                                 )
                         )
                         .operations(
-                                List.of(
+                                operations(
                                         addNewEntryToDataNodesHistory(
                                                 zoneId,
                                                 dataNodesHistory,
@@ -1225,14 +1227,14 @@ public class DataNodesManager {
                     notTombstone(zoneDataNodesHistoryKey(zoneId))
             );
 
-            Update update = ops(
+            Update update = new Operations(operations(
                     addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
                     clearTimer(zoneScaleUpTimerKey(zoneId)),
                     clearTimer(zoneScaleDownTimerKey(zoneId)),
                     clearTimer(zonePartitionResetTimerKey(zoneId)),
                     removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop(),
                     removeLegacyDataNodes ? remove(zonesNodesAttributes()) : noop()
-            ).yield(true);
+            )).yield(true);
 
             Iif iif = iif(condition, update, ops().yield(false));
 
@@ -1429,6 +1431,24 @@ public class DataNodesManager {
         }
 
         return zone;
+    }
+
+    /**
+     * Utility method that creates list of operations filtering out NO_OP operations.
+     *
+     * @param operations Operations.
+     * @return Operations list.
+     */
+    private static List<Operation> operations(Operation... operations) {
+        List<Operation> res = new ArrayList<>();
+
+        for (Operation op : operations) {
+            if (op.type() != OperationType.NO_OP) {
+                res.add(op);
+            }
+        }
+
+        return res;
     }
 
     @TestOnly

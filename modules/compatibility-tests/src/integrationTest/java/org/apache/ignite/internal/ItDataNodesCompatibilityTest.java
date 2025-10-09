@@ -36,10 +36,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Partition Raft log compatibility tests when changing replicas. */
+/** Compatibility tests for data nodes and data nodes history. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends CompatibilityTestBase {
+public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
