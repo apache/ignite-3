@@ -96,14 +96,18 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
         int initialNodesCount = nodesCount();
         cluster.startEmbedded(initialNodesCount, false);
 
+        IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
+        int zoneId = node.catalogManager().activeCatalog(node.clock().currentLong()).zone(ZONE_NAME).id();
+
+        Set<String> dataNodes = dataNodes(node, zoneId);
+
+        assertEquals(Set.of(cluster.node(0).name()), dataNodes);
+
         sql(String.format(
                 "ALTER ZONE %s SET DATA_NODES_FILTER='%s'",
                 ZONE_NAME,
                 DEFAULT_FILTER
         ));
-
-        IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
-        int zoneId = node.catalogManager().activeCatalog(node.clock().currentLong()).zone(ZONE_NAME).id();
 
         // Let's wait for replication to complete on other nodes.
         waitForZoneState(ZONE_NAME, zone -> zone.filter().equals(DEFAULT_FILTER));
@@ -131,9 +135,9 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
 
         IgniteImpl restartedNode = unwrapIgniteImpl(cluster.node(0));
 
-        Set<String> dataNodes = dataNodes(restartedNode, zoneId);
+        Set<String> dataNodesAfterRestart = dataNodes(restartedNode, zoneId);
 
-        assertEquals(Set.of(cluster.node(1).name()), dataNodes);
+        assertEquals(Set.of(cluster.node(1).name()), dataNodesAfterRestart);
     }
 
     private static Set<String> dataNodes(IgniteImpl node, int zoneId) {

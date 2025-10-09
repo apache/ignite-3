@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
@@ -44,6 +45,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -257,7 +259,11 @@ public class DataNodesManager {
                                 // Not critical because if we have no history in this map, we look into meta storage.
                                 LOG.warn("Couldn't recover data nodes history for zone [id={}, historyEntry={}].", zone.id(), historyEntry);
                             } else {
-                                legacyInitFutures.add(initZoneWithLegacyDataNodes(zone, legacyDataNodesEntry.value()));
+                                legacyInitFutures.add(initZoneWithLegacyDataNodes(
+                                        zone,
+                                        legacyDataNodesEntry.value(),
+                                        recoveryRevision
+                                ));
                             }
 
                             continue;
@@ -283,7 +289,7 @@ public class DataNodesManager {
                 .thenCompose(unused -> allOf(legacyInitFutures)
                         .handle((v, e) -> {
                             if (e != null) {
-                                LOG.error("Could not recover legacy data nodes for zone.", e);
+                                LOG.warn("Could not recover legacy data nodes for zone.", e);
                             }
 
                             return nullCompletedFuture();
@@ -1167,10 +1173,29 @@ public class DataNodesManager {
         return initZone(zoneId, timestamp, dataNodes, false);
     }
 
-    private CompletableFuture<?> initZoneWithLegacyDataNodes(CatalogZoneDescriptor zone, byte[] legacyDataNodesBytes) {
-        Set<NodeWithAttributes> dataNodes = DataNodesMapSerializer.deserialize(legacyDataNodesBytes).keySet().stream()
-                .map(node -> new NodeWithAttributes(node.nodeName(), node.nodeId(), null))
+    private CompletableFuture<?> initZoneWithLegacyDataNodes(
+            CatalogZoneDescriptor zone,
+            byte[] legacyDataNodesBytes,
+            long recoveryRevision
+    ) {
+        Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), recoveryRevision);
+        Map<UUID, NodeWithAttributes> nodesAttributes = deserializeNodesAttributes(nodeAttributesEntry.value());
+
+        Set<NodeWithAttributes> unfilteredDataNodes = DataNodesMapSerializer.deserialize(legacyDataNodesBytes).keySet().stream()
+                .map(node -> {
+                    NodeWithAttributes nwa = nodesAttributes.get(node.nodeId());
+
+                    if (nwa == null) {
+                        return new NodeWithAttributes(node.nodeName(), node.nodeId(), null);
+                    } else {
+                        Map<String, String> userAttributes = nwa.userAttributes();
+                        List<String> storageProfiles = nwa.storageProfiles();
+                        return new NodeWithAttributes(node.nodeName(), node.nodeId(), userAttributes, storageProfiles);
+                    }
+                })
                 .collect(toSet());
+
+        Set<NodeWithAttributes> dataNodes = filterDataNodes(unfilteredDataNodes, zone);
 
         return initZone(zone.id(), clockService.current(), dataNodes, true);
     }
