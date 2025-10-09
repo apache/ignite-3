@@ -49,11 +49,16 @@ import org.junit.jupiter.api.Test;
 /**
  * Compatibility testing for serialization/deserialization of metastorage raft commands. It is verified that deserialization of commands
  * that were created on earlier versions of the product will be error-free.
+ *
+ * <p> For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
+ * {@code GridUnsafe#unaligned()} for the tests to pass.</p>
  */
 public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     private static final MessageSerializationRegistry REGISTRY = new MessageSerializationRegistryImpl();
 
     private static final Marshaller MARSHALLER = new ThreadLocalOptimizedMarshaller(REGISTRY);
+
+    private static final MetaStorageCommandsFactory FACTORY = new MetaStorageCommandsFactory();
 
     @BeforeAll
     static void beforeAll() {
@@ -135,7 +140,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
     @Test
     void testInvokeCommand() {
         InvokeCommand command = decodeCommand(
-                "cAvfAQIDCGV4aXN0czEOAt8BBgMIcmVtb3ZlMQQA3wEMRwAqAAAAAAAAAEUAAAAAAAAAR0YC3wEGAwVwdXQxAwMFdmFsMQ=="
+                "cAvfAQIDCGV4aXN0czEOAt8BBgMIcmVtb3ZlMQQA3wEMRwAAAAAAAAAAKgAAAAAAAABFR0YC3wEGAwVwdXQxAwMFdmFsMQ=="
         );
 
         assertEquals(safeTime(), command.safeTime());
@@ -156,7 +161,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26664")
     void testMultiInvokeCommand() {
         MultiInvokeCommand command = decodeCommand(
-                "cAzfAQxHACoAAAAAAAAARQAAAAAAAADfAQnfAQvfAQgC3wEGAwVwdXQxAwMFdmFsMd8BBwMCAd8BBd8BBd8BAgMLdG9tYnN0b25lMRDfAQIDDm5vdFRvbWJzd"
+                "cAzfAQxHAAAAAAAAAAAqAAAAAAAAAEXfAQnfAQvfAQgC3wEGAwVwdXQxAwMFdmFsMd8BBwMCAd8BBd8BBd8BAgMLdG9tYnN0b25lMRDfAQIDDm5vdFRvbWJzd"
                         + "G9uZTERAt8BBd8BBd8BAgMIZXhpc3RzMQ7fAQIDC25vdEV4aXN0czEPA98BBd8BAwMKcmV2aXNpb24xAgLfAQQDB3ZhbHVlMQkDBXZhbDECAwLf"
                         + "AQvfAQgC3wEGAAIA3wEHAwIAR0Y="
         );
@@ -283,5 +288,195 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
 
     private static <T extends Command> T decodeCommand(String base64) {
         return deserializeCommand(Base64.getDecoder().decode(base64));
+    }
+
+    @SuppressWarnings("unused")
+    void serializeAll() {
+        List<Command> commands = List.of(
+                createCompactionCommand(),
+                createEvictIdempotentCommandsCacheCommand(),
+                createGetAllCommand(),
+                createGetChecksumCommand(),
+                createGetCommand(),
+                createGetCurrentRevisionsCommand(),
+                createGetPrefixCommand(),
+                createGetRangeCommand(),
+                createInvokeCommand(),
+                createMultiInvokeCommand(),
+                createPutAllCommand(),
+                createPutCommand(),
+                createRemoveAllCommand(),
+                createRemoveByPrefixCommand(),
+                createRemoveCommand(),
+                createSyncTimeCommand()
+        );
+
+        for (Command c : commands) {
+            log.info(">>>>> Serialized command: [c={}, base64='{}']", c.getClass().getSimpleName(), encodeCommand(c));
+        }
+    }
+
+    private static SyncTimeCommand createSyncTimeCommand() {
+        return FACTORY.syncTimeCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .initiatorTerm(42)
+                .build();
+    }
+
+    private static RemoveCommand createRemoveCommand() {
+        return FACTORY.removeCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .key(key("key1"))
+                .build();
+    }
+
+    private static RemoveByPrefixCommand createRemoveByPrefixCommand() {
+        return FACTORY.removeByPrefixCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .prefix(key("prefix1"))
+                .build();
+    }
+
+    private static RemoveAllCommand createRemoveAllCommand() {
+        return FACTORY.removeAllCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .keys(List.of(key("key1"), key("key2")))
+                .build();
+    }
+
+    private static PutCommand createPutCommand() {
+        return FACTORY.putCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .key(key("key1"))
+                .value(key("val1"))
+                .build();
+    }
+
+    private static PutAllCommand createPutAllCommand() {
+        return FACTORY.putAllCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .keys(List.of(key("key1"), key("key2")))
+                .values(List.of(key("val1"), key("val2")))
+                .build();
+    }
+
+    private static MultiInvokeCommand createMultiInvokeCommand() {
+        Condition tombstonesConditions = Conditions.and(
+                Conditions.tombstone(keyAsByteArray("tombstone1")),
+                Conditions.notTombstone(keyAsByteArray("notTombstone1"))
+        );
+
+        Condition existsConditions = Conditions.or(
+                Conditions.exists(keyAsByteArray("exists1")),
+                Conditions.notExists(keyAsByteArray("notExists1")
+                ));
+
+        Condition revisionAndValueConsitions = Conditions.and(
+                Conditions.revision(keyAsByteArray("revision1")).eq(1L),
+                Conditions.value(keyAsByteArray("value1")).ne(keyBytes("val1"))
+        );
+
+        Condition complexCondition = Conditions.and(
+                tombstonesConditions,
+                Conditions.or(existsConditions, revisionAndValueConsitions)
+        );
+
+        return FACTORY.multiInvokeCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .id(commandId())
+                .iif(Statements.iif(
+                        complexCondition,
+                        Operations.ops(Operations.put(keyAsByteArray("put1"), keyBytes("val1"))).yield(true),
+                        Operations.ops(Operations.noop()).yield(false)
+                ))
+                .build();
+    }
+
+    private static InvokeCommand createInvokeCommand() {
+        return FACTORY.invokeCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .id(commandId())
+                .condition(Conditions.exists(keyAsByteArray("exists1")))
+                .success(List.of(Operations.put(keyAsByteArray("put1"), keyBytes("val1"))))
+                .failure(List.of(Operations.remove(keyAsByteArray("remove1"))))
+                .build();
+    }
+
+    private static GetRangeCommand createGetRangeCommand() {
+        return FACTORY.getRangeCommand()
+                .keyFrom(key("keyFrom1"))
+                .keyTo(key("keyTo1"))
+                .batchSize(100)
+                .includeTombstones(true)
+                .previousKey(keyBytes("previousKey1"))
+                .revUpperBound(42)
+                .build();
+    }
+
+    private static GetPrefixCommand createGetPrefixCommand() {
+        return FACTORY.getPrefixCommand()
+                .prefix(key("prefix1"))
+                .batchSize(100)
+                .includeTombstones(true)
+                .previousKey(keyBytes("previousKey1"))
+                .revUpperBound(42)
+                .build();
+    }
+
+    private static GetCurrentRevisionsCommand createGetCurrentRevisionsCommand() {
+        return FACTORY.getCurrentRevisionsCommand()
+                .build();
+    }
+
+    private static GetCommand createGetCommand() {
+        return FACTORY.getCommand()
+                .revision(42)
+                .key(key("key1"))
+                .build();
+    }
+
+    private static GetChecksumCommand createGetChecksumCommand() {
+        return FACTORY.getChecksumCommand()
+                .revision(42)
+                .build();
+    }
+
+    private static GetAllCommand createGetAllCommand() {
+        return FACTORY.getAllCommand()
+                .revision(42)
+                .keys(List.of(key("key1"), key("key2")))
+                .build();
+    }
+
+    private static EvictIdempotentCommandsCacheCommand createEvictIdempotentCommandsCacheCommand() {
+        return FACTORY.evictIdempotentCommandsCacheCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .evictionTimestamp(HybridTimestamp.hybridTimestamp(100))
+                .build();
+    }
+
+    private static CompactionCommand createCompactionCommand() {
+        return FACTORY.compactionCommand()
+                .safeTime(safeTime())
+                .initiatorTime(initiatorTime())
+                .compactionRevision(42)
+                .build();
+    }
+
+    private static byte[] serializeCommand(Command c) {
+        return MARSHALLER.marshall(c);
+    }
+
+    private static String encodeCommand(Command c) {
+        return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
 }
