@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * DTO of unit version and status.
@@ -72,5 +73,10 @@ public class UnitVersionStatus {
         int result = version != null ? version.hashCode() : 0;
         result = 31 * result + (status != null ? status.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

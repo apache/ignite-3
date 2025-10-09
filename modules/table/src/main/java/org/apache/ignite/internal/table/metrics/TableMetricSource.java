@@ -119,23 +119,23 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
     private final QualifiedName tableName;
 
     /**
-     * Returns the metric source name for the given table name.
-     *
-     * @param tableName Qualified table name.
-     * @return Metric source name.
-     */
-    public static String metricSourceName(QualifiedName tableName) {
-        return SOURCE_NAME + '.' + tableName.toCanonicalForm();
-    }
-
-    /**
      * Creates a new instance of {@link TableMetricSource}.
      *
      * @param tableName Qualified table name.
      */
     public TableMetricSource(QualifiedName tableName) {
-        super(metricSourceName(tableName), "Table metrics.", "tables");
+        super(sourceName(tableName), "Table metrics.", "tables");
         this.tableName = tableName;
+    }
+
+    /**
+     * Returns a metric source name for the given table name.
+     *
+     * @param tableName Qualified table name.
+     * @return Metric source name.
+     */
+    public static String sourceName(QualifiedName tableName) {
+        return SOURCE_NAME + '.' + tableName.toCanonicalForm();
     }
 
     /**

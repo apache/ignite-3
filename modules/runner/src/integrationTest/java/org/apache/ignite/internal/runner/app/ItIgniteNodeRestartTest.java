@@ -594,7 +594,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.commonScheduler(),
                 metricManager,
                 zoneId -> completedFuture(Set.of()),
-                id -> null
+                zoneId -> null
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(

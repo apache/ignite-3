@@ -50,4 +50,10 @@ public interface CreateTableCommandBuilder extends AbstractTableCommandBuilder<C
 
     /** Validate if system schemas are used. */
     CreateTableCommandBuilder validateSystemSchemas(boolean validateSystemSchemas);
+
+    /** A fraction of a partition to be modified before the data is considered to be "stale". Should be in range [0, 1]. */
+    CreateTableCommandBuilder staleRowsFraction(double staleRowsFraction);
+
+    /** Minimal number of rows in partition to be modified before the data is considered to be "stale". Should be non-negative. */
+    CreateTableCommandBuilder minStaleRowsCount(long minStaleRowsCount);
 }

@@ -19,7 +19,12 @@ package org.apache.ignite.internal.sql.metrics;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -37,15 +42,22 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test planning cache metrics.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
     private final MetricManager metricManager = new MetricManagerImpl();
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonExecutor;
 
     @Test
     public void plannerCacheStatisticsTest() throws Exception {
@@ -61,8 +73,13 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(table);
 
+        ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+        when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
+
         PrepareService prepareService = new PrepareServiceImpl(
-                "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema)
+                "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema),
+                clockService::currentLong, commonExecutor
         );
 
         prepareService.start();
