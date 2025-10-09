@@ -97,7 +97,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -107,6 +106,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.AlterTablePropertiesEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
@@ -217,6 +217,7 @@ import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.SizeSupplier;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -1193,6 +1194,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Boolean> onTableAlter(CatalogEventParameters parameters) {
         if (parameters instanceof RenameTableEventParameters) {
             return onTableRename((RenameTableEventParameters) parameters).thenApply(unused -> false);
+        } else if (parameters instanceof AlterTablePropertiesEventParameters) {
+            return onTablePropertiesChanged((AlterTablePropertiesEventParameters) parameters).thenApply(unused -> false);
         } else {
             return falseCompletedFuture();
         }
@@ -1216,6 +1219,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private CompletableFuture<?> onTablePropertiesChanged(AlterTablePropertiesEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> tablesVv.update(
+                parameters.causalityToken(),
+                (ignore, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
+                    TableViewInternal table = tables.get(parameters.tableId());
+
+                    table.updateStalenessConfiguration(parameters.staleRowsFraction(), parameters.minStaleRowsCount());
+
+                    return nullCompletedFuture();
+                })
+        );
     }
 
     private CompletableFuture<?> onTableRename(RenameTableEventParameters parameters) {
@@ -1830,7 +1850,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 marshallers,
                 sql.get(),
                 failureProcessor,
-                tableDescriptor.primaryKeyIndexId()
+                tableDescriptor.primaryKeyIndexId(),
+                new TableStatsStalenessConfiguration(
+                        tableDescriptor.properties().staleRowsFraction(),
+                        tableDescriptor.properties().minStaleRowsCount()
+                )
         );
     }
 
@@ -3159,8 +3183,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
-        LongSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
-        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(partSizeSupplier);
+        SizeSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
+        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(
+                partSizeSupplier, table::stalenessConfiguration
+        );
         registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
