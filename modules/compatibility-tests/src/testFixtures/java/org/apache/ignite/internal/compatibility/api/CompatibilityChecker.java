@@ -48,11 +48,33 @@ import org.apache.ignite.internal.util.ArrayUtils;
 public class CompatibilityChecker {
 
     /**
-     * Runs japicmp with given input and generates the output.
+     * Checks specified module for API compatibility between specified base version and current version.
+     *
+     * @param module Module name.
+     * @param baseVersion Base version.
+     */
+    public static void check(String module, String baseVersion) {
+        check(builder()
+                .module(module)
+                .oldVersion(baseVersion)
+                .build()
+        );
+    }
+
+    /**
+     * Constructs new builder for checker parameters.
+     *
+     * @return New builder.
+     */
+    public static CompatibilityInput.Builder builder() {
+        return new CompatibilityInput.Builder();
+    }
+
+    /**
      *
      * @see <a href="https://siom79.github.io/japicmp/CliTool.html">japicmp options</a>
      */
-    public static void check(CompatibilityInput input) {
+    private static void check(CompatibilityInput input) {
         String[] args = {
                 "--old", Dependencies.path(input.oldVersionNotation(), false, false),
                 "--new", Dependencies.path(input.newVersionNotation(), false, input.currentVersion()),

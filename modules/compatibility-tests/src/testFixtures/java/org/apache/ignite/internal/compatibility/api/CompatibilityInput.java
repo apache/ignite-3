@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.compatibility.api;
 
+import java.util.List;
+import org.apache.ignite.internal.IgniteVersions;
+import org.apache.ignite.internal.IgniteVersions.Version;
+import org.apache.ignite.internal.properties.IgniteProperties;
+
 public class CompatibilityInput {
     private final String module;
     private final String oldVersion;
@@ -70,8 +75,7 @@ public class CompatibilityInput {
         private String oldVersion;
         private String newVersion;
         private String exclude;
-        private boolean errorOnIncompatibility;
-        private boolean currentVersion;
+        private boolean errorOnIncompatibility = true;
 
         public Builder module(String module) {
             this.module = module;
@@ -98,14 +102,20 @@ public class CompatibilityInput {
             return this;
         }
 
-        public Builder currentVersion(boolean currentVersion) {
-            this.currentVersion = currentVersion;
-            return this;
+        public CompatibilityInput build() {
+            return new CompatibilityInput(
+                    module,
+                    oldVersion,
+                    newVersion != null ? newVersion : IgniteProperties.get(IgniteProperties.VERSION),
+                    exclude != null ? exclude : constructExclude(oldVersion),
+                    errorOnIncompatibility,
+                    newVersion == null
+            );
         }
 
-        public CompatibilityInput build() {
-            return new CompatibilityInput(module, oldVersion, newVersion,
-                    exclude, errorOnIncompatibility, currentVersion);
+        private static String constructExclude(String version) {
+            List<String> exclude = IgniteVersions.INSTANCE.getOrDefault(version, Version::apiExcludes, IgniteVersions::apiExcludes);
+            return exclude != null ? String.join(";", exclude) : "";
         }
     }
 }

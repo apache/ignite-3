@@ -17,55 +17,15 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.stream.Collectors.toMap;
-
-import java.util.List;
-import java.util.Map;
-import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.compatibility.api.CompatibilityChecker;
-import org.apache.ignite.internal.compatibility.api.CompatibilityInput;
-import org.apache.ignite.internal.compatibility.api.CompatibilityInput.Builder;
-import org.apache.ignite.internal.properties.IgniteProperties;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.Parameter;
-import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-@ParameterizedClass
-@MethodSource("org.apache.ignite.internal.CompatibilityTestBase#baseVersions")
 class ItApiCompatibilityTest {
-    private static final List<String> EXCLUDE = IgniteVersions.INSTANCE.apiExcludes();
-    private static final Map<String, List<String>> EXCLUDE_PER_VERSION = getApiExcludePerVersion();
 
-    @Parameter
-    private String baseVersion;
-
-    @Test
-    void testApiModule() {
-        checkModule("ignite-api");
-    }
-
-    private void checkModule(String module) {
-        CompatibilityChecker.check(createInput(baseVersion, module));
-    }
-
-    private static CompatibilityInput createInput(String baseVersion, String module) {
-        return new Builder()
-                .module(module)
-                .oldVersion(baseVersion)
-                .newVersion(IgniteProperties.get(IgniteProperties.VERSION))
-                .currentVersion(true)
-                .exclude(constructExclude(baseVersion))
-                .errorOnIncompatibility(true)
-                .build();
-    }
-
-    private static String constructExclude(String version) {
-        return String.join(";", EXCLUDE) + ";" + String.join(";", EXCLUDE_PER_VERSION.get(version));
-    }
-
-    private static Map<String, List<String>> getApiExcludePerVersion() {
-        return IgniteVersions.INSTANCE.versions().stream()
-                .collect(toMap(Version::version, Version::apiExcludes));
+    @ParameterizedTest
+    @MethodSource("org.apache.ignite.internal.CompatibilityTestBase#baseVersions")
+    void testApiModule(String baseVersion) {
+        CompatibilityChecker.check("ignite-api", baseVersion);
     }
 }
