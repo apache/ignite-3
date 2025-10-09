@@ -36,6 +36,7 @@ public class IgniteVersions {
     private List<String> artifacts;
     private Map<String, String> configOverrides;
     private Map<String, String> storageProfilesOverrides;
+    private List<String> apiExcludes;
     private List<Version> versions;
 
     public IgniteVersions() {
@@ -48,18 +49,21 @@ public class IgniteVersions {
      * @param configOverrides Map of global node configuration overrides.
      * @param storageProfilesOverrides Map of global storage profiles overrides.
      * @param versions List of version descriptors.
+     * @param apiExcludes Java API test excludes.
      */
     @JsonCreator
     public IgniteVersions(
             @JsonProperty("artifacts") List<String> artifacts,
             @JsonProperty("configOverrides") Map<String, String> configOverrides,
             @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides,
-            @JsonProperty("versions") List<Version> versions
+            @JsonProperty("versions") List<Version> versions,
+            @JsonProperty("apiExcludes") List<String> apiExcludes
     ) {
         this.artifacts = artifacts;
         this.configOverrides = configOverrides;
         this.storageProfilesOverrides = storageProfilesOverrides;
         this.versions = versions;
+        this.apiExcludes = apiExcludes != null ? apiExcludes : List.of();
     }
 
     public List<String> artifacts() {
@@ -74,6 +78,10 @@ public class IgniteVersions {
         return storageProfilesOverrides;
     }
 
+    public List<String> apiExcludes() {
+        return apiExcludes;
+    }
+
     public List<Version> versions() {
         return versions;
     }
@@ -85,6 +93,7 @@ public class IgniteVersions {
         private String version;
         private Map<String, String> configOverrides;
         private Map<String, String> storageProfilesOverrides;
+        private List<String> apiExcludes;
 
         public Version() {
         }
@@ -95,16 +104,19 @@ public class IgniteVersions {
          * @param version List of dependency notations.
          * @param configOverrides Map of node configuration overrides.
          * @param storageProfilesOverrides Map of node storage profiles overrides.
+         * @param apiExcludes Java API test excludes.
          */
         @JsonCreator
         public Version(
                 @JsonProperty("version") String version,
                 @JsonProperty("configOverrides") Map<String, String> configOverrides,
-                @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides
+                @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides,
+                @JsonProperty("apiExcludes") List<String> apiExcludes
         ) {
             this.version = version;
             this.configOverrides = configOverrides;
             this.storageProfilesOverrides = storageProfilesOverrides;
+            this.apiExcludes = apiExcludes != null ? apiExcludes : List.of();
         }
 
         public String version() {
@@ -117,6 +129,10 @@ public class IgniteVersions {
 
         public Map<String, String> storageProfilesOverrides() {
             return storageProfilesOverrides;
+        }
+
+        public List<String> apiExcludes() {
+            return apiExcludes;
         }
     }
 

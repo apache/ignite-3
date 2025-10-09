@@ -17,34 +17,55 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.internal.compatibility.api.ApiCompatibilityTest;
-import org.apache.ignite.internal.compatibility.api.CompatibilityOutput;
+import static java.util.stream.Collectors.toMap;
 
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.internal.IgniteVersions.Version;
+import org.apache.ignite.internal.compatibility.api.CompatibilityChecker;
+import org.apache.ignite.internal.compatibility.api.CompatibilityInput;
+import org.apache.ignite.internal.compatibility.api.CompatibilityInput.Builder;
+import org.apache.ignite.internal.properties.IgniteProperties;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.Parameter;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
+
+@ParameterizedClass
+@MethodSource("org.apache.ignite.internal.CompatibilityTestBase#baseVersions")
 class ItApiCompatibilityTest {
+    private static final List<String> EXCLUDE = IgniteVersions.INSTANCE.apiExcludes();
+    private static final Map<String, List<String>> EXCLUDE_PER_VERSION = getApiExcludePerVersion();
 
-    // TODO resolve or explain exclusions https://issues.apache.org/jira/browse/IGNITE-26365
-    @ApiCompatibilityTest(
-            exclude = ""
-                    + "org.apache.ignite.Ignite#clusterNodes();" // deprecated
-                    + "org.apache.ignite.Ignite#clusterNodesAsync();" // deprecated
-                    + "org.apache.ignite.catalog.IgniteCatalog#dropTable(java.lang.String);" // method abstract now default
-                    + "org.apache.ignite.catalog.IgniteCatalog#dropTableAsync(java.lang.String);" // method abstract now default
-                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinition(java.lang.String);" // method abstract now default
-                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinitionAsync(java.lang.String);" // method abstract now default
-                    + "org.apache.ignite.compute.ColocatedJobTarget;" // method return type changed
-                    + "org.apache.ignite.compute.TableJobTarget;" // method return type changed
-                    + "org.apache.ignite.lang.ColumnNotFoundException;" // deprecated
-                    + "org.apache.ignite.lang.IndexAlreadyExistsException;" // deprecated
-                    + "org.apache.ignite.lang.IndexNotFoundException;" // deprecated
-                    + "org.apache.ignite.lang.TableAlreadyExistsException;" // deprecated
-                    + "org.apache.ignite.lang.TableNotFoundException;" // constructor removed
-                    + "org.apache.ignite.lang.util.IgniteNameUtils;" // methods removed, less accessible
-                    + "org.apache.ignite.sql.IgniteSql;" // method abstract now default
-                    + "org.apache.ignite.table.DataStreamerTarget;" // method abstract now default
-                    + "org.apache.ignite.table.IgniteTables;" // method abstract now default
-                    + "org.apache.ignite.table.QualifiedName;" // now final, serializable
-                    + "org.apache.ignite.table.Table;" // method abstract now default
-    )
-    void testApiModule(CompatibilityOutput output) {}
+    @Parameter
+    private String baseVersion;
 
+    @Test
+    void testApiModule() {
+        checkModule("ignite-api");
+    }
+
+    private void checkModule(String module) {
+        CompatibilityChecker.check(createInput(baseVersion, module));
+    }
+
+    private static CompatibilityInput createInput(String baseVersion, String module) {
+        return new Builder()
+                .module(module)
+                .oldVersion(baseVersion)
+                .newVersion(IgniteProperties.get(IgniteProperties.VERSION))
+                .currentVersion(true)
+                .exclude(constructExclude(baseVersion))
+                .errorOnIncompatibility(true)
+                .build();
+    }
+
+    private static String constructExclude(String version) {
+        return String.join(";", EXCLUDE) + ";" + String.join(";", EXCLUDE_PER_VERSION.get(version));
+    }
+
+    private static Map<String, List<String>> getApiExcludePerVersion() {
+        return IgniteVersions.INSTANCE.versions().stream()
+                .collect(toMap(Version::version, Version::apiExcludes));
+    }
 }

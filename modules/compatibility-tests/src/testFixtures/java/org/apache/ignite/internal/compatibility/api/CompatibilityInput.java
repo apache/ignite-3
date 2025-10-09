@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.compatibility.api;
 
-import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
-
-import org.apache.ignite.internal.properties.IgniteProperties;
-
-class CompatibilityInput {
+public class CompatibilityInput {
     private final String module;
     private final String oldVersion;
     private final String newVersion;
@@ -29,25 +25,24 @@ class CompatibilityInput {
     private final boolean errorOnIncompatibility;
     private final boolean currentVersion;
 
-    CompatibilityInput(String module, String oldVersion, ApiCompatibilityTest annotation) {
+    private CompatibilityInput(
+            String module,
+            String oldVersion,
+            String newVersion,
+            String exclude,
+            boolean errorOnIncompatibility,
+            boolean currentVersion
+    ) {
         this.module = module;
         this.oldVersion = oldVersion;
-        currentVersion = nullOrEmpty(annotation.newVersion());
-        this.newVersion = currentVersion ? IgniteProperties.get(IgniteProperties.VERSION) : annotation.newVersion();
-        this.exclude = annotation.exclude();
-        this.errorOnIncompatibility = annotation.errorOnIncompatibility();
+        this.newVersion = newVersion;
+        this.exclude = exclude;
+        this.errorOnIncompatibility = errorOnIncompatibility;
+        this.currentVersion = currentVersion;
     }
 
     String module() {
         return module;
-    }
-
-    String oldVersion() {
-        return oldVersion;
-    }
-
-    String newVersion() {
-        return newVersion;
     }
 
     String oldVersionNotation() {
@@ -68,5 +63,49 @@ class CompatibilityInput {
 
     boolean currentVersion() {
         return currentVersion;
+    }
+
+    public static class Builder {
+        private String module;
+        private String oldVersion;
+        private String newVersion;
+        private String exclude;
+        private boolean errorOnIncompatibility;
+        private boolean currentVersion;
+
+        public Builder module(String module) {
+            this.module = module;
+            return this;
+        }
+
+        public Builder oldVersion(String oldVersion) {
+            this.oldVersion = oldVersion;
+            return this;
+        }
+
+        public Builder newVersion(String newVersion) {
+            this.newVersion = newVersion;
+            return this;
+        }
+
+        public Builder exclude(String exclude) {
+            this.exclude = exclude;
+            return this;
+        }
+
+        public Builder errorOnIncompatibility(boolean errorOnIncompatibility) {
+            this.errorOnIncompatibility = errorOnIncompatibility;
+            return this;
+        }
+
+        public Builder currentVersion(boolean currentVersion) {
+            this.currentVersion = currentVersion;
+            return this;
+        }
+
+        public CompatibilityInput build() {
+            return new CompatibilityInput(module, oldVersion, newVersion,
+                    exclude, errorOnIncompatibility, currentVersion);
+        }
     }
 }

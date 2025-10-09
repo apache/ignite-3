@@ -42,14 +42,17 @@ import java.util.List;
 import org.apache.ignite.internal.Dependencies;
 import org.apache.ignite.internal.util.ArrayUtils;
 
-class CompatibilityChecker {
+/**
+ * Wrapper for the API comparator.
+ */
+public class CompatibilityChecker {
 
     /**
-     * Runs japicmp with given input and returns the output.
+     * Runs japicmp with given input and generates the output.
      *
      * @see <a href="https://siom79.github.io/japicmp/CliTool.html">japicmp options</a>
      */
-    static CompatibilityOutput check(CompatibilityInput input) {
+    public static void check(CompatibilityInput input) {
         String[] args = {
                 "--old", Dependencies.path(input.oldVersionNotation(), false, false),
                 "--new", Dependencies.path(input.newVersionNotation(), false, input.currentVersion()),
@@ -70,12 +73,7 @@ class CompatibilityChecker {
         Options options = new CliParser().parse(args);
         JarArchiveComparator jarArchiveComparator = new JarArchiveComparator(JarArchiveComparatorOptions.of(options));
         List<JApiClass> javaApiClasses = jarArchiveComparator.compare(options.getOldArchives(), options.getNewArchives());
-        return new CompatibilityOutput(options, javaApiClasses, jarArchiveComparator);
-    }
-
-    static void generateOutput(CompatibilityOutput output) {
-        generateOutput(output.options(), output.javaApiClasses(), output.jarArchiveComparator());
-        // use custom output generator to throw exceptions and list of incompatibilities
+        generateOutput(options, javaApiClasses, jarArchiveComparator);
     }
 
     /**
