@@ -42,8 +42,10 @@ public interface ClusterNodeMessage extends NetworkMessage, Serializable {
 
     int port();
 
+    String version();
+
     default InternalClusterNode asClusterNode() {
-        return new ClusterNodeImpl(id(), name(), new NetworkAddress(host(), port()));
+        return new ClusterNodeImpl(id(), name(), new NetworkAddress(host(), port()), version());
     }
 
     @Nullable

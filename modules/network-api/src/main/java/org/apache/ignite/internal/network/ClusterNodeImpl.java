@@ -36,12 +36,16 @@ public class ClusterNodeImpl implements InternalClusterNode {
     /** Network address of the node. */
     private final NetworkAddress address;
 
+    /** Version of this node. */
+    private final String version;
+
     /** Metadata of this node. */
     @Nullable
     private final NodeMetadata nodeMetadata;
 
     public static ClusterNodeImpl fromPublicClusterNode(ClusterNode node) {
-        return new ClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata());
+        // ToDo decide do we need to store version in public ClusterNode
+        return new ClusterNodeImpl(node.id(), node.name(), node.address(), null, node.nodeMetadata());
     }
 
     /**
@@ -50,12 +54,14 @@ public class ClusterNodeImpl implements InternalClusterNode {
      * @param id      Local id that changes between restarts.
      * @param name    Unique name of a member in a cluster.
      * @param address Node address.
+     * @param version Node version.
      * @param nodeMetadata Node metadata.
      */
-    public ClusterNodeImpl(UUID id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
+    public ClusterNodeImpl(UUID id, String name, NetworkAddress address, String version, @Nullable NodeMetadata nodeMetadata) {
         this.id = id;
         this.name = name;
         this.address = address;
+        this.version = version;
         this.nodeMetadata = nodeMetadata;
     }
 
@@ -65,9 +71,10 @@ public class ClusterNodeImpl implements InternalClusterNode {
      * @param id      Local ID that changes between restarts.
      * @param name    Unique name of a cluster member.
      * @param address Node address.
+     * @param version Node version.
      */
-    public ClusterNodeImpl(UUID id, String name, NetworkAddress address) {
-        this(id, name, address, null);
+    public ClusterNodeImpl(UUID id, String name, NetworkAddress address, String version) {
+        this(id, name, address, version, null);
     }
 
     @Override
@@ -83,6 +90,12 @@ public class ClusterNodeImpl implements InternalClusterNode {
     @Override
     public NetworkAddress address() {
         return address;
+    }
+
+    @Override
+    @Nullable
+    public String version() {
+        return version;
     }
 
     @Override
@@ -105,18 +118,23 @@ public class ClusterNodeImpl implements InternalClusterNode {
             return false;
         }
         ClusterNodeImpl that = (ClusterNodeImpl) o;
-        return name.equals(that.name) && address.equals(that.address);
+        if (version != null ? !version.equals(that.version) : that.version != null) {
+            return false;
+        }
+        return name.equals(that.name) && address.equals(that.address) ;
     }
 
     @Override
     public int hashCode() {
         int result = name.hashCode();
-        result = 31 * result + address.hashCode();
+        if (version != null) {
+            result = 31 * result + version.hashCode();
+        }
         return result;
     }
 
     @Override
     public String toString() {
-        return String.format("{id=%s, name=%s, address=%s}", id, name, address);
+        return String.format("{id=%s, name=%s, address=%s, version=%s}", id, name, address, version);
     }
 }

@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 import java.util.Base64;
 import java.util.UUID;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -36,6 +37,7 @@ class InternalClusterNodeSerializerTest {
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 "test",
                 new NetworkAddress("host", 3000),
+                "9.9.99-test",
                 new NodeMetadata("ext-host", 3001, 3002)
         );
 
@@ -45,6 +47,7 @@ class InternalClusterNodeSerializerTest {
         assertThat(restoredNode.id(), equalTo(originalNode.id()));
         assertThat(restoredNode.name(), equalTo("test"));
         assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
+        assertThat(restoredNode.version(), equalTo("9.9.99-test"));
         assertThat(restoredNode.nodeMetadata(), equalTo(new NodeMetadata("ext-host", 3001, 3002)));
     }
 
@@ -58,5 +61,19 @@ class InternalClusterNodeSerializerTest {
         assertThat(restoredNode.name(), equalTo("test"));
         assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
         assertThat(restoredNode.nodeMetadata(), equalTo(new NodeMetadata("ext-host", 3001, 3002)));
+    }
+
+    @Test
+    void v2CanBeDeserialized() {
+        byte[] bytes = Base64.getDecoder().decode("Au++Q+/Nq5B4VjQSIUNlhwm63P4FdGVzdAVob3N0uRcBCWV4dC1ob3N0uhe7Fww5LjkuOTktdGVzdA==");
+
+        InternalClusterNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertThat(restoredNode.id(), equalTo(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
+        assertThat(restoredNode.name(), equalTo("test"));
+        assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
+        assertThat(restoredNode.version(), equalTo("9.9.99-test"));
+        assertThat(restoredNode.nodeMetadata(),
+                equalTo(new NodeMetadata("ext-host", 3001, 3002)));
     }
 }

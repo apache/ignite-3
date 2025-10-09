@@ -49,6 +49,13 @@ public interface InternalClusterNode {
     NetworkAddress address();
 
     /**
+     * Returns the version of the node.
+     *
+     * @return Version of the node.
+     */
+    String version();
+
+    /**
      * Returns the metadata of the node.
      *
      * @return Metadata of the node.

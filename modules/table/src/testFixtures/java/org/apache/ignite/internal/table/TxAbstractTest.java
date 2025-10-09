@@ -2108,7 +2108,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     0,
                     internalTx.id(),
                     internalTx.readTimestamp(),
-                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
+                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123), "3.3.3"),
                     internalTx.coordinatorId()
             );
 
@@ -2126,7 +2126,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     0,
                     internalTx.id(),
                     internalTx.readTimestamp(),
-                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
+                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123), "3.3.3"),
                     0,
                     // Binary tuple is null for testing purposes, assuming that it wouldn't be processed anyway.
                     null,

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link VersionedSerializer} for {@link InternalClusterNode} instances.
@@ -31,6 +32,11 @@ import org.apache.ignite.network.NodeMetadata;
 public class ClusterNodeSerializer extends VersionedSerializer<InternalClusterNode> {
     /** Serializer instance. */
     public static final ClusterNodeSerializer INSTANCE = new ClusterNodeSerializer();
+
+    @Override
+    protected byte getProtocolVersion() {
+        return 2;
+    }
 
     @Override
     protected void writeExternalData(InternalClusterNode node, IgniteDataOutput out) throws IOException {
@@ -47,6 +53,7 @@ public class ClusterNodeSerializer extends VersionedSerializer<InternalClusterNo
             out.writeVarInt(metadata.httpPort());
             out.writeVarInt(metadata.httpsPort());
         }
+        out.writeUTF(node.version());
     }
 
     @Override
@@ -63,6 +70,10 @@ public class ClusterNodeSerializer extends VersionedSerializer<InternalClusterNo
             metadata = null;
         }
 
-        return new ClusterNodeImpl(id, name, address, metadata);
+        return new ClusterNodeImpl(id, name, address, readVersion(protoVer, in), metadata);
+    }
+
+    private static @Nullable String readVersion(byte protoVer, IgniteDataInput in) throws IOException {
+        return protoVer > 1 ? readNullableString(in) : null;
     }
 }

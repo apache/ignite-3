@@ -84,10 +84,13 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     private static final UUID TEST_NODE_ID = UUID.randomUUID();
 
+    private static final String VERSION = "3.3.333";
+
     private static final InternalClusterNode TEST_NODE = new ClusterNodeImpl(
             TEST_NODE_ID,
             TEST_NODE_NAME,
-            new NetworkAddress("host", 3000)
+            new NetworkAddress("host", 3000),
+            VERSION
     );
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);

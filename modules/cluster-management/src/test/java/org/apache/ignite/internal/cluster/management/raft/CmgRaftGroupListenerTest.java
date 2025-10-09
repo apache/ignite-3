@@ -96,6 +96,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
             .name("bar")
             .host("localhost")
             .port(666)
+            .version("3.4.5")
             .build();
 
     private final ClusterIdHolder clusterIdHolder = new ClusterIdHolder();

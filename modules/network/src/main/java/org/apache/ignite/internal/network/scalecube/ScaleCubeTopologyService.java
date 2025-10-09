@@ -40,6 +40,7 @@ import org.apache.ignite.internal.network.DuplicateConsistentIdException;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -70,6 +71,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /** Topology members map from the id to the cluster node. */
     private final ConcurrentMap<UUID, InternalClusterNode> idToMemberMap = new ConcurrentHashMap<>();
+
+    private final IgniteProductVersionSource versionSource;
+
+    public ScaleCubeTopologyService(IgniteProductVersionSource versionSource) {
+        this.versionSource = versionSource;
+    }
 
     /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
@@ -312,10 +319,10 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param member ScaleCube's cluster member.
      * @return Cluster node.
      */
-    private static InternalClusterNode fromMember(Member member, @Nullable NodeMetadata nodeMetadata) {
+    private InternalClusterNode fromMember(Member member, @Nullable NodeMetadata nodeMetadata) {
         var addr = new NetworkAddress(member.address().host(), member.address().port());
-
-        return new ClusterNodeImpl(UUID.fromString(member.id()), member.alias(), addr, nodeMetadata);
+        return new ClusterNodeImpl(UUID.fromString(member.id()), member.alias(), addr,
+                versionSource.productVersion().toString(), nodeMetadata);
     }
 
 

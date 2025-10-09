@@ -1103,7 +1103,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .thenCompose(topology -> {
                     // TODO https://issues.apache.org/jira/browse/IGNITE-24769
                     Set<InternalClusterNode> logicalTopology = topology.nodes().stream()
-                            .map(node -> new ClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata()))
+                            .map(node -> new ClusterNodeImpl(node.id(), node.name(), node.address(), node.version(), node.nodeMetadata()))
                             .collect(toSet());
                     // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
                     Set<InternalClusterNode> recipients = nodes.stream()

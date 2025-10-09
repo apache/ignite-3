@@ -41,6 +41,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ExecutorServiceExtension.class)
 class ScaleCubeTopologyServiceTest {
-    private final ScaleCubeTopologyService topologyService = new ScaleCubeTopologyService();
+    private final ScaleCubeTopologyService topologyService = new ScaleCubeTopologyService(new DefaultIgniteProductVersionSource());
 
     private final Member member1 = new Member(new UUID(0, 1).toString(), "first", Address.create("host", 1001), "default");
     private final Member member2 = new Member(new UUID(0, 2).toString(), "second", Address.create("host", 1002), "default");

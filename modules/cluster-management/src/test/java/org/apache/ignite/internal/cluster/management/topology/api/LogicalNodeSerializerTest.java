@@ -39,6 +39,7 @@ class LogicalNodeSerializerTest {
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 "test",
                 new NetworkAddress("host", 3000),
+                "9.9.9-test",
                 new NodeMetadata("ext-host", 3001, 3002),
                 Map.of("ukey", "uval"),
                 Map.of("skey", "sval"),
@@ -51,6 +52,7 @@ class LogicalNodeSerializerTest {
         assertThat(restoredNode.id(), equalTo(originalNode.id()));
         assertThat(restoredNode.name(), equalTo("test"));
         assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
+        assertThat(restoredNode.version(), equalTo("9.9.9-test"));
         assertThat(restoredNode.nodeMetadata(), equalTo(new NodeMetadata("ext-host", 3001, 3002)));
         assertThat(restoredNode.userAttributes(), equalTo(Map.of("ukey", "uval")));
         assertThat(restoredNode.systemAttributes(), equalTo(Map.of("skey", "sval")));

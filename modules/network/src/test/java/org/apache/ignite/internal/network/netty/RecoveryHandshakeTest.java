@@ -90,6 +90,8 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     private static final String ACCEPTOR_HOST = "acceptor-host";
     private static final String INITIATOR_HOST = "initiator-host";
 
+    private static final String VERSION = "3.3.33-test";
+
     private static final int PORT = 1000;
 
     /** Serialization registry. */
@@ -766,7 +768,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryInitiatorHandshakeManager(
-                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT)),
+                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT), VERSION),
                 CONNECTION_ID,
                 provider,
                 new NoOpHandshakeEventLoopSwitcher(),
@@ -800,7 +802,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryAcceptorHandshakeManager(
-                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT)),
+                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT), VERSION),
                 MESSAGE_FACTORY,
                 provider,
                 new NoOpHandshakeEventLoopSwitcher(),
