@@ -479,5 +479,4 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
     private static String encodeCommand(Command c) {
         return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
-
 }
