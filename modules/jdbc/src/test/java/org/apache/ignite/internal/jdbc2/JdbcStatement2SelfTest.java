@@ -434,7 +434,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Statement createStatement() throws SQLException {
+    protected Statement createStatement() throws SQLException {
         Connection connection = Mockito.mock(Connection.class);
         JdbcConnection2 connection2 = Mockito.mock(JdbcConnection2.class);
 
@@ -446,12 +446,12 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
         return createStatement(connection);
     }
 
-    private static Statement createStatement(Connection connection) {
+    protected Statement createStatement(Connection connection) {
         IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
         return new JdbcStatement2(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
 
-    private static void expectClosed(Executable method) {
+    static void expectClosed(Executable method) {
         assertThrowsSqlException(SQLException.class, "Statement is closed.", method);
     }
 }
