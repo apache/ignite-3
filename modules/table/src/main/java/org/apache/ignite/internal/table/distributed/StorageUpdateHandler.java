@@ -48,6 +48,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests. */
 public class StorageUpdateHandler {
@@ -117,10 +118,12 @@ public class StorageUpdateHandler {
             @Nullable BinaryRow row,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
-            HybridTimestamp commitTs,
+            @Nullable HybridTimestamp commitTs,
             @Nullable HybridTimestamp lastCommitTs,
             @Nullable List<Integer> indexIds
     ) {
+        assert trackWriteIntent || commitTs != null : "either trackWriteIntent must be true or commitTs must be non-null";
+
         storage.runConsistently(locker -> {
             RowId rowId = new RowId(partitionId, rowUuid);
 
@@ -539,5 +542,10 @@ public class StorageUpdateHandler {
             // Action: abort this write intent.
             performAbortWrite(writeIntentTxId, Set.of(rowId), indexIds);
         }
+    }
+
+    @TestOnly
+    public void eraseVolatileState(UUID txId) {
+        this.pendingRows.removePendingRowIds(txId);
     }
 }
