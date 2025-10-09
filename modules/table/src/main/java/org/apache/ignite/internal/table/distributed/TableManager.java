@@ -3625,7 +3625,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 metricManager.registerSource(engineMetricSource);
                 metricManager.enable(engineMetricSource);
             } catch (Exception e) {
-                LOG.warn("Failed to register storage engine metrics source for table [id={}, name={}].", e, tableDescriptor.getId(), tableName);
+                String message = "Failed to register storage engine metrics source for table [id={}, name={}].";
+                LOG.warn(message, e, tableDescriptor.getId(), tableName);
             }
         }
 
