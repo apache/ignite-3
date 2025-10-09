@@ -122,6 +122,7 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp lastCommitTs,
             @Nullable List<Integer> indexIds
     ) {
+        // Either we track write intents for later commit (2PC) or commit immediately with timestamp (1PC).
         assert trackWriteIntent || commitTs != null : "either trackWriteIntent must be true or commitTs must be non-null";
 
         storage.runConsistently(locker -> {
@@ -203,6 +204,8 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp commitTs,
             @Nullable List<Integer> indexIds
     ) {
+        // Either we track write intents for later commit (2PC) or commit immediately with timestamp (1PC).
+        assert trackWriteIntent || commitTs != null : "either trackWriteIntent must be true or commitTs must be non-null";
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
@@ -544,6 +547,11 @@ public class StorageUpdateHandler {
         }
     }
 
+    /**
+     * Erases volatile state for a transaction to simulate node restart in tests.
+     * This creates a state where write intents are persisted in storage but no information
+     * about them exists in memory.
+     */
     @TestOnly
     public void eraseVolatileState(UUID txId) {
         this.pendingRows.removePendingRowIds(txId);
