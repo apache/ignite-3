@@ -50,16 +50,18 @@ import org.jetbrains.annotations.Nullable;
  */
 public class JdbcStatement2 implements Statement {
 
-    private static final EnumSet<QueryModifier> QUERY = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+    static final EnumSet<QueryModifier> QUERY = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
 
-    private static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
+    static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
             QueryModifier.ALLOW_AFFECTED_ROWS_RESULT, QueryModifier.ALLOW_APPLIED_RESULT);
+
+    static final Set<QueryModifier> ALL = QueryModifier.ALL;
 
     private static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
             JdbcConnection2.RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED;
 
     private static final String LARGE_UPDATE_NOT_SUPPORTED =
-            "executeLargeUpdate not implemented";
+            "executeLargeUpdate not implemented.";
 
     private static final String FIELD_SIZE_LIMIT_IS_NOT_SUPPORTED =
             "Field size limit is not supported.";
@@ -363,7 +365,7 @@ public class JdbcStatement2 implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(EnumSet.allOf(QueryModifier.class), Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(QueryModifier.ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         return isQuery();
     }
@@ -414,7 +416,7 @@ public class JdbcStatement2 implements Statement {
     public @Nullable ResultSet getResultSet() throws SQLException {
         ensureNotClosed();
 
-        return isQuery() ? resultSet : null;
+        return resultSet;
     }
 
     /** {@inheritDoc} */
@@ -648,19 +650,17 @@ public class JdbcStatement2 implements Statement {
         return iface != null && iface.isAssignableFrom(JdbcStatement2.class);
     }
 
-    /**
-     * Gets the isQuery flag from the first result.
-     *
-     * @return isQuery flag.
-     */
     protected boolean isQuery() {
-        if (resultSet == null) {
-            return false;
-        }
-        return resultSet.isQuery();
+        // This method is called after statement is executed, so the reference points to a correct result set.
+        // The statement is not expected to be used from multiple threads, so this reference points to a correct result set.
+        // getResultSet() performs its own result set checks.
+        JdbcResultSet rs = resultSet;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
-    private void ensureNotClosed() throws SQLException {
+    void ensureNotClosed() throws SQLException {
         if (isClosed()) {
             throw new SQLException(STATEMENT_IS_CLOSED);
         }
