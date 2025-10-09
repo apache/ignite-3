@@ -497,6 +497,21 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Unwraps the cause from {@link CompletionException} if the provided exception is an instance of it.
+     *
+     * @param t Given throwable.
+     * @return Unwrapped throwable.
+     */
+    @Nullable
+    public static Throwable unwrapCompletionThrowable(@Nullable Throwable t) {
+        if (t instanceof CompletionException) {
+            return t.getCause();
+        } else {
+            return t;
+        }
+    }
+
+    /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
      * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
      * the original trace identifier and full error code are preserved.

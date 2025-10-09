@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
@@ -69,10 +68,6 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     @BeforeAll
     void createTable() throws Exception {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
-
-        if (colocationEnabled()) {
-            awaitAssignmentsStabilizationOnDefaultZone(CLUSTER.aliveNode());
-        }
     }
 
     /**
