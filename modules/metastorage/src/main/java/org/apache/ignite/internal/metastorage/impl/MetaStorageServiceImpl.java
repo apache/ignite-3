@@ -206,7 +206,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .id(commandIdGenerator.newId())
                 .build();
 
-        return context.raftService().run(multiInvokeCommand);
+        return context.raftService().run(multiInvokeCommand, 30_000);
     }
 
     @Override
