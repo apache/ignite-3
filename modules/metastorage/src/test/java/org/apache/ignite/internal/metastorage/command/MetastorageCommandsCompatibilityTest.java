@@ -43,7 +43,6 @@ import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -161,7 +160,6 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26664")
     void testMultiInvokeCommand() {
         MultiInvokeCommand command = decodeCommand(
                 "cAzfAQxHAAAAAAAAAAAqAAAAAAAAAEXfAQnfAQvfAQgC3wEGAwVwdXQxAwMFdmFsMd8BBwMCAd8BBd8BBd8BAgMLdG9tYnN0b25lMRDfAQIDDm5vdFRvbWJzd"
