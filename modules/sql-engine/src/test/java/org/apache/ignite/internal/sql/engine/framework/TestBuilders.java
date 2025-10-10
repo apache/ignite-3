@@ -818,7 +818,7 @@ public class TestBuilders {
                 .map(name -> {
                     List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
                     NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                    LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
+                    LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr, "3.3.333");
 
                     if (systemViewForNode.isEmpty()) {
                         return logicalNode;

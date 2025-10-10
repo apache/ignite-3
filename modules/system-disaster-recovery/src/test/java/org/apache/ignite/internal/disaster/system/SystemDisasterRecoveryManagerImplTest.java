@@ -146,12 +146,12 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private final ComponentContext componentContext = new ComponentContext();
 
-    private final InternalClusterNode thisNode = new ClusterNodeImpl(randomUUID(), thisNodeName, new NetworkAddress("host", 1001));
+    private final InternalClusterNode thisNode = new ClusterNodeImpl(randomUUID(), thisNodeName, new NetworkAddress("host", 1001), "3.4.5");
 
-    private final InternalClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
-    private final InternalClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
-    private final InternalClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
-    private final InternalClusterNode node5 = new ClusterNodeImpl(randomUUID(), "node5", new NetworkAddress("host", 1005));
+    private final InternalClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002), "3.4.5");
+    private final InternalClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003), "3.4.5");
+    private final InternalClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004), "3.4.5");
+    private final InternalClusterNode node5 = new ClusterNodeImpl(randomUUID(), "node5", new NetworkAddress("host", 1005), "3.4.5");
 
     private final UUID clusterId = new UUID(1, 2);
 

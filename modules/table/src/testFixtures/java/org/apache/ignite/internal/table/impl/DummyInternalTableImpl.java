@@ -160,7 +160,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    public static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(new UUID(1, 2), "node", ADDR);
+    public static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(new UUID(1, 2), "node", ADDR, "3.3.3");
 
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.

@@ -834,7 +834,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 new ClusterNodeImpl(
                         UUID.randomUUID(),
                         "node" + nodeIdx,
-                        new NetworkAddress("127.0.0.1", 3344 + nodeIdx)
+                        new NetworkAddress("127.0.0.1", 3344 + nodeIdx),
+                        "3.3.333"
                 ),
                 Map.of(),
                 Map.of(),

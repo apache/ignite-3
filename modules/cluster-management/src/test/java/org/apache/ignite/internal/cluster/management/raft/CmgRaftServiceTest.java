@@ -59,7 +59,7 @@ class CmgRaftServiceTest extends BaseIgniteAbstractTest {
     @InjectMocks
     private CmgRaftService cmgRaftService;
 
-    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("host", 3000));
+    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("host", 3000), "3.4.5");
 
     @Test
     void joinReadyCommandIsExecutedWithoutTimeout() {

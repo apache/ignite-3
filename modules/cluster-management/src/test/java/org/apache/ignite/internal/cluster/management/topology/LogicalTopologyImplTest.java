@@ -79,6 +79,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     private final ClusterStateStorage storage = spy(TestClusterStateStorage.initializedClusterStateStorage());
 
+    private static final String VERSION = "3.3.333-test";
+
     private LogicalTopology topology;
 
     @WorkDirectory
@@ -120,19 +122,19 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     void testLogicalTopology() {
         assertThat(topology.getLogicalTopology().nodes(), is(empty()));
 
-        var node1 = new LogicalNode(randomUUID(), "bar", new NetworkAddress("localhost", 123));
+        var node1 = new LogicalNode(randomUUID(), "bar", new NetworkAddress("localhost", 123), VERSION);
 
         topology.putNode(node1);
 
         assertThat(topology.getLogicalTopology().nodes(), contains(node1));
 
-        var node2 = new LogicalNode(randomUUID(), "quux", new NetworkAddress("localhost", 123));
+        var node2 = new LogicalNode(randomUUID(), "quux", new NetworkAddress("localhost", 123), VERSION);
 
         topology.putNode(node2);
 
         assertThat(topology.getLogicalTopology().nodes(), containsInAnyOrder(node1, node2));
 
-        var node3 = new LogicalNode(randomUUID(), "boop", new NetworkAddress("localhost", 123));
+        var node3 = new LogicalNode(randomUUID(), "boop", new NetworkAddress("localhost", 123), VERSION);
 
         topology.putNode(node3);
 
@@ -152,7 +154,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testLogicalTopologyIdempotence() {
-        var node = new LogicalNode(randomUUID(), "bar", new NetworkAddress("localhost", 123));
+        var node = new LogicalNode(randomUUID(), "bar", new NetworkAddress("localhost", 123), VERSION);
 
         topology.putNode(node);
         topology.putNode(node);
@@ -167,9 +169,9 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void additionUsesNameAsNodeKey() {
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
-        topology.putNode(new LogicalNode(nodeId(2), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(2), "node", new NetworkAddress("host", 1000), VERSION));
 
         Collection<LogicalNode> topology = this.topology.getLogicalTopology().nodes();
 
@@ -184,24 +186,24 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void removalUsesIdAsNodeKey() {
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
-        topology.removeNodes(Set.of(new LogicalNode(nodeId(2), "node", new NetworkAddress("host", 1000))));
+        topology.removeNodes(Set.of(new LogicalNode(nodeId(2), "node", new NetworkAddress("host", 1000), VERSION)));
 
         assertThat(topology.getLogicalTopology().nodes(), hasSize(1));
         assertThat((topology.getLogicalTopology().nodes()).iterator().next().id(), is(nodeId(1)));
 
-        topology.removeNodes(Set.of(new LogicalNode(nodeId(1), "another-name", new NetworkAddress("host", 1000))));
+        topology.removeNodes(Set.of(new LogicalNode(nodeId(1), "another-name", new NetworkAddress("host", 1000), VERSION)));
 
         assertThat(topology.getLogicalTopology().nodes(), is(empty()));
     }
 
     @Test
     void inLogicalTopologyTestUsesIdAsNodeKey() {
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
-        assertTrue(topology.isNodeInLogicalTopology(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000))));
-        assertFalse(topology.isNodeInLogicalTopology(new LogicalNode(nodeId(777), "node", new NetworkAddress("host", 1000))));
+        assertTrue(topology.isNodeInLogicalTopology(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION)));
+        assertFalse(topology.isNodeInLogicalTopology(new LogicalNode(nodeId(777), "node", new NetworkAddress("host", 1000), VERSION)));
     }
 
     @Test
@@ -209,11 +211,11 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
         Path snapshotDir = workDir.resolve("snapshot");
         Files.createDirectory(snapshotDir);
 
-        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION));
 
         storage.snapshot(snapshotDir).get(10, TimeUnit.SECONDS);
 
-        topology.putNode(new LogicalNode(randomUUID(), "another-node", new NetworkAddress("host", 1001)));
+        topology.putNode(new LogicalNode(randomUUID(), "another-node", new NetworkAddress("host", 1001), VERSION));
 
         storage.restoreSnapshot(snapshotDir);
 
@@ -225,7 +227,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void addingNewNodeProducesAppearedEvent() {
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
         verify(listener).onNodeJoined(nodeCaptor.capture(), topologyCaptor.capture());
 
@@ -239,18 +241,18 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void addingSameExistingNodeProducesNoEvents() {
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
         verify(listener, times(1)).onNodeJoined(any(), any());
     }
 
     @Test
     void updatingExistingNodeProducesDisappearedAndAppearedEvents() {
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
-        topology.putNode(new LogicalNode(nodeId(2), "node", new NetworkAddress("host1", 1001)));
+        topology.putNode(new LogicalNode(nodeId(2), "node", new NetworkAddress("host1", 1001), VERSION));
 
         InOrder inOrder = inOrder(listener);
 
@@ -275,9 +277,9 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void updatingExistingNodeProducesExactlyOneWriteToDb() {
-        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION));
 
-        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host1", 1001)));
+        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host1", 1001), VERSION));
 
         // Expecting 2 writes because there are two puts. The test verifies that second put also produces just 1 write.
         verify(storage, times(2)).put(eq("logical".getBytes(UTF_8)), any());
@@ -285,7 +287,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void removingExistingNodeProducesDisappearedEvent() {
-        LogicalNode node = new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION);
         topology.putNode(node);
 
         topology.removeNodes(Set.of(node));
@@ -302,7 +304,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void removingNonExistingNodeProducesNoEvents() {
-        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION);
 
         topology.removeNodes(Set.of(node));
 
@@ -311,8 +313,8 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void multiRemovalProducesDisappearedEventsInOrderOfNodeIds() {
-        LogicalNode node1 = new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000));
-        LogicalNode node2 = new LogicalNode(nodeId(2), "node2", new NetworkAddress("host2", 1000));
+        LogicalNode node1 = new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION);
+        LogicalNode node2 = new LogicalNode(nodeId(2), "node2", new NetworkAddress("host2", 1000), VERSION);
 
         topology.putNode(node1);
         topology.putNode(node2);
@@ -337,8 +339,8 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void multiRemovalProducesExactlyOneWriteToDb() {
-        LogicalNode node1 = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000));
-        LogicalNode node2 = new LogicalNode(randomUUID(), "node2", new NetworkAddress("host2", 1000));
+        LogicalNode node1 = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION);
+        LogicalNode node2 = new LogicalNode(randomUUID(), "node2", new NetworkAddress("host2", 1000), VERSION);
 
         topology.putNode(node1);
         topology.putNode(node2);
@@ -351,7 +353,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void onTopologyLeapIsTriggeredOnSnapshotRestore() {
-        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(nodeId(1), "node", new NetworkAddress("host", 1000), VERSION));
 
         topology.fireTopologyLeap();
 
@@ -372,7 +374,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
         topology.addEventListener(secondListener);
 
-        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION));
 
         verify(listener).onNodeJoined(any(), any());
         verify(secondListener).onNodeJoined(any(), any());
@@ -385,7 +387,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
         assertThrows(
                 TestError.class,
-                () -> topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000)))
+                () -> topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION))
         );
     }
 
@@ -398,7 +400,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
         topology.addEventListener(secondListener);
 
-        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION);
 
         topology.putNode(node);
         topology.removeNodes(Set.of(node));
@@ -412,7 +414,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     void onDisappearedListenerErrorIsRethrown() {
         doThrow(new TestError()).when(listener).onNodeLeft(any(), any());
 
-        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION);
 
         topology.putNode(node);
 
@@ -446,7 +448,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     void eventListenerStopsGettingEventsAfterListenerRemoval() {
         topology.removeEventListener(listener);
 
-        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode(randomUUID(), "node", new NetworkAddress("host", 1000), VERSION));
 
         verify(listener, never()).onNodeJoined(any(), any());
     }

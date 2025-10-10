@@ -55,8 +55,8 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param name    Unique name of a member in a cluster.
      * @param address Node address.
      */
-    public LogicalNode(UUID id, String name, NetworkAddress address) {
-        this(id, name, address, null, emptyMap(), emptyMap(), emptyList());
+    public LogicalNode(UUID id, String name, NetworkAddress address, String version) {
+        this(id, name, address, version, null, emptyMap(), emptyMap(), emptyList());
     }
 
     /**
@@ -83,7 +83,8 @@ public class LogicalNode extends ClusterNodeImpl {
             Map<String, String> systemAttributes,
             List<String> storageProfiles
     ) {
-        this(node.id(), node.name(), node.address(), node.nodeMetadata(), userAttributes, systemAttributes, storageProfiles);
+        this(node.id(), node.name(), node.address(), node.version(), node.nodeMetadata(), userAttributes, systemAttributes,
+                storageProfiles);
     }
 
     /**
@@ -99,12 +100,13 @@ public class LogicalNode extends ClusterNodeImpl {
             UUID id,
             String name,
             NetworkAddress address,
+            String version,
             @Nullable NodeMetadata nodeMetadata,
             Map<String, String> userAttributes,
             Map<String, String> systemAttributes,
             List<String> storageProfiles
     ) {
-        super(id, name, address, nodeMetadata);
+        super(id, name, address, version, nodeMetadata);
 
         this.userAttributes = Map.copyOf(userAttributes);
         this.systemAttributes = Map.copyOf(systemAttributes);

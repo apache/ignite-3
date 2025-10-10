@@ -78,6 +78,7 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
 
     private static final String ACCEPTOR_HOST = "acceptor-host";
     private static final String INITIATOR_HOST = "initiator-host";
+    private static final String VERSION = "3.3.333-test";
 
     private static final int PORT = 1000;
 
@@ -172,7 +173,7 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
 
     private RecoveryAcceptorHandshakeManager acceptorHandshakeManager(UUID launchId, BooleanSupplier stopping) {
         RecoveryAcceptorHandshakeManager manager = new RecoveryAcceptorHandshakeManager(
-                new ClusterNodeImpl(launchId, ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)),
+                new ClusterNodeImpl(launchId, ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT), VERSION),
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
                 new NoOpHandshakeEventLoopSwitcher(),

@@ -177,7 +177,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final InternalClusterNode node = new ClusterNodeImpl(
             UUID.randomUUID(),
             NODE_NAME,
-            new NetworkAddress("127.0.0.1", 2245)
+            new NetworkAddress("127.0.0.1", 2245),
+            "3.3.45"
     );
     private static final long WAIT_TIMEOUT = SECONDS.toMillis(10);
 

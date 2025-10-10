@@ -111,8 +111,10 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster nodes. */
-    private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
-    private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
+    private final LogicalNode stableNode =
+            new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"), "3.3.333");
+    private final LogicalNode pendingNode =
+            new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"), "3.3.333");
 
     @Mock
     private LogicalTopologyService topologyService;
@@ -344,7 +346,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         mockPendingAssignments(pending);
 
         List<LogicalNode> nodes = Stream.concat(stable.stream(), pending.stream())
-                .map(a -> new LogicalNode(randomUUID(), a.consistentId(), NetworkAddress.from("127.0.0.1:10001")))
+                .map(a -> new LogicalNode(randomUUID(), a.consistentId(), NetworkAddress.from("127.0.0.1:10001"), "3.3.333"))
                 .collect(Collectors.toList());
 
         when(topologyService.logicalTopologyOnLeader())

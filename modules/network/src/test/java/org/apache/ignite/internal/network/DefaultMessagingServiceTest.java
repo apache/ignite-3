@@ -103,6 +103,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
+    private static final String VERSION = "3.3.3-test";
 
     static final ChannelType TEST_CHANNEL = new ChannelType(Short.MAX_VALUE, "Test");
 
@@ -130,13 +131,15 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private final InternalClusterNode senderNode = new ClusterNodeImpl(
             randomUUID(),
             "sender",
-            new NetworkAddress("localhost", SENDER_PORT)
+            new NetworkAddress("localhost", SENDER_PORT),
+            VERSION
     );
 
     private final InternalClusterNode receiverNode = new ClusterNodeImpl(
             randomUUID(),
             "receiver",
-            new NetworkAddress("localhost", RECEIVER_PORT)
+            new NetworkAddress("localhost", RECEIVER_PORT),
+            VERSION
     );
 
     private final UUID clusterId = randomUUID();
@@ -528,6 +531,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 randomUUID(),
                 receiverNode.name(),
                 receiverNode.address(),
+                receiverNode.version(),
                 receiverNode.nodeMetadata()
         );
     }
@@ -570,7 +574,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     }
 
     private static InternalClusterNode copyWithoutName(InternalClusterNode node) {
-        return new ClusterNodeImpl(node.id(), null, node.address());
+        return new ClusterNodeImpl(node.id(), null, node.address(), node.version(), node.nodeMetadata());
     }
 
     private static void awaitQuietly(CountDownLatch latch) {
@@ -769,33 +773,39 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     private enum ClusterNodeChanger {
         NOT_CHANGE((node, services) -> node),
-        CHANGE_ID_ONLY((node, services) -> new ClusterNodeImpl(randomUUID(), node.name(), node.address())),
-        CHANGE_NAME_ONLY((node, services) -> new ClusterNodeImpl(node.id(), node.name() + "_", node.address())),
-        CHANGE_NAME((node, services) -> new ClusterNodeImpl(randomUUID(), node.name() + "_", node.address())),
+        CHANGE_ID_ONLY((node, services) -> new ClusterNodeImpl(randomUUID(), node.name(), node.address(), VERSION)),
+        CHANGE_NAME_ONLY((node, services) -> new ClusterNodeImpl(node.id(), node.name() + "_", node.address(), VERSION)),
+        CHANGE_NAME((node, services) -> new ClusterNodeImpl(randomUUID(), node.name() + "_", node.address(), VERSION)),
+        CHANGE_VERSION_ONLY((node, services) -> new ClusterNodeImpl(node.id(), node.name(), node.address(), VERSION + "_")),
         SET_IPV4_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
-                new NetworkAddress("127.0.0.1", node.address().port())
+                new NetworkAddress("127.0.0.1", node.address().port()),
+                VERSION
         )),
         SET_IPV6_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
-                new NetworkAddress("::1", node.address().port())
+                new NetworkAddress("::1", node.address().port()),
+                VERSION
         )),
         SET_IPV4_ANYLOCAL((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
-                new NetworkAddress("0.0.0.0", node.address().port())
+                new NetworkAddress("0.0.0.0", node.address().port()),
+                VERSION
         )),
         SET_IPV6_ANYLOCAL((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
-                new NetworkAddress("0:0:0:0:0:0:0:0", node.address().port())
+                new NetworkAddress("0:0:0:0:0:0:0:0", node.address().port()),
+                VERSION
         )),
         SET_LOCALHOST((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
-                new NetworkAddress(localHostName(), node.address().port())
+                new NetworkAddress(localHostName(), node.address().port()),
+                VERSION
         ));
 
         private final BiFunction<InternalClusterNode, Services, InternalClusterNode> changer;

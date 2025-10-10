@@ -53,6 +53,7 @@ class LogicalTopologySnapshotSerializerTest {
                 new UUID(0xDEADBEEFCAFEBABEL, index),
                 "node" + index,
                 new NetworkAddress("host" + index, 3000 + index),
+                "3.3.33",
                 new NodeMetadata("rest-host" + index, 80 + index, 443 + index),
                 Map.of("ukey", "uval" + index),
                 Map.of("skey", "sval" + index),
@@ -78,6 +79,7 @@ class LogicalTopologySnapshotSerializerTest {
         assertThat(node0.id(), is(new UUID(0xDEADBEEFCAFEBABEL, 0)));
         assertThat(node0.name(), is("node0"));
         assertThat(node0.address(), is(new NetworkAddress("host0", 3000)));
+
         assertThat(node0.nodeMetadata(), is(new NodeMetadata("rest-host0", 80, 443)));
         assertThat(node0.userAttributes(), is(Map.of("ukey", "uval0")));
         assertThat(node0.systemAttributes(), is(Map.of("skey", "sval0")));

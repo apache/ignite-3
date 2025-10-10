@@ -98,8 +98,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testNormalInit() {
-        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
-        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123), "3.4.5");
+        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456), "3.4.5");
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -132,7 +132,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> (InternalClusterNode) new ClusterNodeImpl(
                         randomUUID(),
                         "node" + i,
-                        new NetworkAddress("foo" + i, 1230 + i)))
+                        new NetworkAddress("foo" + i, 1230 + i),
+                        "3.3.33"))
                 .collect(Collectors.toList());
 
         // Mock topology service behavior
@@ -191,8 +192,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testNormalInitSingleNodeList() {
-        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
-        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123), "3.4.5");
+        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456), "3.4.5");
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -221,8 +222,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testInitCancel() {
-        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
-        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123), "3.4.5");
+        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456), "3.4.5");
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -259,8 +260,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testInitNoCancel() {
-        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
-        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123), "3.4.5");
+        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456), "3.4.5");
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -326,8 +327,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     @Test
     void testDuplicateConsistentId() {
         // Different nodes with same consistent ids
-        InternalClusterNode node1 = new ClusterNodeImpl(randomUUID(), "node", new NetworkAddress("foo", 123));
-        InternalClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node", new NetworkAddress("bar", 456));
+        InternalClusterNode node1 = new ClusterNodeImpl(randomUUID(), "node", new NetworkAddress("foo", 123), "3.4.5");
+        InternalClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node", new NetworkAddress("bar", 456), "3.4.5");
 
         when(topologyService.allMembers()).thenReturn(List.of(node1, node2));
 
@@ -347,8 +348,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testInitOnHeterogeniusEnabledColocation() {
-        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
-        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+        InternalClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123), "3.4.5");
+        InternalClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456), "3.4.5");
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);

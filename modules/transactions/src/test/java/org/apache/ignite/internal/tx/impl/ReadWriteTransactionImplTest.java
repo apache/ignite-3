@@ -61,7 +61,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private static final InternalClusterNode CLUSTER_NODE = new ClusterNodeImpl(
             randomUUID(),
             "test-node",
-            new NetworkAddress("localhost", 1234)
+            new NetworkAddress("localhost", 1234),
+            "3.3.45"
     );
 
     private static final int TABLE_ID = 1;

@@ -140,7 +140,7 @@ public class MappingTestRunnerSelfTest extends BaseIgniteAbstractTest {
                 () -> runner.runTest(() -> {
                     ExecutionDistributionProvider targetProvider = Mockito.mock(ExecutionDistributionProvider.class);
                     IgniteSchema schema = new IgniteSchema("T", 1, List.of());
-                    LogicalNode node = new LogicalNode(randomUUID(), "N1", new NetworkAddress("addr", 1000));
+                    LogicalNode node = new LogicalNode(randomUUID(), "N1", new NetworkAddress("addr", 1000), "3.3.333");
                     LogicalTopologySnapshot topologySnapshot = new LogicalTopologySnapshot(1, List.of(node));
 
                     return new TestSetup(targetProvider, schema, topologySnapshot);

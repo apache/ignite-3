@@ -161,7 +161,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(
-                new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"))
+                new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"), "3.4.5")
         );
 
         ClusterService clusterService = mock(ClusterService.class);

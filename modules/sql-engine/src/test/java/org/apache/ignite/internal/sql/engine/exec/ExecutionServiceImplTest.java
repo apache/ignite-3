@@ -1199,7 +1199,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static ClusterNodeImpl clusterNode(String nodeName) {
-        return new ClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+        return new ClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"), "3.4.5");
     }
 
     private MappingServiceImpl createMappingService(

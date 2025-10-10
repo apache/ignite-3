@@ -255,7 +255,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplicaAnotherNode() {
-        setPrimaryReplica(new ClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class)));
+        setPrimaryReplica(new ClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class), "3.4.5"));
     }
 
     private void setPrimaryReplica(InternalClusterNode clusterNode) {

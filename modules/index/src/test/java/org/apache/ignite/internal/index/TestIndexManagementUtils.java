@@ -69,9 +69,9 @@ class TestIndexManagementUtils {
 
     static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
-    static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888));
+    static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888), "3.3.333");
 
-    static final LogicalNode LOGICAL_LOCAL_NODE = new LogicalNode(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888));
+    static final LogicalNode LOGICAL_LOCAL_NODE = new LogicalNode(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888), "3.3.333");
 
     static void createTable(CatalogManager catalogManager, String tableName, String columnName) {
         TableTestUtils.createTable(

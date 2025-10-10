@@ -134,7 +134,8 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(
                         UUID.randomUUID(),
                         "node",
-                        null
+                        null,
+                        "3.4.5"
                 ));
 
                 return topologyService;

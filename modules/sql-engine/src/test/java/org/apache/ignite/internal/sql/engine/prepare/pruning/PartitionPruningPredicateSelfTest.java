@@ -246,7 +246,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         for (String nodeName : group.nodeNames()) {
             ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
                     .queryId(randomUUID())
-                    .localNode(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 123)))
+                    .localNode(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 123), "3.4.5"))
                     .executor(Mockito.mock(QueryTaskExecutor.class))
                     .dynamicParameters(dynamicParameters)
                     .build();

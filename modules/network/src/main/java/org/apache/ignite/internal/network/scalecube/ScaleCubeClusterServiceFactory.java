@@ -110,7 +110,7 @@ public class ScaleCubeClusterServiceFactory {
             ChannelTypeRegistry channelTypeRegistry,
             IgniteProductVersionSource productVersionSource
     ) {
-        var topologyService = new ScaleCubeTopologyService();
+        var topologyService = new ScaleCubeTopologyService(productVersionSource);
 
         // Adding this handler as the first handler to make sure that StaleIds is at least up-to-date as any
         // other component that watches topology events.
@@ -213,7 +213,8 @@ public class ScaleCubeClusterServiceFactory {
                 InternalClusterNode localNode = new ClusterNodeImpl(
                         UUID.fromString(localMember.id()),
                         consistentId,
-                        new NetworkAddress(localMember.address().host(), localMember.address().port())
+                        new NetworkAddress(localMember.address().host(), localMember.address().port()),
+                        productVersionSource.productVersion().toString()
                 );
                 connectionMgr.setLocalNode(localNode);
 

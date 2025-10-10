@@ -59,9 +59,9 @@ import org.junit.jupiter.api.Test;
  * Tests reactions to topology changes in accordance with distribution zones logic.
  */
 public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistributionZoneManagerTest {
-    private static final LogicalNode NODE_1 = new LogicalNode(randomUUID(), "name1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode(randomUUID(), "name1", new NetworkAddress("localhost", 123), "3.3.333");
 
-    private static final LogicalNode NODE_2 = new LogicalNode(randomUUID(), "name2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode(randomUUID(), "name2", new NetworkAddress("localhost", 123), "3.3.333");
 
     private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = kvContext(HybridTimestamp.MIN_VALUE);
 

@@ -121,13 +121,14 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     private HybridTimestamp jobTimestamp;
 
-    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1));
+    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1), "3.4.5");
     private final ClusterNode publicLocalNode = localNode.toPublicNode();
 
     private final InternalClusterNode remoteNode = new ClusterNodeImpl(
             randomUUID(),
             "remote",
-            new NetworkAddress("remote-host", 1)
+            new NetworkAddress("remote-host", 1),
+            "3.4.5"
     );
     private final ClusterNode publicRemoteNode = remoteNode.toPublicNode();
 

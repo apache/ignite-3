@@ -85,6 +85,7 @@ class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
 
     private static final String ACCEPTOR_HOST = "acceptor-host";
     private static final String INITIATOR_HOST = "initiator-host";
+    private static final String VERSION = "3.3.33-test";
 
     private static final int PORT = 1000;
 
@@ -186,7 +187,7 @@ class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
 
     private RecoveryInitiatorHandshakeManager initiatorHandshakeManager(UUID launchId, BooleanSupplier stopping) {
         RecoveryInitiatorHandshakeManager manager = new RecoveryInitiatorHandshakeManager(
-                new ClusterNodeImpl(launchId, INITIATOR_CONSISTENT_ID, new NetworkAddress(INITIATOR_HOST, PORT)),
+                new ClusterNodeImpl(launchId, INITIATOR_CONSISTENT_ID, new NetworkAddress(INITIATOR_HOST, PORT), VERSION),
                 CONNECTION_INDEX,
                 recoveryDescriptorProvider,
                 new NoOpHandshakeEventLoopSwitcher(),
@@ -229,7 +230,7 @@ class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
+        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT), VERSION));
         recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         DescriptorAcquiry thisAcquiry = recoveryDescriptor.holder();
@@ -253,7 +254,7 @@ class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
+        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT), VERSION));
         recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         manager.onMessage(handshakeRejectedMessageDueToClinchFrom());

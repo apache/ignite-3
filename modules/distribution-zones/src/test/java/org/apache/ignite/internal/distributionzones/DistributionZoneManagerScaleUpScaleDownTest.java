@@ -667,7 +667,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
     private void addNodes(Set<Node> nodes) {
         for (Node n : nodes) {
             topology.putNode(new LogicalNode(
-                    new ClusterNodeImpl(n.nodeId(), n.nodeName(), new NetworkAddress("localhost", 123)),
+                    new ClusterNodeImpl(n.nodeId(), n.nodeName(), new NetworkAddress("localhost", 123), "3.3.333"),
                     emptyMap(),
                     emptyMap(),
                     List.of("default")
@@ -678,7 +678,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
     private void removeNodes(Set<Node> nodes) {
         topology.removeNodes(
                 nodes.stream()
-                        .map(n -> new LogicalNode(n.nodeId(), n.nodeName(), new NetworkAddress("localhost", 123)))
+                        .map(n -> new LogicalNode(n.nodeId(), n.nodeName(), new NetworkAddress("localhost", 123), "3.3.333"))
                         .collect(toSet())
         );
     }

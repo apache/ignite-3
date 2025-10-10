@@ -170,7 +170,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 .thenAnswer(invocation -> {
                     String consistentId = invocation.getArgument(0);
 
-                    return new ClusterNodeImpl(deriveUuidFrom(consistentId), consistentId, new NetworkAddress("localhost", 123));
+                    return new ClusterNodeImpl(deriveUuidFrom(consistentId), consistentId, new NetworkAddress("localhost", 123), "3.4.5");
                 });
 
         executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, logger()));
@@ -602,7 +602,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         GetLeaderRequest req = FACTORY.getLeaderRequest().groupId(TEST_GRP.toString()).build();
 
-        CompletableFuture<GetLeaderResponse> fut = messagingService.invoke(new ClusterNodeImpl(null, null, null), req, TIMEOUT)
+        CompletableFuture<GetLeaderResponse> fut = messagingService.invoke(new ClusterNodeImpl(null, null, null, null), req, TIMEOUT)
                         .thenApply(GetLeaderResponse.class::cast);
 
         assertThat(fut.thenApply(GetLeaderResponse::leaderId), willBe(equalTo(PeerId.fromPeer(leader).toString())));

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -267,7 +269,10 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
             return;
         }
 
-        this.remoteNode = handshakeStartMessage.serverNode().asClusterNode();
+        this.remoteNode = new ClusterNodeImpl(handshakeStartMessage.serverNode().id(),
+                handshakeStartMessage.serverNode().name(),
+                new NetworkAddress(handshakeStartMessage.serverNode().host(), handshakeStartMessage.serverNode().port()),
+                handshakeStartMessage.productVersion());
 
         ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), connectionId);
         handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, channelKey).thenRun(() -> proceedAfterSavingIds(handshakeStartMessage));

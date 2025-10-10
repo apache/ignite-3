@@ -136,7 +136,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(clock);
 
-    private final InternalClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000));
+    private final InternalClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000), "3.3.5");
 
     @BeforeEach
     void setupMocks() {

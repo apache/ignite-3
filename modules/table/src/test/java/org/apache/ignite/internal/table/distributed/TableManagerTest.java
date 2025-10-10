@@ -251,7 +251,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     private final InternalClusterNode node = new ClusterNodeImpl(
             UUID.randomUUID(),
             NODE_NAME,
-            new NetworkAddress("127.0.0.1", 2245)
+            new NetworkAddress("127.0.0.1", 2245),
+            "3.3.45"
     );
 
     /** The future will be completed after each tests of this class. */

@@ -108,11 +108,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private final PartitionGroupId groupId = replicationGroupId(0, 0);
 
     private static final String NODE_0_NAME = "node0";
-    private static final LogicalNode CLUSTER_NODE_0 = new LogicalNode(randomUUID(), NODE_0_NAME, mock(NetworkAddress.class));
+    private static final LogicalNode CLUSTER_NODE_0 = new LogicalNode(randomUUID(), NODE_0_NAME, mock(NetworkAddress.class), "3.3.333");
 
     private static final String NODE_1_NAME = "node1";
 
-    private static final LogicalNode CLUSTER_NODE_1 = new LogicalNode(randomUUID(), NODE_1_NAME, mock(NetworkAddress.class));
+    private static final LogicalNode CLUSTER_NODE_1 = new LogicalNode(randomUUID(), NODE_1_NAME, mock(NetworkAddress.class), "3.3.333");
 
     private LeaseUpdater leaseUpdater;
 
