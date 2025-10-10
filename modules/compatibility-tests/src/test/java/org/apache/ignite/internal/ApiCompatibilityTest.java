@@ -67,14 +67,12 @@ class ApiCompatibilityTest {
     @ParameterizedTest(name = "Old version: {0}, new version: {1}")
     @MethodSource("versions")
     void testApiModule(String oldVersion, String newVersion) {
-        List<String> exclude = EXCLUDES_PER_VERSION.get(oldVersion);
-
-        CompatibilityChecker.check(CompatibilityChecker.builder()
+        CompatibilityChecker.builder()
                 .module("ignite-api")
                 .oldVersion(oldVersion)
                 .newVersion(newVersion)
-                .exclude(exclude != null ? String.join(";", exclude) : "")
-                .build());
+                .exclude(EXCLUDES_PER_VERSION.get(oldVersion))
+                .check();
     }
 
     private static List<Arguments> versions() {
