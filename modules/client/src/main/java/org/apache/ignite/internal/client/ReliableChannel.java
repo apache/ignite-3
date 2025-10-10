@@ -800,7 +800,14 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     private void onPartitionAssignmentChanged(long timestamp) {
-        partitionAssignmentTimestamp.updateAndGet(curTs -> Math.max(curTs, timestamp));
+        var old = partitionAssignmentTimestamp.getAndUpdate(curTs -> Math.max(curTs, timestamp));
+
+        if (timestamp > old) {
+            // New assignment timestamp, topology change possible.
+            if (scheduledChannelsReinit.compareAndSet(false, true)) {
+                channelsInitAsync();
+            }
+        }
     }
 
     /**
