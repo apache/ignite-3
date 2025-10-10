@@ -28,7 +28,9 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.net.ConnectException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -410,15 +412,27 @@ public final class ReliableChannel implements AutoCloseable {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
 
-        Collection<HostAndPort> ranges = new ArrayList<>(addrs.length);
+        Collection<HostAndPort> parsedAddrs = new ArrayList<>(addrs.length);
 
         for (String a : addrs) {
-            ranges.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
+            parsedAddrs.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
         }
 
-        return ranges.stream()
-                .map(p -> InetSocketAddress.createUnresolved(p.host(), p.port()))
-                .collect(Collectors.toMap(a -> a, a -> 1, Integer::sum));
+        var map = new HashMap<InetSocketAddress, Integer>(parsedAddrs.size());
+
+        for (HostAndPort addr : parsedAddrs) {
+            try {
+                for (InetAddress inetAddr : InetAddress.getAllByName(addr.host())) {
+                    var sockAddr = new InetSocketAddress(inetAddr, addr.port());
+                    map.merge(sockAddr, 1, Integer::sum);
+                }
+            } catch (UnknownHostException e) {
+                var sockAddr = InetSocketAddress.createUnresolved(addr.host(), addr.port());
+                map.merge(sockAddr, 1, Integer::sum);
+            }
+        }
+
+        return map;
     }
 
     /**
