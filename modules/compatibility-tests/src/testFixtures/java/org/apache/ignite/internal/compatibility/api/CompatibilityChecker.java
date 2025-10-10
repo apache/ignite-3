@@ -48,6 +48,15 @@ import org.apache.ignite.internal.util.ArrayUtils;
 public class CompatibilityChecker {
 
     /**
+     * Constructs new builder for checker parameters.
+     *
+     * @return New builder.
+     */
+    public static CompatibilityInput.Builder builder() {
+        return new CompatibilityInput.Builder();
+    }
+
+    /**
      * Checks specified module for API compatibility between specified base version and current version.
      *
      * @param module Module name.
@@ -62,16 +71,6 @@ public class CompatibilityChecker {
     }
 
     /**
-     * Constructs new builder for checker parameters.
-     *
-     * @return New builder.
-     */
-    public static CompatibilityInput.Builder builder() {
-        return new CompatibilityInput.Builder();
-    }
-
-    /**
-     *
      * @see <a href="https://siom79.github.io/japicmp/CliTool.html">japicmp options</a>
      */
     private static void check(CompatibilityInput input) {

@@ -96,8 +96,8 @@ public class IgniteVersions {
      * @param version Version to get data for.
      * @param accessor Function to get the value from a version data.
      * @param defaultSupplier Default value function.
-     * @param <T>
-     * @return
+     * @param <T> Value type.
+     * @return Retrieved value.
      */
     public <T> T getOrDefault(String version, Function<Version, T> accessor, Function<IgniteVersions, T> defaultSupplier) {
         Version versionData = versions.get(version);

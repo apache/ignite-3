@@ -22,6 +22,9 @@ import org.apache.ignite.internal.IgniteVersions;
 import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.properties.IgniteProperties;
 
+/**
+ * Parameters for checking API compatibility.
+ */
 public class CompatibilityInput {
     private final String module;
     private final String oldVersion;
@@ -70,6 +73,9 @@ public class CompatibilityInput {
         return currentVersion;
     }
 
+    /**
+     * Builder class for input parameters.
+     */
     public static class Builder {
         private String module;
         private String oldVersion;
@@ -102,6 +108,11 @@ public class CompatibilityInput {
             return this;
         }
 
+        /**
+         * Constructs input parameters object.
+         *
+         * @return Input parameters object.
+         */
         public CompatibilityInput build() {
             return new CompatibilityInput(
                     module,
