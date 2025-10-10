@@ -33,6 +33,7 @@ repositories {
 
 dependencies {
     testImplementation libs.swagger.parser
+    testImplementation project(':ignite-core')
 
     integrationTestImplementation libs.netty.common
     integrationTestImplementation libs.netty.buffer

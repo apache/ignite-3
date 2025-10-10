@@ -57,23 +57,12 @@ public class CompatibilityChecker {
     }
 
     /**
-     * Checks specified module for API compatibility between specified base version and current version.
-     *
-     * @param module Module name.
-     * @param baseVersion Base version.
-     */
-    public static void check(String module, String baseVersion) {
-        check(builder()
-                .module(module)
-                .oldVersion(baseVersion)
-                .build()
-        );
-    }
-
-    /**
+     * Checks API compatibility for given input parameters.
      * @see <a href="https://siom79.github.io/japicmp/CliTool.html">japicmp options</a>
+     *
+     * @param input Input parameters.
      */
-    private static void check(CompatibilityInput input) {
+    public static void check(CompatibilityInput input) {
         String[] args = {
                 "--old", Dependencies.path(input.oldVersionNotation(), false, false),
                 "--new", Dependencies.path(input.newVersionNotation(), false, input.currentVersion()),

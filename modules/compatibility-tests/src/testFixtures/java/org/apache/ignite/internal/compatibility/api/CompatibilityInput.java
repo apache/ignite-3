@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.compatibility.api;
 
-import java.util.List;
-import org.apache.ignite.internal.IgniteVersions;
-import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.properties.IgniteProperties;
 
 /**
@@ -114,19 +111,9 @@ public class CompatibilityInput {
          * @return Input parameters object.
          */
         public CompatibilityInput build() {
-            return new CompatibilityInput(
-                    module,
-                    oldVersion,
-                    newVersion != null ? newVersion : IgniteProperties.get(IgniteProperties.VERSION),
-                    exclude != null ? exclude : constructExclude(oldVersion),
-                    errorOnIncompatibility,
-                    newVersion == null
-            );
-        }
+            boolean isCurrentVersion = IgniteProperties.get(IgniteProperties.VERSION).equals(newVersion);
 
-        private static String constructExclude(String version) {
-            List<String> exclude = IgniteVersions.INSTANCE.getOrDefault(version, Version::apiExcludes, IgniteVersions::apiExcludes);
-            return exclude != null ? String.join(";", exclude) : "";
+            return new CompatibilityInput(module, oldVersion, newVersion, exclude, errorOnIncompatibility, isCurrentVersion);
         }
     }
 }

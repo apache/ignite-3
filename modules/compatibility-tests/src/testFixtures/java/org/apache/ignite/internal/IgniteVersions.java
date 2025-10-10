@@ -39,7 +39,6 @@ public class IgniteVersions {
     private List<String> artifacts;
     private Map<String, String> configOverrides;
     private Map<String, String> storageProfilesOverrides;
-    private List<String> apiExcludes;
     private Map<String, Version> versions;
 
     public IgniteVersions() {
@@ -52,21 +51,18 @@ public class IgniteVersions {
      * @param configOverrides Map of global node configuration overrides.
      * @param storageProfilesOverrides Map of global storage profiles overrides.
      * @param versions List of version descriptors.
-     * @param apiExcludes Java API test excludes.
      */
     @JsonCreator
     public IgniteVersions(
             @JsonProperty("artifacts") List<String> artifacts,
             @JsonProperty("configOverrides") Map<String, String> configOverrides,
             @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides,
-            @JsonProperty("versions") List<Version> versions,
-            @JsonProperty("apiExcludes") List<String> apiExcludes
+            @JsonProperty("versions") List<Version> versions
     ) {
         this.artifacts = artifacts;
         this.configOverrides = configOverrides;
         this.storageProfilesOverrides = storageProfilesOverrides;
         this.versions = versions.stream().collect(toMap(Version::version, Function.identity()));
-        this.apiExcludes = apiExcludes;
     }
 
     public List<String> artifacts() {
@@ -79,10 +75,6 @@ public class IgniteVersions {
 
     public Map<String, String> storageProfilesOverrides() {
         return storageProfilesOverrides;
-    }
-
-    public List<String> apiExcludes() {
-        return apiExcludes;
     }
 
     public Map<String, Version> versions() {
@@ -112,7 +104,6 @@ public class IgniteVersions {
         private String version;
         private Map<String, String> configOverrides;
         private Map<String, String> storageProfilesOverrides;
-        private List<String> apiExcludes;
 
         public Version() {
         }
@@ -123,19 +114,16 @@ public class IgniteVersions {
          * @param version List of dependency notations.
          * @param configOverrides Map of node configuration overrides.
          * @param storageProfilesOverrides Map of node storage profiles overrides.
-         * @param apiExcludes Java API test excludes.
          */
         @JsonCreator
         public Version(
                 @JsonProperty("version") String version,
                 @JsonProperty("configOverrides") Map<String, String> configOverrides,
-                @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides,
-                @JsonProperty("apiExcludes") List<String> apiExcludes
+                @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides
         ) {
             this.version = version;
             this.configOverrides = configOverrides;
             this.storageProfilesOverrides = storageProfilesOverrides;
-            this.apiExcludes = apiExcludes;
         }
 
         public String version() {
@@ -148,10 +136,6 @@ public class IgniteVersions {
 
         public Map<String, String> storageProfilesOverrides() {
             return storageProfilesOverrides;
-        }
-
-        public List<String> apiExcludes() {
-            return apiExcludes;
         }
     }
 
