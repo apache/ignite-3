@@ -20,8 +20,10 @@ package org.apache.ignite.internal.client;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.net.InetAddress;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.TestServer;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -30,23 +32,42 @@ import org.junit.jupiter.api.Test;
  * Tests client DNS resolution.
  */
 public class ClientDnsDiscoveryTest {
-    private static TestServer server;
+    private static TestServer server1;
+
+    private static TestServer server2;
 
     @BeforeAll
     public static void setUp() {
-        server = TestServer.builder()
+        server1 = TestServer.builder()
+                .listenAddresses("127.0.0.1")
+                .build();
+
+        server2 = TestServer.builder()
+                .listenAddresses("127.0.0.2")
+                .port(server1.port())
                 .build();
     }
 
     @AfterAll
     public static void tearDown() throws Exception {
-        closeAll(server);
+        closeAll(server1, server2);
     }
 
     @Test
     public void testClientResolvesAllHostNameAddresses() {
-        String[] addresses = {"my-cluster:" + server.port()};
+        String[] addresses = {"my-cluster:" + server1.port()};
 
+        // One invalid and one valid address.
+        AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{"1.1.1.1", "127.0.0.1"});
+
+        try (var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, resolvedAddressesRef)).join()) {
+            client.tables().tables();
+        }
+    }
+
+    private static @NotNull IgniteClientConfigurationImpl getClientConfiguration(
+            String[] addresses,
+            AtomicReference<String[]> resolvedAddressesRef) {
         var cfg = new IgniteClientConfigurationImpl(
                 null,
                 addresses,
@@ -66,19 +87,19 @@ public class ClientDnsDiscoveryTest {
 
         cfg.addressResolver = (addr) -> {
             if ("my-cluster".equals(addr)) {
-                return new InetAddress[]{
-                        // One invalid address and one valid address.
-                        InetAddress.getByName("1.1.1.1"),
-                        InetAddress.getByName("127.0.0.1")
-                };
+                String[] resolved = resolvedAddressesRef.get();
+                InetAddress[] result = new InetAddress[resolved.length];
+
+                for (int i = 0; i < resolved.length; i++) {
+                    result[i] = InetAddress.getByName(resolved[i]);
+                }
+
+                return result;
             } else {
                 return InetAddress.getAllByName(addr);
             }
         };
-
-        try (var client = TcpIgniteClient.startAsync(cfg).join()) {
-            client.tables().tables();
-        }
+        return cfg;
     }
 
     @Test
