@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static java.util.List.of;
+
 import java.io.IOException;
 import java.util.LinkedList;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -40,6 +42,14 @@ public class AssignmentsQueueSerializer extends VersionedSerializer<AssignmentsQ
 
     @Override
     protected AssignmentsQueue readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+        if (protoVer == 1) {
+            return readLegacySchema(protoVer, in);
+        }
+
+        return readActualSchema(protoVer, in);
+    }
+
+    private static AssignmentsQueue readActualSchema(byte protoVer, IgniteDataInput in) throws IOException {
         int length = in.readVarIntAsInt();
 
         LinkedList<Assignments> queue = new LinkedList<>();
@@ -48,5 +58,20 @@ public class AssignmentsQueueSerializer extends VersionedSerializer<AssignmentsQ
         }
 
         return new AssignmentsQueue(queue);
+    }
+
+    /**
+     * Previously the bytes we are trying to read was having Assignments, at some point it was replaced with AssignmentsQueue, but no
+     * specific handling was made to maintain backward compatibility.
+     *
+     * <p>Here we know this proto version might be either Assignments or AssignmentsQueue, so do our best to read it.
+     */
+    private static AssignmentsQueue readLegacySchema(byte protoVer, IgniteDataInput in) throws IOException {
+        return new AssignmentsQueue(of(AssignmentsSerializer.INSTANCE.readExternalData(protoVer, in)));
+    }
+
+    @Override
+    protected byte getProtocolVersion() {
+        return 2;
     }
 }
