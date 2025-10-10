@@ -47,8 +47,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Compatibility testing for serialization/deserialization of CMG raft commands. It is verified that deserialization of commands that were
- * created on earlier versions of the product will be error-free.
+ * Compatibility testing for serialization/deserialization of partition raft commands. It is verified that deserialization of commands that
+ * were created on earlier versions of the product will be error-free.
  *
  * <p>For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
  * {@code GridUnsafe#unaligned()} for the tests to pass. For more details, see
