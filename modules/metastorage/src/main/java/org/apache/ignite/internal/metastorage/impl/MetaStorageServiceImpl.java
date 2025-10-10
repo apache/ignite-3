@@ -268,7 +268,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .initiatorTerm(term)
                 .build();
 
-        return context.raftService().run(syncTimeCommand);
+        return context.raftService().run(syncTimeCommand, 30_000);
     }
 
     @Override
