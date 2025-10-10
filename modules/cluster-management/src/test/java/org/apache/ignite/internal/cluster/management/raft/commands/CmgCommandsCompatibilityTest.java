@@ -35,7 +35,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -43,18 +43,21 @@ import org.junit.jupiter.api.Test;
  * created on earlier versions of the product will be error-free.
  *
  * <p>For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
- * {@code GridUnsafe#unaligned()} for the tests to pass.</p>
+ * {@code GridUnsafe#unaligned()} for the tests to pass. For more details, see
+ * <a href="https://lists.apache.org/thread/67coyvm8mo7106mkndt24yqwtbvb7590">discussion</a>.</p>
+ *
+ * <p>To serialize commands, use {@link #serializeAll()} and insert the result into the appropriate tests.</p>
  */
 public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
-    private static final MessageSerializationRegistry REGISTRY = new MessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
 
-    private static final Marshaller MARSHALLER = new ThreadLocalOptimizedMarshaller(REGISTRY);
+    private final Marshaller marshaller = new ThreadLocalOptimizedMarshaller(registry);
 
-    private static final CmgMessagesFactory FACTORY = new CmgMessagesFactory();
+    private final CmgMessagesFactory factory = new CmgMessagesFactory();
 
-    @BeforeAll
-    static void beforeAll() {
-        new CmgMessagesSerializationRegistryInitializer().registerFactories(REGISTRY);
+    @BeforeEach
+    void setUp() {
+        new CmgMessagesSerializationRegistryInitializer().registerFactories(registry);
     }
 
     @Test
@@ -95,7 +98,7 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
 
         assertEquals(createClusterNodeMessage(), command.node());
         assertEquals("version1", command.version());
-        assertEquals(ClusterTag.clusterTag(FACTORY, "clusterName1", uuid()), command.clusterTag());
+        assertEquals(ClusterTag.clusterTag(factory, "clusterName1", uuid()), command.clusterTag());
     }
 
     @Test
@@ -139,8 +142,8 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
         return new UUID(42, 69);
     }
 
-    private static ClusterNodeMessage createClusterNodeMessage() {
-        return FACTORY.clusterNodeMessage()
+    private ClusterNodeMessage createClusterNodeMessage() {
+        return factory.clusterNodeMessage()
                 .id(uuid())
                 .name("name1")
                 .host("host1")
@@ -151,27 +154,27 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    private static ClusterState createClusterState() {
-        return FACTORY.clusterState()
+    private ClusterState createClusterState() {
+        return factory.clusterState()
                 .cmgNodes(Set.of("cmgNode1", "cmgNode2"))
                 .metaStorageNodes(Set.of("msNode1", "msNode2"))
                 .version("version1")
-                .clusterTag(ClusterTag.clusterTag(FACTORY, "clusterName1", uuid()))
+                .clusterTag(ClusterTag.clusterTag(factory, "clusterName1", uuid()))
                 .initialClusterConfiguration("initConfig1")
                 .formerClusterIds(List.of(uuid()))
                 .build();
     }
 
-    private static <T extends Command> T deserializeCommand(byte[] bytes) {
-        return MARSHALLER.unmarshall(bytes);
+    private <T extends Command> T deserializeCommand(byte[] bytes) {
+        return marshaller.unmarshall(bytes);
     }
 
-    private static <T extends Command> T decodeCommand(String base64) {
+    private <T extends Command> T decodeCommand(String base64) {
         return deserializeCommand(Base64.getDecoder().decode(base64));
     }
 
     @SuppressWarnings("unused")
-    void serializeAll() {
+    private void serializeAll() {
         List<Command> commands = List.of(
                 createChangeMetaStorageInfoCommand(),
                 createInitCmgStateCommand(),
@@ -189,61 +192,61 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static ReadValidatedNodesCommand createReadValidatedNodesCommand() {
-        return FACTORY.readValidatedNodesCommand().build();
+    private ReadValidatedNodesCommand createReadValidatedNodesCommand() {
+        return factory.readValidatedNodesCommand().build();
     }
 
-    private static ReadStateCommand createReadStateCommand() {
-        return FACTORY.readStateCommand().build();
+    private ReadStateCommand createReadStateCommand() {
+        return factory.readStateCommand().build();
     }
 
-    private static ReadMetaStorageInfoCommand createReadMetaStorageInfoCommand() {
-        return FACTORY.readMetaStorageInfoCommand().build();
+    private ReadMetaStorageInfoCommand createReadMetaStorageInfoCommand() {
+        return factory.readMetaStorageInfoCommand().build();
     }
 
-    private static ReadLogicalTopologyCommand createReadLogicalTopologyCommand() {
-        return FACTORY.readLogicalTopologyCommand().build();
+    private ReadLogicalTopologyCommand createReadLogicalTopologyCommand() {
+        return factory.readLogicalTopologyCommand().build();
     }
 
-    private static NodesLeaveCommand createNodesLeaveCommand() {
-        return FACTORY.nodesLeaveCommand()
+    private NodesLeaveCommand createNodesLeaveCommand() {
+        return factory.nodesLeaveCommand()
                 .nodes(Set.of(createClusterNodeMessage()))
                 .build();
     }
 
-    private static JoinRequestCommand createJoinRequestCommand() {
-        return FACTORY.joinRequestCommand()
+    private JoinRequestCommand createJoinRequestCommand() {
+        return factory.joinRequestCommand()
                 .node(createClusterNodeMessage())
                 .version("version1")
-                .clusterTag(ClusterTag.clusterTag(FACTORY, "clusterName1", uuid()))
+                .clusterTag(ClusterTag.clusterTag(factory, "clusterName1", uuid()))
                 .build();
     }
 
-    private static JoinReadyCommand createJoinReadyCommand() {
-        return FACTORY.joinReadyCommand()
+    private JoinReadyCommand createJoinReadyCommand() {
+        return factory.joinReadyCommand()
                 .node(createClusterNodeMessage())
                 .build();
     }
 
-    private static InitCmgStateCommand createInitCmgStateCommand() {
-        return FACTORY.initCmgStateCommand()
+    private InitCmgStateCommand createInitCmgStateCommand() {
+        return factory.initCmgStateCommand()
                 .node(createClusterNodeMessage())
                 .clusterState(createClusterState())
                 .build();
     }
 
-    private static ChangeMetaStorageInfoCommand createChangeMetaStorageInfoCommand() {
-        return FACTORY.changeMetaStorageInfoCommand()
+    private ChangeMetaStorageInfoCommand createChangeMetaStorageInfoCommand() {
+        return factory.changeMetaStorageInfoCommand()
                 .metaStorageNodes(Set.of("msNode1", "msNode2"))
                 .metastorageRepairingConfigIndex(42L)
                 .build();
     }
 
-    private static byte[] serializeCommand(Command c) {
-        return MARSHALLER.marshall(c);
+    private byte[] serializeCommand(Command c) {
+        return marshaller.marshall(c);
     }
 
-    private static String encodeCommand(Command c) {
+    private String encodeCommand(Command c) {
         return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
 }
