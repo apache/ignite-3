@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpd
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -83,7 +84,7 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
                 .count();
 
         // local and total unrebalanced partitions on node 0
-        checkRebalanceMetrics(node0, 0, 0);
+        checkRebalanceMetrics(node0, ZONE_NAME, 0, 0);
 
         AtomicBoolean expected0 = new AtomicBoolean();
         AtomicBoolean expected1 = new AtomicBoolean();
@@ -148,6 +149,33 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
         assertThat(res, is(true));
     }
 
+    @Test
+    void testZoneRenaming() {
+        // Create a zone with 7 partitions, 1 replica, and auto scale up set to Integer.MAX_VALUE.
+        createZone(ZONE_NAME, 7, 1, Integer.MAX_VALUE);
+
+        MetricSet zoneMetric0 = zoneMetricSet(unwrapIgniteImpl(cluster.node(0)), ZONE_NAME);
+        assertThat(zoneMetric0, is(notNullValue()));
+
+        IntMetric local0 = zoneMetric0.get(LOCAL_UNREBALANCED_PARTITIONS_COUNT);
+        IntMetric total0 = zoneMetric0.get(TOTAL_UNREBALANCED_PARTITIONS_COUNT);
+        assertThat(local0, is(notNullValue()));
+        assertThat(total0, is(notNullValue()));
+
+        renameZone(ZONE_NAME, "NEW_" + ZONE_NAME);
+
+        MetricSet zoneMetric1 = zoneMetricSet(unwrapIgniteImpl(cluster.node(0)), "NEW_" + ZONE_NAME);
+        assertThat(zoneMetric1, is(notNullValue()));
+
+        IntMetric local1 = zoneMetric0.get(LOCAL_UNREBALANCED_PARTITIONS_COUNT);
+        IntMetric total1 = zoneMetric0.get(TOTAL_UNREBALANCED_PARTITIONS_COUNT);
+        assertThat(local1, is(notNullValue()));
+        assertThat(total1, is(notNullValue()));
+
+        assertThat(local0.value(), equalTo(local1.value()));
+        assertThat(total0.value(), equalTo(total1.value()));
+    }
+
     /**
      * Creates a distribution zone with the specified parameters.
      *
@@ -157,14 +185,28 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
      * @param scaleUp Auto scale up value.
      */
     private void createZone(String zoneName, int partitions, int replicas, int scaleUp) {
-        String sql1 = String.format("create zone %s "
+        String sql = String.format("create zone %s "
                 + "(partitions %d, replicas %d, "
                 + "auto scale up %d, "
                 + "auto scale down 0) "
                 + "storage profiles ['%s']", zoneName, partitions, replicas, scaleUp, DEFAULT_STORAGE_PROFILE);
 
         cluster.doInSession(0, session -> {
-            executeUpdate(sql1, session);
+            executeUpdate(sql, session);
+        });
+    }
+
+    /**
+     * Renames a distribution zone.
+     *
+     * @param oldName Current name of the zone.
+     * @param newName New name of the zone.
+     */
+    private void renameZone(String oldName, String newName) {
+        String sql = String.format("alter zone %s rename to %s", oldName, newName);
+
+        cluster.doInSession(0, session -> {
+            executeUpdate(sql, session);
         });
     }
 
@@ -172,11 +214,17 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
      * Checks the rebalance metrics for the given Ignite instance.
      *
      * @param ignite Ignite instance.
+     * @param zoneName Name of the zone.
      * @param localUnrebalanced Expected number of local unrebalanced partitions.
      * @param totalUnrebalanced Expected total number of unrebalanced partitions.
      */
-    private static void checkRebalanceMetrics(IgniteImpl ignite, int localUnrebalanced, int totalUnrebalanced) {
-        MetricSet metrics = zoneMetricSet(ignite);
+    private static void checkRebalanceMetrics(
+            IgniteImpl ignite,
+            String zoneName,
+            int localUnrebalanced,
+            int totalUnrebalanced
+    ) {
+        MetricSet metrics = zoneMetricSet(ignite, zoneName);
 
         assertThat(metrics, is(notNullValue()));
 
@@ -191,10 +239,20 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
      * @return MetricSet for the zone.
      */
     private static MetricSet zoneMetricSet(IgniteImpl ignite) {
+        return zoneMetricSet(ignite, ZONE_NAME);
+    }
+
+    /**
+     * Returns the metric set for the given {@code zone}.
+     *
+     * @param ignite Ignite instance.
+     * @return MetricSet for the zone.
+     */
+    private static MetricSet zoneMetricSet(IgniteImpl ignite, String zone) {
         return ignite
                 .metricManager()
                 .metricSnapshot()
                 .metrics()
-                .get(ZoneMetricSource.SOURCE_NAME + '.' + ZONE_NAME);
+                .get(ZoneMetricSource.sourceName(zone));
     }
 }

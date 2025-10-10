@@ -48,6 +48,7 @@ public class ClusterConfiguration {
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest: {\n"
             + "    port: {},\n"
             + "    ssl.port: {}\n"

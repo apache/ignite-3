@@ -16,7 +16,7 @@
 
 In Ignite 3, configuration is performed by using the link:ignite-cli-tool[CLI utility]. Ignite 3 configuration is stored in HOCON format. You can manage and configure parameters at any point during cluster runtime and during cluster startup.
 
-In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node.
+In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node" called `ignite`. All configuration sections are children, grandchildren, etc., of that node.
 
 == Updating Configuration from CLI
 
@@ -38,7 +38,7 @@ node config update ignite.network.shutdownTimeoutMillis=20000
 
 ==== Updating Multiple Parameters
 
-When updating multiple parameters at once, pass the valid HOCON configuration to Ignite. The CLI tool will then parse it and apply all required change at the same time.
+When updating multiple parameters at once, pass a valid HOCON configuration to Ignite. The CLI tool will then parse it and apply all required change at the same time.
 
 ----
 cluster config update "{ignite{security.authentication.providers:[{name:basic,password:admin_password,type:basic,username:admin_user,roles:[admin]}],security.authentication.enabled:true}}"
@@ -46,7 +46,7 @@ cluster config update "{ignite{security.authentication.providers:[{name:basic,pa
 
 == Configuration Files
 
-When a Ignite node starts, it reads its starting configuration from the `etc/ignite-config.conf` file.  You can change the file to always consistently start a node with specified configuration.
+When an Ignite node starts, it reads its starting configuration from the `etc/ignite-config.conf` file. You can change the file to always consistently start a node with specified configuration.
 
 Cluster configuration is stored on the cluster nodes, and is shared to all nodes in cluster automatically. You should use the CLI tool to manage this configuration.
 

@@ -21,7 +21,7 @@ This section enumerates all operators for the `EXPLAIN` statement with their sem
 The aggregate operation groups input data on one or more sets of grouping keys, calculating each aggregation function for each combination of grouping key.
 Colocated aggregate assumes that the data is already distributed according to grouping keys, therefore aggregation can be completed locally in a single pass.
 The hash aggregate operation maintains a hash table for each grouping set to coalesce equivalent tuples.
-The output rows are composed as follow: first come columns participated in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
+The output rows are composed as follows: first come columns participating in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
 
 Attributes:
 
@@ -38,7 +38,7 @@ Optional.
 The aggregate operation groups input data on one or more sets of grouping keys, calculating each aggregation function for each combination of grouping key.
 Colocated aggregate assumes that the data is already distributed according to grouping keys, therefore aggregation can be completed locally in a single pass.
 The sort aggregate operation leverages data ordered by the grouping expressions to calculate data each grouping set tuple-by-tuple in streaming fashion.
-The output rows are composed as follow: first come columns participated in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
+The output rows are composed as follows: first come columns participating in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
 
 Attributes:
 
@@ -57,7 +57,7 @@ The aggregate operation groups input data on one or more sets of grouping keys, 
 Map aggregate is a first phase of 2-phase aggregation.
 During first phase, data is pre-aggregated, and result is sent to the where REDUCE is executed.
 The hash aggregate operation maintains a hash table for each grouping set to coalesce equivalent tuples.
-The output rows are composed as follow: first come columns participated in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
+The output rows are composed as follows: first come columns participating in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
 
 Attributes:
 
@@ -75,7 +75,7 @@ The aggregate operation groups input data on one or more sets of grouping keys, 
 Reduce aggregate is a second phase of 2-phase aggregation.
 During second phase, all pre-aggregated data is merged together, and final result is returned.
 The hash aggregate operation maintains a hash table for each grouping set to coalesce equivalent tuples.
-The output rows are composed as follow: first come columns participated in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
+The output rows are composed as follows: first come columns participating in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
 
 Attributes:
 
@@ -93,7 +93,7 @@ The aggregate operation groups input data on one or more sets of grouping keys, 
 Map aggregate is a first phase of 2-phase aggregation.
 During first phase, data is pre-aggregated, and result is sent to the where REDUCE is executed.
 The sort aggregate operation leverages data ordered by the grouping expressions to calculate data each grouping set tuple-by-tuple in streaming fashion.
-The output rows are composed as follow: first come columns participated in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
+The output rows are composed as follows: first come columns participating in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
 
 Attributes:
 
@@ -112,7 +112,7 @@ The aggregate operation groups input data on one or more sets of grouping keys, 
 Reduce aggregate is a second phase of 2-phase aggregation.
 During second phase, all pre-aggregated data is merged together, and final result is returned.
 The sort aggregate operation leverages data ordered by the grouping expressions to calculate data each grouping set tuple-by-tuple in streaming fashion.
-The output rows are composed as follow: first come columns participated in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
+The output rows are composed as follows: first come columns participating in grouping keys in the order they enumerated in `group` attribute, then come results of accumulators in the order they enumerated in `aggregation` attribute.
 
 Attributes:
 
