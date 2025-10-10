@@ -75,7 +75,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public static final int BATCH_SIZE = 1000;
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Use proper timeout or reactive approach.
-    /** Timeout for metas storage raft commands processing. */
+    /** Timeout for meta storage raft commands processing. */
     private static final int TIMEOUT_MILLIS = 30_000;
 
     private final MetaStorageServiceContext context;
