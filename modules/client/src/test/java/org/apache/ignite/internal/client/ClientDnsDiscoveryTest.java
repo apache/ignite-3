@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.net.InetAddress;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.TestServer;
@@ -40,14 +41,18 @@ public class ClientDnsDiscoveryTest {
 
     @BeforeAll
     public static void setUp() {
+        UUID clusterId = UUID.randomUUID();
+
         server1 = TestServer.builder()
                 .listenAddresses("127.0.0.1")
+                .clusterId(clusterId)
                 .build();
 
         port = server1.port();
 
         server2 = TestServer.builder()
                 .listenAddresses("127.0.0.2")
+                .clusterId(clusterId)
                 .port(port)
                 .build();
     }
