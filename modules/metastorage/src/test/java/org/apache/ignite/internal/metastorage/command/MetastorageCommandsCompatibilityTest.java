@@ -42,7 +42,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -51,19 +51,22 @@ import org.junit.jupiter.api.Test;
  * that were created on earlier versions of the product will be error-free.
  *
  * <p>For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
- * {@code GridUnsafe#unaligned()} for the tests to pass.</p>
+ * {@code GridUnsafe#unaligned()} for the tests to pass. For more details, see
+ * <a href="https://lists.apache.org/thread/67coyvm8mo7106mkndt24yqwtbvb7590">discussion</a>.</p>
+ *
+ * <p>To serialize commands, use {@link #serializeAll()} and insert the result into the appropriate tests.</p>
  */
 public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest {
-    private static final MessageSerializationRegistry REGISTRY = new MessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
 
-    private static final Marshaller MARSHALLER = new ThreadLocalOptimizedMarshaller(REGISTRY);
+    private final Marshaller marshaller = new ThreadLocalOptimizedMarshaller(registry);
 
-    private static final MetaStorageCommandsFactory FACTORY = new MetaStorageCommandsFactory();
+    private final MetaStorageCommandsFactory factory = new MetaStorageCommandsFactory();
 
-    @BeforeAll
-    static void beforeAll() {
-        new MetaStorageCommandsSerializationRegistryInitializer().registerFactories(REGISTRY);
-        new MetaStorageMessagesSerializationRegistryInitializer().registerFactories(REGISTRY);
+    @BeforeEach
+    void setUp() {
+        new MetaStorageCommandsSerializationRegistryInitializer().registerFactories(registry);
+        new MetaStorageMessagesSerializationRegistryInitializer().registerFactories(registry);
     }
 
     @Test
@@ -282,16 +285,16 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
         return ByteArray.fromString(key);
     }
 
-    private static <T extends Command> T deserializeCommand(byte[] bytes) {
-        return MARSHALLER.unmarshall(bytes);
+    private <T extends Command> T deserializeCommand(byte[] bytes) {
+        return marshaller.unmarshall(bytes);
     }
 
-    private static <T extends Command> T decodeCommand(String base64) {
+    private <T extends Command> T decodeCommand(String base64) {
         return deserializeCommand(Base64.getDecoder().decode(base64));
     }
 
     @SuppressWarnings("unused")
-    void serializeAll() {
+    private void serializeAll() {
         List<Command> commands = List.of(
                 createCompactionCommand(),
                 createEvictIdempotentCommandsCacheCommand(),
@@ -316,40 +319,40 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
         }
     }
 
-    private static SyncTimeCommand createSyncTimeCommand() {
-        return FACTORY.syncTimeCommand()
+    private SyncTimeCommand createSyncTimeCommand() {
+        return factory.syncTimeCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .initiatorTerm(42)
                 .build();
     }
 
-    private static RemoveCommand createRemoveCommand() {
-        return FACTORY.removeCommand()
+    private RemoveCommand createRemoveCommand() {
+        return factory.removeCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .key(key("key1"))
                 .build();
     }
 
-    private static RemoveByPrefixCommand createRemoveByPrefixCommand() {
-        return FACTORY.removeByPrefixCommand()
+    private RemoveByPrefixCommand createRemoveByPrefixCommand() {
+        return factory.removeByPrefixCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .prefix(key("prefix1"))
                 .build();
     }
 
-    private static RemoveAllCommand createRemoveAllCommand() {
-        return FACTORY.removeAllCommand()
+    private RemoveAllCommand createRemoveAllCommand() {
+        return factory.removeAllCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .keys(List.of(key("key1"), key("key2")))
                 .build();
     }
 
-    private static PutCommand createPutCommand() {
-        return FACTORY.putCommand()
+    private PutCommand createPutCommand() {
+        return factory.putCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .key(key("key1"))
@@ -357,8 +360,8 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 .build();
     }
 
-    private static PutAllCommand createPutAllCommand() {
-        return FACTORY.putAllCommand()
+    private PutAllCommand createPutAllCommand() {
+        return factory.putAllCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .keys(List.of(key("key1"), key("key2")))
@@ -366,7 +369,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 .build();
     }
 
-    private static MultiInvokeCommand createMultiInvokeCommand() {
+    private MultiInvokeCommand createMultiInvokeCommand() {
         Condition tombstonesConditions = Conditions.and(
                 Conditions.tombstone(keyAsByteArray("tombstone1")),
                 Conditions.notTombstone(keyAsByteArray("notTombstone1"))
@@ -387,7 +390,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 Conditions.or(existsConditions, revisionAndValueConsitions)
         );
 
-        return FACTORY.multiInvokeCommand()
+        return factory.multiInvokeCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .id(commandId())
@@ -399,8 +402,8 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 .build();
     }
 
-    private static InvokeCommand createInvokeCommand() {
-        return FACTORY.invokeCommand()
+    private InvokeCommand createInvokeCommand() {
+        return factory.invokeCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .id(commandId())
@@ -410,8 +413,8 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 .build();
     }
 
-    private static GetRangeCommand createGetRangeCommand() {
-        return FACTORY.getRangeCommand()
+    private GetRangeCommand createGetRangeCommand() {
+        return factory.getRangeCommand()
                 .keyFrom(key("keyFrom1"))
                 .keyTo(key("keyTo1"))
                 .batchSize(100)
@@ -421,8 +424,8 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 .build();
     }
 
-    private static GetPrefixCommand createGetPrefixCommand() {
-        return FACTORY.getPrefixCommand()
+    private GetPrefixCommand createGetPrefixCommand() {
+        return factory.getPrefixCommand()
                 .prefix(key("prefix1"))
                 .batchSize(100)
                 .includeTombstones(true)
@@ -431,52 +434,52 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 .build();
     }
 
-    private static GetCurrentRevisionsCommand createGetCurrentRevisionsCommand() {
-        return FACTORY.getCurrentRevisionsCommand()
+    private GetCurrentRevisionsCommand createGetCurrentRevisionsCommand() {
+        return factory.getCurrentRevisionsCommand()
                 .build();
     }
 
-    private static GetCommand createGetCommand() {
-        return FACTORY.getCommand()
+    private GetCommand createGetCommand() {
+        return factory.getCommand()
                 .revision(42)
                 .key(key("key1"))
                 .build();
     }
 
-    private static GetChecksumCommand createGetChecksumCommand() {
-        return FACTORY.getChecksumCommand()
+    private GetChecksumCommand createGetChecksumCommand() {
+        return factory.getChecksumCommand()
                 .revision(42)
                 .build();
     }
 
-    private static GetAllCommand createGetAllCommand() {
-        return FACTORY.getAllCommand()
+    private GetAllCommand createGetAllCommand() {
+        return factory.getAllCommand()
                 .revision(42)
                 .keys(List.of(key("key1"), key("key2")))
                 .build();
     }
 
-    private static EvictIdempotentCommandsCacheCommand createEvictIdempotentCommandsCacheCommand() {
-        return FACTORY.evictIdempotentCommandsCacheCommand()
+    private EvictIdempotentCommandsCacheCommand createEvictIdempotentCommandsCacheCommand() {
+        return factory.evictIdempotentCommandsCacheCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .evictionTimestamp(HybridTimestamp.hybridTimestamp(100))
                 .build();
     }
 
-    private static CompactionCommand createCompactionCommand() {
-        return FACTORY.compactionCommand()
+    private CompactionCommand createCompactionCommand() {
+        return factory.compactionCommand()
                 .safeTime(safeTime())
                 .initiatorTime(initiatorTime())
                 .compactionRevision(42)
                 .build();
     }
 
-    private static byte[] serializeCommand(Command c) {
-        return MARSHALLER.marshall(c);
+    private byte[] serializeCommand(Command c) {
+        return marshaller.marshall(c);
     }
 
-    private static String encodeCommand(Command c) {
+    private String encodeCommand(Command c) {
         return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
 }
