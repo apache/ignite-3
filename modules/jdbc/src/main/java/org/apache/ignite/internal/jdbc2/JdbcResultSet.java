@@ -155,7 +155,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         try {
-            if (!rs.hasNext() || maxRows != 0 && maxRows < currentPosition + 1) {
+            if (!hasNext()) {
                 currentRow = null;
                 return false;
             }
@@ -944,7 +944,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isBeforeFirst() throws SQLException {
         ensureNotClosed();
 
-        return currentRow == null && rs.hasNext();
+        return currentRow == null && hasNext();
     }
 
     /** {@inheritDoc} */
@@ -952,7 +952,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isAfterLast() throws SQLException {
         ensureNotClosed();
 
-        boolean hasNext = rs.hasNext();
+        boolean hasNext = hasNext();
         // Result set is empty
         if (currentPosition == 0 && !hasNext) {
             return false;
@@ -974,7 +974,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isLast() throws SQLException {
         ensureNotClosed();
 
-        return currentRow != null && !rs.hasNext();
+        return currentRow != null && !hasNext();
     }
 
     /** {@inheritDoc} */

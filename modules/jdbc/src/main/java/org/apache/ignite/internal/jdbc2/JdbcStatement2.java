@@ -32,7 +32,6 @@ import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,7 +55,7 @@ public class JdbcStatement2 implements Statement {
     static final EnumSet<QueryModifier> DML_OR_DDL = EnumSet.of(
             QueryModifier.ALLOW_AFFECTED_ROWS_RESULT, QueryModifier.ALLOW_APPLIED_RESULT);
 
-    static final EnumSet<QueryModifier> ALL = EnumSet.allOf(QueryModifier.class);
+    static final Set<QueryModifier> ALL = QueryModifier.ALL;
 
     private static final String RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED =
             JdbcConnection2.RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED;
@@ -128,9 +128,8 @@ public class JdbcStatement2 implements Statement {
     }
 
     JdbcResultSet createResultSet(org.apache.ignite.sql.ResultSet<SqlRow> resultSet) throws SQLException {
-        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
-        ZoneId zoneId = conn.properties().getConnectionTimeZone();
-
+        JdbcConnection2 connection2 = connection.unwrap(JdbcConnection2.class);
+        ZoneId zoneId = connection2.properties().getConnectionTimeZone();
         return new JdbcResultSet(resultSet, this, () -> zoneId, closeOnCompletion, maxRows);
     }
 
@@ -186,9 +185,9 @@ public class JdbcStatement2 implements Statement {
 
         ClientSql clientSql = (ClientSql) igniteSql;
 
-        ClientAsyncResultSet<SqlRow> clientRs;
+        AsyncResultSet<SqlRow> clientRs;
         try {
-            clientRs = (ClientAsyncResultSet<SqlRow>) clientSql.executeAsyncInternal(null,
+            clientRs = clientSql.executeAsyncInternal(null,
                     (Mapper<SqlRow>) null,
                     null,
                     queryModifiers,
@@ -198,7 +197,7 @@ public class JdbcStatement2 implements Statement {
 
             SyncResultSetAdapter<SqlRow> syncRs = new SyncResultSetAdapter<>(clientRs);
 
-            resultSet = new JdbcResultSet(syncRs, this, () -> zoneId, closeOnCompletion, maxRows);
+            resultSet = createResultSet(syncRs);
         } catch (Exception e) {
             Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
             throw new SQLException(cause.getMessage(), cause);
@@ -369,7 +368,7 @@ public class JdbcStatement2 implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(QueryModifier.ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         return isQuery();
     }
@@ -662,16 +661,14 @@ public class JdbcStatement2 implements Statement {
         return iface != null && iface.isAssignableFrom(JdbcStatement2.class);
     }
 
-    /**
-     * Gets the isQuery flag from the first result.
-     *
-     * @return isQuery flag.
-     */
     protected boolean isQuery() {
-        if (resultSet == null) {
-            return false;
-        }
-        return resultSet.isQuery();
+        // This method is called after statement is executed, so the reference points to a correct result set.
+        // The statement is not expected to be used from multiple threads, so this reference points to a correct result set.
+        // getResultSet() performs its own result set checks.
+        JdbcResultSet rs = resultSet;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
     void ensureNotClosed() throws SQLException {

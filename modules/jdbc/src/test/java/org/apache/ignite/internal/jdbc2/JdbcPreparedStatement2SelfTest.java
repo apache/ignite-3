@@ -304,7 +304,6 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
             stmt.setDate(3, Date.valueOf(ld), Calendar.getInstance());
             assertTrue(ps.getArguments().size() >= 3);
             assertEquals(ld, ps.getArguments().get(2));
-
         }
     }
 

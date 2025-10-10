@@ -102,7 +102,7 @@ public class JdbcConnection2 implements Connection {
             "Types mapping is not supported.";
 
     private final IgniteClient igniteClient;
-
+    
     private final IgniteSql igniteSql;
 
     private final ReentrantLock lock = new ReentrantLock();
@@ -137,7 +137,7 @@ public class JdbcConnection2 implements Connection {
             JdbcQueryEventHandler eventHandler,
             ConnectionProperties props
     ) {
-        igniteClient = client;
+        igniteSql = client;
         igniteSql = client.sql();
         autoCommit = true;
         networkTimeoutMillis = props.getConnectionTimeout();

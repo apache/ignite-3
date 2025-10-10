@@ -442,7 +442,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
 
         when(connection.unwrap(JdbcConnection2.class)).thenReturn(connection2);
         when(connection2.properties()).thenReturn(properties);
-        
+
         return createStatement(connection);
     }
 
