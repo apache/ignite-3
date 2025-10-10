@@ -101,6 +101,11 @@ public class ClientDnsDiscoveryTest {
         }
     }
 
+    @Test
+    public void testMultipleIpsSameNode() {
+        assert false : "TODO";
+    }
+
     private static @NotNull IgniteClientConfigurationImpl getClientConfiguration(
             String[] addresses,
             AtomicReference<String[]> resolvedAddressesRef) {
@@ -135,6 +140,7 @@ public class ClientDnsDiscoveryTest {
                 return InetAddress.getAllByName(addr);
             }
         };
+
         return cfg;
     }
 }
