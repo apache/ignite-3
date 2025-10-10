@@ -355,11 +355,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        if (!stopping.getAsBoolean() && msg.reason().logAsWarn()) {
-            LOG.warn("Handshake rejected by initiator: {}", msg.message());
-        } else {
-            LOG.debug("Handshake rejected by initiator: {}", msg.message());
-        }
+        msg.reason().print(stopping.getAsBoolean(), LOG, "Handshake rejected by initiator: {}", msg.message());
 
         handshakeCompleteFuture.completeExceptionally(HandshakeManagerUtils.createExceptionFromRejectionMessage(msg));
     }
