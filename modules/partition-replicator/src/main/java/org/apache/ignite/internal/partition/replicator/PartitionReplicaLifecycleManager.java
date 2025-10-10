@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -154,6 +155,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -1659,10 +1661,23 @@ public class PartitionReplicaLifecycleManager extends
                 .toArray(CompletableFuture[]::new);
 
         try {
-            allOf(stopPartitionsFuture).get(30, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            LOG.error("Unable to clean up zones resources", e);
+            CompletableFuture<Void> fut = allOf(stopPartitionsFuture);
+
+            delayedExecutor(30, TimeUnit.SECONDS, Runnable::run)
+                    .execute(() -> {
+                        if (!fut.isDone()) {
+                            printPartitionState();
+                        }
+                    });
+
+            fut.get();
+        } catch (Throwable e) {
+            failureProcessor.process(new FailureContext(e, "Unable to clean up zones resources"));
         }
+    }
+
+    private void printPartitionState() {
+        //ThreadUtils.dumpThreads(LOG, null, false);
     }
 
     /**
