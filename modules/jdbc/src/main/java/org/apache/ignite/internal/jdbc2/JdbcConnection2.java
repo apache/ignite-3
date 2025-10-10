@@ -102,7 +102,7 @@ public class JdbcConnection2 implements Connection {
             "Types mapping is not supported.";
 
     private final IgniteClient igniteClient;
-    
+
     private final IgniteSql igniteSql;
 
     private final ReentrantLock lock = new ReentrantLock();
@@ -344,7 +344,7 @@ public class JdbcConnection2 implements Connection {
         }
     }
 
-    private static  SQLException connectionCloseException(@Nullable Exception e, @Nullable List<Exception> suppressedExceptions) {
+    private static SQLException connectionCloseException(@Nullable Exception e, @Nullable List<Exception> suppressedExceptions) {
         SQLException err = new SQLException("Exception occurred while closing a connection.", e);
         if (suppressedExceptions != null) {
             for (Exception suppressed : suppressedExceptions) {
