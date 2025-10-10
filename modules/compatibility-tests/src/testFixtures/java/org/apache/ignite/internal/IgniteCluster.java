@@ -65,6 +65,8 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.model.build.BuildEnvironment;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Cluster of nodes. Can be started with nodes of previous Ignite versions running in the external processes or in the embedded mode
@@ -114,6 +116,15 @@ public class IgniteCluster {
      * @param nodesCount Number of nodes in the cluster.
      */
     public void startEmbedded(int nodesCount, boolean initCluster) {
+        startEmbedded(null, nodesCount, initCluster);
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param nodesCount Number of nodes in the cluster.
+     */
+    public void startEmbedded(@Nullable TestInfo testInfo, int nodesCount, boolean initCluster) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -123,7 +134,7 @@ public class IgniteCluster {
 
         List<ServerRegistration> nodeRegistrations = new ArrayList<>();
         for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
-            nodeRegistrations.add(startEmbeddedNode(nodeIndex));
+            nodeRegistrations.add(startEmbeddedNode(testInfo, nodeIndex, nodesCount));
         }
 
         if (initCluster) {
@@ -269,7 +280,20 @@ public class IgniteCluster {
         return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
     }
 
-    private ServerRegistration startEmbeddedNode(int nodeIndex) {
+    /**
+     * Returns cluster nodes.
+     *
+     * @return Cluster nodes.
+     */
+    public List<Ignite> nodes() {
+        return nodes;
+    }
+
+    private ServerRegistration startEmbeddedNode(
+            @Nullable TestInfo testInfo,
+            int nodeIndex,
+            int nodesCount
+    ) {
         String nodeName = nodeName(nodeIndex);
 
         IgniteServer node = TestIgnitionManager.start(
