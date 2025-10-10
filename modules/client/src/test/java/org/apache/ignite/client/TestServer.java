@@ -205,7 +205,7 @@ public class TestServer implements AutoCloseable {
                         .changePort(port != null ? port : getFreePort())
                         .changeIdleTimeoutMillis(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
-                        .changeListenAddresses(listenAddresses)
+                        .changeListenAddresses(listenAddresses == null ? new String[0] : listenAddresses)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkExtensionConfiguration.KEY).network(), "TestServer-");
@@ -399,15 +399,15 @@ public class TestServer implements AutoCloseable {
     }
 
     public static class Builder {
-        private long idleTimeout;
-        private FakeIgnite ignite;
+        private long idleTimeout = 1000;
+        private @Nullable FakeIgnite ignite;
         private @Nullable Function<Integer, Boolean> shouldDropConnection;
         private @Nullable Function<Integer, Integer> responseDelay;
         private @Nullable String nodeName;
-        private UUID clusterId;
+        private UUID clusterId = UUID.randomUUID();
         private @Nullable SecurityConfiguration securityConfiguration;
         private @Nullable Integer port;
-        private boolean enableRequestHandling;
+        private boolean enableRequestHandling = true;
         private @Nullable BitSet features;
         private @Nullable String[] listenAddresses;
 
@@ -469,7 +469,7 @@ public class TestServer implements AutoCloseable {
         public TestServer build() {
             return new TestServer(
                     idleTimeout,
-                    ignite,
+                    ignite == null ? new  FakeIgnite() : ignite,
                     shouldDropConnection,
                     responseDelay,
                     nodeName,

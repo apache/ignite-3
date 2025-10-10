@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.net.InetAddress;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.TestServer;
-import org.apache.ignite.client.fakes.FakeIgnite;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,8 @@ public class ClientDnsDiscoveryTest {
 
     @BeforeAll
     public static void setUp() {
-        server = new TestServer(1000, new FakeIgnite());
+        server = TestServer.builder()
+                .build();
     }
 
     @AfterAll

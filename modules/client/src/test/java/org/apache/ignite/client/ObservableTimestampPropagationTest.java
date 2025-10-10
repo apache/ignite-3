@@ -49,7 +49,10 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     @BeforeAll
     public static void startServer2() {
         ignite = new FakeIgnite("server-2", new TestHybridClock(currentServerTimestamp::get));
-        testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, true, null);
+        testServer = TestServer.builder()
+                .ignite(ignite)
+                .nodeName("server-2")
+                .build();
 
         client = IgniteClient.builder().addresses("127.0.0.1:" + testServer.port()).build();
     }
