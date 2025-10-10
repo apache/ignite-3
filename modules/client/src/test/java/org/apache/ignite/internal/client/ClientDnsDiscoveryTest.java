@@ -27,6 +27,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests client DNS resolution.
+ */
 public class ClientDnsDiscoveryTest {
     private static TestServer server;
 
@@ -41,7 +44,7 @@ public class ClientDnsDiscoveryTest {
     }
 
     @Test
-    public void test() {
+    public void testClientResolvesAllHostNameAddresses() {
         String[] addresses = {"my-cluster:" + server.port()};
 
         var cfg = new IgniteClientConfigurationImpl(
@@ -63,7 +66,11 @@ public class ClientDnsDiscoveryTest {
 
         cfg.addressResolver = (addr) -> {
             if ("my-cluster".equals(addr)) {
-                return new InetAddress[]{InetAddress.getByName("127.0.0.1")};
+                return new InetAddress[]{
+                        // One invalid address and one valid address.
+                        InetAddress.getByName("1.1.1.1"),
+                        InetAddress.getByName("127.0.0.1")
+                };
             } else {
                 return InetAddress.getAllByName(addr);
             }
