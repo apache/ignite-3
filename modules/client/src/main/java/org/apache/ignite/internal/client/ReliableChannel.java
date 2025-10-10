@@ -505,6 +505,13 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
+     * Should the channel initialization be stopped.
+     */
+    private boolean shouldStopChannelsReinit() {
+        return scheduledChannelsReinit.get() || closed;
+    }
+
+    /**
      * Init channel holders to all nodes.
      *
      * @return boolean whether channels were reinitialized.
@@ -529,6 +536,7 @@ public final class ReliableChannel implements AutoCloseable {
                 prevHostAddrs = hostAddrs;
             }
         } else {
+            // Re-resolve DNS.
             newAddrs = parsedAddresses(clientCfg.addresses(), clientCfg);
         }
 
@@ -563,6 +571,10 @@ public final class ReliableChannel implements AutoCloseable {
         }
 
         for (InetSocketAddress addr : allAddrs) {
+            if (shouldStopChannelsReinit()) {
+                return false;
+            }
+
             // Obsolete addr, to be removed.
             if (!newAddrs.containsKey(addr)) {
                 curAddrs.get(addr).close();
