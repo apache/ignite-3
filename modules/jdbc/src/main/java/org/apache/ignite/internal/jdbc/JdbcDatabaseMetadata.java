@@ -1562,7 +1562,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getResultSetHoldability() {
-        return HOLD_CURSORS_OVER_COMMIT;
+        return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
     /** {@inheritDoc} */

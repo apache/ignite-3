@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler.CLIENT_CONNECTION_FAILED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -154,6 +155,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
     @Test
     @DisplayName("Should execute multiline sql script from file")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void multilineScript() {
         String filePath = getClass().getResource("/multiline.sql").getPath();
         execute("sql", "--file", filePath, "--jdbc-url", JDBC_URL);
@@ -175,6 +177,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void exceptionHandler() {
         execute("sql", "SELECT 1/0;", "--jdbc-url", JDBC_URL);
 
@@ -197,6 +200,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
     @Test
     @DisplayName("An error should be displayed indicating that the script transaction was not completed by the script.")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void scriptTxNotFinishedByScript() {
         String expectedError = "Transaction block doesn't have a COMMIT statement at the end.";
 

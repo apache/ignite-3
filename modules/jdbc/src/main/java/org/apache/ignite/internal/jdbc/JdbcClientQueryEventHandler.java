@@ -52,7 +52,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
      *
      * @param client TcpIgniteClient.
      */
-    JdbcClientQueryEventHandler(TcpIgniteClient client) {
+    public JdbcClientQueryEventHandler(TcpIgniteClient client) {
         this.client = client;
     }
 

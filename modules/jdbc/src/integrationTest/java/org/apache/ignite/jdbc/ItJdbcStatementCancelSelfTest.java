@@ -32,11 +32,13 @@ import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Statement cancel test.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-26139")
 @SuppressWarnings({"ThrowableNotThrown", "JDBCResourceOpenedButNotSafelyClosed"})
 public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     @AfterEach

@@ -52,21 +52,21 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /** Creates tables. */
     @BeforeAll
     public static void createTables() throws SQLException {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-26142 convert these statements back into a script 
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC;"
-                    + "CREATE SCHEMA IF NOT EXISTS META;"
-                    + "CREATE SCHEMA IF NOT EXISTS USER2;"
-                    + "CREATE SCHEMA IF NOT EXISTS \"user0\";"
-                    + "CREATE SCHEMA IF NOT EXISTS USER1;"
-                    + "CREATE TABLE person(name VARCHAR(32), age INT, orgid INT PRIMARY KEY);"
-                    + "CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10));"
-                    + "CREATE TABLE user1.table1(id INT PRIMARY KEY);"
-                    + "CREATE TABLE user2.\"table2\"(id INT PRIMARY KEY);"
-                    + "CREATE TABLE \"user0\".\"table0\"(\"id\" INT PRIMARY KEY);"
-                    + "CREATE TABLE \"user0\".table0(id INT PRIMARY KEY);"
-                    + "INSERT INTO person (orgid, name, age) VALUES (1, '111', 111);"
-                    + "INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10);"
-            );
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC;");
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS META;");
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS USER2;");
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS \"user0\";");
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS USER1;");
+            stmt.execute("CREATE TABLE person(name VARCHAR(32), age INT, orgid INT PRIMARY KEY);");
+            stmt.execute("CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10));");
+            stmt.execute("CREATE TABLE user1.table1(id INT PRIMARY KEY);");
+            stmt.execute("CREATE TABLE user2.\"table2\"(id INT PRIMARY KEY);");
+            stmt.execute("CREATE TABLE \"user0\".\"table0\"(\"id\" INT PRIMARY KEY);");
+            stmt.execute("CREATE TABLE \"user0\".table0(id INT PRIMARY KEY);");
+            stmt.execute("INSERT INTO person (orgid, name, age) VALUES (1, '111', 111);");
+            stmt.execute("INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10);");
         }
     }
 

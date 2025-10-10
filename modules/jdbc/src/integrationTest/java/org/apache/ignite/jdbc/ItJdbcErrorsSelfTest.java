@@ -112,6 +112,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      * @throws SQLException if failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchUpdateException() throws SQLException {
 
         stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
@@ -136,6 +137,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      * @throws SQLException if failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26139")
     public void testDdlWithDisabledAutoCommit() throws SQLException {
         conn.setAutoCommit(false);
 

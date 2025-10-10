@@ -23,6 +23,7 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Replaces;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -63,6 +64,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void multilineCommand() {
         execute("CREATE TABLE MULTILINE_TABLE(K INT PRIMARY KEY); \n INSERT INTO MULTILINE_TABLE VALUES(1);", "--jdbc-url", JDBC_URL);
 
@@ -98,6 +100,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void exceptionHandler() {
         execute("SELECT 1/0;", "--jdbc-url", JDBC_URL);
 

@@ -37,13 +37,13 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.internal.jdbc.JdbcStatement;
+import org.apache.ignite.internal.jdbc2.JdbcStatement2;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -218,7 +218,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testExecuteWrongFetchCount() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            assertThrowsSqlException("Fetch size must be greater than zero.", () -> statement.setFetchSize(-2));
+            assertThrowsSqlException("Invalid fetch size.", () -> statement.setFetchSize(-2));
         }
     }
 
@@ -380,6 +380,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 
@@ -413,6 +414,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         Statement stmt0 = conn.createStatement();
 
@@ -447,6 +449,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testExecuteQueryMultipleMixed() throws Exception {
         int stmtCnt = 10;
 
@@ -560,7 +563,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         assertThrowsSqlException(
                 SQLFeatureNotSupportedException.class,
-                "Field size limitation is not supported",
+                "Field size limit is not supported.",
                 () -> stmt.setMaxFieldSize(100));
 
         assertEquals(0, stmt.getMaxFieldSize());
@@ -674,6 +677,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testGetMoreResults() throws Exception {
         assertFalse(stmt.getMoreResults());
 
@@ -695,8 +699,8 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testGetMoreResultsKeepCurrent() throws Exception {
         assertFalse(stmt.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
-        assertFalse(stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
-        assertFalse(stmt.getMoreResults(Statement.CLOSE_ALL_RESULTS));
+        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
+        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.getMoreResults(Statement.CLOSE_ALL_RESULTS));
 
         stmt.execute("select 1; ");
 
@@ -712,8 +716,8 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testGetMoreResultsCloseAll() throws Exception {
         assertFalse(stmt.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
-        assertFalse(stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
-        assertFalse(stmt.getMoreResults(Statement.CLOSE_ALL_RESULTS));
+        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
+        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.getMoreResults(Statement.CLOSE_ALL_RESULTS));
 
         stmt.execute("select 1; ");
 
@@ -725,6 +729,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchEmpty() throws Exception {
         assertTrue(conn.getMetaData().supportsBatchUpdates());
 
@@ -782,6 +787,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testStatementTypeMismatchSelectForCachedQuery() throws Exception {
         // Put query to cache.
         stmt.executeQuery("select 1;");
@@ -814,6 +820,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testOpenCursorsPureQuery() throws Exception {
         stmt.execute("SELECT 1; SELECT 2;");
         ResultSet rs = stmt.getResultSet();
@@ -843,12 +850,12 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testTimeout() throws Exception {
-        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
 
         // No timeout
 
         {
-            igniteStmt.timeout(0);
+            igniteStmt.setQueryTimeout(0);
 
             try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100))")) {
                 while (rs.next()) {
@@ -860,8 +867,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         // Rise timeout
 
         {
-            int timeoutMillis = ThreadLocalRandom.current().nextInt(10, 200);
-            igniteStmt.timeout(timeoutMillis);
+            igniteStmt.setQueryTimeout(1);
 
             // Catch both execution and planning timeouts.
             assertThrowsSqlException(SQLException.class,
@@ -877,7 +883,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         {
             // Disable timeout
 
-            igniteStmt.timeout(0);
+            igniteStmt.setQueryTimeout(0);
 
             try (ResultSet rs = igniteStmt.executeQuery("SELECT * FROM TABLE(SYSTEM_RANGE(1, 100))")) {
                 while (rs.next()) {
@@ -889,18 +895,18 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testSetTimeoutValues() throws SQLException {
-        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
 
-        igniteStmt.timeout(1_234_000);
+        igniteStmt.setQueryTimeout(1_234);
         assertEquals(1_234, igniteStmt.getQueryTimeout());
 
         igniteStmt.setQueryTimeout(Integer.MAX_VALUE);
         assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
 
-        igniteStmt.timeout(Integer.MAX_VALUE * 1000L);
+        igniteStmt.setQueryTimeout(Integer.MAX_VALUE);
         assertEquals(Integer.MAX_VALUE, igniteStmt.getQueryTimeout());
 
-        SQLException err = assertThrows(SQLException.class, () -> igniteStmt.timeout(-1));
+        SQLException err = assertThrows(SQLException.class, () -> igniteStmt.setQueryTimeout(-1));
         assertThat(err.getMessage(), containsString("Invalid timeout value"));
     }
 }

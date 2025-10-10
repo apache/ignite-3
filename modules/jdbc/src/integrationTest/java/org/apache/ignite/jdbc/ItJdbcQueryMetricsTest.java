@@ -34,12 +34,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.jdbc.JdbcStatement;
+import org.apache.ignite.internal.jdbc2.JdbcStatement2;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -57,6 +58,7 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testScriptErrors() throws SQLException {
         try (var stmt = conn.prepareStatement("SELECT 1; SELECT 1/?;")) {
             stmt.setInt(1, 0);
@@ -91,6 +93,7 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testScriptCancellation() throws SQLException {
         try (var stmt = conn.prepareStatement("SELECT 1; SELECT 1/?;")) {
             stmt.setInt(1, 0);
@@ -123,6 +126,7 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testScriptTimeout() {
         Callable<Map<String, Long>> runScript = () -> {
 
@@ -135,11 +139,10 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
                     success0, failed0, cancelled0, timedout0);
 
             SQLException err;
-            int timeoutMillis = 200;
 
             try (var stmt = conn.createStatement()) {
-                JdbcStatement jdbc = stmt.unwrap(JdbcStatement.class);
-                jdbc.timeout(timeoutMillis);
+                JdbcStatement2 jdbc = stmt.unwrap(JdbcStatement2.class);
+                jdbc.setQueryTimeout(1);
 
                 // Start a script
                 err = assertThrows(SQLException.class, () -> {
@@ -155,7 +158,7 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
                     assertTrue(stmt.getMoreResults());
                     try (var rs = stmt.getResultSet()) {
                         // Introduce a delay to trigger a timeout.
-                        TimeUnit.MILLISECONDS.sleep(timeoutMillis * 2);
+                        TimeUnit.SECONDS.sleep(2);
 
                         // Triggers the timeout
                         while (rs.next()) {

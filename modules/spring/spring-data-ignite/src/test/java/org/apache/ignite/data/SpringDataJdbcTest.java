@@ -40,6 +40,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,6 +71,7 @@ import org.springframework.data.util.Streamable;
  */
 @SpringBootTest(classes = TestApplication.class)
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-26139")
 public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @WorkDirectory
