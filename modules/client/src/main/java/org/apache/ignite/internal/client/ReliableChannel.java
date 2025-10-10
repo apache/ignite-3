@@ -480,7 +480,8 @@ public final class ReliableChannel implements AutoCloseable {
         // Roll current channel even if a topology changes. To help find working channel faster.
         rollCurrentChannel(hld);
 
-        if (scheduledChannelsReinit.get()) {
+        if (scheduledChannelsReinit.compareAndSet(false, true)) {
+            // Refresh addresses and reinit channels.
             channelsInitAsync();
         }
     }
@@ -501,13 +502,6 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public ClientTransactionInflights inflights() {
         return inflights;
-    }
-
-    /**
-     * Should the channel initialization be stopped.
-     */
-    private boolean shouldStopChannelsReinit() {
-        return scheduledChannelsReinit.get() || closed;
     }
 
     /**
@@ -534,7 +528,7 @@ public final class ReliableChannel implements AutoCloseable {
                 newAddrs = parsedAddresses(hostAddrs, clientCfg);
                 prevHostAddrs = hostAddrs;
             }
-        } else if (holders == null) {
+        } else {
             newAddrs = parsedAddresses(clientCfg.addresses(), clientCfg);
         }
 
@@ -569,10 +563,6 @@ public final class ReliableChannel implements AutoCloseable {
         }
 
         for (InetSocketAddress addr : allAddrs) {
-            if (shouldStopChannelsReinit()) {
-                return false;
-            }
-
             // Obsolete addr, to be removed.
             if (!newAddrs.containsKey(addr)) {
                 curAddrs.get(addr).close();
@@ -788,7 +778,6 @@ public final class ReliableChannel implements AutoCloseable {
 
         if (interval > 0 && !closed) {
             // After current round of connection attempts is finished, schedule the next one with a configured delay.
-            // TODO: Re-resolve DNS here too?
             CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
                     .whenCompleteAsync(
                             (res, err) -> initAllChannelsAsync(),
