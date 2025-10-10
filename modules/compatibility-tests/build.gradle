@@ -35,6 +35,7 @@ dependencies {
     testImplementation libs.swagger.parser
 
     integrationTestImplementation libs.netty.common
+    integrationTestImplementation libs.netty.buffer
 
     integrationTestImplementation testFixtures(project(':ignite-compatibility-tests'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
@@ -47,6 +48,8 @@ dependencies {
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation project(':ignite-metastorage-api')
+    integrationTestImplementation project(':ignite-metastorage')
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     integrationTestImplementation libs.micronaut.junit5
@@ -63,6 +66,8 @@ dependencies {
     }
     testFixturesImplementation libs.cytodynamics.nucleus
     testFixturesImplementation libs.japicmp
+    testFixturesImplementation libs.micronaut.http.client
+
 
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))

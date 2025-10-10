@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -29,7 +31,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.DeployerProcessor.DeployArg;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProviderImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -43,6 +49,8 @@ public class FileDeployerService {
 
     private static final int DEPLOYMENT_EXECUTOR_SIZE = 4;
 
+    private final TempStorageProviderImpl tempStorageProvider;
+
     /**
      * Folder for units.
      */
@@ -50,7 +58,7 @@ public class FileDeployerService {
 
     private final ExecutorService executor;
 
-    private final DeploymentUnitProcessor<Path> deployProcessor = new DeployerProcessor();
+    private final DeploymentUnitProcessor<DeployArg, Boolean> deployProcessor;
 
     /** Constructor. */
     public FileDeployerService(String nodeName) {
@@ -58,10 +66,14 @@ public class FileDeployerService {
                 DEPLOYMENT_EXECUTOR_SIZE,
                 IgniteThreadFactory.create(nodeName, "deployment", LOG)
         );
+
+        tempStorageProvider = new TempStorageProviderImpl(executor);
+        deployProcessor = new DeployerProcessor(executor);
     }
 
-    public void initUnitsFolder(Path unitsFolder) {
+    public void initUnitsFolder(Path unitsFolder, Path tempFolder) {
         this.unitsFolder = unitsFolder;
+        tempStorageProvider.init(tempFolder);
     }
 
     /**
@@ -73,19 +85,17 @@ public class FileDeployerService {
      * @return Future with deploy result.
      */
     public CompletableFuture<Boolean> deploy(String id, Version version, DeploymentUnit deploymentUnit) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                Path unitFolder = unitPath(id, version);
-                Files.createDirectories(unitFolder);
+        try {
+            Path unitFolder = unitPath(id, version);
+            Files.createDirectories(unitFolder);
+            TempStorage storage = tempStorageProvider.tempStorage(id, version);
+            return deploymentUnit.process(deployProcessor, new DeployArg(unitFolder, storage))
+                    .whenComplete((unused, t) -> storage.close());
 
-                deploymentUnit.process(deployProcessor, unitFolder);
-
-                return true;
-            } catch (IOException e) {
-                LOG.error("Failed to deploy unit " + id + ":" + version, e);
-                return false;
-            }
-        }, executor);
+        } catch (IOException e) {
+            LOG.error("Failed to deploy unit " + id + ":" + version, e);
+            return falseCompletedFuture();
+        }
     }
 
     /**
@@ -101,7 +111,7 @@ public class FileDeployerService {
                 IgniteUtils.deleteIfExistsThrowable(unitPath(id, version));
                 return true;
             } catch (IOException e) {
-                LOG.debug("Failed to undeploy unit " + id + ":" + version, e);
+                LOG.error("Failed to undeploy unit " + id + ":" + version, e);
                 return false;
             }
         }, executor);
@@ -128,7 +138,7 @@ public class FileDeployerService {
                     }
                 });
             } catch (IOException e) {
-                LOG.debug("Failed to get content for unit " + id + ":" + version, e);
+                LOG.error("Failed to get content for unit " + id + ":" + version, e);
             }
             return new UnitContent(result);
         }, executor);
@@ -167,5 +177,9 @@ public class FileDeployerService {
      */
     public void stop() {
         executor.shutdown();
+    }
+
+    public TempStorageProvider tempStorageProvider() {
+        return tempStorageProvider;
     }
 }

@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage.segstore;
+package org.apache.ignite.internal.sql.engine.statistic;
 
-class IndexFilePointer {
-    private final int fileOrdinal;
-
-    private final IndexFileMeta fileMeta;
-
-    IndexFilePointer(int fileOrdinal, IndexFileMeta fileMeta) {
-        this.fileOrdinal = fileOrdinal;
-        this.fileMeta = fileMeta;
-    }
-
-    int fileOrdinal() {
-        return fileOrdinal;
-    }
-
-    IndexFileMeta fileMeta() {
-        return fileMeta;
-    }
+/** Statistic updates actor. */
+@FunctionalInterface
+public interface StatisticUpdatesSupplier {
+    /**
+     * Reaction on statistic change.
+     *
+     * @param tableId Table statistic is changed for.
+     */
+    void accept(int tableId);
 }

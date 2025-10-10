@@ -37,6 +37,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.KeyValueView;
@@ -156,7 +157,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
                 rwTx -> {
                     IgniteException ex = assertThrows(IgniteException.class,
                             () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
-                    assertThat(ex.getCause().getCause(), is(instanceOf(IllegalArgumentException.class)));
+                    assertThat(ex.getCause().getCause(), is(instanceOf(MarshallerException.class)));
 
                     kvView.put(rwTx, key, null);
 

@@ -166,7 +166,13 @@ public class PlacementDriverManager implements IgniteComponent {
                 nodeProperties
         );
 
-        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor, nodeProperties);
+        this.assignmentsTracker = new AssignmentsTracker(
+                metastore,
+                failureProcessor,
+                nodeProperties,
+                currentDataNodesProvider,
+                zoneIdByTableIdResolver
+        );
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
@@ -329,6 +335,12 @@ public class PlacementDriverManager implements IgniteComponent {
                     HybridTimestamp timestamp
             ) {
                 return assignmentsTracker.getAssignments(replicationGroupIds, timestamp);
+            }
+
+            @Override
+            public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+                    List<? extends ReplicationGroupId> replicationGroupIds, HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+                return assignmentsTracker.awaitNonEmptyAssignments(replicationGroupIds, clusterTimeToAwait, timeoutMillis);
             }
 
             @Override

@@ -446,15 +446,7 @@ public class DistributionZoneManager extends
 
         return dataNodesManager
                 .onZoneCreate(zone.id(), timestamp, filteredDataNodes)
-                .thenRun(() -> {
-                    try {
-                        registerMetricSource(zone);
-                    } catch (Exception e) {
-                        // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
-                        // So, just log the error.
-                        LOG.error("Failed to register a new zone metric source [zoneDescriptor={}]", e, zone);
-                    }
-                });
+                .thenRun(() -> registerMetricSource(zone));
     }
 
     /**
@@ -795,12 +787,47 @@ public class DistributionZoneManager extends
      * @param zone Zone descriptor.
      */
     private void registerMetricSource(CatalogZoneDescriptor zone) {
-        ZoneMetricSource source = new ZoneMetricSource(metaStorageManager, localNodeName, zone);
+        registerMetricSource(zone, null);
+    }
 
-        zoneMetricSources.put(zone.id(), source);
+    /**
+     * Registers metric source for the specified zone.
+     *
+     * @param zone Zone descriptor.
+     * @param copyFrom Source to copy metrics from.
+     */
+    private void registerMetricSource(CatalogZoneDescriptor zone, @Nullable ZoneMetricSource copyFrom) {
+        try {
+            ZoneMetricSource source = (copyFrom == null)
+                    ? new ZoneMetricSource(metaStorageManager, localNodeName, zone)
+                    : new ZoneMetricSource(metaStorageManager, localNodeName, zone, copyFrom);
 
-        metricManager.registerSource(source);
-        metricManager.enable(source);
+            zoneMetricSources.put(zone.id(), source);
+
+            metricManager.registerSource(source);
+            metricManager.enable(source);
+        } catch (Exception e) {
+            LOG.error("Failed to register zone metric source [zoneName={}, zoneId={}]", e, zone.name(), zone.id());
+        }
+    }
+
+    /**
+     * Unregisters metric source for the specified zone.
+     *
+     * @param zoneId Zone identifier.
+     */
+    private void unregisterMetricSource(int zoneId) {
+        ZoneMetricSource source = zoneMetricSources.remove(zoneId);
+
+        if (source == null) {
+            return;
+        }
+
+        try {
+            metricManager.unregisterSource(source);
+        } catch (Exception e) {
+            LOG.error("Failed to unregister zone metric source [zoneName={}, zoneId={}]", e, source.zoneName(), zoneId);
+        }
     }
 
     /**
@@ -837,14 +864,7 @@ public class DistributionZoneManager extends
     }
 
     private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
-        try {
-            ZoneMetricSource source = zoneMetricSources.remove(parameters.zoneId());
-            if (source != null) {
-                metricManager.unregisterSource(source);
-            }
-        } catch (Exception e) {
-            LOG.error("Failed to unregister zone metric source [dropZoneEvent={}]", e, parameters);
-        }
+        unregisterMetricSource(parameters.zoneId());
 
         long causalityToken = parameters.causalityToken();
 
@@ -876,21 +896,10 @@ public class DistributionZoneManager extends
         @Override
         protected CompletableFuture<Void> onNameUpdate(AlterZoneEventParameters parameters, String oldName) {
             return inBusyLock(busyLock, () -> {
-                try {
-                    CatalogZoneDescriptor zoneDescriptor = parameters.zoneDescriptor();
+                ZoneMetricSource oldSource = zoneMetricSources.get(parameters.zoneDescriptor().id());
 
-                    // Update metric source name.
-                    ZoneMetricSource source = zoneMetricSources.remove(zoneDescriptor.id());
-                    if (source != null) {
-                        metricManager.unregisterSource(source);
-                    }
-
-                    registerMetricSource(parameters.zoneDescriptor());
-                } catch (Exception e) {
-                    // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
-                    // So, just log the error.
-                    LOG.error("Failed to update zone metric set [alterZoneEvent={}]", e, parameters);
-                }
+                unregisterMetricSource(parameters.zoneDescriptor().id());
+                registerMetricSource(parameters.zoneDescriptor(), oldSource);
 
                 return nullCompletedFuture();
             });
