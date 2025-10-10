@@ -20,12 +20,18 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.PreparedPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.type.NativeType;
@@ -39,13 +45,23 @@ public class SqlQueriesViewProvider {
 
     private final CompletableFuture<QueryExecutor> queryExecutorFuture = new CompletableFuture<>();
 
+    private final CompletableFuture<PrepareService> prepareServiceFuture = new CompletableFuture<>();
+
     /** Initializes provided with query executor used as datasource of running queries. */
-    public void init(QueryExecutor queryExecutor) {
+    public void init(QueryExecutor queryExecutor, PrepareServiceImpl prepareSvc) {
         queryExecutorFuture.complete(queryExecutor);
+        prepareServiceFuture.complete(prepareSvc);
     }
 
-    /** Returns system view exposing running queries. */
-    public SystemView<?> get() {
+    /** Returns system views. */
+    public List<SystemView<?>> getViews() {
+        return List.of(
+                queries(),
+                cachedPlans()
+        );
+    }
+
+    private SystemView<?> queries() {
         Publisher<QueryInfo> viewDataPublisher = SubscriptionUtils.fromIterable(
                 queryExecutorFuture.thenApply(queryExecutor -> () -> queryExecutor.runningQueries().iterator())
         );
@@ -115,5 +131,43 @@ public class SqlQueriesViewProvider {
 
     private static @Nullable Integer mapStatementNum(int statementNum) {
         return statementNum >= 0 ? statementNum : null;
+    }
+
+    private SystemView<?> cachedPlans() {
+        Publisher<PreparedPlan> viewDataPublisher = SubscriptionUtils.fromIterable(
+                prepareServiceFuture.thenApply(queryExecutor -> () -> queryExecutor.preparedPlans().iterator())
+        );
+
+        return SystemViews.<PreparedPlan>nodeViewBuilder()
+                .name("SQL_CACHED_QUERY_PLANS")
+                .nodeNameColumnAlias("NODE_ID")
+                .addColumn("PLAN_ID", NativeTypes.STRING, (v) -> v.queryPlan().id().toString())
+                .addColumn("CATALOG_VERSION", NativeTypes.INT32, PreparedPlan::catalogVersion)
+                .addColumn("DEFAULT_SCHEMA", NativeTypes.STRING, PreparedPlan::defaultSchemaName)
+                .addColumn("QUERY_TEXT", NativeTypes.STRING, PreparedPlan::queryText)
+                .addColumn("QUERY_TYPE", NativeTypes.STRING, (v) -> mapQueryType(v.queryPlan().type()))
+                .addColumn("QUERY_PLAN", NativeTypes.STRING, (v) -> mapQueryPlan(v.queryPlan()))
+                .dataProvider(viewDataPublisher)
+                .build();
+    }
+
+    private static @Nullable String mapQueryType(SqlQueryType type) {
+        switch (type) {
+            case QUERY:
+                return "QUERY";
+            case DML:
+                return "DML";
+            default:
+                return null;
+        }
+    }
+
+    private static @Nullable String mapQueryPlan(QueryPlan plan) {
+        if (plan instanceof ExplainablePlan) {
+            ExplainablePlan explainablePlan = (ExplainablePlan) plan;
+            return explainablePlan.explain();
+        } else {
+            return null;
+        }
     }
 }

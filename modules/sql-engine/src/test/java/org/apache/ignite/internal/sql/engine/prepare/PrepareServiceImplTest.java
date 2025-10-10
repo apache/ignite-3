@@ -25,9 +25,12 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +47,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -406,7 +412,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         Awaitility.await()
                 .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
                 .until(
-                         () -> !insertPlan.equals(await(service.prepareAsync(parse(insertQuery), operationContext().build())))
+                        () -> !insertPlan.equals(await(service.prepareAsync(parse(insertQuery), operationContext().build())))
                 );
 
         assertThat(service.cache.size(), is(2));
@@ -429,7 +435,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1, table2));
 
         // 1 item cache plan size
-        PrepareServiceImpl service = (PrepareServiceImpl) createPlannerService(schema,  1);
+        PrepareServiceImpl service = (PrepareServiceImpl) createPlannerService(schema, 1);
 
         String selectQuery = "SELECT * FROM test.t1 WHERE c = 1";
         await(service.prepareAsync(parse(selectQuery), operationContext().build()));
@@ -620,9 +626,9 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareServiceImpl service = createPlannerService(schema, new DummyCacheFactory(cache), 1000);
 
-        await(service.prepareAsync(parse("SELECT * FROM t1"),  createContext()));
-        await(service.prepareAsync(parse("SELECT * FROM t1 WHERE C > 0"),  createContext()));
-        await(service.prepareAsync(parse("SELECT * FROM t2"),  createContext()));
+        await(service.prepareAsync(parse("SELECT * FROM t1"), createContext()));
+        await(service.prepareAsync(parse("SELECT * FROM t1 WHERE C > 0"), createContext()));
+        await(service.prepareAsync(parse("SELECT * FROM t2"), createContext()));
 
         assertThat(cache.size(), is(3));
 
@@ -702,6 +708,48 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
             await(service.invalidateCache(Set.of("PUBLIC.\"t2\"")));
             assertThat(cache.size(), is(0));
         }
+    }
+
+    @Test
+    public void getPreparedPlans() throws InterruptedException {
+        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(
+                TestBuilders.table().name("T1").addColumn("C", NativeTypes.INT32).distribution(IgniteDistributions.single()).build()
+        ));
+
+        PrepareServiceImpl service =
+                createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, 100, 1000);
+
+        BlockingQueue<PreparedPlan> result = new LinkedBlockingQueue<>();
+
+        Awaitility.await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
+            // Large enough query so it is possible to observe an incomplete completable future.
+            StringBuilder sb = new StringBuilder("SELECT * FROM t1");
+            for (int i = 0; i < 25; i++) {
+                sb.append(System.lineSeparator())
+                        .append("UNION")
+                        .append(System.lineSeparator())
+                        .append("SELECT * FROM t1");
+            }
+
+            CompletableFuture<QueryPlan> fut = service.prepareAsync(parse(sb.toString()), createContext());
+            assertFalse(fut.isDone());
+            assertEquals(Set.of(), service.preparedPlans());
+            await(fut);
+
+            Set<PreparedPlan> preparedPlans = service.preparedPlans();
+            assertEquals(1, preparedPlans.size());
+
+            result.offer(preparedPlans.iterator().next());
+        });
+
+        // Check prepared plan
+        PreparedPlan plan = result.take();
+        String serviceId = service.prepareServiceId().toString();
+        assertThat(plan.queryPlan().id().toString(), startsWith(serviceId + "-"));
+
+        assertEquals("PUBLIC", plan.defaultSchemaName());
+        assertNotNull(plan.queryText());
+        assertNotNull(plan.queryPlan());
     }
 
     private static Stream<Arguments> parameterTypes() {

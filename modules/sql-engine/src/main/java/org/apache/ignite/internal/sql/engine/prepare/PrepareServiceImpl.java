@@ -388,6 +388,26 @@ public class PrepareServiceImpl implements PrepareService {
         }, planningPool);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public Set<PreparedPlan> preparedPlans() {
+        return cache.entrySet().stream()
+                .filter(e -> {
+                    CompletableFuture<PlanInfo> f = e.getValue();
+                    return f.isDone() && !f.isCompletedExceptionally() && !f.isCancelled();
+                })
+                .map(e -> {
+                    CacheKey key = e.getKey();
+                    PlanInfo value = e.getValue().getNow(null);
+                    return new PreparedPlan(key, value.queryPlan);
+                }).collect(Collectors.toSet());
+    }
+
+    @TestOnly
+    UUID prepareServiceId() {
+        return this.prepareServiceId;
+    }
+
     /** Check if the given query plan matches the given predicate. */
     public static boolean planMatches(QueryPlan plan, Predicate<QualifiedName> predicate) {
         assert plan instanceof ExplainablePlan;
@@ -1132,6 +1152,7 @@ public class PrepareServiceImpl implements PrepareService {
                                 CompletableFuture<Void> newPlanFut =
                                         prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
 
+                                System.err.println("INVALIDATE " + key.query());
                                 rePlanningFut.thenCompose(v -> newPlanFut);
                             }
                         }

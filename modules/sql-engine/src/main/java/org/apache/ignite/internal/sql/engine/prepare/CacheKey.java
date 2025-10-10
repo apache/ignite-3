@@ -59,6 +59,10 @@ public class CacheKey {
         return schemaName;
     }
 
+    String query() {
+        return query;
+    }
+
     RelDataType[] paramTypes() {
         return paramTypes;
     }
