@@ -58,6 +58,7 @@ public class CompatibilityChecker {
 
     /**
      * Checks API compatibility for given input parameters.
+     *
      * @see <a href="https://siom79.github.io/japicmp/CliTool.html">japicmp options</a>
      *
      * @param input Input parameters.
