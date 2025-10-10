@@ -26,7 +26,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.TestServer;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
