@@ -1186,7 +1186,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            unregisterMetricsSource(parameters.tableId());
+            unregisterMetricsSource(startedTables.get(parameters.tableId()));
 
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
@@ -3318,9 +3318,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 // Handle missed table drop event.
                 int tableId = tableDescriptor.id();
 
-                boolean destroyTableEventFired = false;
-                if (nextCatalog != null && nextCatalog.table(tableId) == null) {
-                    destroyTableEventFired = true;
+                boolean destroyTableEventFired = nextCatalog != null && nextCatalog.table(tableId) == null;
+                if (destroyTableEventFired) {
                     destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
                 }
 
@@ -3344,8 +3343,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (destroyTableEventFired) {
                         // prepareTableResourcesOnRecovery registers a table metric source, so we need to unregister it here,
                         // just because the table is being dropped and there is no need to keep the metric source.
-                        QualifiedName tableName = QualifiedNameHelper.fromNormalized(schemaDescriptor.name(), tableDescriptor.name());
-                        metricManager.unregisterSource(TableMetricSource.sourceName(tableName));
+                        unregisterMetricsSource(tables.get(tableId));
                     }
                 } else {
                     startTableFuture = createTableLocally(recoveryRevision, ver, tableDescriptor, true);
@@ -3686,8 +3684,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return source;
     }
 
-    private void unregisterMetricsSource(int tableId) {
-        TableViewInternal table = startedTables.get(tableId);
+    private void unregisterMetricsSource(TableViewInternal table) {
         if (table == null) {
             return;
         }
@@ -3697,7 +3694,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             metricManager.unregisterSource(TableMetricSource.sourceName(tableName));
         } catch (Exception e) {
-            LOG.warn("Failed to unregister metrics source for table [id={}, name={}].", e, tableId, tableName);
+            LOG.warn("Failed to unregister metrics source for table [id={}, name={}].", e, table.tableId(), tableName);
         }
 
         String storageProfile = table.internalTable().storage().getTableDescriptor().getStorageProfile();
@@ -3707,7 +3704,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             try {
                 metricManager.unregisterSource(StorageEngineTablesMetricSource.sourceName(engine.name(), tableName));
             } catch (Exception e) {
-                LOG.warn("Failed to unregister storage engine metrics source for table [id={}, name={}].", e, tableId, tableName);
+                LOG.warn("Failed to unregister storage engine metrics source for table [id={}, name={}].", e, table.tableId(), tableName);
             }
         }
     }
