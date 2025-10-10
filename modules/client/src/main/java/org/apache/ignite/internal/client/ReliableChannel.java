@@ -513,7 +513,7 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * Init channel holders to all nodes.
      *
-     * @return boolean wheter channels was reinited.
+     * @return boolean whether channels were reinitialized.
      */
     private synchronized boolean initChannelHolders() {
         List<ClientChannelHolder> holders = channels;
