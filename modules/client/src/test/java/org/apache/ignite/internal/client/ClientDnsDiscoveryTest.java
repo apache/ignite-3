@@ -80,4 +80,9 @@ public class ClientDnsDiscoveryTest {
             client.tables().tables();
         }
     }
+
+    @Test
+    public void testClientRefreshesDnsOnNodeFailure() {
+        // TODO: Listen to specific localhost address in TestServer.
+    }
 }
