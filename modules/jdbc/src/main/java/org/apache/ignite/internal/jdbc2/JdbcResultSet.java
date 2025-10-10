@@ -150,6 +150,10 @@ public class JdbcResultSet implements ResultSet {
         closeOnCompletion = close;
     }
 
+    private boolean hasNext() {
+        return rs.hasNext() && (maxRows == 0 || currentPosition < maxRows);
+    }
+
     @Override
     public boolean next() throws SQLException {
         ensureNotClosed();

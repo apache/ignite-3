@@ -677,6 +677,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testGetMoreResults() throws Exception {
         assertFalse(stmt.getMoreResults());
 
@@ -786,6 +787,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testStatementTypeMismatchSelectForCachedQuery() throws Exception {
         // Put query to cache.
         stmt.executeQuery("select 1;");

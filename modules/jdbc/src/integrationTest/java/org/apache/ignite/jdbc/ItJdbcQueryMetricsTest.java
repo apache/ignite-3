@@ -93,7 +93,7 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testScriptCancellation() throws SQLException {
         try (var stmt = conn.prepareStatement("SELECT 1; SELECT 1/?;")) {
             stmt.setInt(1, 0);

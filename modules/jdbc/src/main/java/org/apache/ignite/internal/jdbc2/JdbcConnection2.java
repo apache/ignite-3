@@ -137,7 +137,7 @@ public class JdbcConnection2 implements Connection {
             JdbcQueryEventHandler eventHandler,
             ConnectionProperties props
     ) {
-        igniteSql = client;
+        igniteClient = client;
         igniteSql = client.sql();
         autoCommit = true;
         networkTimeoutMillis = props.getConnectionTimeout();
