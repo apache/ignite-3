@@ -1,5 +1,5 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one or more
+ * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
@@ -17,6 +17,7 @@
 
 #pragma once
 
+namespace ignite {
 /**
  * Transaction options.
  */
@@ -35,7 +36,7 @@ public:
      * @param timeout_millis Transaction timeout in milliseconds.
      * @return Reference to this for chaining.
      */
-    transaction_options & set_timeout_millis(std::int64_t timeout_millis) {
+    transaction_options &set_timeout_millis(std::int64_t timeout_millis) {
         m_timeout_millis = timeout_millis;
         return *this;
     }
@@ -53,11 +54,13 @@ public:
      * @param read_only True if transaction should read-only, false if read-write.
      * @return Reference to this for chaining.
      */
-    transaction_options & set_read_only(bool read_only) {
+    transaction_options &set_read_only(bool read_only) {
         m_read_only = read_only;
         return *this;
     }
+
 private:
     std::int64_t m_timeout_millis = 0;
     bool m_read_only = false;
 };
+} // namespace ignite
