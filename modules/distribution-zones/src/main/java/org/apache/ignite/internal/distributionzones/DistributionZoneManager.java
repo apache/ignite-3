@@ -602,7 +602,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology}.
+     * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology} is updated.
      * This fields are saved to Meta Storage, also timers are scheduled.
      * Note that all futures of Meta Storage updates that happen in this method are returned from this method.
      *

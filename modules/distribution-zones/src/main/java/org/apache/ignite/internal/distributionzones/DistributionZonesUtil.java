@@ -123,7 +123,11 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES}. */
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES}.
+     * Deprecated, preserved for backward compatibility.
+     */
+    @Deprecated
     private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_RECOVERABLE_STATE_REVISION}. */
@@ -277,8 +281,9 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key that represents nodes' attributes in Meta Storage.
+     * The key that represents nodes' attributes in Meta Storage. Deprecated, preserved for backward compatibility.
      */
+    @Deprecated
     public static ByteArray zonesNodesAttributes() {
         return DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY;
     }
