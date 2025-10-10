@@ -94,7 +94,7 @@ public final class ReliableChannel implements AutoCloseable {
     private final AtomicInteger curChIdx = new AtomicInteger();
 
     /** Client configuration. */
-    private final IgniteClientConfiguration clientCfg;
+    private final IgniteClientConfigurationImpl clientCfg;
 
     /** Node channels by name (consistent id). */
     private final Map<String, ClientChannelHolder> nodeChannelsByName = new ConcurrentHashMap<>();
@@ -145,7 +145,7 @@ public final class ReliableChannel implements AutoCloseable {
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
-            IgniteClientConfiguration clientCfg,
+            IgniteClientConfigurationImpl clientCfg,
             ClientMetricSource metrics,
             HybridTimestampTracker observableTimeTracker) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
@@ -407,7 +407,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return host:port_range address lines parsed as {@link InetSocketAddress} as a key. Value is the amount of appearences of an address
      *         in {@code addrs} parameter.
      */
-    private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs) {
+    private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs, IgniteClientConfigurationImpl cfg) {
         if (addrs == null || addrs.length == 0) {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
@@ -422,7 +422,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         for (HostAndPort addr : parsedAddrs) {
             try {
-                for (InetAddress inetAddr : InetAddress.getAllByName(addr.host())) {
+                for (InetAddress inetAddr : cfg.addressResolver.getAllByName(addr.host())) {
                     var sockAddr = new InetSocketAddress(inetAddr, addr.port());
                     map.merge(sockAddr, 1, Integer::sum);
                 }
@@ -531,11 +531,11 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             if (!Arrays.equals(hostAddrs, prevHostAddrs)) {
-                newAddrs = parsedAddresses(hostAddrs);
+                newAddrs = parsedAddresses(hostAddrs, clientCfg);
                 prevHostAddrs = hostAddrs;
             }
         } else if (holders == null) {
-            newAddrs = parsedAddresses(clientCfg.addresses());
+            newAddrs = parsedAddresses(clientCfg.addresses(), clientCfg);
         }
 
         if (newAddrs == null) {
@@ -788,6 +788,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         if (interval > 0 && !closed) {
             // After current round of connection attempts is finished, schedule the next one with a configured delay.
+            // TODO: Re-resolve DNS here too?
             CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
                     .whenCompleteAsync(
                             (res, err) -> initAllChannelsAsync(),

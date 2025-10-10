@@ -25,6 +25,7 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Immutable client configuration.
@@ -67,6 +68,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     private final int sqlPartitionAwarenessMetadataCacheSize;
 
     private final @Nullable String name;
+
+    InetAddressResolver addressResolver = InetAddressResolver.DEFAULT;
 
     /**
      * Constructor.
@@ -122,6 +125,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.operationTimeout = operationTimeout;
         this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
         this.name = name;
+        this.addressResolver = addressResolver == null ? InetAddressResolver.DEFAULT : addressResolver;
     }
 
     /** {@inheritDoc} */
