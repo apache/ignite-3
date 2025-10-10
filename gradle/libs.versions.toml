@@ -94,7 +94,7 @@ testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
 protobuf = "4.32.1"
 cytodynamics = "0.2.0"
-japicmp = "0.23.1"
+japicmp = "0.24.1"
 
 #Tools
 pmdTool = "7.13.0"
