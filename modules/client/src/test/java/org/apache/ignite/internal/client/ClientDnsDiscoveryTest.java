@@ -36,15 +36,19 @@ public class ClientDnsDiscoveryTest {
 
     private static TestServer server2;
 
+    private static int port;
+
     @BeforeAll
     public static void setUp() {
         server1 = TestServer.builder()
                 .listenAddresses("127.0.0.1")
                 .build();
 
+        port = server1.port();
+
         server2 = TestServer.builder()
                 .listenAddresses("127.0.0.2")
-                .port(server1.port())
+                .port(port)
                 .build();
     }
 
@@ -55,12 +59,33 @@ public class ClientDnsDiscoveryTest {
 
     @Test
     public void testClientResolvesAllHostNameAddresses() {
-        String[] addresses = {"my-cluster:" + server1.port()};
+        String[] addresses = {"my-cluster:" + port};
 
         // One invalid and one valid address.
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{"1.1.1.1", "127.0.0.1"});
 
         try (var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, resolvedAddressesRef)).join()) {
+            client.tables().tables();
+        }
+    }
+
+    @Test
+    public void testClientRefreshesDnsOnNodeFailure() {
+        String[] addresses = {"my-cluster:" + port};
+
+        // One node.
+        AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{"127.0.0.1"});
+
+        try (var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, resolvedAddressesRef)).join()) {
+            client.tables().tables();
+
+            // Both nodes.
+            resolvedAddressesRef.set(new String[]{"127.0.0.1", "127.0.0.2"});
+
+            // Stop first node.
+            server1.close();
+
+            // Client should reconnect to the second node.
             client.tables().tables();
         }
     }
@@ -100,10 +125,5 @@ public class ClientDnsDiscoveryTest {
             }
         };
         return cfg;
-    }
-
-    @Test
-    public void testClientRefreshesDnsOnNodeFailure() {
-        // TODO: Listen to specific localhost address in TestServer.
     }
 }
