@@ -29,7 +29,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -39,11 +38,6 @@ import org.apache.ignite.internal.logger.Loggers;
  * Represents the Ignite node running in the external process.
  */
 public class RunnerNode {
-    private static final Map<String, String> DEFAULTS = IgniteVersions.INSTANCE.configOverrides();
-    private static final Map<String, String> STORAGE_PROFILES = IgniteVersions.INSTANCE.storageProfilesOverrides();
-    private static final Map<String, Map<String, String>> DEFAULTS_PER_VERSION = getTestDefaultsPerVersion();
-    private static final Map<String, Map<String, String>> STORAGE_PROFILES_PER_VERSION = getStorageProfilesPerVersion();
-
     private final Process process;
 
     private final String nodeName;
@@ -84,13 +78,11 @@ public class RunnerNode {
 
         boolean useTestDefaults = true;
         if (useTestDefaults) {
-            Map<String, String> defaultsPerVersion = DEFAULTS_PER_VERSION.get(igniteVersion);
-            Map<String, String> storageProfilesPerVersion = STORAGE_PROFILES_PER_VERSION.get(igniteVersion);
             writeConfigurationFileApplyingTestDefaults(
                     nodeConfig,
                     configPath,
-                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS,
-                    storageProfilesPerVersion != null ? storageProfilesPerVersion : STORAGE_PROFILES
+                    getDefaults(igniteVersion),
+                    getStorageProfiles(igniteVersion)
             );
         } else {
             writeConfigurationFile(nodeConfig, configPath);
@@ -150,22 +142,12 @@ public class RunnerNode {
         return nodeName;
     }
 
-    private static Map<String, Map<String, String>> getTestDefaultsPerVersion() {
-        return IgniteVersions.INSTANCE.versions().stream()
-                .filter(version -> version.configOverrides() != null)
-                .collect(Collectors.toMap(
-                        Version::version,
-                        Version::configOverrides
-                ));
+    private static Map<String, String> getDefaults(String version) {
+        return IgniteVersions.INSTANCE.getOrDefault(version, Version::configOverrides, IgniteVersions::configOverrides);
     }
 
-    private static Map<String, Map<String, String>> getStorageProfilesPerVersion() {
-        return IgniteVersions.INSTANCE.versions().stream()
-                .filter(version -> version.storageProfilesOverrides() != null)
-                .collect(Collectors.toMap(
-                        Version::version,
-                        Version::storageProfilesOverrides
-                ));
+    private static Map<String, String> getStorageProfiles(String version) {
+        return IgniteVersions.INSTANCE.getOrDefault(version, Version::storageProfilesOverrides, IgniteVersions::storageProfilesOverrides);
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
