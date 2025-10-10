@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.net.InetAddress;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.TestServer;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,6 +48,7 @@ public class ClientDnsDiscoveryTest {
 
         server1 = TestServer.builder()
                 .listenAddresses("127.0.0.1")
+                .nodeName("server1")
                 .clusterId(clusterId)
                 .build();
 
@@ -52,6 +56,7 @@ public class ClientDnsDiscoveryTest {
 
         server2 = TestServer.builder()
                 .listenAddresses("127.0.0.2")
+                .nodeName("server2")
                 .clusterId(clusterId)
                 .port(port)
                 .build();
@@ -82,7 +87,8 @@ public class ClientDnsDiscoveryTest {
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{"127.0.0.1"});
 
         try (var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, resolvedAddressesRef)).join()) {
-            client.tables().tables();
+            assertDoesNotThrow(() -> client.tables().tables());
+            assertEquals("server1", client.connections().get(0).name());
 
             // Both nodes.
             resolvedAddressesRef.set(new String[]{"127.0.0.1", "127.0.0.2"});
@@ -91,7 +97,8 @@ public class ClientDnsDiscoveryTest {
             server1.close();
 
             // Client should reconnect to the second node.
-            client.tables().tables();
+            assertDoesNotThrow(() -> client.tables().tables());
+            assertEquals("server2", client.connections().get(0).name());
         }
     }
 
