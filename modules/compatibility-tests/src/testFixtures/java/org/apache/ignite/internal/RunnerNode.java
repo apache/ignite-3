@@ -29,8 +29,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.logger.IgniteLogger;
