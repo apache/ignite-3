@@ -197,7 +197,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
             ColocationGroup colocationGroup,
             @Nullable PartitionPruningMetadata metadata
     ) {
-        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 1234));
+        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 1234), "3.4.5");
 
         Long2ObjectMap<ColocationGroup> map = new Long2ObjectOpenHashMap<>();
         map.put(GROUP_ID, colocationGroup);

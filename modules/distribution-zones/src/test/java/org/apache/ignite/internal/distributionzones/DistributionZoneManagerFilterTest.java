@@ -36,28 +36,28 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123), "3.3.333"),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123), "3.3.333"),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123), "3.3.333"),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123), "3.3.333"),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -90,7 +90,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.removeNodes(Set.of(B));
 
         LogicalNode newB = new LogicalNode(
-                new ClusterNodeImpl(randomUUID(), "newB", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(randomUUID(), "newB", new NetworkAddress("localhost", 123), "3.4.5"),
                 Map.of("region", "US", "storage", "HHD", "dataRegionSize", "30"),
                 Map.of(),
                 List.of(DEFAULT_STORAGE_PROFILE)

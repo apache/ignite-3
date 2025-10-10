@@ -534,7 +534,8 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                 new ClusterNodeImpl(
                         replica.getLeaseholderId(),
                         replica.getLeaseholder(),
-                        new NetworkAddress("localhost", 10800)));
+                        new NetworkAddress("localhost", 10800),
+                        "3.3.333"));
     }
 
     @Override

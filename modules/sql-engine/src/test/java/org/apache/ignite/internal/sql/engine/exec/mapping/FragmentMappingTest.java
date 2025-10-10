@@ -460,7 +460,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> {
                     NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                    return new LogicalNode(randomUUID(), name, addr);
+                    return new LogicalNode(randomUUID(), name, addr, "3.3.333");
                 })
                 .collect(Collectors.toList());
 

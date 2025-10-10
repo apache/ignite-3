@@ -74,12 +74,14 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(
             randomUUID(),
             "name0",
-            new NetworkAddress("localhost", 1234)
+            new NetworkAddress("localhost", 1234),
+            "3.4.5"
     );
     private static final InternalClusterNode ANOTHER_NODE = new ClusterNodeImpl(
             randomUUID(),
             "name`",
-            new NetworkAddress("localhost", 2345)
+            new NetworkAddress("localhost", 2345),
+            "3.4.5"
     );
 
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();

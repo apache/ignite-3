@@ -86,7 +86,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         configureCmgManagerToStartMetastorage(cmgManager);
 
         TopologyService topologyService = mock(TopologyService.class);
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, null));
+        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, null, "3.4.5"));
 
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(clusterService.topologyService()).thenReturn(topologyService);

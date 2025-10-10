@@ -342,7 +342,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
     }
 
     private static LogicalNode newNode(int idx, String name) {
-        return new LogicalNode(new UUID(0, idx), name, new NetworkAddress("localhost", 123));
+        return new LogicalNode(new UUID(0, idx), name, new NetworkAddress("localhost", 123), "3.3.333");
     }
 
     private static class TestKillHandler implements OperationKillHandler {

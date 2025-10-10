@@ -376,7 +376,7 @@ public class TestServer implements AutoCloseable {
     }
 
     private InternalClusterNode getClusterNode(String name) {
-        return new ClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080), "3.3.333");
     }
 
     private static UUID getNodeId(String name) {

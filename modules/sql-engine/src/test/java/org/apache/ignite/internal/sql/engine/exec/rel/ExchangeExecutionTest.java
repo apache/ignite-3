@@ -95,9 +95,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     private static final String ANOTHER_NODE_NAME = "N2";
     private static final List<String> NODE_NAMES = List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME);
     private static final InternalClusterNode ROOT_NODE =
-            new ClusterNodeImpl(randomUUID(), ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
+            new ClusterNodeImpl(randomUUID(), ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"), "3.4.5");
     private static final InternalClusterNode ANOTHER_NODE =
-            new ClusterNodeImpl(randomUUID(), ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
+            new ClusterNodeImpl(randomUUID(), ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"), "3.4.5");
     private static final int SOURCE_FRAGMENT_ID = 0;
     private static final int TARGET_FRAGMENT_ID = 1;
     private static final Comparator<Object[]> COMPARATOR = Comparator.comparingInt(o -> (Integer) o[0]);
@@ -247,7 +247,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, dataNode1Name, dataNode2Name));
 
         TestDataProvider node1DataProvider = new TestDataProvider(3);
-        InternalClusterNode dataNode1 = new ClusterNodeImpl(randomUUID(), dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
+        InternalClusterNode dataNode1 = new ClusterNodeImpl(randomUUID(), dataNode1Name, NetworkAddress.from("127.0.0.1:10001"), "3.4.5");
         createSourceFragment(
                 queryId,
                 dataNode1,
@@ -256,7 +256,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         );
 
         TestDataProvider node2DataProvider = new TestDataProvider(3);
-        InternalClusterNode dataNode2 = new ClusterNodeImpl(randomUUID(), dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
+        InternalClusterNode dataNode2 = new ClusterNodeImpl(randomUUID(), dataNode2Name, NetworkAddress.from("127.0.0.1:10002"), "3.4.5");
         createSourceFragment(
                 queryId,
                 dataNode2,
@@ -329,7 +329,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(1200);
-        InternalClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        InternalClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"), "3.4.5");
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -396,7 +396,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(8000);
-        InternalClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        InternalClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"), "3.4.5");
 
         createSourceFragmentMultiTarget(
                 queryId,

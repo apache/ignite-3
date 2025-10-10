@@ -70,7 +70,8 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
         InternalClusterNode thisNode = new ClusterNodeImpl(
                 UUID.randomUUID(),
                 NODE_NAME,
-                new NetworkAddress("host", 1234)
+                new NetworkAddress("host", 1234),
+                "3.4.5"
         );
 
         IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -96,7 +97,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
 
         long lostLeadershipTerm = 1;
 
-        InternalClusterNode otherNode = new ClusterNodeImpl(UUID.randomUUID(), "other", new NetworkAddress("host", 1234));
+        InternalClusterNode otherNode = new ClusterNodeImpl(UUID.randomUUID(), "other", new NetworkAddress("host", 1234), "3.4.5");
         listener.onLeaderElected(otherNode, lostLeadershipTerm);
 
         // This node lost leadership, so safe time scheduler should not be created for previous terms.

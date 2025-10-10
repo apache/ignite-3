@@ -113,7 +113,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private static final InternalClusterNode FAKE_NODE = new ClusterNodeImpl(
             LEASEHOLDER_ID_1,
             LEASEHOLDER_1,
-            mock(NetworkAddress.class)
+            mock(NetworkAddress.class),
+            "3.4.5"
     );
 
     private final Lease leaseFrom1To5000 = new Lease(
@@ -394,7 +395,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         );
 
         if (newLeaseholderIsOnline) {
-            leaseholder = new ClusterNodeImpl(newLeaseholderId, newLeaseholder, mock(NetworkAddress.class));
+            leaseholder = new ClusterNodeImpl(newLeaseholderId, newLeaseholder, mock(NetworkAddress.class), "3.4.5");
         }
 
         // Publish the lease for the new leaseholder.

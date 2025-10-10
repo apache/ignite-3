@@ -417,7 +417,7 @@ public class DistributionZonesTestUtil {
      */
     public static LogicalNode logicalNodeFromNode(Node node) {
         return new LogicalNode(
-                new ClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123), "3.3.333"),
                 emptyMap(),
                 emptyMap(),
                 List.of("default")

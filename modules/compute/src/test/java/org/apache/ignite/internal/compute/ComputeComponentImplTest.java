@@ -149,11 +149,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private ComputeComponent computeComponent;
 
-    private final InternalClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
+    private final InternalClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1), "3.4.5");
     private final InternalClusterNode remoteNode = new ClusterNodeImpl(
             randomUUID(),
             "remote",
-            new NetworkAddress("remote-host", 1)
+            new NetworkAddress("remote-host", 1),
+            "3.4.5"
     );
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();

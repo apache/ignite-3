@@ -121,7 +121,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
                 ? new ZonePartitionId(0, 0)
                 : new TablePartitionId(1, 0);
 
-        InternalClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
+        InternalClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class), "3.4.5");
 
         HybridTimestamp now = clock.now();
         long dayInMillis = TimeUnit.DAYS.toMillis(1);
@@ -149,8 +149,8 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsLocalNode() {
-        InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 8888));
-        InternalClusterNode notLocalNode = new ClusterNodeImpl(randomUUID(), "not-local", new NetworkAddress("127.0.0.1", 7777));
+        InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 8888), "3.4.5");
+        InternalClusterNode notLocalNode = new ClusterNodeImpl(randomUUID(), "not-local", new NetworkAddress("127.0.0.1", 7777), "3.4.5");
 
         ClusterService clusterService = clusterService(localNode);
 

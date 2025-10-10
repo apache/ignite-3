@@ -355,7 +355,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < allNodes.size(); i++) {
             String name = allNodes.get(i);
 
-            InternalClusterNode clusterNode = new ClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i));
+            InternalClusterNode clusterNode = new ClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i), "3.3.333");
 
             Map<String, String> systemAttributes;
             if (owningNodesSet.get(i)) {

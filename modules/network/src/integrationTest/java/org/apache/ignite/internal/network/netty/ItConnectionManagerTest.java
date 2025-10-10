@@ -571,7 +571,8 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             manager.setLocalNode(new ClusterNodeImpl(
                     launchId,
                     consistentId,
-                    new NetworkAddress(manager.localBindAddress().getHostName(), port)
+                    new NetworkAddress(manager.localBindAddress().getHostName(), port),
+                    "3.4.5"
             ));
 
             var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory, launchId);

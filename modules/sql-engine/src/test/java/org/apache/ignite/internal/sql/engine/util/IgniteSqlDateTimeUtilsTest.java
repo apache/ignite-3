@@ -82,7 +82,7 @@ public class IgniteSqlDateTimeUtilsTest extends BaseIgniteAbstractTest {
     })
     public void testCurrentDate(String currentUtcTime, String expectedDateString, String timeZone) {
         ZoneId zoneId = TimeZone.getTimeZone(timeZone).toZoneId();
-        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), "N1", new NetworkAddress("localhost", 1234));
+        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), "N1", new NetworkAddress("localhost", 1234), "3.4.5");
 
         ExecutionContext<?> ctx = TestBuilders.executionContext()
                 .fragment(Mockito.mock(FragmentDescription.class))

@@ -103,7 +103,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
         ctx = TestBuilders.executionContext()
                 .queryId(randomUUID())
-                .localNode(new ClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234)))
+                .localNode(new ClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234), "3.4.5"))
                 .fragment(fragmentDescription)
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();

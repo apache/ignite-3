@@ -144,9 +144,9 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
      */
     @Test
     void testValidatedNodes() {
-        var node1 = new LogicalNode(randomUUID(), "node1", new NetworkAddress("localhost", 10_000), "9.9.9-test");
-        var node2 = new LogicalNode(randomUUID(), "node2", new NetworkAddress("localhost", 10_001), "9.9.9-test");
-        var node3 = new LogicalNode(randomUUID(), "node3", new NetworkAddress("localhost", 10_002), "9.9.9-test");
+        var node1 = new LogicalNode(randomUUID(), "node1", new NetworkAddress("localhost", 10_000), "3.3.3-test");
+        var node2 = new LogicalNode(randomUUID(), "node2", new NetworkAddress("localhost", 10_001), "3.3.3-test");
+        var node3 = new LogicalNode(randomUUID(), "node3", new NetworkAddress("localhost", 10_002), "3.3.3-test");
 
         storageManager.putValidatedNode(node1);
 

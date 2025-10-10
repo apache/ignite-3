@@ -83,7 +83,8 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
     private static final InternalClusterNode TARGET_NODE = new ClusterNodeImpl(
             randomUUID(),
             TARGET_CONSISTENT_ID,
-            new NetworkAddress("target", 1234)
+            new NetworkAddress("target", 1234),
+            "3.4.5"
     );
 
     @WorkDirectory
@@ -136,7 +137,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void fileTransfersCanceledWhenSenderLeft() {
-        topologyService.fireDisappearedEvent(new ClusterNodeImpl(randomUUID(), "sender", new NetworkAddress("localhost", 1234)));
+        topologyService.fireDisappearedEvent(new ClusterNodeImpl(randomUUID(), "sender", new NetworkAddress("localhost", 1234), "3.4.5"));
 
         verify(fileReceiver).cancelTransfersFromSender("sender");
     }

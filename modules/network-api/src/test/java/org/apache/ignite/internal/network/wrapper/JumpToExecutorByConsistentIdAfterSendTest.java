@@ -67,13 +67,13 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     private NetworkMessage message;
 
     private final InternalClusterNode sender = new ClusterNodeImpl(
-            randomUUID(), SENDER_CONSISTENT_ID, new NetworkAddress("sender-host", 3000), "9.9.9-test"
+            randomUUID(), SENDER_CONSISTENT_ID, new NetworkAddress("sender-host", 3000), "3.3.3-test"
     );
     private final InternalClusterNode recipient = new ClusterNodeImpl(
             randomUUID(),
             RECIPIENT_CONSISTENT_ID,
             new NetworkAddress("recipient-host", 3000),
-            "9.9.9-test"
+            "3.3.3-test"
     );
 
     private final ExecutorService specificPool = Executors.newSingleThreadExecutor(SpecificThread::new);

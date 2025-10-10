@@ -120,21 +120,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final String ZONE_NAME_4 = "zone4";
 
     private static final LogicalNode NODE_0 = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "node_name_0", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_0", new NetworkAddress("localhost", 123), "3.3.333"),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_1 = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "node_name_1", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_1", new NetworkAddress("localhost", 123), "3.3.333"),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_2 = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "node_name_2", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_2", new NetworkAddress("localhost", 123), "3.3.333"),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)

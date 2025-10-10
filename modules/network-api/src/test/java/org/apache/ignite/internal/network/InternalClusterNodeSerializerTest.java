@@ -37,7 +37,7 @@ class InternalClusterNodeSerializerTest {
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 "test",
                 new NetworkAddress("host", 3000),
-                "9.9.99-test",
+                "3.3.39-test",
                 new NodeMetadata("ext-host", 3001, 3002)
         );
 
@@ -47,7 +47,7 @@ class InternalClusterNodeSerializerTest {
         assertThat(restoredNode.id(), equalTo(originalNode.id()));
         assertThat(restoredNode.name(), equalTo("test"));
         assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
-        assertThat(restoredNode.version(), equalTo("9.9.99-test"));
+        assertThat(restoredNode.version(), equalTo("3.3.39-test"));
         assertThat(restoredNode.nodeMetadata(), equalTo(new NodeMetadata("ext-host", 3001, 3002)));
     }
 
@@ -72,7 +72,7 @@ class InternalClusterNodeSerializerTest {
         assertThat(restoredNode.id(), equalTo(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredNode.name(), equalTo("test"));
         assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
-        assertThat(restoredNode.version(), equalTo("9.9.99-test"));
+        assertThat(restoredNode.version(), equalTo("3.3.39-test"));
         assertThat(restoredNode.nodeMetadata(),
                 equalTo(new NodeMetadata("ext-host", 3001, 3002)));
     }

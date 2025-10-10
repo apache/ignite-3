@@ -90,7 +90,7 @@ public final class NoOpTransaction implements InternalTransaction {
      */
     public NoOpTransaction(String name, boolean implicit, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.enlistmentNode = new ClusterNodeImpl(randomUUID(), name, networkAddress);
+        this.enlistmentNode = new ClusterNodeImpl(randomUUID(), name, networkAddress, "3.4.5");
         this.enlistment = new PendingTxPartitionEnlistment(enlistmentNode.name(), 1L, groupId.tableId());
         this.implicit = implicit;
         this.readOnly = readOnly;
