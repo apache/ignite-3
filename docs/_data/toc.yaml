@@ -23,6 +23,8 @@
       url: installation/deb-rpm
     - title: Installing Docker
       url: installation/installing-using-docker
+    - title: Installing to Kubernetes
+      url: installation/installing-to-k8s
     - title: Migration From Ignite 2
       url: installation/migration-from-ai2/overview
 - title: Getting Started
@@ -58,8 +60,14 @@
           url: developers-guide/clients/dotnet
         - title: C++ Clients
           url: developers-guide/clients/cpp
+        - title: Python Clients
+          url: developers-guide/clients/python
+        - title: ADO.NET Integration
+          url: developers-guide/clients/ado
         - title: .NET LINQ Queries
           url: developers-guide/clients/linq
+        - title: JDBC Driver
+          url: developers-guide/clients/jdbc-driver
     - title: Working with SQL
       url: developers-guide/sql/calcite-based-sql-engine
       items:
@@ -86,6 +94,11 @@
       url: developers-guide/java-to-tables
     - title: Distributed Computing
       url: developers-guide/compute/compute
+      items:
+        - title: Compute API
+          url: developers-guide/compute/compute
+        - title: Serialization
+          url: developers-guide/compute/serialization
     - title: Transactions
       url: developers-guide/transactions
     - title: Data Streaming
@@ -94,12 +107,14 @@
       url: developers-guide/code-deployment/code-deployment
     - title: Events
       url: developers-guide/events/overview
-    - title: REST API
-      url: developers-guide/rest/rest-api
       items:
         - title: Overview
-          url: developers-guide/rest/rest-api
-- title: Administrator’s Guide
+          url: developers-guide/events/overview
+        - title: Events List
+          url: developers-guide/events/events-list
+    - title: REST API
+      url: developers-guide/rest/rest-api
+- title: Administrator's Guide
   url: administrators-guide/config/config
   items:
     - title: Ignite Configuration
@@ -109,29 +124,42 @@
           url: administrators-guide/config/node-config
         - title: Cluster Configuration Parameters
           url: administrators-guide/config/cluster-config
+        - title: CLI Configuration
+          url: administrators-guide/config/cli-config
     - title: Storage Configuration
-        url: administrators-guide/config/storage/persistent
-        items:
-          - title: Native Persistent Storage
-            url: administrators-guide/config/storage/persistent
-          - title: RocksDB Persistent Storage
-            url: administrators-guide/config/storage/rocksdb
-          - title: Volatile Storage
-            url: administrators-guide/config/storage/volatile
+      url: administrators-guide/storage/storage-overview
+      items:
+        - title: Storage Overview
+          url: administrators-guide/storage/storage-overview
+        - title: Storage Profiles
+          url: administrators-guide/storage/storage-profiles
+        - title: Storage Engines
+          url: administrators-guide/storage/engines/storage-engines
+          items:
+            - title: Storage Engines Overview
+              url: administrators-guide/storage/engines/storage-engines
+            - title: AIPersist Engine
+              url: administrators-guide/storage/engines/aipersist
+            - title: RocksDB Engine
+              url: administrators-guide/storage/engines/rocksdb
+            - title: AIMem Engine
+              url: administrators-guide/storage/engines/aimem
+        - title: Data Partitions
+          url: administrators-guide/storage/data-partitions
+        - title: Native Persistent Storage
+          url: administrators-guide/config/storage/persistent
+        - title: RocksDB Persistent Storage
+          url: administrators-guide/config/storage/rocksdb
+        - title: Volatile Storage
+          url: administrators-guide/config/storage/volatile
     - title: Cluster Lifecycle
       url: administrators-guide/lifecycle
-    - title: Distribution Zones
-      url: administrators-guide/distribution-zones
-    - title: Storage Profiles and Engines
-      url: administrators-guide/storage
-    - title: Data Partitioning
-      url: administrators-guide/data-partitions
-    - title: Disaster Recovery
+    - title: Data Colocation
+      url: administrators-guide/colocation
+    - title: Disaster Recovery for Partitions
       url: administrators-guide/disaster-recovery
     - title: Disaster Recovery for System Groups
       url: administrators-guide/system-groups-recovery
-    - title: Data Colocation
-      url: administrators-guide/colocation
     - title: Cluster Security
       url: administrators-guide/cluster-security
     - title: Security and Authentication
@@ -148,6 +176,8 @@
           url: administrators-guide/metrics/configuring-metrics
         - title: Metrics List
           url: administrators-guide/metrics/metrics-list
+        - title: Metrics System Views
+          url: administrators-guide/metrics/system-views
     - title: Handling Exceptions
       url: administrators-guide/handling-exceptions
 - title: SQL Reference
@@ -161,14 +191,18 @@
       url: sql-reference/transactions
     - title: Distribution Zones
       url: sql-reference/distribution-zones
+    - title: Data Types
+      url: sql-reference/data-types
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
     - title: Operational Commands
       url: sql-reference/operational-commands
     - title: Grammar Reference
       url: sql-reference/grammar-reference
-    - title: Data Types
-      url: sql-reference/data-types
+    - title: Keywords
+      url: sql-reference/keywords
+    - title: SQL Conformance
+      url: sql-reference/sql-conformance
     - title: Explain Statement
       url: sql-reference/explain-statement
       items:
