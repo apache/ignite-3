@@ -25,7 +25,6 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Immutable client configuration.

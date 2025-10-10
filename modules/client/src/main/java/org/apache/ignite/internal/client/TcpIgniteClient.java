@@ -112,7 +112,10 @@ public class TcpIgniteClient implements IgniteClient {
      * @param cfg Config.
      * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfigurationImpl cfg, HybridTimestampTracker observableTimeTracker) {
+    private TcpIgniteClient(
+            ClientChannelFactory chFactory,
+            IgniteClientConfigurationImpl cfg,
+            HybridTimestampTracker observableTimeTracker) {
         assert chFactory != null;
         assert cfg != null;
 
@@ -178,7 +181,9 @@ public class TcpIgniteClient implements IgniteClient {
      * @param observableTimeTracker Tracker of the latest time observed by client.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfigurationImpl cfg, HybridTimestampTracker observableTimeTracker) {
+    public static CompletableFuture<IgniteClient> startAsync(
+            IgniteClientConfigurationImpl cfg,
+            HybridTimestampTracker observableTimeTracker) {
         ErrorGroups.initialize();
 
         try {

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_S
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;

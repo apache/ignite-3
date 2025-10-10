@@ -398,6 +398,9 @@ public class TestServer implements AutoCloseable {
         }
     }
 
+    /**
+     * Builder.
+     */
     public static class Builder {
         private long idleTimeout = 1000;
         private @Nullable FakeIgnite ignite;
@@ -466,6 +469,11 @@ public class TestServer implements AutoCloseable {
             return this;
         }
 
+        /**
+         * Builds the test server.
+         *
+         * @return Test server.
+         */
         public TestServer build() {
             return new TestServer(
                     idleTimeout,
