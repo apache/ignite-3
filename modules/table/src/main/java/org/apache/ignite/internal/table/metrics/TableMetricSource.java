@@ -129,7 +129,10 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
     }
 
     /**
-     * Returns a metric source name for the given table.
+     * Returns a metric source name for the given table name.
+     *
+     * @param tableName Qualified table name.
+     * @return Metric source name.
      */
     public static String sourceName(QualifiedName tableName) {
         return SOURCE_NAME + '.' + tableName.toCanonicalForm();

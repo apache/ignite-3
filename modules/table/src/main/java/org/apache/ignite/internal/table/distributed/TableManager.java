@@ -1186,7 +1186,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            unregisterMetricsSource(parameters.tableId());
+            unregisterMetricsSource(startedTables.get(parameters.tableId()));
 
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
@@ -3087,7 +3087,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     PartitionModificationCounterMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
                     if (metricSource != null) {
-                        metricManager.unregisterSource(metricSource);
+                        try {
+                            metricManager.unregisterSource(metricSource);
+                        } catch (Exception e) {
+                            String message = "Failed to register metrics source for table [name={}, partitionId={}].";
+                            LOG.warn(message, e, table.name(), tablePartitionId.partitionId());
+                        }
                     }
 
                     return mvGc.removeStorage(tablePartitionId);
@@ -3188,7 +3193,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(
                 partSizeSupplier, table::stalenessConfiguration
         );
-        registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
+        registerPartitionModificationCounterMetrics(table, partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
@@ -3202,10 +3207,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void registerPartitionModificationCounterMetrics(
-            int tableId, int partitionId, PartitionModificationCounter counter) {
-
+            TableViewInternal table,
+            int partitionId,
+            PartitionModificationCounter counter
+    ) {
         PartitionModificationCounterMetricSource metricSource =
-                new PartitionModificationCounterMetricSource(tableId, partitionId);
+                new PartitionModificationCounterMetricSource(table.tableId(), partitionId);
 
         metricSource.addMetric(new LongGauge(
                 PartitionModificationCounterMetricSource.METRIC_COUNTER,
@@ -3228,10 +3235,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> counter.lastMilestoneTimestamp().longValue()
         ));
 
-        metricManager.registerSource(metricSource);
-        metricManager.enable(metricSource);
+        try {
+            metricManager.registerSource(metricSource);
+            metricManager.enable(metricSource);
 
-        partModCounterMetricSources.put(new TablePartitionId(tableId, partitionId), metricSource);
+            partModCounterMetricSources.put(new TablePartitionId(table.tableId(), partitionId), metricSource);
+        } catch (Exception e) {
+            LOG.warn("Failed to register metrics source for table [name={}, partitionId={}].", e, table.name(), partitionId);
+        }
     }
 
     /**
@@ -3307,9 +3318,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 // Handle missed table drop event.
                 int tableId = tableDescriptor.id();
 
-                if (nextCatalog != null && nextCatalog.table(tableId) == null) {
-                    unregisterMetricsSource(tableId);
-
+                boolean destroyTableEventFired = nextCatalog != null && nextCatalog.table(tableId) == null;
+                if (destroyTableEventFired) {
                     destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
                 }
 
@@ -3329,6 +3339,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             tableDescriptor,
                             schemaDescriptor
                     );
+
+                    if (destroyTableEventFired) {
+                        // prepareTableResourcesOnRecovery registers a table metric source, so we need to unregister it here,
+                        // just because the table is being dropped and there is no need to keep the metric source.
+                        unregisterMetricsSource(tables.get(tableId));
+                    }
                 } else {
                     startTableFuture = createTableLocally(recoveryRevision, ver, tableDescriptor, true);
                 }
@@ -3668,8 +3684,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return source;
     }
 
-    private void unregisterMetricsSource(int tableId) {
-        TableViewInternal table = startedTables.get(tableId);
+    private void unregisterMetricsSource(TableViewInternal table) {
         if (table == null) {
             return;
         }
@@ -3679,7 +3694,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             metricManager.unregisterSource(TableMetricSource.sourceName(tableName));
         } catch (Exception e) {
-            LOG.warn("Failed to unregister metrics source for table [id={}, name={}].", e, tableId, tableName);
+            LOG.warn("Failed to unregister metrics source for table [id={}, name={}].", e, table.tableId(), tableName);
         }
 
         String storageProfile = table.internalTable().storage().getTableDescriptor().getStorageProfile();
@@ -3689,7 +3704,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             try {
                 metricManager.unregisterSource(StorageEngineTablesMetricSource.sourceName(engine.name(), tableName));
             } catch (Exception e) {
-                LOG.warn("Failed to unregister storage engine metrics source for table [id={}, name={}].", e, tableId, tableName);
+                LOG.warn("Failed to unregister storage engine metrics source for table [id={}, name={}].", e, table.tableId(), tableName);
             }
         }
     }
