@@ -75,6 +75,14 @@ public class MyJob implements ComputeJob<String, String> {
 
 You can manage deployment units using either link:ignite-cli-tool[CLI] commands or the link:https://ignite.apache.org/releases/3.0.0/openapi.yaml[REST API]. Both methods provide the same functionality for deploying, listing, and undeploying code.
 
+== Deploying Units with Folder Structures
+
+NOTE: Currently, you can only deploy ZIP archives via REST.
+
+Apache Ignite supports deploying units that contain folder structures using ZIP archives. You can package complex deployment units with multiple files organized in directories, which are automatically extracted and preserved during deployment.
+
+To deploy your code this way, package your files into a ZIP archive and deploy it to the cluster. Apache Ignite will preserve the folder structure.
+
 == Deployment Unit Location
 
 By default, nodes store the deployment units in the `{IGNITE_HOME}/work/deployment` directory. This can be changed with the link:administrators-guide/config/node-config#code-deployment-configuration[`ignite.deployment.location`] node configuration parameter.

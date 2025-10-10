@@ -33,6 +33,7 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
       "idleTimeoutMillis" : 0,
       "listenAddresses" : "",
       "metricsEnabled" : false,
+      "name" : "client_1",
       "port" : 10800,
       "sendServerExceptionStackTraceToClient" : false,
       "ssl" : {
@@ -62,6 +63,7 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
 |idleTimeoutMillis|0|How long the client can be idle before the connection is dropped, in milliseconds. By default, there is no limit (0).| Yes | Yes | 0-2147483647
 |listenAddresses| "" | Address (IP or hostname) to listen on. Listens on all interfaces if empty. | Yes | Yes | Valid IP address or host name
 |metricsEnabled|false|Defines if client metrics are collected. | Yes | Yes | true, false
+|name|`client_{number}`| Defines the unique client name. If not specified, generated automatically based on client number. | Yes | Yes | A valid string
 |port|10800|The port the client connector will be listening to. | Yes | Yes | 1024-65535
 |sendServerExceptionStackTraceToClient|false a| 
 By default, only the exception message and code are sent back to the client. 

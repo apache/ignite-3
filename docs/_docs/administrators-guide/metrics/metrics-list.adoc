@@ -48,16 +48,6 @@ The metrics provided by the client handler and related to active clients.
 | ClockSkewExceedingMaxClockSkew | The observed clock skew that exceeded the maximum clock skew.
 |=======================================================================
 
-== expiration
-
-[width="100%",cols="20%,80%",opts="header"]
-|=======================================================================
-| Metric name | Description
-
-| DetailedExpirationMetrics | Detailed expiration metrics.
-| TotalDeletedExpiredRowsCount | The total number of deleted expired rows.
-|=======================================================================
-
 == jvm
 
 The metrics for Ignite Java Virtual Machine resource use.

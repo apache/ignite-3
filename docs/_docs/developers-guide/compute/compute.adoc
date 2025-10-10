@@ -88,6 +88,34 @@ MyJobResult result = client.compute().execute(
 
 For more details on configuring jobs refer to the corresponding API section.
 
+=== Deployment Unit Information
+
+The `JobExecutionContext` object contains the information about the deployment units the job is using as a collection of `DeploymentUnitInfo` for each deployment unit involved in the job.
+
+Each `DeploymentUnitInfo` object provides the following information:
+
+* `name()` - The name of the deployment unit
+* `version()` - The version of the deployment unit
+* `path()` - The filesystem path to the deployment unit contents
+
+[source,java]
+----
+public class DiagnosticJob implements ComputeJob<Void, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
+        // Access deployment unit information
+        String deploymentInfo = context.deploymentUnits().stream()
+            .map(unit -> String.format("%s:%s at %s",
+                unit.name(),
+                unit.version(),
+                unit.path()))
+            .collect(Collectors.joining(", "));
+
+        return CompletableFuture.completedFuture(deploymentInfo);
+    }
+}
+----
+
 == Executing Jobs
 
 Apache Ignite compute jobs can run on a specific node, any node, or using a colocated approach when job is executed on the node holding the relevant data key.

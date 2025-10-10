@@ -62,6 +62,8 @@
           url: developers-guide/clients/cpp
         - title: Python Clients
           url: developers-guide/clients/python
+        - title: ADO.NET Integration
+          url: developers-guide/clients/ado
         - title: .NET LINQ Queries
           url: developers-guide/clients/linq
         - title: JDBC Driver
