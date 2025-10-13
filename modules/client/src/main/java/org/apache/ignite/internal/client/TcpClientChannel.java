@@ -682,7 +682,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     }
                     metrics.handshakesFailedIncrement();
                     if (err.getCause() instanceof IgniteClientConnectionException) {
-                        throw (IgniteClientConnectionException) err.getCause();
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, err.getCause().getMessage(), endpoint(), err);
                     } else {
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
                     }

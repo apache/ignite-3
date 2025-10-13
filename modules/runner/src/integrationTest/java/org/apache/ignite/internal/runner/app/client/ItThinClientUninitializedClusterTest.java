@@ -87,7 +87,7 @@ public class ItThinClientUninitializedClusterTest extends BaseIgniteAbstractTest
                     try (IgniteClient client = IgniteClient.builder()
                             .addresses("127.0.0.1:" + CLIENT_PORT)
                             .build()) {
-                        // Client construction should fail during handshake.
+                        // Client construction should fail after tcp handshake.
                     }
                 }
         );
