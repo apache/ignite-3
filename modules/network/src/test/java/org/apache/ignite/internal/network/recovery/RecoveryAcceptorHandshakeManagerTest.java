@@ -45,12 +45,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -107,9 +105,6 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     private final AtomicBoolean acceptorHandshakeManagerStopping = new AtomicBoolean(false);
-
-    @InjectConfiguration
-    private AckConfiguration ackConfiguration;
 
     @BeforeEach
     void initMocks() {
@@ -180,8 +175,7 @@ class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                new DefaultIgniteProductVersionSource(),
-                ackConfiguration
+                new DefaultIgniteProductVersionSource()
         );
 
         manager.onInit(context);
