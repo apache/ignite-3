@@ -38,14 +38,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -102,9 +100,6 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     private static final TestMessagesFactory TEST_MESSAGES_FACTORY = new TestMessagesFactory();
 
     private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
-
-    @InjectConfiguration
-    private AckConfiguration ackConfiguration;
 
     @Test
     public void testHandshake() throws Exception {
@@ -774,8 +769,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                new DefaultIgniteProductVersionSource(),
-                ackConfiguration
+                new DefaultIgniteProductVersionSource()
         );
     }
 
@@ -808,8 +802,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                new DefaultIgniteProductVersionSource(),
-                ackConfiguration
+                new DefaultIgniteProductVersionSource()
         );
     }
 

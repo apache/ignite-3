@@ -40,7 +40,8 @@ public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteIn
     private static final Set<Integer> BAD_REQUEST_CODES = Set.of(
             DistributionZones.ZONE_NOT_FOUND_ERR,
             DisasterRecovery.ILLEGAL_PARTITION_ID_ERR,
-            DisasterRecovery.NODES_NOT_FOUND_ERR
+            DisasterRecovery.NODES_NOT_FOUND_ERR,
+            DisasterRecovery.ILLEGAL_NODES_SET_ERR
     );
 
     @Override

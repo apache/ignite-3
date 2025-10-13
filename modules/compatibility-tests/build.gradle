@@ -33,6 +33,7 @@ repositories {
 
 dependencies {
     testImplementation libs.swagger.parser
+    testImplementation project(':ignite-core')
 
     integrationTestImplementation libs.netty.common
     integrationTestImplementation libs.netty.buffer
@@ -42,6 +43,8 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-cli')
     integrationTestImplementation project(':ignite-page-memory')

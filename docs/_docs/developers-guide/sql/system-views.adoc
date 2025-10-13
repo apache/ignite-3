@@ -18,7 +18,7 @@ Ignite provides a number of built-in SQL views that provide information on the c
 
 == Getting Data
 
-You access system views in Ignite by using SQL and selecting data from the system view like you would from any other table.  For example, you can get a list of all available system views in the following way:
+You access system views in Ignite by using SQL and selecting data from the system view like you would from any other table. For example, you can get a list of all available system views in the following way:
 
 [source, sql]
 ----
