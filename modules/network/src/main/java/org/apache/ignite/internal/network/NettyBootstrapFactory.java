@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
@@ -138,15 +137,6 @@ public class NettyBootstrapFactory implements IgniteComponent {
                 .childOption(ChannelOption.TCP_NODELAY, serverConfiguration.tcpNoDelay());
 
         return serverBootstrap;
-    }
-
-    /**
-     * Retrieves the acknowledgment configuration.
-     *
-     * @return The {@link AckConfiguration} instance representing the acknowledgment configuration.
-     */
-    public AckConfiguration ackConfiguration() {
-        return networkConfiguration.ackConfigurationSchema();
     }
 
     /**
