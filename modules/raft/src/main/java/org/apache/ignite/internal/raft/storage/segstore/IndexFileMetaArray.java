@@ -72,6 +72,10 @@ class IndexFileMetaArray {
         return size;
     }
 
+    long lastLogIndex() {
+        return array[size - 1].lastLogIndex();
+    }
+
     /**
      * Returns the {@link IndexFileMeta} containing the given Raft log index or {@code null} if no such meta exists.
      */

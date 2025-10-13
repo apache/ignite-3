@@ -19,8 +19,8 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import org.apache.ignite.internal.lang.RunnableX;
@@ -41,19 +41,34 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         assertThat(groupMeta.indexMeta(0), is(nullValue()));
 
-        IndexFileMeta indexFileMeta = groupMeta.indexMeta(1);
+        assertThat(groupMeta.indexMeta(1), is(initialMeta));
 
-        assertThat(indexFileMeta, is(notNullValue()));
-        assertThat(indexFileMeta, is(initialMeta));
+        assertThat(groupMeta.indexMeta(66), is(additionalMeta));
 
-        indexFileMeta = groupMeta.indexMeta(66);
+        assertThat(groupMeta.indexMeta(101), is(nullValue()));
+    }
 
-        assertThat(indexFileMeta, is(notNullValue()));
-        assertThat(indexFileMeta, is(additionalMeta));
+    @Test
+    void testAddGetWithOverlap() {
+        var initialMeta = new IndexFileMeta(1, 100, 0, 0);
 
-        indexFileMeta = groupMeta.indexMeta(101);
+        var groupMeta = new GroupIndexMeta(initialMeta);
 
-        assertThat(indexFileMeta, is(nullValue()));
+        var additionalMeta = new IndexFileMeta(42, 100, 42, 1);
+
+        groupMeta.addIndexMeta(additionalMeta);
+
+        assertThat(groupMeta.indexMeta(0), is(nullValue()));
+
+        assertThat(groupMeta.indexMeta(1), is(initialMeta));
+
+        assertThat(groupMeta.indexMeta(41), is(initialMeta));
+
+        assertThat(groupMeta.indexMeta(42), is(additionalMeta));
+
+        assertThat(groupMeta.indexMeta(66), is(additionalMeta));
+
+        assertThat(groupMeta.indexMeta(101), is(nullValue()));
     }
 
     @RepeatedTest(10)
@@ -95,6 +110,76 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
                     var expectedMeta = new IndexFileMeta(expectedStartLogIndex, expectedEndLogIndex, 0, expectedFileOrdinal);
 
                     assertThat(indexFileMeta, is(expectedMeta));
+                }
+            }
+        };
+
+        runRace(writer, reader, reader, reader);
+    }
+
+    @RepeatedTest(10)
+    void testOneWriterMultipleReadersWithOverlaps() {
+        int startFileOrdinal = 100;
+
+        int logEntriesPerFile = 50;
+
+        var initialMeta = new IndexFileMeta(0, logEntriesPerFile - 1, 0, startFileOrdinal);
+
+        var groupMeta = new GroupIndexMeta(initialMeta);
+
+        int totalIndexFiles = 1000;
+
+        int overlap = 10;
+
+        RunnableX writer = () -> {
+            for (int relativeFileOrdinal = 1; relativeFileOrdinal < totalIndexFiles; relativeFileOrdinal++) {
+                long startLogIndex = relativeFileOrdinal * (logEntriesPerFile - overlap);
+                long lastLogIndex = startLogIndex + logEntriesPerFile - 1;
+
+                groupMeta.addIndexMeta(new IndexFileMeta(startLogIndex, lastLogIndex, 0, startFileOrdinal + relativeFileOrdinal));
+            }
+        };
+
+        int totalLogEntries = totalIndexFiles * logEntriesPerFile;
+
+        RunnableX reader = () -> {
+            int expectedFirstLogIndex = 0;
+
+            int relativeFileOrdinal = 0;
+
+            for (int logIndex = 0; logIndex < totalLogEntries; logIndex++) {
+                IndexFileMeta indexFileMeta = groupMeta.indexMeta(logIndex);
+
+                int nextFirstLogIndex = expectedFirstLogIndex + logEntriesPerFile - overlap;
+
+                // Last file is special, as it doesn't have an overlap.
+                if (logIndex >= nextFirstLogIndex && relativeFileOrdinal != totalIndexFiles - 1) {
+                    expectedFirstLogIndex = nextFirstLogIndex;
+                    relativeFileOrdinal++;
+                }
+
+                if (indexFileMeta != null) {
+                    int expectedFileOrdinal = startFileOrdinal + relativeFileOrdinal;
+
+                    var expectedMetaWithOverlap = new IndexFileMeta(
+                            expectedFirstLogIndex,
+                            expectedFirstLogIndex + logEntriesPerFile - 1,
+                            0,
+                            expectedFileOrdinal
+                    );
+
+                    var expectedMetaWithoutOverlap = new IndexFileMeta(
+                            expectedFirstLogIndex + overlap - logEntriesPerFile,
+                            expectedFirstLogIndex + overlap - 1,
+                            0,
+                            expectedFileOrdinal - 1
+                    );
+
+                    // We can possibly be reading from two different metas - from the newer one (that overlaps the older one) or
+                    // the older one.
+                    assertThat(
+                            logIndex + " -> " + indexFileMeta,
+                            indexFileMeta, either(is(expectedMetaWithOverlap)).or(is(expectedMetaWithoutOverlap)));
                 }
             }
         };

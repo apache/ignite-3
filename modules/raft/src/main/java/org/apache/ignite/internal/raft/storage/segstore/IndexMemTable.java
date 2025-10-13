@@ -57,6 +57,23 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
     }
 
     @Override
+    public void truncateSuffix(long groupId, long lastLogIndexKept) {
+        ConcurrentMap<Long, SegmentInfo> memtable = stripe(groupId).memTable;
+
+        SegmentInfo segmentInfo = memtable.get(groupId);
+
+        if (segmentInfo == null) {
+            return;
+        }
+
+        if (lastLogIndexKept < segmentInfo.firstLogIndex()) {
+            memtable.put(groupId, new SegmentInfo(lastLogIndexKept + 1));
+        } else {
+            segmentInfo.truncateSuffix(lastLogIndexKept);
+        }
+    }
+
+    @Override
     public ReadModeIndexMemTable transitionToReadMode() {
         return this;
     }

@@ -19,49 +19,89 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents in-memory meta information about a particular Raft group stored in an index file.
  */
 class GroupIndexMeta {
-    private static final VarHandle FILE_METAS_VH;
+    private static class IndexMetaArrayHolder {
+        private static final VarHandle FILE_METAS_VH;
 
-    static {
-        try {
-            FILE_METAS_VH = MethodHandles.lookup().findVarHandle(GroupIndexMeta.class, "fileMetas", IndexFileMetaArray.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
+        static {
+            try {
+                FILE_METAS_VH = MethodHandles.lookup().findVarHandle(IndexMetaArrayHolder.class, "fileMetas", IndexFileMetaArray.class);
+            } catch (ReflectiveOperationException e) {
+                throw new ExceptionInInitializerError(e);
+            }
+        }
+
+        @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
+        private volatile IndexFileMetaArray fileMetas;
+
+        IndexMetaArrayHolder(IndexFileMeta startFileMeta) {
+            this.fileMetas = new IndexFileMetaArray(startFileMeta);
+        }
+
+        void addIndexMeta(IndexFileMeta indexFileMeta) {
+            IndexFileMetaArray fileMetas = this.fileMetas;
+
+            IndexFileMetaArray newFileMetas = fileMetas.add(indexFileMeta);
+
+            // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
+            // this invariant, just in case.
+            boolean updated = FILE_METAS_VH.compareAndSet(this, fileMetas, newFileMetas);
+
+            assert updated : "Concurrent writes detected";
+        }
+
+        @Nullable
+        IndexFileMeta indexMeta(long logIndex) {
+            return fileMetas.find(logIndex);
+        }
+
+        long lastLogIndex() {
+            return fileMetas.lastLogIndex();
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
-    private volatile IndexFileMetaArray fileMetas;
+    private final Deque<IndexMetaArrayHolder> fileMetaQueue = new ConcurrentLinkedDeque<>();
 
     GroupIndexMeta(IndexFileMeta startFileMeta) {
-        this.fileMetas = new IndexFileMetaArray(startFileMeta);
+        fileMetaQueue.add(new IndexMetaArrayHolder(startFileMeta));
     }
 
     void addIndexMeta(IndexFileMeta indexFileMeta) {
-        IndexFileMetaArray fileMetas = this.fileMetas;
+        IndexMetaArrayHolder curFileMetas = fileMetaQueue.getLast();
 
-        IndexFileMetaArray newFileMetas = fileMetas.add(indexFileMeta);
-
-        // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
-        // this invariant, just in case.
-        boolean updated = FILE_METAS_VH.compareAndSet(this, fileMetas, newFileMetas);
-
-        assert updated : "Concurrent writes detected";
+        // Merge consecutive index metas into a single meta block. If there's an overlap (e.g. due to log truncation), start a new block,
+        // which will override the previous one during search.
+        if (curFileMetas.lastLogIndex() == indexFileMeta.firstLogIndex() - 1) {
+            curFileMetas.addIndexMeta(indexFileMeta);
+        } else {
+            fileMetaQueue.add(new IndexMetaArrayHolder(indexFileMeta));
+        }
     }
 
     /**
-     * Returns a file pointer that uniquely identifies the index file for the given log index. Returns {@code null} if the given log index
+     * Returns index file meta that uniquely identifies the index file for the given log index. Returns {@code null} if the given log index
      * is not found in any of the index files in this group.
      */
     @Nullable
     IndexFileMeta indexMeta(long logIndex) {
-        IndexFileMetaArray fileMetas = this.fileMetas;
+        Iterator<IndexMetaArrayHolder> it = fileMetaQueue.descendingIterator();
 
-        return fileMetas.find(logIndex);
+        while (it.hasNext()) {
+            IndexFileMeta indexMeta = it.next().indexMeta(logIndex);
+
+            if (indexMeta != null) {
+                return indexMeta;
+            }
+        }
+
+        return null;
     }
 }
