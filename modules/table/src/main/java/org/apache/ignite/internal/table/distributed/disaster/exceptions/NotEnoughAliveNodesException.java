@@ -15,29 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compatibility.api;
+package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-import java.util.List;
-import org.junit.jupiter.api.extension.Extension;
-import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
+import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.NOT_ENOUGH_ALIVE_NODES_ERR;
 
-class ApiCompatibilityTestInvocationContext implements TestTemplateInvocationContext {
+/**
+ * Exception is thrown when there are not enough alive nodes to perform reset with clean up.
+ */
+public class NotEnoughAliveNodesException extends DisasterRecoveryException {
+    private static final long serialVersionUID = -8864260391821773729L;
 
-    private final CompatibilityInput input;
-    private final TestNameFormatter formatter;
-
-    ApiCompatibilityTestInvocationContext(CompatibilityInput input, TestNameFormatter formatter) {
-        this.input = input;
-        this.formatter = formatter;
-    }
-
-    @Override
-    public String getDisplayName(int invocationIndex) {
-        return formatter.format(invocationIndex);
-    }
-
-    @Override
-    public List<Extension> getAdditionalExtensions() {
-        return List.of(new CompatibilityExtension(input));
+    public NotEnoughAliveNodesException() {
+        super(NOT_ENOUGH_ALIVE_NODES_ERR, "Not enough alive nodes to perform reset with clean up.");
     }
 }
