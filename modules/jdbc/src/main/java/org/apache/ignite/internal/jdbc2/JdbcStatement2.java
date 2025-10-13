@@ -454,8 +454,8 @@ public class JdbcStatement2 implements Statement {
                     return false;
                 }
 
-                currentRs.close();
                 resultSet = null;
+                currentRs.close();
                 return false;
 
             case CLOSE_ALL_RESULTS:
