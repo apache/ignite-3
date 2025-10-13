@@ -150,7 +150,7 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Check that EmbeddedNode.start() with bootstrap configuration returns a node and its api() method returns Ignite instance after init.
+     * Check that IgniteServer.start() with bootstrap configuration returns a node and its api() method returns Ignite instance after init.
      */
     @Test
     void testNodesStartWithBootstrapConfigurationInitializedCluster() {
@@ -171,12 +171,30 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         assertThat(igniteServer.api(), notNullValue());
 
         startedIgniteServers.forEach(node -> {
-            if (node != igniteServer) {
-                assertThrowsWithCause(node::api, ClusterNotInitializedException.class, "Cluster is not initialized.");
-            }
             assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
             assertThat(node.api(), notNullValue());
         });
+    }
+
+    /**
+     * Check that cluster can be initialized even if nodes in the metastorage group doesn't call waitForInitAsync.
+     */
+    @Test
+    void testClusterInitWithoutWait() {
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startAndRegisterNode(e.getKey(), name -> startNode(name, e.getValue()));
+        }
+
+        assertThat(startedIgniteServers, hasSize(3));
+
+        IgniteServer igniteServer = startedIgniteServers.get(0);
+
+        // Initialize the cluster with all nodes in the metastorage group
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(startedIgniteServers)
+                .clusterName("cluster")
+                .build();
+        assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
     }
 
     /**

@@ -64,6 +64,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
 
     private final String storageProfile;
 
+    private final CatalogTableProperties properties;
+
     /**
      * Internal constructor.
      *
@@ -87,7 +89,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
-            HybridTimestamp timestamp
+            HybridTimestamp timestamp,
+            CatalogTableProperties properties
     ) {
         super(id, Type.TABLE, name, timestamp);
 
@@ -107,6 +110,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
+        this.properties = properties;
     }
 
     /**
@@ -126,7 +130,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 .columns(columns)
                 .primaryKeyColumns(primaryKeyColumns())
                 .colocationColumns(colocationColumns())
-                .storageProfile(storageProfile());
+                .storageProfile(storageProfile())
+                .staleRowsFraction(properties.staleRowsFraction())
+                .minStaleRowsCount(properties.minStaleRowsCount());
     }
 
     public static Builder builder() {
@@ -241,6 +247,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         return storageProfile;
     }
 
+    /** Returns holder for table-related properties. */
+    public CatalogTableProperties properties() {
+        return properties;
+    }
+
     /**
      * {@code CatalogTableDescriptor} builder static inner class.
      */
@@ -257,6 +268,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         private String storageProfile;
         private HybridTimestamp timestamp = INITIAL_TIMESTAMP;
         private int latestSchemaVersion = 0;
+        private double staleRowsFraction;
+        private long minStaleRowsCount;
 
         /**
          * Sets the {@code id} and returns a reference to this Builder enabling method chaining.
@@ -391,6 +404,30 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         }
 
         /**
+         * Sets the {@code minStaleRowsCount} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param minStaleRowsCount The {@code minStaleRowsCount} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableProperties#minStaleRowsCount()
+         */
+        public Builder minStaleRowsCount(long minStaleRowsCount) {
+            this.minStaleRowsCount = minStaleRowsCount;
+            return this;
+        }
+
+        /**
+         * Sets the {@code staleRowsFraction} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param staleRowsFraction The {@code staleRowsFraction} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableProperties#staleRowsFraction()
+         */
+        public Builder staleRowsFraction(double staleRowsFraction) {
+            this.staleRowsFraction = staleRowsFraction;
+            return this;
+        }
+
+        /**
          * Returns a {@code CatalogTableDescriptor} built from the parameters previously set.
          *
          * @return a {@code CatalogTableDescriptor} built with parameters of this {@code CatalogTableDescriptor.Builder}
@@ -449,7 +486,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                     colocationColumns,
                     newSchemaVersions,
                     storageProfile,
-                    timestamp
+                    timestamp,
+                    new CatalogTableProperties(staleRowsFraction, minStaleRowsCount)
             );
         }
     }

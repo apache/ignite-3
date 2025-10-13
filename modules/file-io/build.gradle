@@ -20,7 +20,6 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 dependencies {
-    implementation libs.jetbrains.annotations
     implementation project(':ignite-core')
 
     testImplementation project(':ignite-core')

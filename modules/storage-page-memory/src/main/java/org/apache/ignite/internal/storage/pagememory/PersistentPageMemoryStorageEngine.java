@@ -57,6 +57,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
@@ -116,15 +117,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     private volatile CheckpointManager checkpointManager;
 
     private volatile ExecutorService destructionExecutor;
-
-    /**
-     * Executor service for performing asynchronous I/O operations.
-     *
-     * <p>
-     * This field is initialized when the engine is configured to use asynchronous file I/O.
-     * If the engine is configured to use synchronous I/O, this field remains {@code null}.
-     */
-    private volatile @Nullable ExecutorService asyncIoExecutor;
 
     private final FailureManager failureManager;
 
@@ -192,24 +184,9 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         int pageSize = engineConfig.pageSizeBytes().value();
 
         try {
-            FileIoFactory fileIoFactory;
-
-            if (engineConfig.checkpoint().useAsyncFileIoFactory().value()) {
-                asyncIoExecutor = new ThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        Runtime.getRuntime().availableProcessors(),
-                        100,
-                        TimeUnit.MILLISECONDS,
-                        new LinkedBlockingQueue<>(),
-                        IgniteThreadFactory.create(igniteInstanceName, "persistent-mv-async-io", LOG)
-                );
-
-                fileIoFactory = new AsyncFileIoFactory(asyncIoExecutor);
-            } else {
-                asyncIoExecutor = null;
-
-                fileIoFactory = new RandomAccessFileIoFactory();
-            }
+            FileIoFactory fileIoFactory = engineConfig.checkpoint().useAsyncFileIoFactory().value()
+                    ? new AsyncFileIoFactory()
+                    : new RandomAccessFileIoFactory();
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 
@@ -300,16 +277,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             ExecutorService destructionExecutor = this.destructionExecutor;
             CheckpointManager checkpointManager = this.checkpointManager;
             FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
-            ExecutorService asyncIoExecutor = this.asyncIoExecutor;
 
             Stream<AutoCloseable> resources = Stream.of(
                     destructionExecutor == null
                             ? null
                             : (AutoCloseable) () -> shutdownAndAwaitTermination(destructionExecutor, 30, TimeUnit.SECONDS),
                     checkpointManager == null ? null : (AutoCloseable) checkpointManager::stop,
-                    asyncIoExecutor == null
-                            ? null
-                            : (AutoCloseable) () -> shutdownAndAwaitTermination(asyncIoExecutor, 30, TimeUnit.SECONDS),
                     filePageStoreManager == null ? null : (AutoCloseable) filePageStoreManager::stop
             );
 
@@ -358,6 +331,15 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         } catch (IOException e) {
             throw new StorageException("Failed to destroy table directory: {}", e, tableId);
         }
+    }
+
+    @Override
+    public void addTableMetrics(StorageTableDescriptor tableDescriptor, StorageEngineTablesMetricSource metricSource) {
+        PersistentPageMemoryDataRegion region = regions.get(tableDescriptor.getStorageProfile());
+
+        assert region != null : "Adding metrics to the table with non-existent data region. [tableDescriptor=" + tableDescriptor + ']';
+
+        region.addTableMetrics(tableDescriptor, metricSource);
     }
 
     /**

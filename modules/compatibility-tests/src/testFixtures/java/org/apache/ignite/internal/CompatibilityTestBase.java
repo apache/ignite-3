@@ -25,6 +25,9 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.awaitility.Awaitility.await;
 
+import io.micronaut.http.client.HttpClient;
+import io.micronaut.http.client.annotation.Client;
+import jakarta.inject.Inject;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,7 +39,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -75,11 +77,14 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
+            + "  rest.ssl.port: {},\n"
             + "  failureHandler.dumpThreadsOnFailure: false,\n"
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: {nodeName: \"{}\", nodeIndex: \"{}\"}\n"
             + "  }\n"
             + "}";
+
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     // If there are no fields annotated with @Parameter, constructor injection will be used, which is incompatible with the
     // Lifecycle.PER_CLASS.
@@ -96,6 +101,10 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     protected List<String> extraIgniteModuleIds() {
         return Collections.emptyList();
     }
+
+    @Inject
+    @Client(NODE_URL + "/management/v1/deployment")
+    protected HttpClient deploymentClient;
 
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
@@ -228,8 +237,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      */
     public static List<String> baseVersions(String... skipVersions) {
         Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
-        return IgniteVersions.INSTANCE.versions().stream()
-                .map(Version::version)
+        return IgniteVersions.INSTANCE.versions().keySet().stream()
                 .filter(Predicate.not(skipSet::contains))
                 .collect(Collectors.toList());
     }

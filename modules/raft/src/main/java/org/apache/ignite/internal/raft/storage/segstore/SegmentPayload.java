@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
 /**
@@ -34,28 +35,18 @@ class SegmentPayload {
 
     static final int HASH_SIZE = Integer.BYTES;
 
-    private final long groupId;
-
-    private final int payloadSize;
-
-    private final LogEntry logEntry;
-
-    private final LogEntryEncoder logEntryEncoder;
-
-    SegmentPayload(long groupId, LogEntry logEntry, LogEntryEncoder logEntryEncoder) {
-        this.groupId = groupId;
-        this.logEntry = logEntry;
-        this.logEntryEncoder = logEntryEncoder;
-
-        payloadSize = logEntryEncoder.size(logEntry);
-    }
-
-    void writeTo(ByteBuffer buffer) {
+    static void writeTo(
+            ByteBuffer buffer,
+            long groupId,
+            int entrySize,
+            LogEntry logEntry,
+            LogEntryEncoder logEntryEncoder
+    ) {
         int originalPos = buffer.position();
 
         buffer
                 .putLong(groupId)
-                .putInt(payloadSize);
+                .putInt(entrySize);
 
         logEntryEncoder.encode(buffer, logEntry);
 
@@ -70,8 +61,43 @@ class SegmentPayload {
         buffer.putInt(crc);
     }
 
-    int size() {
-        return overheadSize() + payloadSize;
+    static LogEntry readFrom(ByteBuffer buffer, LogEntryDecoder logEntryDecoder) {
+        int entrySize = buffer.getInt(buffer.position() + GROUP_ID_SIZE_BYTES);
+
+        verifyCrc(buffer, entrySize);
+
+        buffer.position(buffer.position() + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26623.
+        byte[] entryBytes = new byte[entrySize];
+
+        buffer.get(entryBytes);
+
+        // Move the position as if we have read the whole payload.
+        buffer.position(buffer.position() + HASH_SIZE);
+
+        return logEntryDecoder.decode(entryBytes);
+    }
+
+    private static void verifyCrc(ByteBuffer buffer, int entrySize) {
+        int position = buffer.position();
+
+        int dataSize = size(entrySize) - HASH_SIZE;
+
+        int expectedCrc = buffer.getInt(position + dataSize);
+
+        int actualCrc = FastCrc.calcCrc(buffer, dataSize);
+
+        // calcCrc alters the position.
+        buffer.position(position);
+
+        if (expectedCrc != actualCrc) {
+            throw new IllegalStateException("CRC mismatch, expected: " + expectedCrc + ", actual: " + actualCrc);
+        }
+    }
+
+    static int size(int entrySize) {
+        return overheadSize() + entrySize;
     }
 
     static int overheadSize() {

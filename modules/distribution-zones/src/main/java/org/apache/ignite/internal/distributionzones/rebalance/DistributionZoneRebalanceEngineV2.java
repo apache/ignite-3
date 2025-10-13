@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
@@ -31,9 +30,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -43,7 +40,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -143,16 +139,12 @@ public class DistributionZoneRebalanceEngineV2 {
 
     private WatchListener createDistributionZonesDataNodesListener() {
         return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            Set<NodeWithAttributes> dataNodesWithAttributes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp());
+            Set<NodeWithAttributes> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp());
 
-            if (dataNodesWithAttributes == null) {
+            if (dataNodes == null) {
                 // The zone was removed so data nodes were removed too.
                 return nullCompletedFuture();
             }
-
-            Set<Node> dataNodes = dataNodesWithAttributes.stream()
-                    .map(NodeWithAttributes::node)
-                    .collect(toSet());
 
             int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES);
 
@@ -172,21 +164,17 @@ public class DistributionZoneRebalanceEngineV2 {
                 return nullCompletedFuture();
             }
 
-            Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
-
-            Set<String> filteredDataNodes = nodeNames(filterDataNodes(dataNodesWithAttributes, zoneDescriptor));
+            Set<String> filteredDataNodes = nodeNames(filterDataNodes(dataNodes, zoneDescriptor));
 
             if (LOG.isInfoEnabled()) {
                 var matchedNodes = new ArrayList<NodeWithAttributes>();
                 var filteredOutNodes = new ArrayList<NodeWithAttributes>();
 
-                for (Node dataNode : dataNodes) {
-                    NodeWithAttributes nodeWithAttributes = nodesAttributes.get(dataNode.nodeId());
-
+                for (NodeWithAttributes dataNode : dataNodes) {
                     if (filteredDataNodes.contains(dataNode.nodeName())) {
-                        matchedNodes.add(nodeWithAttributes);
+                        matchedNodes.add(dataNode);
                     } else {
-                        filteredOutNodes.add(nodeWithAttributes);
+                        filteredOutNodes.add(dataNode);
                     }
                 }
 

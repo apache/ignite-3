@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
@@ -25,9 +24,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * Factory for producing {@link PartitionModificationCounter}.
  */
 public class PartitionModificationCounterFactory {
-    public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
-
-    public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
 
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
 
@@ -39,14 +35,29 @@ public class PartitionModificationCounterFactory {
      * Creates a new partition modification counter.
      *
      * @param partitionSizeSupplier Partition size supplier.
+     * @param stalenessConfigurationSupplier Partition size supplier.
      * @return New partition modification counter.
      */
-    public PartitionModificationCounter create(LongSupplier partitionSizeSupplier) {
+    public PartitionModificationCounter create(
+            SizeSupplier partitionSizeSupplier,
+            StalenessConfigurationSupplier stalenessConfigurationSupplier
+    ) {
         return new PartitionModificationCounter(
                 currentTimestampSupplier.get(),
                 partitionSizeSupplier,
-                DEFAULT_STALE_ROWS_FRACTION,
-                DEFAULT_MIN_STALE_ROWS_COUNT
+                stalenessConfigurationSupplier
         );
+    }
+
+    /** An interface representing supplier of current size. */
+    @FunctionalInterface
+    public interface SizeSupplier {
+        long get();
+    }
+
+    /** An interface representing supplier of current staleness configuration. */
+    @FunctionalInterface
+    public interface StalenessConfigurationSupplier {
+        TableStatsStalenessConfiguration get();
     }
 }

@@ -24,8 +24,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
@@ -70,6 +72,9 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
     @Mock
     private LogEntryEncoder encoder;
 
+    @Mock
+    private LogEntryDecoder decoder;
+
     @BeforeEach
     void setUp() throws IOException {
         segmentFileManager = new SegmentFileManager(NODE_NAME, workDir, SEGMENT_SIZE, 1, new NoOpFailureManager());
@@ -86,7 +91,7 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
             @Override
             public LogEntryDecoder decoder() {
-                return fail("Should not be called.");
+                return decoder;
             }
         });
 
@@ -210,6 +215,35 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
             assertThat(actualEntries.get(i).groupId(), is(GROUP_ID));
             assertThat(actualEntries.get(i).payload(), is(payloads.get(i)));
         }
+    }
+
+    @Test
+    void testGetEntry() {
+        byte[] payload = {1, 2, 3, 4, 5};
+
+        var expectedEntry = new LogEntry();
+
+        doAnswer(invocation -> {
+            ByteBuffer buffer = invocation.getArgument(0);
+
+            buffer.put(payload);
+
+            return null;
+        }).when(encoder).encode(any(), eq(expectedEntry));
+
+        when(encoder.size(any())).thenAnswer(invocation -> payload.length);
+
+        when(decoder.decode(payload)).thenReturn(expectedEntry);
+
+        logStorage.appendEntry(expectedEntry);
+
+        LogEntry actualEntry = logStorage.getEntry(expectedEntry.getId().getIndex());
+
+        assertThat(actualEntry, is(expectedEntry));
+
+        LogEntry nonExistingEntry = logStorage.getEntry(expectedEntry.getId().getIndex() + 1);
+
+        assertThat(nonExistingEntry, is(nullValue()));
     }
 
     private List<Path> segmentFiles() throws IOException {

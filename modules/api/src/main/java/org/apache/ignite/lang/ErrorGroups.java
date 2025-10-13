@@ -727,8 +727,11 @@ public class ErrorGroups {
         /** Error while returning partition states. */
         public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Error while restarting the cluster with clean up. */
-        public static final int RESTART_WITH_CLEAN_UP_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+        /** Error when not enough alive nodes to perform restart with clean up. */
+        public static final int NOT_ENOUGH_ALIVE_NODES_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Error when node names are not in valid set. */
+        public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Embedded API error group. */
