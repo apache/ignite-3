@@ -350,7 +350,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
     private void handleLoopConnection(HandshakeStartMessage msg) {
         String message = String.format(
-                "Got handshake start from self, this should never happen [localNode=%s, acceptorNode=%s]",
+                "Got handshake start from self [localNode=%s, acceptorNode=%s]",
                 localNode,
                 msg.serverNode()
         );
