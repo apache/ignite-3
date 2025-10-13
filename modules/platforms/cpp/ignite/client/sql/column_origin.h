@@ -26,7 +26,7 @@ namespace ignite {
  *
  * Original name of column.
  * Required when SQL statement change column name using aliases.
- * See /ref ignite::column_metadata
+ * See \ref ignite::column_metadata
  */
 class column_origin {
 public:
