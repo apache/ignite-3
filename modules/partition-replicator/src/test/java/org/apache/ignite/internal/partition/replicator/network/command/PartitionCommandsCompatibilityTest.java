@@ -296,7 +296,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
         );
 
         for (Command c : commands) {
-            log.info(">>>>> Serialized command: [c={}, base64='{}']", c.getClass().getSimpleName(), encodeCommand(c));
+            log.info(">>>>> Serialized command: [command={}, base64='{}']", c.getClass().getSimpleName(), encodeCommand(c));
         }
     }
 
