@@ -285,6 +285,15 @@ public class IgniteCluster {
         return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
     }
 
+    /**
+     * Returns cluster nodes.
+     *
+     * @return Cluster nodes.
+     */
+    public List<Ignite> nodes() {
+        return nodes;
+    }
+
     private ServerRegistration startEmbeddedNode(
             @Nullable TestInfo testInfo,
             int nodeIndex,
