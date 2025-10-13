@@ -156,6 +156,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Last receive operation timestamp. */
     private volatile long lastReceiveMillis;
 
+    /** Whether tcp connection was established. */
+    private volatile boolean tcpConnectionEstablished;
+
     /**
      * Constructor.
      *
@@ -264,8 +267,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         for (TimeoutObjectImpl pendingReq : pendingReqs.values()) {
-            pendingReq.future().completeExceptionally(
-                    new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+            if (tcpConnectionEstablished && lastReceiveMillis == 0) {
+                pendingReq.future().completeExceptionally(
+                        new IgniteClientConnectionException(CONNECTION_ERR,
+                                "Channel is closed, cluster might not have been initialised", endpoint(), cause));
+            } else {
+                pendingReq.future().completeExceptionally(
+                        new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+            }
         }
 
         for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
@@ -306,6 +315,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         close(e, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onConnected() {
+        tcpConnectionEstablished = true;
     }
 
     /** {@inheritDoc} */
@@ -665,9 +680,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         metrics.handshakesFailedTimeoutIncrement();
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
                     }
-
                     metrics.handshakesFailedIncrement();
-                    throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
+                    if (err.getCause() instanceof IgniteClientConnectionException) {
+                        throw (IgniteClientConnectionException) err.getCause();
+                    } else {
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
+                    }
                 });
     }
 
