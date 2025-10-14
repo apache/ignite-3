@@ -46,11 +46,20 @@ const config: Config = {
             'https://github.com/apache/ignite-3/tree/main/docs/',
           routeBasePath: '/', // Serve docs at the site root
           // Versioning configuration
-          lastVersion: 'current',
+          includeCurrentVersion: true, // Include the current (unversioned) docs
+          lastVersion: 'current', // The most recent version
+          onlyIncludeVersions: ['current', '3.0.0'], // Limit which versions are included
           versions: {
             current: {
-              label: '3.1.0',
+              label: '3.1.0 (Latest)',
               path: '3.1.0',
+              banner: 'none', // No banner for latest version
+            },
+            '3.0.0': {
+              label: '3.0.0',
+              path: '3.0.0',
+              banner: 'unmaintained', // Show banner for older version
+              badge: true, // Show version badge
             },
           },
         },
@@ -72,14 +81,10 @@ const config: Config = {
       logo: {
         alt: 'Apache Ignite Logo',
         src: 'img/logo.svg',
+        href: '/3.1.0/',
+        target: '_self',
       },
       items: [
-        {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'Documentation',
-        },
         {
           type: 'docsVersionDropdown',
           position: 'right',
@@ -99,7 +104,7 @@ const config: Config = {
           items: [
             {
               label: 'Apache Ignite 3',
-              to: '/',
+              to: '/3.1.0/',
             },
           ],
         },
