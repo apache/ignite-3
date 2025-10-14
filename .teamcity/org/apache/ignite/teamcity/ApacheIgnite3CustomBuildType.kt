@@ -33,7 +33,7 @@ class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBu
                     publisher = github {
                         githubUrl = "https://api.github.com"
                         authType = personalToken {
-                            token = "credentialsJSON:81fbfe18-b4b5-4b60-bc69-97240f37b0c3"
+                            token = "credentialsJSON:525b90dd-50db-4603-ac7f-e180ee87a681"
                         }
                     }
                 }
