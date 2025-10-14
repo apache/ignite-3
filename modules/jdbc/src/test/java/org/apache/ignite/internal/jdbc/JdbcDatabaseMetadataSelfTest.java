@@ -243,8 +243,8 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertFalse(metaData.insertsAreDetected(ResultSet.TYPE_SCROLL_INSENSITIVE));
 
         // Holdability, JDBC and SQL state meta
-        assertTrue(metaData.supportsResultSetHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT));
-        assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, metaData.getResultSetHoldability());
+        assertTrue(metaData.supportsResultSetHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT));
+        assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, metaData.getResultSetHoldability());
         assertTrue(metaData.getDatabaseMajorVersion() >= 0);
         assertTrue(metaData.getDatabaseMinorVersion() >= 0);
         assertTrue(metaData.getJDBCMajorVersion() >= 0);

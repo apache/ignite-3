@@ -36,6 +36,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -43,6 +44,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Verifies that SQL DML statements can use an explicit transaction using the jdbc API.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-26139")
 public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     /** Insert query. */
     private static final String SQL_INSERT = "insert into TEST values (%d, '%s')";
