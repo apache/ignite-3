@@ -1,30 +1,506 @@
 /**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-/* You can override the default Infima variables here. */
+/**
+ * Apache Ignite 3 Documentation Custom Styles
+ *
+ * Replicates the Jekyll site design with accuracy.
+ * Reference: docs-jekyll/_sass/ directory
+ * Analysis: IGNITE-26681/jekyll-style-analysis.md
+ */
+
+/* ============================================
+   Color Variables and Theme Configuration
+   ============================================ */
+
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
-  --ifm-code-font-size: 95%;
+  /* Apache Ignite Brand Colors */
+  --ignite-red: #ec1c24;
+  --ignite-red-dark: #bc440b;
+  --ignite-dark-gray: #333333;
+  --ignite-active-indicator-thickness: 3px;
+
+  /* Background Colors - Jekyll uses gray sidebar, white content */
+  --ifm-background-color: #fcfcfc; /* Page background - light gray */
+  --ifm-navbar-background-color: #ffffff; /* Navbar - pure white */
+
+  /* Content Links - Jekyll uses RED, not blue! */
+  --ifm-link-color: var(--ignite-red);
+  --ifm-link-hover-color: var(--ignite-red-dark);
+
+  /* Docusaurus Primary Color (for buttons, badges, etc.) */
+  --ifm-color-primary: #ec1c24;
+  --ifm-color-primary-dark: #d41920;
+  --ifm-color-primary-darker: #c8171e;
+  --ifm-color-primary-darkest: #a51319;
+  --ifm-color-primary-light: #ef3138;
+  --ifm-color-primary-lighter: #f03d43;
+  --ifm-color-primary-lightest: #f35b60;
+
+  /* Text Colors */
+  --ifm-color-content: #545454; /* Body text */
+  --ifm-color-content-secondary: #757575; /* Secondary text, sidebar links */
+  --ifm-heading-color: #000000; /* Headings */
+  --ifm-navbar-link-color: var(--ignite-dark-gray); /* Navbar text - DARK */
+
+  /* Code Block Colors */
+  --block-code-background: rgba(241, 241, 241, 0.2);
+  --inline-code-background: rgba(241, 241, 241, 0.9);
+  --ifm-code-background: var(--inline-code-background);
+  --code-border-color: #e5e5e5;
+
+  /* Font Configuration */
+  --ifm-font-family-base: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ifm-heading-font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.6;
+  --ifm-code-font-size: 90%;
+
+  /* Sidebar Colors */
+  --ifm-menu-color: #757575; /* Sidebar link text - gray */
+  --ifm-menu-color-active: #393939; /* Active link text - darker gray, NOT red */
+  --ifm-menu-color-background-active: transparent;
+  --ifm-menu-color-background-hover: transparent;
+
+  /* Table Colors */
+  --ifm-table-stripe-background: #f8f8f7;
+  --ifm-table-head-background: #f7f8f7;
+  --ifm-table-head-color: #757575;
+
+  /* Border Colors */
+  --ifm-toc-border-color: #dddddd;
+  --ifm-hr-border-color: #dddddd;
+
+  /* Navbar Shadow - subtle, like Jekyll */
+  --ifm-navbar-shadow: 0 4px 10px 0 #eeeeee, 0 0 4px 0 #d5d5d5;
+
+  /* Syntax Highlighting */
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* Dark Mode Color Palette - Design for dark mode (not in Jekyll) */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-background-color: #1b1b1d;
+  --ifm-navbar-background-color: #1b1b1d;
+
+  /* Keep red as primary in dark mode */
+  --ifm-color-primary: #f35b60;
+  --ifm-color-primary-dark: #f14249;
+  --ifm-color-primary-darker: #f03338;
+  --ifm-color-primary-darkest: #ed1119;
+  --ifm-color-primary-light: #f57477;
+  --ifm-color-primary-lighter: #f68388;
+  --ifm-color-primary-lightest: #f9a1a4;
+
+  /* Dark mode links - lighter red for contrast */
+  --ifm-link-color: #f35b60;
+  --ifm-link-hover-color: #f57477;
+
+  /* Dark mode text */
+  --ifm-color-content: #e3e3e3;
+  --ifm-color-content-secondary: #a0a0a0;
+  --ifm-heading-color: #ffffff;
+  --ifm-navbar-link-color: #e3e3e3;
+
+  /* Dark mode code blocks */
+  --block-code-background: rgba(0, 0, 0, 0.4);
+  --inline-code-background: rgba(255, 255, 255, 0.1);
+  --ifm-code-background: var(--inline-code-background);
+  --code-border-color: #404040;
+
+  /* Dark mode sidebar colors */
+  --ifm-menu-color: #a0a0a0;
+  --ifm-menu-color-active: #e3e3e3;
+
+  /* Dark mode table colors */
+  --ifm-table-stripe-background: rgba(255, 255, 255, 0.05);
+  --ifm-table-head-background: rgba(255, 255, 255, 0.1);
+  --ifm-table-head-color: #a0a0a0;
+
+  /* Dark mode borders */
+  --ifm-toc-border-color: #404040;
+  --ifm-hr-border-color: #404040;
+
+  /* Dark mode navbar shadow */
+  --ifm-navbar-shadow: 0 4px 10px 0 rgba(0, 0, 0, 0.3), 0 0 4px 0 rgba(0, 0, 0, 0.2);
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+
+body {
+  font-family: var(--ifm-font-family-base);
+  color: var(--ifm-color-content);
+  line-height: var(--ifm-line-height-base);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--ifm-heading-font-family);
+  font-weight: normal;
+  color: var(--ifm-heading-color);
+}
+
+h1 {
+  font-size: 36px;
+  line-height: 40px;
+}
+
+/* ============================================
+   Navbar Styling
+   ============================================ */
+
+.navbar {
+  background-color: #ffffff !important; /* Force white background */
+  box-shadow: var(--ifm-navbar-shadow);
+}
+
+/* Navbar text - BLACK/dark gray on white background */
+.navbar__title {
+  font-weight: normal;
+  color: #333333 !important; /* Dark gray text */
+}
+
+.navbar__link {
+  color: #333333 !important; /* Dark gray text */
+  font-weight: normal;
+}
+
+.navbar__item {
+  font-weight: normal;
+  color: #333333 !important; /* Dark gray text */
+}
+
+/* Dark mode: dark navbar with light text */
+[data-theme='dark'] .navbar {
+  background-color: #1b1b1d !important;
+}
+
+[data-theme='dark'] .navbar__title,
+[data-theme='dark'] .navbar__link,
+[data-theme='dark'] .navbar__item {
+  color: #e3e3e3 !important;
+}
+
+/* Color mode toggle button - make it visible on white navbar */
+button[class*='colorModeToggle'],
+button[class*='toggleButton'],
+.navbar button {
+  color: #333333 !important; /* Dark icon on white background */
+}
+
+[data-theme='dark'] button[class*='colorModeToggle'],
+[data-theme='dark'] button[class*='toggleButton'],
+[data-theme='dark'] .navbar button {
+  color: #e3e3e3 !important; /* Light icon on dark background */
+}
+
+/* ============================================
+   Layout - Max Width Container
+   ============================================ */
+
+.main-wrapper {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ============================================
+   Sidebar Navigation (Left)
+   ============================================ */
+
+aside.theme-doc-sidebar-container {
+  background-color: var(--ifm-background-color) !important; /* Gray background like Jekyll */
+}
+
+.theme-doc-sidebar-container {
+  border-right: none !important;
+}
+
+.menu {
+  font-family: var(--ifm-font-family-base);
+  padding: 10px 20px;
+}
+
+.menu__link {
+  color: var(--ifm-menu-color);
+  font-size: 16px;
+  font-weight: normal;
+  padding: 0.25rem 0.375rem;
+}
+
+/* Active sidebar item - red AND bold text */
+.menu__link--active {
+  color: var(--ignite-red) !important; /* Red text for active page */
+  background-color: transparent !important;
+  border-left: none;
+  font-weight: bold !important; /* Bold to emphasize current page */
+}
+
+.menu__link:hover {
+  color: var(--ignite-red);
+  background-color: transparent;
+}
+
+.menu__list-item-collapsible:hover {
+  background-color: transparent;
+}
+
+/* ============================================
+   Content Area
+   ============================================ */
+
+.theme-doc-markdown {
+  background-color: #ffffff;
+  border-left: 1px solid #eeeeee;
+  padding: 0 50px 30px;
+  margin-top: 10px; /* Space above content for version badge */
+}
+
+[data-theme='dark'] .theme-doc-markdown {
+  background-color: #242526;
+  border-left: 1px solid #404040;
+}
+
+article.markdown {
+  font-size: 16px;
+  line-height: 1.6em;
+  color: var(--ifm-color-content);
+}
+
+article.markdown > h1,
+article.markdown > h2,
+article.markdown > h3,
+article.markdown > h4 {
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+}
+
+article.markdown li {
+  margin-bottom: 0.5em;
+}
+
+article.markdown strong {
+  color: #757575;
+}
+
+[data-theme='dark'] article.markdown strong {
+  color: #a0a0a0;
+}
+
+/* ============================================
+   Table of Contents (Right Sidebar)
+   ============================================ */
+
+.theme-doc-toc-desktop {
+  background-color: #ffffff;
+}
+
+[data-theme='dark'] .theme-doc-toc-desktop {
+  background-color: #242526;
+}
+
+.table-of-contents {
+  border-left: 2px solid var(--ifm-toc-border-color);
+  font-family: var(--ifm-font-family-base);
+  padding-left: 8px;
+}
+
+.table-of-contents__link {
+  color: var(--ifm-menu-color);
+  font-size: 14px;
+  font-weight: normal;
+}
+
+/* Active TOC item - dark gray text with red left border (like Jekyll) */
+.table-of-contents__link--active {
+  color: #393939 !important; /* Darker gray, NOT red */
+  border-left: var(--ignite-active-indicator-thickness) solid var(--ignite-red);
+  padding-left: calc(8px - var(--ignite-active-indicator-thickness));
+  font-weight: normal;
+}
+
+[data-theme='dark'] .table-of-contents__link--active {
+  color: #e3e3e3 !important;
+}
+
+.table-of-contents__link:hover {
+  color: var(--ignite-red);
+}
+
+/* ============================================
+   Code Blocks and Inline Code
+   ============================================ */
+
+code {
+  color: var(--ifm-color-content);
+  background-color: var(--inline-code-background);
+  padding: 0.1em 0.5em;
+  border-radius: 3px;
+  font-size: var(--ifm-code-font-size);
+}
+
+pre {
+  background-color: var(--block-code-background) !important;
+  border: 1px solid var(--code-border-color);
+  border-radius: 5px;
+  padding: 8px 15px;
+  line-height: 18px;
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* ============================================
+   Tabs Styling (Multi-language code examples)
+   ============================================ */
+
+.tabs {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tabs__item {
+  border-bottom: var(--ignite-active-indicator-thickness) solid transparent;
+  transition: border-color 0.2s;
+  font-weight: normal;
+}
+
+.tabs__item--active {
+  border-bottom-color: var(--ignite-red) !important;
+  color: inherit;
+  font-weight: normal;
+}
+
+.tabs__item:hover {
+  opacity: 0.85;
+}
+
+/* ============================================
+   Tables
+   ============================================ */
+
+table {
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+table thead,
+table tfoot {
+  background-color: var(--ifm-table-head-background);
+  color: var(--ifm-table-head-color);
+}
+
+table th,
+table td {
+  text-align: left;
+  padding: 5px 10px;
+  border-top: 1px solid hsl(0, 0%, 85%);
+  border-bottom: 1px solid hsl(0, 0%, 85%);
+}
+
+table tbody tr:nth-of-type(even) {
+  background-color: var(--ifm-table-stripe-background);
+}
+
+/* ============================================
+   Admonitions (Note, Tip, Caution, Warning)
+   ============================================ */
+
+.admonition {
+  border-left-width: 6px;
+  margin-bottom: 16px;
+}
+
+.admonition-note {
+  border-left-color: #055799;
+}
+
+.admonition-tip {
+  border-left-color: #fcb903;
+}
+
+.admonition-caution,
+.admonition-important {
+  border-left-color: #b02032;
+}
+
+.admonition-warning {
+  border-left-color: #b02032;
+}
+
+/* ============================================
+   Images
+   ============================================ */
+
+article.markdown img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+
+.footer {
+  border-top: 2px solid var(--ifm-hr-border-color);
+  background-color: var(--ifm-background-color);
+  font-size: 16px;
+  padding: 1rem 0;
+  min-height: 104px;
+}
+
+.footer__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.footer__item {
+  font-size: 14px;
+}
+
+/* Minimize footer prominence */
+.footer--dark {
+  background-color: var(--ifm-background-color) !important;
+  color: #393939;
+}
+
+[data-theme='dark'] .footer--dark {
+  background-color: var(--ifm-background-color) !important;
+  color: #a0a0a0;
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 996px) {
+  .theme-doc-markdown {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .theme-doc-toc-desktop {
+    width: 230px;
+  }
 }

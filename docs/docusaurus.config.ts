@@ -74,6 +74,8 @@ const config: Config = {
   themeConfig: {
     image: 'img/logo.svg',
     colorMode: {
+      defaultMode: 'light',
+      disableSwitch: false,
       respectPrefersColorScheme: true,
     },
     navbar: {
@@ -95,6 +97,14 @@ const config: Config = {
           position: 'right',
         },
       ],
+      style: 'primary',
+      hideOnScroll: false,
+    },
+    docs: {
+      sidebar: {
+        hideable: true,
+        autoCollapseCategories: false,
+      },
     },
     footer: {
       style: 'dark',
