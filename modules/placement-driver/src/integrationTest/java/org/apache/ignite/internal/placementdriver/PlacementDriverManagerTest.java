@@ -269,7 +269,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 Runnable::run,
                 mock(MetricManager.class),
                 zoneId -> completedFuture(Set.of()),
-                id -> null
+                zoneId -> null
         );
 
         ComponentContext componentContext = new ComponentContext();

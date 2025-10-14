@@ -43,11 +43,12 @@ import org.apache.ignite.migrationtools.sql.SqlDdlGenerator;
 import org.apache.ignite.migrationtools.tablemanagement.SchemaUtils;
 import org.apache.ignite.migrationtools.types.converters.StaticTypeConverterFactory;
 import org.apache.ignite.migrationtools.types.converters.TypeConverterFactory;
+import org.apache.ignite3.catalog.definitions.TableDefinition;
 import org.apache.ignite3.client.IgniteClient;
 import org.apache.ignite3.internal.client.table.ClientSchema;
 import org.apache.ignite3.internal.client.table.ClientTable;
-import org.apache.ignite3.lang.util.IgniteNameUtils;
 import org.apache.ignite3.table.DataStreamerItem;
+import org.apache.ignite3.table.QualifiedName;
 import org.apache.ignite3.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -187,13 +188,18 @@ public class Ignite2PersistentCacheTools {
                 .orElseThrow(() -> new RuntimeException("Could not find the requested cache: " + cacheName));
 
         // TODO: GG-40802 Allow injecting custom aliases/fieldNameForColumn mappings
-        String quotedName = IgniteNameUtils.quoteIfNeeded(cacheName);
-        @Nullable ClientTable table = (ClientTable) client.tables().table(quotedName);
+        QualifiedName qualifiedName = SqlDdlGenerator.qualifiedName(cacheCfg);
+        @Nullable ClientTable table = (ClientTable) client.tables().table(qualifiedName);
         SqlDdlGenerator.GenerateTableResult tableDefinition = sqlGenerator.generate(cacheCfg);
         Map<String, String> columnToFieldMappings = tableDefinition.fieldToColumnMappings();
         if (table == null) {
+            TableDefinition tblDef = tableDefinition.tableDefinition();
+            if (!"PUBLIC".equals(tblDef.schemaName())) {
+                client.sql().executeAsync(null, "CREATE SCHEMA IF NOT EXISTS " + tblDef.schemaName() + ";").join();
+            }
+
             table = (ClientTable) client.catalog()
-                    .createTableAsync(tableDefinition.tableDefinition())
+                    .createTableAsync(tblDef)
                     .join();
         }
 

@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -452,6 +453,18 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         }
 
         return list;
+    }
+
+    /**
+     * Returns a stream of all existing storages.
+     *
+     * <p>Note: this method may produce races when a rebalance is happening concurrently as the underlying storage array may change.
+     * The callers of this method should resolve these races themselves.
+     */
+    public Stream<T> stream() {
+        return IntStream.range(0, storageByPartitionId.length())
+                .mapToObj(storageByPartitionId::get)
+                .filter(Objects::nonNull);
     }
 
     /**

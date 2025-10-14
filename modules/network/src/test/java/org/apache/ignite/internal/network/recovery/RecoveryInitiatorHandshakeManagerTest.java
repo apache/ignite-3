@@ -46,14 +46,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
@@ -63,23 +60,19 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @Timeout(10)
-class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
+class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
     private static final UUID LOWER_ID = new UUID(1, 1);
     private static final UUID HIGHER_ID = new UUID(2, 2);
 
@@ -129,9 +122,6 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     private final AtomicBoolean initiatorHandshakeManagerStopping = new AtomicBoolean(false);
-
-    @InjectConfiguration
-    private AckConfiguration ackConfiguration;
 
     @BeforeEach
     void initMocks() {
@@ -199,8 +189,7 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                new DefaultIgniteProductVersionSource(),
-                ackConfiguration
+                new DefaultIgniteProductVersionSource()
         );
 
         manager.onInit(thisContext);
@@ -333,5 +322,12 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
         assertThat(finalHandshakeFuture.toCompletableFuture(), willThrow(HandshakeException.class));
 
         assertThat(recoveryDescriptor.holder(), is(nullValue()));
+    }
+
+    @Test
+    void gettingHandshakeRejectedMessageWithReasonStoppingCausesHandshakeToBeFinishedWithRecipientLeftException() {
+        RecoveryInitiatorHandshakeManager manager = initiatorHandshakeManager(LOWER_ID);
+
+        assertThatRejectionWithStoppingCausesRecipientLeftException(manager);
     }
 }

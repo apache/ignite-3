@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
-import org.apache.ignite.internal.deployunit.FilesDeploymentUnit;
+import org.apache.ignite.internal.deployunit.StreamDeploymentUnit;
 import org.apache.ignite.internal.deployunit.UnitContent;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -61,7 +61,9 @@ public class FileDeployerServiceTest {
 
     @BeforeEach
     public void setup() throws IOException {
-        service.initUnitsFolder(workDir);
+        Path deployment = workDir.resolve("deployment");
+        Path tempDeployment = workDir.resolve("tempDeployment");
+        service.initUnitsFolder(deployment, tempDeployment);
 
         file1 = workDir.resolve("file1");
         file2 = workDir.resolve("file2");
@@ -73,18 +75,18 @@ public class FileDeployerServiceTest {
 
     @Test
     public void test() throws Exception {
-        try (FilesDeploymentUnit unit = content()) {
+        try (StreamDeploymentUnit unit = content()) {
             CompletableFuture<Boolean> deployed = service.deploy("id", parseVersion("1.0.0"), unit);
             assertThat(deployed, willBe(true));
         }
 
-        try (FilesDeploymentUnit unit = content()) {
+        try (StreamDeploymentUnit unit = content()) {
             CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", parseVersion("1.0.0"));
             assertThat(unitContent, willBe(equalTo(readContent(unit))));
         }
     }
 
-    private FilesDeploymentUnit content() {
+    private StreamDeploymentUnit content() {
         Map<String, InputStream> map = Stream.of(file1, file2, file3)
                 .collect(Collectors.toMap(it -> it.getFileName().toString(), it -> {
                     try {
@@ -98,7 +100,7 @@ public class FileDeployerServiceTest {
                     }
                 }));
 
-        return new FilesDeploymentUnit(map);
+        return new StreamDeploymentUnit(map);
     }
 
     /**
@@ -107,7 +109,7 @@ public class FileDeployerServiceTest {
      * @param deploymentUnit Deployment unit instance.
      * @return Unit content from provided deployment unit.
      */
-    private static UnitContent readContent(FilesDeploymentUnit deploymentUnit) {
+    private static UnitContent readContent(StreamDeploymentUnit deploymentUnit) {
         Map<String, byte[]> map = deploymentUnit.content().entrySet().stream()
                 .collect(Collectors.toMap(Entry::getKey, entry -> {
                     try {

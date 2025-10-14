@@ -181,6 +181,9 @@ public class CatalogUtils {
 
     public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = ConsistencyMode.STRONG_CONSISTENCY;
 
+    public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
+    public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
+
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     /**

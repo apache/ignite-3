@@ -1549,6 +1549,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             distributionZoneManager = new DistributionZoneManager(
                     name,
+                    () -> clusterService.topologyService().localMember().id(),
                     registry,
                     metaStorageManager,
                     logicalTopologyService,

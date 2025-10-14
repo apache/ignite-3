@@ -201,7 +201,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         await(cancelHandle.cancelAsync());
 
         // Expect all transactions to be rolled back.
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) throws InterruptedException {
@@ -222,7 +222,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         await(cancelHandle.cancelAsync());
 
         // Expect all transactions to be rolled back.
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     private static class DrainResultSet implements Executable {

@@ -48,6 +48,8 @@ import org.apache.ignite3.catalog.ColumnType;
 import org.apache.ignite3.catalog.definitions.ColumnDefinition;
 import org.apache.ignite3.catalog.definitions.TableDefinition;
 import org.apache.ignite3.internal.catalog.sql.CatalogExtensions;
+import org.apache.ignite3.lang.util.IgniteNameUtils;
+import org.apache.ignite3.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -268,8 +270,6 @@ public class SqlDdlGenerator {
     );
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SqlDdlGenerator.class);
-
-    private static final String DEFAULT_SCHEMA = "PUBLIC";
 
     private static final int DEFAULT_BINARY_FIELD_LENGTH = 1024;
 
@@ -609,6 +609,17 @@ public class SqlDdlGenerator {
     }
 
     /**
+     * Computes the cache qualified name from a cache configuration.
+     *
+     * @param cacheCfg Cache configuration.
+     * @return Qualified Name.
+     */
+    public static QualifiedName qualifiedName(CacheConfiguration<?, ?> cacheCfg) {
+        String tableName = IgniteNameUtils.quoteIfNeeded(cacheCfg.getName());
+        return QualifiedName.of(cacheCfg.getSqlSchema(), tableName);
+    }
+
+    /**
      * Generate table based on the provided {@link CacheConfiguration}.
      *
      * @param cacheCfg The cache configuration.
@@ -616,9 +627,7 @@ public class SqlDdlGenerator {
      * @throws FieldNameConflictException in case of conflicts during the mapping.
      */
     public GenerateTableResult generate(CacheConfiguration<?, ?> cacheCfg) throws FieldNameConflictException {
-        String schema = Optional.ofNullable(cacheCfg.getSqlSchema()).orElse(DEFAULT_SCHEMA);
-        String tableName = "\"" + cacheCfg.getName() + "\"";
-        // TODO: check if tableName needs quoting.
+        QualifiedName qualifiedName = qualifiedName(cacheCfg);
 
         QueryEntityEvaluation queryEntityEvaluation = getOrCreateQueryEntity(cacheCfg);
         QueryEntity qryEntity = queryEntityEvaluation.queryEntity;
@@ -679,8 +688,7 @@ public class SqlDdlGenerator {
         @Nullable Map<String, String> keyFieldForColumn = processFieldToColumnMap.apply(queryEntityEvaluation.keyInspectedFieldMap);
         @Nullable Map<String, String> valFieldForColumn = processFieldToColumnMap.apply(queryEntityEvaluation.valInspectedFieldMap);
 
-        var table = TableDefinition.builder(tableName)
-                .schema(schema)
+        var table = TableDefinition.builder(qualifiedName)
                 .columns(colDefinitions)
                 .primaryKey(pkColumnNames)
                 .build();

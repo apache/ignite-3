@@ -31,12 +31,15 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
  */
 @Config
 public class PersistentPageMemoryStorageEngineConfigurationSchema {
+    /** Default page size for the engine. */
+    public static final int DEFAULT_PAGE_SIZE = 16 * 1024;
+
     @Immutable
     @PowerOfTwo
     @Range(min = 1024, max = 16 * 1024)
     @Value(hasDefault = true)
     @PublicName(legacyNames = "pageSize")
-    public int pageSizeBytes = 16 * 1024;
+    public int pageSizeBytes = DEFAULT_PAGE_SIZE;
 
     /* Checkpoint configuration for persistent data regions. */
     @ConfigValue

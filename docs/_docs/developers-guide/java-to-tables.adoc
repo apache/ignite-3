@@ -16,7 +16,9 @@
 
 == Overview
 
-While link:sql-reference/ddl[SQL DDL] supports a comprehensive set of table manipulation commands, you can also create tables and build indexes directly from POJO using a simple Java API. This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating link:developers-guide/table-api[keyValueView and recordView].
+While link:sql-reference/ddl[SQL DDL] supports a comprehensive set of table manipulation commands, you can also create tables and build indexes directly from a POJO using a simple Java API.
+
+This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating link:developers-guide/table-api[KeyValueView and RecordView].
 
 The Java API lets you perform the following operations:
 
@@ -26,57 +28,80 @@ The Java API lets you perform the following operations:
 * DROP ZONE
 * DROP TABLE
 * DROP INDEX
+* CREATE SCHEMA
+* DROP SCHEMA
 
-You use the `@Table` and other annotations that are located in the `org.apache.ignite.catalog.annotations` package. 
+Use the @Table and other annotations located in the `org.apache.ignite.catalog.annotations` package. 
 
 == Examples
 
-=== KV POJO Compatible with keyValueView
+=== Key-Value POJO Compatible with KeyValueView
 
-The example below created a table called `kv_pojo` from java code:
+The example below creates a table called `kv_pojo` by using the POJO compatible with `KeyValueView`:
 
 [source, java]
 ----
-class ZoneTest {}
+@Table(value = "kv_pojo",
+        zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+        colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+        indexes = @Index(value = "ix", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
 
-class PojoKey {
+public static class PojoKey {
     @Id
     Integer id;
-    
-    @Id(sort = DESC)
+
+    @Id(SortOrder.DEFAULT)
     @Column(value = "id_str", length = 20)
     String idStr;
+
+    public PojoKey(Integer id, String idStr) {
+        this.id = id;
+        this.idStr = idStr;
+    }
 }
 
-@Table(
-    value = "kv_pojo",
-    zone = @Zone(
-		value = "zone_test",
-		replicas = 2,
-		storageProfiles = "default"
-   ),
-    colocateBy = { @ColumnRef("id"), @ColumnRef("id_str") },
-    indexes = { @Index(value = "ix", columns = {
-                    @ColumnRef(value = "f_name"), 
-                    @ColumnRef(value = "l_name") })
-    }
-)
-class PojoValue {
+public static class PojoValue {
     @Column("f_name")
-    String firstName;
+    private String firstName;
 
     @Column("l_name")
-    String lastName;
+    private String lastName;
 
-    String str;
+    public PojoValue(String firstName, String lastName) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
 }
 
-Table myTable = ignite.catalog().create(PojoKey.class, PojoValue.class);
 
-ignite.tables().table(myTable).keyValueView(PojoKey.class, PojoValue.class);
+public static void main(String[] args) {
+
+    System.out.println("\nConnecting to server...");
+
+    try (IgniteClient client = IgniteClient.builder()
+            .addresses("127.0.0.1:10800")
+            .build()
+    ) {
+
+        org.apache.ignite.table.Table myTable = client.catalog().createTable(PojoKey.class, PojoValue.class);
+
+        KeyValueView<PojoKey, PojoValue> kvView = myTable.keyValueView(PojoKey.class, PojoValue.class);
+        PojoKey key = new PojoKey(1, "sample");
+        PojoValue putValue = new PojoValue("John", "Smith");
+        kvView.put(null, key, putValue);
+
+        PojoValue getValue = kvView.get(null, key);
+        System.out.println(
+                "\nRetrieved values:\n"
+                        + "    Account ID: " + key.id + '\n'
+                        + "    First name: " + getValue.firstName + '\n'
+                        + "    Last name" + getValue.lastName);
+
+    }
+}
 ----
 
-NOTE: You need to create a storage profile in node configuration by using the CLI tool.
+NOTE: You need to create a link:administrators-guide/storage#creating-and-using-storage-profiles[storage profile] in node configuration by using the CLI tool.
 
 The result is equivalent to the following SQL multi-statement:
 
@@ -98,30 +123,22 @@ WITH PRIMARY_ZONE='ZONE';
 CREATE INDEX ix (f_name, l_name desc nulls last);
 ----
 
-=== Single POJO Compatible with recordView
+=== Single POJO Compatible with RecordView
 
-The example below creates the `pojo_sample` table by using the pojo compatible with recordView:
+The example below creates the `pojo_sample` table by using the POJO compatible with `RecordView`:
 
 [source, java]
 ----
-@Table(
-    value = "pojo_sample",
-    zone = zone = @Zone(
-		value = "zone_test",
-		replicas = 2,
-		storageProfiles = "default"
-   ),
-    colocateBy = { @ColumnRef("id"), @ColumnRef("id_str") },
-    indexes = { @Index(value = "ix_sample", columns = {
-                      @ColumnRef(value = "f_name"), 
-                      @ColumnRef(value = "l_name")}
-    }
-)
-class Pojo {
+@Table(value = "pojo_sample",
+        zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+        colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+        indexes = @Index(value = "ix_sample", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+
+public static class Pojo {
     @Id
     Integer id;
 
-    @Id(sort = DESC)
+    @Id(SortOrder.DEFAULT)
     @Column(value = "id_str", length = 20)
     String idStr;
 
@@ -134,48 +151,62 @@ class Pojo {
     String str;
 }
 
-Table myTable = ignite.catalog().create(Pojo.class);
+public static void main(String[] args) {
 
-ignite.tables().table(myTable).recordView(Pojo.class)
+    System.out.println("\nConnecting to server...");
+
+    try (IgniteClient client = IgniteClient.builder()
+            .addresses("127.0.0.1:10800")
+            .build()
+    ) {
+
+        org.apache.ignite.table.Table myTable = client.catalog().createTable(Pojo.class);
+
+        RecordView<Tuple> view = myTable.recordView();
+        Tuple insertTuple = Tuple.create()
+                .set("id", 1)
+                .set("id_str", "sample")
+                .set("f_name", "John")
+                .set("l_name", "Smith");
+        view.insert(null, insertTuple);
+
+        Tuple getTuple = view.get(null, insertTuple);
+        System.out.println(
+                "\nRetrieved record: " +
+                        getTuple.stringValue("f_name")
+        );
+    }
+}
 ----
 
 === The Builder Alternative to the @Table Annotation
 
-The example below uses a builder to create a table:
+The example below uses a builder to create a table instead on creating it from a Java class:
 
-NOTE: When using builders, only `@Id` and `@Column` annotations on fields are supported.
+NOTE: When using builders, only the `@Id` and `@Column` annotations on fields are supported.
 
 [source, java]
 ----
-class Pojo {
-    @Id
-    Integer id;
+IgniteCatalog catalog = client.catalog();
 
-    @Id(sort = DESC)
-    @Column(value = "id_str", length = 20)
-    String idStr;
+catalog.createTable(
+        TableDefinition.builder("sampleTable3")
+                .primaryKey("myKey")
+                .columns(
+                        column("myKey", ColumnType.INT32),
+                        column("myValue", ColumnType.VARCHAR)
+                )
+                .build()
+);
 
-    @Column("f_name")
-    String firstName;
+Table myTable = client.tables().table("sampleTable3");
+myTable.keyValueView().put(null, Tuple.create().set("myKey", 1), Tuple.create().set("myValue", "John"));
 
-    @Column("l_name")
-    String lastName;
-
-    String str;
-}
-
-ignite.catalog()
-  .create(ZoneDefinition.builder("zone_test")
-    .partitions(2))
-  .execute();
-
-ignite.catalog()
-  .create(TableDefinition.builder("pojo_test")
-    .ifNotExists()
-  	.colocateBy("id", "id_str")
-  	.zone("zone_test")
-    .record(Pojo.class) // .key(Key.class).value(Value.class)
-    .build())
+Tuple value = myTable.keyValueView().get(null, Tuple.create().set("myKey", 1));
+System.out.println(
+        "\nRetrieved value:\n" +
+        value.stringValue("myValue")
+);
 ----
 
 == Next Steps

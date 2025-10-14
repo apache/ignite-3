@@ -54,7 +54,7 @@ ODBC Driver Manager. The ODBC driver has been tested with link:http://www.unixod
 
 ==== Prerequisites
 
-Install the following first:
+Install the following prerequisites first:
 
 - link:https://gcc.gnu.org/onlinedocs/libstdc%2B%2B[libstdc] library supporting C++14 standard;
 - link:http://www.unixodbc.org[UnixODBC] driver manager.

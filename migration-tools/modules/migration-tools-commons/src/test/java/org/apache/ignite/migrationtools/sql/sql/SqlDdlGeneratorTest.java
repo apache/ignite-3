@@ -70,7 +70,10 @@ import org.apache.ignite3.catalog.definitions.TableDefinition;
 import org.assertj.core.api.SoftAssertions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Named;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.FieldSource;
@@ -112,12 +115,14 @@ class SqlDdlGeneratorTest {
 
     static CacheConfiguration<?, ?> configWithIndexType(Class<?> keyType, Class<?> valType) {
         CacheConfiguration<?, ?> cacheCfg = new CacheConfiguration<>();
+        cacheCfg.setName("SomeCacheName");
         cacheCfg.setIndexedTypes(keyType, valType);
         return cacheCfg;
     }
 
     static CacheConfiguration<?, ?> configWithQeKeyValue(Class<?> keyType, Class<?> valType) {
         CacheConfiguration<?, ?> cacheCfg = new CacheConfiguration<>();
+        cacheCfg.setName("SomeCacheName");
         QueryEntity qe = new QueryEntity(keyType, valType);
         cacheCfg.setQueryEntities(Collections.singleton(qe));
         return cacheCfg;
@@ -559,6 +564,38 @@ class SqlDdlGeneratorTest {
 
         static ColumnRecord nonKey(String name, String type, boolean nullable) {
             return new ColumnRecord(name, type, nullable, false);
+        }
+    }
+
+    @Nested
+    @TestInstance(Lifecycle.PER_CLASS)
+    class Schemas {
+        SqlDdlGenerator gen = new SqlDdlGenerator();
+
+        @Test
+        void noSchema() {
+            var cfg = new CacheConfiguration<>("MyCacheName");
+
+            TableDefinition tblDef = gen.generateTableDefinition(cfg);
+            assertThat(tblDef.schemaName()).isEqualTo("PUBLIC");
+        }
+
+        @ParameterizedTest
+        @MethodSource("schemaArgs")
+        void schema(String configuredSchema, String expectedSchema) {
+            var cfg = new CacheConfiguration<>("MyCacheName");
+            cfg.setSqlSchema(configuredSchema);
+
+            TableDefinition tblDef = gen.generateTableDefinition(cfg);
+            assertThat(tblDef.schemaName()).isEqualTo(expectedSchema);
+        }
+
+        Stream<Arguments> schemaArgs() {
+            return Stream.of(
+                    arguments("MyCustomSchema", "MYCUSTOMSCHEMA"),
+                    arguments("My_Custom_Schema", "MY_CUSTOM_SCHEMA"),
+                    arguments("\"MyCustomSchema\"", "\"MyCustomSchema\"")
+            );
         }
     }
 }
