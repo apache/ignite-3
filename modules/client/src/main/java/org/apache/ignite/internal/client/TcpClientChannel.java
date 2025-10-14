@@ -197,6 +197,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
                     }
 
+                    tcpConnectionEstablished = true;
+
                     ClientTimeoutWorker.INSTANCE.registerClientChannel(this);
 
                     sock = s;
@@ -315,12 +317,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         close(e, false);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onConnected() {
-        tcpConnectionEstablished = true;
     }
 
     /** {@inheritDoc} */

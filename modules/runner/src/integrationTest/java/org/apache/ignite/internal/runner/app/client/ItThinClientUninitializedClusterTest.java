@@ -55,7 +55,9 @@ public class ItThinClientUninitializedClusterTest extends BaseIgniteAbstractTest
 
     @BeforeEach
     void startDummyNettyServer() throws InterruptedException {
+        // Set up a mock tcp socket listener at CLIENT_PORT.
         bossGroup = new NioEventLoopGroup(1);
+
         workerGroup = new NioEventLoopGroup();
 
         ServerBootstrap bootstrap = new ServerBootstrap()
@@ -91,11 +93,13 @@ public class ItThinClientUninitializedClusterTest extends BaseIgniteAbstractTest
                     }
                 }
         );
+
         assertTrue(ex.getMessage().contains("Channel is closed, cluster might not have been initialised"));
     }
 
     @AfterEach
     void stopDummyNettyServer() throws InterruptedException {
+        // Stop the listener.
         if (serverChannel != null) {
             serverChannel.close().sync();
         }

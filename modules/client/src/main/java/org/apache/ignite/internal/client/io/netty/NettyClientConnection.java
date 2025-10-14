@@ -125,11 +125,4 @@ public class NettyClientConnection implements ClientConnection {
     void onDisconnected(Exception e) {
         stateHnd.onDisconnected(e);
     }
-
-    /**
-     * Handles connect.
-     */
-    void onConnected() {
-        stateHnd.onConnected();
-    }
 }
