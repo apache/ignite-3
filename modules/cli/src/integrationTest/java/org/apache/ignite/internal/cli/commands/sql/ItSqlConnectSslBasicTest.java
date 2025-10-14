@@ -80,7 +80,7 @@ class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Channel is closed")
+                () -> assertErrOutputContains("Handshake error")
         );
     }
 }

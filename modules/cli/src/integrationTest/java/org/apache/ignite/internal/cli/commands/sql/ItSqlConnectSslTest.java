@@ -70,7 +70,7 @@ class ItSqlConnectSslTest extends CliSqlConnectCommandTestBase {
         // Then the query is failed
         assertAll(
                 () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Channel is closed")
+                () -> assertErrOutputContains("Handshake error")
         );
     }
 }

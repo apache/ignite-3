@@ -111,7 +111,7 @@ public class ItJdbcSslTest extends CliIntegrationTest {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Channel is closed")
+                () -> assertErrOutputContains("Handshake error")
         );
     }
 

@@ -94,7 +94,18 @@ public class ItThinClientUninitializedClusterTest extends BaseIgniteAbstractTest
                 }
         );
 
-        assertTrue(ex.getMessage().contains("Channel is closed, cluster might not have been initialised"));
+        // Check that the cause chain contains the helpful error message.
+        boolean foundMessage = false;
+        Throwable cause = ex;
+        while (cause != null) {
+            if (cause.getMessage() != null && cause.getMessage().contains("cluster might not have been initialised")) {
+                foundMessage = true;
+                break;
+            }
+            cause = cause.getCause();
+        }
+
+        assertTrue(foundMessage, "Expected to find 'cluster might not have been initialised' in exception cause chain");
     }
 
     @AfterEach
