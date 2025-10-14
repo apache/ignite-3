@@ -71,6 +71,33 @@ const config: Config = {
     ],
   ],
 
+  themes: [
+    [
+      require.resolve('@easyops-cn/docusaurus-search-local'),
+      {
+        // Indexing options
+        hashed: true, // Hash the search index file for better caching
+        indexDocs: true, // Index documentation pages
+        indexBlog: false, // Don't index blog (disabled)
+        indexPages: false, // Don't index static pages (docs-only site)
+        docsRouteBasePath: '/', // Docs are served at root
+
+        // Search UI options
+        searchResultLimits: 10, // Maximum number of search results
+        searchResultContextMaxLength: 100, // Maximum length of search result context
+        highlightSearchTermsOnTargetPage: true, // Highlight search terms on result pages
+        searchBarPosition: 'right', // Position in navbar (before version selector)
+
+        // Language support
+        language: ['en'], // English only
+
+        // Performance options
+        searchBarShortcut: true, // Enable keyboard shortcut (Ctrl+K / Cmd+K)
+        searchBarShortcutHint: true, // Show keyboard shortcut hint
+      },
+    ],
+  ],
+
   themeConfig: {
     image: 'img/logo.svg',
     colorMode: {
@@ -89,6 +116,10 @@ const config: Config = {
       items: [
         {
           type: 'docsVersionDropdown',
+          position: 'right',
+        },
+        {
+          type: 'search',
           position: 'right',
         },
         {

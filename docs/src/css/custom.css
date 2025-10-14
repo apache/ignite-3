@@ -214,6 +214,110 @@ button[class*='toggleButton'],
 }
 
 /* ============================================
+   Search Bar Styling
+   ============================================ */
+
+/* Light theme search styling */
+:root {
+  /* Search input styling for white navbar */
+  --ifm-navbar-search-input-background-color: #f5f5f5; /* Light gray background */
+  --ifm-navbar-search-input-color: #333333; /* Dark text */
+  --ifm-navbar-search-input-placeholder-color: #757575; /* Gray placeholder */
+  --search-local-input-active-border-color: var(--ignite-red); /* Red focus border */
+
+  /* Search modal/dropdown styling */
+  --search-local-modal-background: #ffffff;
+  --search-local-modal-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --search-local-hit-background: #ffffff;
+  --search-local-hit-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --search-local-hit-color: #333333;
+  --search-local-highlight-color: var(--ignite-red);
+  --search-local-muted-color: #757575;
+}
+
+/* Dark mode search styling */
+[data-theme='dark'] {
+  --ifm-navbar-search-input-background-color: #2a2a2a; /* Dark gray background */
+  --ifm-navbar-search-input-color: #e3e3e3; /* Light text */
+  --ifm-navbar-search-input-placeholder-color: #a0a0a0; /* Gray placeholder */
+  --search-local-input-active-border-color: var(--ignite-red); /* Red focus border */
+
+  /* Search modal/dropdown styling */
+  --search-local-modal-background: #242526;
+  --search-local-modal-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --search-local-hit-background: rgba(255, 255, 255, 0.05);
+  --search-local-hit-shadow: none;
+  --search-local-hit-color: #e3e3e3;
+  --search-local-highlight-color: #f35b60;
+  --search-local-muted-color: #a0a0a0;
+}
+
+/* Search input field styling */
+.navbar__search-input {
+  background-color: var(--ifm-navbar-search-input-background-color) !important;
+  color: #000000 !important; /* Black text for maximum readability */
+  border: 1px solid #d0d0d0 !important;
+  border-radius: 4px;
+  padding: 0.375rem 2.5rem 0.375rem 0.75rem !important;
+  font-size: 14px;
+  background-image: none !important; /* Remove any default search icon */
+}
+
+[data-theme='dark'] .navbar__search-input {
+  border-color: #404040 !important;
+  color: #e3e3e3 !important; /* Light text for dark mode */
+}
+
+.navbar__search-input::placeholder {
+  color: var(--ifm-navbar-search-input-placeholder-color) !important;
+  opacity: 1;
+}
+
+/* Hide the magnifying glass / loading ring icon */
+.navbar__search div[class*='searchBarLoadingRing'],
+.navbar__search span[class*='searchBarLoadingRing'] {
+  display: none !important;
+}
+
+/* Search bar positioning */
+.navbar__search {
+  margin-right: 1rem;
+}
+
+/* Search icon and keyboard shortcut visibility - light theme */
+.navbar__search button {
+  color: #757575 !important; /* Gray icons for clear button */
+}
+
+.navbar__search button svg {
+  color: #757575 !important; /* Gray color for button icons */
+}
+
+/* Keyboard shortcut hint styling - light theme */
+.navbar__search kbd,
+.navbar__search span[class*='searchHint'] {
+  color: #757575 !important;
+  background-color: #ffffff !important;
+  border-color: #d0d0d0 !important;
+}
+
+/* Dark theme - maintain current styling */
+[data-theme='dark'] .navbar__search button {
+  color: #a0a0a0 !important;
+}
+
+[data-theme='dark'] .navbar__search button svg {
+  color: #a0a0a0 !important;
+}
+
+[data-theme='dark'] .navbar__search kbd,
+[data-theme='dark'] .navbar__search span[class*='searchHint'] {
+  color: #a0a0a0 !important;
+  background-color: #2a2a2a !important;
+  border-color: #404040 !important;
+}
+
+/* ============================================
    Layout - Max Width Container
    ============================================ */
 
