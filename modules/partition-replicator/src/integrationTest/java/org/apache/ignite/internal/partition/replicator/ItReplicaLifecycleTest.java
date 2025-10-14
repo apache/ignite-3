@@ -201,6 +201,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         CatalogManager catalogManager = node.catalogManager;
 
+        DistributionZonesTestUtil.createDefaultZone(catalogManager);
+
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
