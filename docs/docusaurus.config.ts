@@ -71,7 +71,12 @@ const config: Config = {
     ],
   ],
 
+  markdown: {
+    mermaid: true,
+  },
+
   themes: [
+    '@docusaurus/theme-mermaid',
     [
       require.resolve('@easyops-cn/docusaurus-search-local'),
       {
@@ -185,6 +190,16 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
+      additionalLanguages: [
+        'java',
+        'csharp',
+        'cpp',
+        'python',
+        'sql',
+        'bash',
+        'json',
+        'yaml',
+      ],
     },
   } satisfies Preset.ThemeConfig,
 };
