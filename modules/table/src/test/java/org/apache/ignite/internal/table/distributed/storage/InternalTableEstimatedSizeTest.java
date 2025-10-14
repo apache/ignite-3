@@ -239,7 +239,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 () -> 10_000L,
                 () -> 10_000L,
                 colocationEnabled(),
-                new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME)))
         );
 
         when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
