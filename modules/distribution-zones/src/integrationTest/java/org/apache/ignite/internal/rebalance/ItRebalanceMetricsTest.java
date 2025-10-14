@@ -167,8 +167,8 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
         MetricSet zoneMetric1 = zoneMetricSet(unwrapIgniteImpl(cluster.node(0)), "NEW_" + ZONE_NAME);
         assertThat(zoneMetric1, is(notNullValue()));
 
-        IntMetric local1 = zoneMetric0.get(LOCAL_UNREBALANCED_PARTITIONS_COUNT);
-        IntMetric total1 = zoneMetric0.get(TOTAL_UNREBALANCED_PARTITIONS_COUNT);
+        IntMetric local1 = zoneMetric1.get(LOCAL_UNREBALANCED_PARTITIONS_COUNT);
+        IntMetric total1 = zoneMetric1.get(TOTAL_UNREBALANCED_PARTITIONS_COUNT);
         assertThat(local1, is(notNullValue()));
         assertThat(total1, is(notNullValue()));
 

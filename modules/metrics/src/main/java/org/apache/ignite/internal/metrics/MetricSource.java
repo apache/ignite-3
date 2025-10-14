@@ -59,13 +59,14 @@ public interface MetricSource {
      */
     @Nullable MetricSet enable();
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26702
     /** Disables metrics for metric source. Nothing happens if the metrics are already disabled for this source. */
     void disable();
 
     /**
      * Checks whether metrics is enabled (switched on) or not (switched off) for metric source.
      *
-     * @return {@code True} if metrics are enabled, otherwise - {@code false}.
+     * @return {@code true} if metrics are enabled, otherwise - {@code false}.
      */
     boolean enabled();
 }
