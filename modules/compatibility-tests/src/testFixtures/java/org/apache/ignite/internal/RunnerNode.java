@@ -67,7 +67,7 @@ public class RunnerNode {
      * @param igniteVersion Version of the Ignite. Used to get the configuration defaults.
      * @param clusterConfiguration Test cluster configuration.
      * @param nodesCount Overall number of nodes.
-     * @param nodeName Node name.
+     * @param nodeIndex Current node index.
      * @return Instance of the control object.
      * @throws IOException If an I/O exception occurs.
      */
@@ -76,11 +76,12 @@ public class RunnerNode {
             File argFile,
             String igniteVersion,
             ClusterConfiguration clusterConfiguration,
-            String nodeConfig,
             int nodesCount,
-            String nodeName
+            int nodeIndex
     ) throws IOException {
+        String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
         Path workDir = clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
+        String configStr = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
 
         Files.createDirectories(workDir);
         Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
@@ -90,13 +91,13 @@ public class RunnerNode {
             Map<String, String> defaultsPerVersion = DEFAULTS_PER_VERSION.get(igniteVersion);
             Map<String, String> storageProfilesPerVersion = STORAGE_PROFILES_PER_VERSION.get(igniteVersion);
             writeConfigurationFileApplyingTestDefaults(
-                    nodeConfig,
+                    configStr,
                     configPath,
                     defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS,
                     storageProfilesPerVersion != null ? storageProfilesPerVersion : STORAGE_PROFILES
             );
         } else {
-            writeConfigurationFile(nodeConfig, configPath);
+            writeConfigurationFile(configStr, configPath);
         }
 
         Process process = executeRunner(javaHome, argFile, configPath, workDir, nodeName);
