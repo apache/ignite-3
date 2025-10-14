@@ -110,7 +110,7 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Constructor.
      */
-    public JdbcResultSet(
+    JdbcResultSet(
             org.apache.ignite.sql.ResultSet<SqlRow> rs,
             Statement statement,
             Supplier<ZoneId> zoneIdSupplier,

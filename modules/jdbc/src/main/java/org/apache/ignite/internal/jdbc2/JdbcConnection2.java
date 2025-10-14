@@ -46,6 +46,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -100,6 +101,8 @@ public class JdbcConnection2 implements Connection {
     private static final String TYPES_MAPPING_IS_NOT_SUPPORTED =
             "Types mapping is not supported.";
 
+    private final IgniteClient igniteClient;
+
     private final IgniteSql igniteSql;
 
     private final ReentrantLock lock = new ReentrantLock();
@@ -130,11 +133,12 @@ public class JdbcConnection2 implements Connection {
      * @param props Connection properties.
      */
     public JdbcConnection2(
-            IgniteSql client,
+            IgniteClient client,
             JdbcQueryEventHandler eventHandler,
             ConnectionProperties props
     ) {
-        igniteSql = client;
+        igniteClient = client;
+        igniteSql = client.sql();
         autoCommit = true;
         networkTimeoutMillis = props.getConnectionTimeout();
         txIsolation = TRANSACTION_SERIALIZABLE;
@@ -192,7 +196,7 @@ public class JdbcConnection2 implements Connection {
             throw new SQLFeatureNotSupportedException(RETURNING_AUTO_GENERATED_KEYS_IS_NOT_SUPPORTED);
         }
 
-        throw new UnsupportedOperationException();
+        return prepareStatement(sql);
     }
 
     /** {@inheritDoc} */
@@ -208,13 +212,13 @@ public class JdbcConnection2 implements Connection {
             int resSetHoldability) throws SQLException {
         ensureNotClosed();
 
-        checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
-
         if (sql == null) {
             throw new SQLException("SQL string cannot be null.");
         }
 
-        throw new UnsupportedOperationException();
+        checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
+
+        return new JdbcPreparedStatement2(this, igniteSql, schemaName, resSetHoldability, sql);
     }
 
     /** {@inheritDoc} */
@@ -305,8 +309,6 @@ public class JdbcConnection2 implements Connection {
             return;
         }
 
-        closed = true;
-
         List<Exception> suppressedExceptions = null;
 
         lock.lock();
@@ -314,6 +316,7 @@ public class JdbcConnection2 implements Connection {
             if (closed) {
                 return;
             }
+            closed = true;
 
             for (Statement statement : statements) {
                 try {
@@ -330,13 +333,25 @@ public class JdbcConnection2 implements Connection {
             lock.unlock();
         }
 
+        try {
+            igniteClient.close();
+        } catch (Exception e) {
+            throw connectionCloseException(e, suppressedExceptions);
+        }
+
         if (suppressedExceptions != null) {
-            SQLException err = new SQLException("Exception occurred while closing a connection.");
+            throw connectionCloseException(null, suppressedExceptions);
+        }
+    }
+
+    private static SQLException connectionCloseException(@Nullable Exception e, @Nullable List<Exception> suppressedExceptions) {
+        SQLException err = new SQLException("Exception occurred while closing a connection.", e);
+        if (suppressedExceptions != null) {
             for (Exception suppressed : suppressedExceptions) {
                 err.addSuppressed(suppressed);
             }
-            throw err;
         }
+        return err;
     }
 
     /**
