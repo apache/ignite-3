@@ -58,6 +58,8 @@
                     <!-- Setting schema to PUBLIC. Otherwise, you need to add the cache name as a schema name in your
                     queries -->
                     <property name="sqlSchema" value="PUBLIC"/>
+                    <!-- Setting a custom SQL function class -->
+                    <property name="SqlFunctionClasses" value="org.apache.ignite.migrationtools.tests.e2e.custom.MySqlFunctions"/>
 
                     <!-- Setting QueryEntities -->
                     <property name="queryEntities">
