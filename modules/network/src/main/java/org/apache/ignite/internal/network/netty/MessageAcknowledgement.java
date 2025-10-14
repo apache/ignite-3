@@ -15,34 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.PublicName;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+package org.apache.ignite.internal.network.netty;
 
 /**
- * Configuration schema for acknowledgment settings in the network module.
- * This class defines the configuration properties related to acknowledgment thresholds and delays.
+ * Constants related to message acknowledgement in the networking module.
  */
-@Config
-public class AckConfigurationSchema {
+class MessageAcknowledgement {
     /**
      * The threshold for determining when acknowledgements should be sent synchronously.
      * When the number of unacknowledged messages exceeds this value,
      * acknowledgements will be sent synchronously to prevent excessive message buildup.
      */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final long syncAckThreshold = 10_000;
+    static final long SYNC_ACK_THRESHOLD = 10_000;
 
     /**
      * Delay in milliseconds before sending acknowledgement batch.
      * Allows batching multiple acknowledgements for better network efficiency.
      */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    @PublicName(legacyNames = "postponeAck")
-    public final long postponeAckMillis = 200;
+    static final long POSTPONE_ACK_MILLIS = 200;
 }
