@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -30,15 +31,20 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
@@ -52,6 +58,7 @@ import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -63,6 +70,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -91,13 +99,18 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @InjectExecutorService
     private ExecutorService executorService;
 
-    private final TestMetricManager metricManager = new TestMetricManager();
+    private TestMetricManager metricManager;
+
+    @WorkDirectory
+    private Path workDir;
 
     @BeforeEach
-    void setUp(@WorkDirectory Path workDir) {
+    void setUp() {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
+
+        metricManager = new TestMetricManager();
 
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
@@ -449,6 +462,53 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             });
 
             assertThat(future, willCompleteSuccessfully());
+        }
+    }
+
+    /**
+     * Checks for a very rare race condition where, after releasing the checkpoint write lock, the partition meta is updated with an
+     * incorrect empty last empty checkpoint ({@code lastCheckpointId == null}), which can lead to error
+     * "IGN-CMN-65535 Unknown page IO type: 0" on node restart.
+     */
+    @Test
+    void testSuccessfulPartitionRestartAfterParallelUpdateLeaseAndCheckpoint() throws Exception {
+        for (int i = 0; i < 100; i++) {
+            MvPartitionStorage mvPartition = getOrCreateMvPartition(PARTITION_ID);
+
+            addWriteCommitted(mvPartition);
+
+            CountDownLatch readyToUpdateLeaseLatch = new CountDownLatch(1);
+            CountDownLatch updateLeaseLatch = new CountDownLatch(1);
+
+            CompletableFuture<Void> updateLeaseFuture = runAsync(() -> {
+                readyToUpdateLeaseLatch.countDown();
+
+                assertTrue(updateLeaseLatch.await(10, TimeUnit.SECONDS));
+
+                mvPartition.runConsistently(locker -> {
+                    mvPartition.updateLease(new LeaseInfo(100, UUID.randomUUID(), "node"));
+
+                    return null;
+                });
+            });
+
+            assertTrue(readyToUpdateLeaseLatch.await(10, TimeUnit.SECONDS));
+
+            CheckpointProgress checkpointProgress = engine.checkpointManager().forceCheckpoint("test");
+
+            CompletableFuture<Void> updateLeaseLatchFuture = checkpointProgress
+                    .futureFor(CheckpointState.LOCK_TAKEN)
+                    .thenAccept(unused -> updateLeaseLatch.countDown());
+
+            assertThat(
+                    CompletableFuture.allOf(updateLeaseLatchFuture, updateLeaseFuture, checkpointProgress.futureFor(FINISHED)),
+                    willCompleteSuccessfully()
+            );
+
+            tearDown();
+            setUp();
+
+            assertDoesNotThrow(() -> getOrCreateMvPartition(PARTITION_ID));
         }
     }
 
