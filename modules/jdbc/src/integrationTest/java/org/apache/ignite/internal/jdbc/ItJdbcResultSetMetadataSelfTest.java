@@ -66,7 +66,7 @@ public class ItJdbcResultSetMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25935")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
     public void testResultSetMetaData() throws Exception {
         ResultSet rs = stmt.executeQuery(
                 "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
