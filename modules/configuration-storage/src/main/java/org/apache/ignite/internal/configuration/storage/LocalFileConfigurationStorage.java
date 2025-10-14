@@ -159,10 +159,12 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 }
             });
 
-            module.patchConfigurationWithDynamicDefaults(new SuperRootChangeImpl(superRoot));
-            Map<String, Serializable> transformedHoconWithDefaults = transformToMap(superRoot);
+            if (module != null) {
+                module.patchConfigurationWithDynamicDefaults(new SuperRootChangeImpl(superRoot));
+                transformedHocon = transformToMap(superRoot);
+            }
 
-            return completedFuture(new Data(transformedHoconWithDefaults, lastRevision));
+            return completedFuture(new Data(transformedHocon, lastRevision));
         } finally {
             lock.writeLock().unlock();
         }
