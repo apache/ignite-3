@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.jdbc;
 
 import static java.sql.Connection.TRANSACTION_SERIALIZABLE;
+import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
-import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
 import static java.util.Arrays.asList;
@@ -1556,13 +1556,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsResultSetHoldability(int holdability) {
-        return holdability == HOLD_CURSORS_OVER_COMMIT;
+        return holdability == CLOSE_CURSORS_AT_COMMIT;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getResultSetHoldability() {
-        return HOLD_CURSORS_OVER_COMMIT;
+        return CLOSE_CURSORS_AT_COMMIT;
     }
 
     /** {@inheritDoc} */

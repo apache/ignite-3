@@ -3730,7 +3730,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 new ColumnDefinition("column", ColumnType.BOOLEAN, 0, 0, false),
                 new ColumnDefinition("Column N", ColumnType.BOOLEAN, 0, 0, false),
                 new ColumnDefinition(" ", ColumnType.BOOLEAN, 0, 0, false),
-                new ColumnDefinition(":)", ColumnType.BOOLEAN, 0, 0, false)
+                new ColumnDefinition(":)", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition("C1", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition("C1", ColumnType.BOOLEAN, 0, 0, false)
         );
 
         List<List<Object>> rows = IntStream.range(0, columns.size())
@@ -3743,6 +3745,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertEquals(3, rs.findColumn("\"Column N\""));
             assertEquals(4, rs.findColumn("\" \""));
             assertEquals(5, rs.findColumn("\":)\""));
+            assertEquals(7, rs.findColumn("C1"));
 
             expectSqlException(() -> rs.findColumn(" COLUMN "), "Column not found:  COLUMN ");
             expectSqlException(() -> rs.findColumn(" column "), "Column not found:  column ");

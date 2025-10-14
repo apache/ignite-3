@@ -77,7 +77,9 @@ public class JdbcStatement2 implements Statement {
 
     private static final String STATEMENT_IS_CLOSED =
             "Statement is closed.";
-    public static final String ONLY_FORWARD_DIRECTION_IS_SUPPORTED = "Only forward direction is supported.";
+
+    private static final String ONLY_FORWARD_DIRECTION_IS_SUPPORTED =
+            "Only forward direction is supported.";
 
     private final IgniteSql igniteSql;
 
@@ -152,6 +154,7 @@ public class JdbcStatement2 implements Statement {
             throw new UnsupportedOperationException("Explicit transactions are not supported yet.");
         }
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-26142 multistatement.
         if (sql.indexOf(';') == -1 || sql.indexOf(';') == sql.length() - 1) {
             queryModifiers.remove(QueryModifier.ALLOW_MULTISTATEMENT);
         }
@@ -416,7 +419,7 @@ public class JdbcStatement2 implements Statement {
     public @Nullable ResultSet getResultSet() throws SQLException {
         ensureNotClosed();
 
-        return resultSet;
+        return isQuery() ? resultSet : null;
     }
 
     /** {@inheritDoc} */
@@ -445,6 +448,14 @@ public class JdbcStatement2 implements Statement {
 
         switch (current) {
             case CLOSE_CURRENT_RESULT:
+
+                JdbcResultSet currentRs = resultSet;
+                if (currentRs == null) {
+                    return false;
+                }
+
+                resultSet = null;
+                currentRs.close();
                 return false;
 
             case CLOSE_ALL_RESULTS:
