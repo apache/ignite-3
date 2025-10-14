@@ -29,6 +29,7 @@ description = 'migration-tools-e2e-ai2-runner'
 dependencies {
     implementation project(":migration-tools-e2e-core")
     implementation project(":migration-tools-e2e-implementations")
+    implementation project(":migration-tools-e2e-implementations-custom-classes")
 
     implementation runtimeApacheIgnite2.ignite2.core
 

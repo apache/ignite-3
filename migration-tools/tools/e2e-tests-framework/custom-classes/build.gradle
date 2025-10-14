@@ -17,27 +17,9 @@
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
-description = 'migration-tools-e2e-implementations'
+description = 'migration-tools-e2e-implementations-custom-classes'
 
 dependencies {
-    annotationProcessor libs.auto.service
-
-    compileOnly project(":ignite-api")
-    compileOnly project(":migration-tools-e2e-implementations-custom-classes")
     compileOnly libs.ignite2.core
-    compileOnly libs.ignite2.spring
-    compileOnly libs.spotbugs.annotations
-
-    implementation files("resources/model.jar")
-    implementation project(":migration-tools-e2e-core")
-    implementation(testFixtures(project(":migration-tools-ai2-test-fixtures"))) {
-        transitive = false
-    }
-    implementation libs.auto.service.annotations
-    implementation libs.commons.lang3
-    implementation libs.assertj.core
-    implementation libs.log4j.api
-    implementation libs.junit5.api
 }
