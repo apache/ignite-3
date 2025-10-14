@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -36,6 +37,7 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -453,7 +455,10 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
     }
 
     private static Connection createConnection(Consumer<ConnectionProperties> setup) throws SQLException {
+        IgniteClient ignite = Mockito.mock(IgniteClient.class);
         IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
+
+        when(ignite.sql()).thenReturn(igniteSql);
 
         ConnectionProperties properties = new ConnectionPropertiesImpl();
         properties.setUrl("jdbc:ignite:thin://127.0.0.1:10800/");
@@ -462,7 +467,7 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
 
         JdbcQueryEventHandler eventHandler = Mockito.mock(JdbcQueryEventHandler.class);
 
-        return new JdbcConnection2(igniteSql, eventHandler, properties);
+        return new JdbcConnection2(ignite, eventHandler, properties);
     }
 
     private static void expectClosed(Executable method) {
