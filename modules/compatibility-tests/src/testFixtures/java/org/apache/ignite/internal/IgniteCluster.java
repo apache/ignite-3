@@ -120,7 +120,7 @@ public class IgniteCluster {
      *
      * @param testInfo Test info.
      * @param nodesCount Number of nodes in the cluster.
-     * @param initParametersConfigurator the configurator to use for initializing the cluster.
+     * @param initParametersConfigurator the configurator to use for initializing the cluster. Init is skipped if this is null.
      */
     public void startEmbedded(
             @Nullable TestInfo testInfo,
@@ -154,7 +154,7 @@ public class IgniteCluster {
      * Starts cluster in embedded mode with nodes of current version.
      *
      * @param nodesCount Number of nodes in the cluster.
-     * @param initParametersConfigurator the configurator to use for initializing the cluster.
+     * @param initParametersConfigurator the configurator to use for initializing the cluster. Init is skipped if this is null.
      */
     public void startEmbedded(int nodesCount, @Nullable Consumer<InitParametersBuilder> initParametersConfigurator) {
         startEmbedded(null, nodesCount, initParametersConfigurator);
