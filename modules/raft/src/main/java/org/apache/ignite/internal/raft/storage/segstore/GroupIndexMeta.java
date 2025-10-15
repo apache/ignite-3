@@ -63,6 +63,10 @@ class GroupIndexMeta {
             return fileMetas.find(logIndex);
         }
 
+        long firstLogIndex() {
+            return fileMetas.firstLogIndex();
+        }
+
         long lastLogIndex() {
             return fileMetas.lastLogIndex();
         }
@@ -103,5 +107,13 @@ class GroupIndexMeta {
         }
 
         return null;
+    }
+
+    long firstLogIndex() {
+        return fileMetaQueue.getFirst().firstLogIndex();
+    }
+
+    long lastLogIndex() {
+        return fileMetaQueue.getLast().lastLogIndex();
     }
 }

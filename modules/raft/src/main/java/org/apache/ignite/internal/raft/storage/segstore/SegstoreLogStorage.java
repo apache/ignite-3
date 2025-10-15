@@ -83,12 +83,16 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public long getFirstLogIndex() {
-        throw new UnsupportedOperationException();
+        long firstLogIndex = segmentFileManager.firstLogIndex(groupId);
+
+        return firstLogIndex >= 0 ? firstLogIndex : 1;
     }
 
     @Override
     public long getLastLogIndex() {
-        throw new UnsupportedOperationException();
+        long lastLogIndex = segmentFileManager.lastLogIndex(groupId);
+
+        return lastLogIndex >= 0 ? lastLogIndex : 0;
     }
 
     @Override

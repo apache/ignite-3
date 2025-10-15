@@ -72,6 +72,10 @@ class IndexFileMetaArray {
         return size;
     }
 
+    long firstLogIndex() {
+        return array[0].firstLogIndex();
+    }
+
     long lastLogIndex() {
         return array[size - 1].lastLogIndex();
     }

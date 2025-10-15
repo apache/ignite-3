@@ -44,16 +44,24 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
         // File offset can be less than 0 (it's treated as an unsigned integer) but never 0, because of the file header.
         assert segmentFileOffset != 0 : String.format("Segment file offset must not be 0 [groupId=%d]", groupId);
 
-        SegmentInfo segmentInfo = stripe(groupId).memTable.computeIfAbsent(groupId, id -> new SegmentInfo(logIndex));
+        ConcurrentMap<Long, SegmentInfo> memTable = stripe(groupId).memTable;
 
-        segmentInfo.addOffset(logIndex, segmentFileOffset);
+        SegmentInfo segmentInfo = memTable.get(groupId);
+
+        if (segmentInfo == null) {
+            segmentInfo = new SegmentInfo(logIndex);
+
+            segmentInfo.addOffset(logIndex, segmentFileOffset);
+
+            memTable.put(groupId, segmentInfo);
+        } else {
+            segmentInfo.addOffset(logIndex, segmentFileOffset);
+        }
     }
 
     @Override
-    public int getSegmentFileOffset(long groupId, long logIndex) {
-        SegmentInfo segmentInfo = stripe(groupId).memTable.get(groupId);
-
-        return segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
+    public SegmentInfo segmentInfo(long groupId) {
+        return stripe(groupId).memTable.get(groupId);
     }
 
     @Override
