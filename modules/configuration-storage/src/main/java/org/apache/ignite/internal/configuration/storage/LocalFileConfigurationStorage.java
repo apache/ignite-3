@@ -148,6 +148,9 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Data> readDataOnRecovery() {
         lock.writeLock().lock();
         try {
+            // Here we don't use ConfigurationDynamicDefaultsPatcher because it works only on Hocon string representation level.
+            // But it's not applicable here because we need to produce map presentation with same ids in names lists.
+            // Each tree walk for string to map mapping produce different ids by design.
             String hocon = readHoconFromFile();
             SuperRoot superRoot = convertToSuperRoot(hocon);
 

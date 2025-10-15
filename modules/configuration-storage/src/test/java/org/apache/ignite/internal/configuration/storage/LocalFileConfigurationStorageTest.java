@@ -564,7 +564,7 @@ public class LocalFileConfigurationStorageTest {
         ConfigurationSource source = HoconConverter.hoconSource(config.root());
 
         changer.start();
-        changer.change(source).join();
+        assertThat(changer.change(source), willCompleteSuccessfully());
 
         // Force restart of the storage
         after();
@@ -574,7 +574,7 @@ public class LocalFileConfigurationStorageTest {
         source = HoconConverter.hoconSource(config.root());
 
         changer.start();
-        changer.change(source).join();
+        assertThat(changer.change(source), willCompleteSuccessfully());
     }
 
     private String configFileContent() throws IOException {
