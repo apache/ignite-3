@@ -189,6 +189,18 @@ class IndexFileManager {
         }
     }
 
+    long firstLogIndex(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.firstLogIndex();
+    }
+
+    long lastLogIndex(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndex();
+    }
+
     private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable) {
         int numGroups = indexMemTable.numGroups();
 

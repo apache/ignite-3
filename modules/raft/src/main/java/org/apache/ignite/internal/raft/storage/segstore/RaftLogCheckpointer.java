@@ -114,7 +114,9 @@ class RaftLogCheckpointer {
         while (it.hasNext()) {
             Entry e = it.next();
 
-            int segmentPayloadOffset = e.memTable().getSegmentFileOffset(groupId, logIndex);
+            SegmentInfo segmentInfo = e.memTable().segmentInfo(groupId);
+
+            int segmentPayloadOffset = segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
 
             if (segmentPayloadOffset != 0) {
                 return e.segmentFile().buffer().position(segmentPayloadOffset);
@@ -122,6 +124,36 @@ class RaftLogCheckpointer {
         }
 
         return null;
+    }
+
+    long firstLogIndex(long groupId) {
+        Iterator<Entry> it = queue.tailIterator();
+
+        long firstIndex = -1;
+
+        while (it.hasNext()) {
+            SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
+
+            if (segmentInfo != null) {
+                firstIndex = segmentInfo.firstLogIndex();
+            }
+        }
+
+        return firstIndex;
+    }
+
+    long lastLogIndex(long groupId) {
+        Iterator<Entry> it = queue.tailIterator();
+
+        while (it.hasNext()) {
+            SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
+
+            if (segmentInfo != null) {
+                return segmentInfo.lastLogIndex();
+            }
+        }
+
+        return -1;
     }
 
     private class CheckpointTask implements Runnable {
