@@ -530,7 +530,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Should not be called in auto-commit mode
             JdbcTestUtils.assertThrowsSqlException(
-                    "Transaction cannot be committed explicitly in auto-commit mode.",
+                    "Transaction cannot be rolled back explicitly in auto-commit mode.",
                     conn::rollback
             );
 

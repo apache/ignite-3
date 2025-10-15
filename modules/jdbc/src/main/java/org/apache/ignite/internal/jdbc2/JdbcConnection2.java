@@ -51,8 +51,11 @@ import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -83,11 +86,20 @@ public class JdbcConnection2 implements Connection {
     private static final String TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE =
             "Transaction cannot be committed explicitly in auto-commit mode.";
 
+    private static final String TRANSACTION_CANNOT_BE_ROLLED_BACK_IN_AUTOCOMMIT_MODE =
+            "Transaction cannot be rolled back explicitly in auto-commit mode.";
+
     private static final String CANNOT_SET_TRANSACTION_NONE =
             "Cannot set transaction isolation level to TRANSACTION_NONE.";
 
     private static final String INVALID_TRANSACTION_ISOLATION_LEVEL =
             "Invalid transaction isolation level.";
+
+    private static final String NO_TRANSACTION_TO_COMMIT =
+            "No transaction to commit.";
+
+    private static final String NO_TRANSACTION_TO_ROLLBACK =
+            "No transaction to rollback.";
 
     private static final String SHARDING_KEYS_ARE_NOT_SUPPORTED =
             "Sharding keys are not supported.";
@@ -124,6 +136,8 @@ public class JdbcConnection2 implements Connection {
     private boolean readOnly;
 
     private int networkTimeoutMillis;
+
+    private @Nullable Transaction transaction;
 
     /**
      * Creates new connection.
@@ -247,14 +261,51 @@ public class JdbcConnection2 implements Connection {
         return sql;
     }
 
+    @Nullable Transaction startTransactionIfNoAutoCommit() {
+        if (transaction == null && !autoCommit) {
+            transaction = igniteClient.transactions().begin(new TransactionOptions().readOnly(false));
+            return transaction;
+        } else {
+            return transaction;
+        }
+    }
+
+    private void finishTx(boolean commit) throws SQLException {
+        try {
+            Transaction tx = this.transaction;
+            if (tx == null) {
+                return;
+            }
+            // Null out the transaction first.
+            this.transaction = null;
+
+            if (commit) {
+                tx.commit();
+            } else {
+                tx.rollback();
+            }
+        } catch (Exception e) {
+            String error = "The transaction " + (commit ? "commit" : "rollback") + " request failed.";
+            throw new SQLException(error, IgniteExceptionMapperUtil.mapToPublicException(e));
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureNotClosed();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26139 Implement autocommit = false
-        if (autoCommit != this.autoCommit) {
-            this.autoCommit = autoCommit;
+        // If setAutoCommit is called and the auto-commit mode is not changed, the call is a no-op.
+        if (this.autoCommit == autoCommit) {
+            return;
+        }
+
+        boolean wasAutoCommit = this.autoCommit;
+        // Autocommit should be changed even if commit fails.
+        this.autoCommit = autoCommit;
+        // If this method is called during a transaction and the auto-commit mode is changed, the transaction is committed.
+        if (!wasAutoCommit) {
+            finishTx(true);
         }
     }
 
@@ -273,6 +324,11 @@ public class JdbcConnection2 implements Connection {
 
         if (autoCommit) {
             throw new SQLException(TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE);
+        } else {
+            if (transaction == null) {
+                throw new SQLException(NO_TRANSACTION_TO_COMMIT);
+            }
+            finishTx(true);
         }
     }
 
@@ -282,7 +338,12 @@ public class JdbcConnection2 implements Connection {
         ensureNotClosed();
 
         if (autoCommit) {
-            throw new SQLException(TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE);
+            throw new SQLException(TRANSACTION_CANNOT_BE_ROLLED_BACK_IN_AUTOCOMMIT_MODE);
+        } else {
+            if (transaction == null) {
+                throw new SQLException(NO_TRANSACTION_TO_ROLLBACK);
+            }
+            finishTx(false);
         }
     }
 
@@ -310,6 +371,12 @@ public class JdbcConnection2 implements Connection {
         }
 
         List<Exception> suppressedExceptions = null;
+
+        boolean wasAutoCommit = this.autoCommit;
+        // Rollback on close
+        if (!wasAutoCommit) {
+            finishTx(false);
+        }
 
         lock.lock();
         try {
