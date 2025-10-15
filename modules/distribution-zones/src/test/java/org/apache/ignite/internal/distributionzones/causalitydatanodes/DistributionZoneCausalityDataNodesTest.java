@@ -1065,7 +1065,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         prepareZonesWithTwoDataNodes();
 
         Map<Integer, Set<String>> expectedDataNodes = new HashMap<>();
-        expectedDataNodes.put(getDefaultZone().id(), Set.of(NODE_0.name()));
+        expectedDataNodes.put(getDefaultZone().id(), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
