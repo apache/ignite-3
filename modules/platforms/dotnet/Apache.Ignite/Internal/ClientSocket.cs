@@ -998,7 +998,8 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Disposes this socket and completes active requests with the specified exception.
         /// </summary>
-        /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
+        /// <param name="ex">Exception that caused this socket to close. Null when the socket is closed by the user.</param>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed.")]
         private void Dispose(Exception? ex)
         {
             lock (_disposeLock)
@@ -1012,8 +1013,23 @@ namespace Apache.Ignite.Internal
                 _disposeTokenSource.Cancel();
 
                 // Actual dispose.
-                _heartbeatTimer.Dispose();
-                _stream.Dispose();
+                try
+                {
+                    _heartbeatTimer.Dispose();
+                }
+                catch (Exception e)
+                {
+                    _logger.LogFailedSocketDispose(e);
+                }
+
+                try
+                {
+                    _stream.Dispose();
+                }
+                catch (Exception e)
+                {
+                    _logger.LogFailedSocketDispose(e);
+                }
 
                 // Metrics and logging.
                 _exception = ex;
