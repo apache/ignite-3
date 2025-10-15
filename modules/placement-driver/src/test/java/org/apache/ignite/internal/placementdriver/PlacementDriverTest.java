@@ -956,7 +956,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         return new AssignmentsTracker(
                 metastore,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                zoneId -> completedFuture(Set.of("A")),
+                zoneId -> null
         );
     }
 }

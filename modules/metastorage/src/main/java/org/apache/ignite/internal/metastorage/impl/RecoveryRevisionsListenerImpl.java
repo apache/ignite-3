@@ -20,19 +20,20 @@ package org.apache.ignite.internal.metastorage.impl;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.server.RecoveryRevisionsListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
-/** Implementation of {@link RecoveryRevisionsListener}. */
+/** Listener that completes the Metastorage 'recovery finish' future. */
 class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
     private final IgniteSpinBusyLock busyLock;
 
     private final CompletableFuture<Revisions> recoveryFinishFuture;
 
-    private final ReentrantLock lock = new ReentrantLock();
+    private final Lock lock = new ReentrantLock();
 
     /** Guarded by {@link #lock}. */
     private Revisions targetRevisions;

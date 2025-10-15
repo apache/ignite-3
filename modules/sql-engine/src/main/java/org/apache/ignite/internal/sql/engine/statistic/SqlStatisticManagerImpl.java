@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
@@ -53,7 +54,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Statistic manager. Provide and manage update of statistics for SQL.
  */
-public class SqlStatisticManagerImpl implements SqlStatisticManager {
+public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
     static final long DEFAULT_TABLE_SIZE = 1L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, HybridTimestamp.MIN_VALUE);
@@ -70,6 +71,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private final TableManager tableManager;
     private final CatalogService catalogService;
     private final LowWatermark lowWatermark;
+
+    private final AtomicReference<StatisticUpdatesSupplier> changesSupplier = new AtomicReference<>();
 
     /* Contains all known table id's with statistics. */
     final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
@@ -96,6 +99,13 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         this.lowWatermark = lowWatermark;
         this.scheduler = scheduler;
         this.statSupplier = statSupplier;
+    }
+
+    @Override
+    public void changesNotifier(StatisticUpdatesSupplier updater) {
+        if (!this.changesSupplier.compareAndSet(null, updater)) {
+            throw new AssertionError("Statistics updater unexpected change");
+        }
     }
 
     /**
@@ -220,7 +230,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
             return timestamp;
         }
 
-        public long getSize() {
+        long getSize() {
             return size;
         }
     }

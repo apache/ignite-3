@@ -98,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.statistic.StatisticAggregatorImpl;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticUpdateManager;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -162,7 +163,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private final ReplicaService replicaService;
 
     private final SqlSchemaManager sqlSchemaManager;
-    private final SqlStatisticManager sqlStatisticManager;
+    private final SqlStatisticUpdateManager sqlStatisticManager;
 
     private final FailureManager failureManager;
 
@@ -299,7 +300,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 clusterCfg,
                 nodeCfg,
                 sqlSchemaManager,
-                ddlSqlToCommandConverter
+                ddlSqlToCommandConverter,
+                clockService::currentLong,
+                commonScheduler,
+                sqlStatisticManager
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(

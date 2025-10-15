@@ -59,11 +59,7 @@ class HandshakeManagerUtils {
             CompletableFuture<NettySender> handshakeFuture,
             Function<String, Exception> exceptionFactory
     ) {
-        if (rejectionReason.logAsWarn()) {
-            LOG.warn("Rejecting handshake: {}", messageText);
-        } else {
-            LOG.debug("Rejecting handshake: {}", messageText);
-        }
+        rejectionReason.print(false, LOG, "Rejecting handshake: {}", messageText);
 
         HandshakeRejectedMessage rejectionMessage = MESSAGE_FACTORY.handshakeRejectedMessage()
                 .reasonString(rejectionReason.name())

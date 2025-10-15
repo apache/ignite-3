@@ -38,11 +38,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests to verify validation of {@link CreateTableCommand}.
  */
-@SuppressWarnings({"DataFlowIssue", "ThrowableNotThrown"})
+@SuppressWarnings("ThrowableNotThrown")
 public class CreateTableCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
@@ -323,6 +324,40 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 builder::build,
                 CatalogValidationException.class,
                 "Colocation column 'C2' is not part of PK"
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {
+            Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, -1, 1.1
+    })
+    void staleRowsFractionShouldBeInValidRange(double staleRowsFraction) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .staleRowsFraction(staleRowsFraction);
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Stale rows fraction should be in range [0, 1]."
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {
+            -100, -10, -1
+    })
+    void minStaleRowsCountShouldBeNonNegative(long minStaleRowsCount) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .minStaleRowsCount(minStaleRowsCount);
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Minimal stale rows count should be non-negative."
         );
     }
 

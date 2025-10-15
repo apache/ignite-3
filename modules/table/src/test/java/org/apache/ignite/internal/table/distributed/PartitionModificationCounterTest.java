@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -38,16 +39,20 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
     void initialValues() {
         // Empty table.
         {
-            PartitionModificationCounterHandler counter = factory.create(() -> 0L, 0, 0);
+            PartitionModificationCounterHandler counter = factory.create(
+                    () -> 0L, () -> new TableStatsStalenessConfiguration(0.5, 200), 0, 0
+            );
 
             assertThat(counter.value(), is(0L));
-            assertThat(counter.nextMilestone(), is(PartitionModificationCounterHandlerFactory.DEFAULT_MIN_STALE_ROWS_COUNT));
+            assertThat(counter.nextMilestone(), is(200L));
             assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
         }
 
         // Table with 10k rows.
         {
-            PartitionModificationCounterHandler counter = factory.create(() -> 10_000L, 0, 0);
+            PartitionModificationCounterHandler counter = factory.create(
+                    () -> 10_000L, () -> new TableStatsStalenessConfiguration(0.2, 200), 0, 0
+            );
 
             assertThat(counter.value(), is(0L));
             assertThat(counter.nextMilestone(), is(2000L));
@@ -65,8 +70,13 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
     @Test
     void lastMilestoneTimestampUpdate() {
         int rowsCount = 10_000;
-        int threshold = (int) (rowsCount * PartitionModificationCounterHandlerFactory.DEFAULT_STALE_ROWS_FRACTION);
-        PartitionModificationCounterHandler counter = factory.create(() -> rowsCount, 0, 0);
+        int threshold = (int) (rowsCount * CatalogUtils.DEFAULT_STALE_ROWS_FRACTION);
+        PartitionModificationCounterHandler counter = factory.create(
+                () -> rowsCount,
+                () -> new TableStatsStalenessConfiguration(
+                        CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                ), 0, 0
+        );
 
         assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
 
@@ -93,7 +103,9 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings({"ThrowableNotThrown", "ResultOfObjectAllocationIgnored", "DataFlowIssue"})
     void invalidUpdateValues() {
-        PartitionModificationCounterHandler counter = factory.create(() -> 0L, 0, 0);
+        PartitionModificationCounterHandler counter = factory.create(
+                () -> 0L, () -> new TableStatsStalenessConfiguration(0.2, 500), 0, 0
+        );
 
         IgniteTestUtils.assertThrows(NullPointerException.class,
                 () -> counter.updateValue(1, null), "commitTimestamp");
@@ -106,32 +118,24 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> new PartitionModificationCounter(null, () -> 0L, 0.0d, 0),
+                () -> new PartitionModificationCounter(null, () -> 0L, () -> new TableStatsStalenessConfiguration(
+                        0.2, 500
+                )),
                 "initTimestamp"
         );
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, null, 0.0d, 0),
+                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, null, () -> new TableStatsStalenessConfiguration(
+                        0.2, 500
+                )),
                 "partitionSizeSupplier"
         );
 
         IgniteTestUtils.assertThrows(
-                IllegalArgumentException.class,
-                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0L, 1.1d, 0),
-                "staleRowsFraction must be in [0, 1] range"
-        );
-
-        IgniteTestUtils.assertThrows(
-                IllegalArgumentException.class,
-                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0L, -0.1d, 0),
-                "staleRowsFraction must be in [0, 1] range"
-        );
-
-        IgniteTestUtils.assertThrows(
-                IllegalArgumentException.class,
-                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0L, -0.1d, -1),
-                "staleRowsFraction must be in [0, 1] range"
+                NullPointerException.class,
+                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0L, null),
+                "configurationProvider"
         );
     }
 }

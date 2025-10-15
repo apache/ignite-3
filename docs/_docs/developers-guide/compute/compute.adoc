@@ -15,18 +15,26 @@
 
 = Distributed Computing
 
-Ignite 3 lets you run your own code on the cluster in a distributed, balanced, and fault-tolerant way. Before submitting a compute job, ensure that your code is link:developers-guide/code-deployment/code-deployment[deployed] to the nodes where it will execute. Tasks can run on a single node, multiple nodes, or across the entire cluster, and you can choose between synchronous and asynchronous execution.
+Apache Ignite lets you run your own code on the cluster in a distributed, balanced, and fault-tolerant way.
 
-NOTE: Ignite 3 compute engine now supports jobs implemented both in Java and in .NET. As .NET compute jobs require a bit of extra setup, see the link:developers-guide/compute/compute#net-compute-jobs[.NET Compute Jobs] subsection for details.
+Tasks can run on a single node, multiple nodes, or across the entire cluster, and you can choose between synchronous and asynchronous execution.
 
-In addition to standard compute tasks, Ignite 3 supports <<Colocated Execution>>. This means your tasks can run directly on the nodes that store the required data, reducing network overhead and improving performance.
+NOTE: Apache Ignite compute engine now supports jobs implemented both in Java and in .NET. As .NET compute jobs require a bit of extra setup, see the link:developers-guide/compute/compute#net-compute-jobs[.NET Compute Jobs] subsection for details.
+
+In addition to standard compute tasks, Apache Ignite supports <<Colocated Execution>>. This means your tasks can run directly on the nodes that store the required data, reducing network overhead and improving performance.
 The cluster also supports <<MapReduce Tasks>>, allowing for efficient processing of large datasets. In this case, tasks will be executed on nodes that hold the data required for them.
 
-When sending code and data between nodes, objects are converted into a transferable format so they can be accurately rebuilt. Ignite 3 automatically handles marshalling for common types like tuples, POJOs, and native types, but for more complex or custom objects, you may need to implement your own link:developers-guide/compute/serialization[marshalling] logic.
+When sending code and data between nodes, objects are converted into a transferable format so they can be accurately rebuilt. Apache Ignite automatically handles marshalling for common types like tuples, POJOs, and native types, but for more complex or custom objects, you may need to implement your own link:developers-guide/compute/serialization[marshalling] logic.
+
+== Compute Job Code Deployment
+
+Before submitting your compute job, ensure that the required code is link:developers-guide/code-deployment/code-deployment[deployed] to the nodes where it will execute.
+
+If you are using link:quick-start/embedded-mode[embedded nodes], any code that is included in the project classpath will also be available to your compute jobs.
 
 == Configuring Jobs
 
-In Ignite 3, compute job's execution is defined by two key components: `JobTarget` and `JobDescriptor`. These components determine on which nodes the job will run and how it will be structured, including input and output types, marshallers, and the deployed class that represents the job.
+In Apache Ignite, compute job's execution is defined by two key components: `JobTarget` and `JobDescriptor`. These components determine on which nodes the job will run and how it will be structured, including input and output types, marshallers, and the deployed class that represents the job.
 
 === Job Target
 Before submitting a job, you must create a `JobTarget` object that specifies which nodes will execute the job. Job target can point to a specific node, any node on the cluster, or start a link:developers-guide/compute/compute#colocated-execution[colocated] compute job, that will be executed on nodes that hold a specific key. The following methods are available:
@@ -44,11 +52,11 @@ The `JobDescriptor` object contains all the details required for job execution. 
 - The job descriptor is created using a builder that specifies the input type for the job arguments, the expected output type, and the fully qualified name of the job class to execute.
 - `units` takes your deployment unit. You create it with the unit's name and specify `Version.LATEST` so that your job always runs the most recently deployed version.
 - `resultClass` sets the expected result type so the system can correctly process the job's output.
-- `argumentMarshaller` and `resultMarshaller` defines how to serialize the job's input argument and output result. For common types, you can omit the marshallers and pass `null` to the builder since Ignite 3 automatically handles marshalling.
+- `argumentMarshaller` and `resultMarshaller` defines how to serialize the job's input argument and output result. For common types, you can omit the marshallers and pass `null` to the builder since Apache Ignite automatically handles marshalling.
 
 Examples below assumes that the `NodeNameJob` class has been deployed to the node by using link:developers-guide/code-deployment/code-deployment[code deployment].
 
-- If you are working with common types, you don't need to define custom marshallers. Ignite will handle them automatically. The following example shows a simpler job descriptor that uses built-in marshalling:
+- If you are working with common types, you don't need to define custom marshallers. Apache Ignite will handle them automatically. The following example shows a simpler job descriptor that uses built-in marshalling:
 +
 [source, java]
 ----
@@ -78,11 +86,39 @@ MyJobResult result = client.compute().execute(
 );
 ----
 
-For more details on configuring jobs refer to the corresponding link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/compute/JobDescriptor.html[API] section.
+For more details on configuring jobs refer to the corresponding API section.
+
+=== Deployment Unit Information
+
+The `JobExecutionContext` object contains the information about the deployment units the job is using as a collection of `DeploymentUnitInfo` for each deployment unit involved in the job.
+
+Each `DeploymentUnitInfo` object provides the following information:
+
+* `name()` - The name of the deployment unit
+* `version()` - The version of the deployment unit
+* `path()` - The filesystem path to the deployment unit contents
+
+[source,java]
+----
+public class DiagnosticJob implements ComputeJob<Void, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
+        // Access deployment unit information
+        String deploymentInfo = context.deploymentUnits().stream()
+            .map(unit -> String.format("%s:%s at %s",
+                unit.name(),
+                unit.version(),
+                unit.path()))
+            .collect(Collectors.joining(", "));
+
+        return CompletableFuture.completedFuture(deploymentInfo);
+    }
+}
+----
 
 == Executing Jobs
 
-Ignite compute jobs can run on a specific node, any node, or using a colocated approach when job is executed on the node holding the relevant data key.
+Apache Ignite compute jobs can run on a specific node, any node, or using a colocated approach when job is executed on the node holding the relevant data key.
 
 === Single Node Execution
 
@@ -235,11 +271,10 @@ std::string result = exec.get_result()->get<std::string>();
 
 === Colocated Execution
 
-In Ignite 3, you can execute colocated computations by specifying a job target that directs the task to run on the node holding the required data.
+In Apache Ignite, you can execute colocated computations by specifying a job target that directs the task to run on the node holding the required data.
 
 In the example below, the job runs on the node that owns the partition for the row in the `accounts` table identified by the primary key `accountNumber`.
-
-Pass the key both to `JobTarget.colocated()` to select the node and as the
+We pass the key both to `JobTarget.colocated()` to select the node and as the
 job argument, so the job knows which record to read.
 
 
@@ -298,8 +333,15 @@ std::string result = execution.get_result()->get<std::string>();
 ----
 --
 
+Alternatively, you can execute the compute job on all nodes in the cluster that hold partitions for the specified table by creating a `BroadcastJobTarget.table()` target. In this case, Apache Ignite will automatically find all nodes that hold data partitions for the specified table and execute the job on all of them.
+
+== Using Qualified Table Names
+
 If you do not specify the table schema, the `PUBLIC` schema will be used. To use a different schema, specify a fully qualified table name. You can provide it in a string or by creating the `QualifiedName` object:
 
+[tabs]
+--
+tab:Java[]
 [source, java]
 ----
 QualifiedName myTableName = QualifiedName.parse("PUBLIC.MY_QUALIFIED_TABLE");
@@ -311,23 +353,61 @@ null
 );
 ----
 
-Alternatively, you can execute the compute job on all nodes in the cluster that hold partitions for the specified table by creating a `BroadcastJobTarget.table()` target. In this case, Ignite will automatically find all nodes that hold data partitions for the specified table and execute the job on all of them.
+tab:.NET[unsupported]
+
+tab:C++[unsupported]
+--
+
+Just like with execution on a single node, you can use the `QualifiedName` object to specify a qualified table name and run a job on multiple nodes using `BroadcastJobTarget`:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
+
+client.compute().execute(BroadcastJobTarget.table(customSchemaTable), JobDescriptor.builder(HelloMessageJob.class).build(), null);
+----
+--
+
+You can also use the `of` method to instead specify the table name and the schema separately:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
+
+client.compute().execute(BroadcastJobTarget.table(customSchemaTableName), JobDescriptor.builder(HelloMessageJob.class).build(), null);
+----
+--
+
+The provided names must follow SQL syntax rules for identifiers:
+
+- Identifier must start from a character in the "Lu", "Ll", "Lt", "Lm", "Lo", or "Nl" Unicode categories;
+- Identifier characters (except for the first one) may be `U+00B7` (middle dot), `U+0331` (underscore), or any character in the "Mn", "Mc", "Nd", "Pc", or "Cf" Unicode categories;
+- Identifiers that contain any other characters must be quoted with double-quotes;
+- Double-quote inside the identifier must be 2 double-quote chars.
+
+Any unquoted names will be cast to upper case. In this case, `Person` and `PERSON` names are equivalent. To avoid this, add escaped quotes around the name. For example, `\"Person\"` will be encoded as a case-sensitive `Person` name. If the name contains the `U+2033` (double quote) symbol, it must be escaped as `""` (2 double quote symbols).
 
 == .NET Compute Jobs
 
 When working with compute jobs written in .NET, resulting binaries (DLL files) should be deployed to server nodes and invoked by the assembly-qualified type name. Every deployment unit combination is loaded into a separate link:https://learn.microsoft.com/en-us/dotnet/core/dependency-loading/understanding-assemblyloadcontext[AssemblyLoadContext].
 
-You can have multiple versions of the same job (assembly) deployed to the cluster as Ignite 3 supports deployment unit isolation. One job can consist of multiple deployment units. Assemblies and types are looked up in the order you list them.
+You can have multiple versions of the same job (assembly) deployed to the cluster as Apache Ignite supports deployment unit isolation. One job can consist of multiple deployment units. Assemblies and types are looked up in the order you list them.
 
 NOTE: .NET compute jobs are executed in a separate process (link:https://learn.microsoft.com/en-us/azure/architecture/patterns/sidecar[Sidecar]) on the server node. The process is started on the first .NET job call and then reused for subsequent jobs.
 
-Compute job classes may implement `IDisposable` and `IAsyncDisposable` interfaces. Ignite will call `Dispose` or `DisposeAsync` after job execution whether it succeeds or fails.
+Compute job classes may implement `IDisposable` and `IAsyncDisposable` interfaces. Apache Ignite will call `Dispose` or `DisposeAsync` after job execution whether it succeeds or fails.
 
 [discrete]
 === .NET Compute Requirements
 
 * .NET 8 Runtime or later (not SDK) is required on each server node.
-* When using ZIP, DEB, RPM installation, you have to install .NET runtime yourself. Ignite Docker image includes .NET 8 runtime, so you can run .NET jobs in Docker out of the box.
+* When using ZIP, DEB, RPM installation, you have to install .NET runtime yourself. Apache Ignite Docker image includes .NET 8 runtime, so you can run .NET jobs in Docker out of the box.
 
 === Implementing .NET Compute Jobs
 
@@ -373,11 +453,11 @@ cp bin/Release/net8.0/MyComputeJobs.dll deploy/
 ignite cluster unit deploy --name MyDotNetJobsUnit --path ./deploy
 ----
 +
-. Copy the resulting dll file and any extra dependencies to a separate directory, *excluding* Ignite dlls.
+. Copy the resulting dll file and any extra dependencies to a separate directory, *excluding* Apache Ignite dlls.
 +
 NOTE: The directory with the dll must not contain any subdirectories.
 +
-. Use the Ignite CLI command `cluster unit deploy command` to link:code-deployment/code-deployment[deploy] the directory to the cluster as a deployment unit. The deployed code will be available on the cluster.
+. Use the Apache Ignite CLI command `cluster unit deploy command` to link:code-deployment/code-deployment[deploy] the directory to the cluster as a deployment unit. The deployed code will be available on the cluster.
 
 === Running .NET Compute Jobs
 
@@ -490,7 +570,7 @@ client.compute().execute(BroadcastJobTarget.table(customSchemaTableName), JobDes
 The provided names must follow SQL syntax rules for identifiers:
 
 - Identifier must start from a character in the “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl” Unicode categories;
-- Identifier characters (expect for the first one) may be `U+00B7` (middle dot), `U+0331` (underscore), or any character in the “Mn”, “Mc”, “Nd”, “Pc”, or “Cf” Unicode categories;
+- Identifier characters (except for the first one) may be `U+00B7` (middle dot), `U+0331` (underscore), or any character in the "Mn", "Mc", "Nd", "Pc", or "Cf" Unicode categories;
 - Identifiers that contain any other characters must be quoted with double-quotes;
 - Double-quote inside the identifier must be 2 double-quote chars.
 
@@ -580,8 +660,7 @@ The table below lists the possible job statuses:
 |=======================================================================
 |Status |Description |Transitions to
 
-| `Submitted` | The job was created and sent to the cluster, but not yet processed. | `Queued`, `Canceled`
-| `Queued` | The job was added to the queue and waiting queue for execution. | `Executing`, `Canceled`
+| `Queued` | The job was added to the queue and is waiting for execution. | `Executing`, `Canceled`
 | `Executing` | The job is being executed. | `Canceling`, `Completed`, `Queued`
 | `Completed` | The job was executed successfully and the execution result was returned. |
 | `Failed` | The job was unexpectedly terminated during execution. | `Queued`
@@ -590,7 +669,7 @@ The table below lists the possible job statuses:
 
 |=======================================================================
 
-If all job execution threads are busy, new jobs received by the node are put into job queue according to their <<Job Priority>>. Ignite sorts all incoming jobs first by priority, then by the time, executing jobs queued earlier first.
+If all job execution threads are busy, new jobs received by the node are put into job queue according to their <<Job Priority>>. Apache Ignite sorts all incoming jobs first by priority, then by the time, executing jobs queued earlier first.
 
 === Cancelling Executing Jobs
 
@@ -627,12 +706,9 @@ cts.Cancel();
 
 Another way to cancel jobs is by using the SQL link:sql-reference/operational-commands#kill-compute[KILL COMPUTE] command. The job id can be retrieved via the `COMPUTE_JOBS` link:administrators-guide/metrics/system-views[system view].
 
-
-== Job Configuration
-
 === Job Priority
 
-You can specify a job priority by setting the `JobExecutionOptions.priority` property. Jobs with a higher priority will be queued before jobs with lower priority (for exammple, a job with priority 4 will be executed before the job with priority 2).
+You can specify a job priority by setting the `JobExecutionOptions.priority` property. Jobs with a higher priority will be queued before jobs with lower priority (for example, a job with priority 4 will be executed before the job with priority 2).
 
 [tabs]
 --
@@ -744,7 +820,7 @@ std::string result = execution.get_result()->get<std::string>();
 
 == Job Failover
 
-Ignite 3 implements mechanics to handle issues that happen during job execution. The following situations are handled:
+Apache Ignite implements mechanics to handle issues that happen during job execution. The following situations are handled:
 
 === Worker Node Shutdown
 
@@ -760,7 +836,7 @@ If the client disconnects, all jobs will be cancelled as soon as the coordinator
 
 == MapReduce Tasks
 
-Ignite 3 provides an API for performing MapReduce operations in the cluster. This allows you to split your computing task between multiple nodes before aggregating the result and returning it to the user.
+Apache Ignite provides an API for performing MapReduce operations in the cluster. This allows you to split your computing task between multiple nodes before aggregating the result and returning it to the user.
 
 === Understanding MapReduce Tasks
 

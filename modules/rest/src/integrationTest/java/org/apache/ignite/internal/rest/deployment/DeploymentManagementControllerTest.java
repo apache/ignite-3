@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZip
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.fillDummyFile;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -51,6 +51,7 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -142,13 +143,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         assertThat(response.code(), is(OK.code()));
 
-        await().untilAsserted(() -> {
-            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
-            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
-
-            assertThat(status.id(), is(id));
-            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
-        });
+        awaitDeployedStatus(id, version);
     }
 
     @Test
@@ -159,13 +154,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         assertThat(response.code(), is(OK.code()));
 
-        await().untilAsserted(() -> {
-            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
-            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
-
-            assertThat(status.id(), is(id));
-            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
-        });
+        awaitDeployedStatus(id, version);
     }
 
     @Test
@@ -190,6 +179,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
                 HttpClientResponseException.class,
                 () -> deploy(id, version));
         assertThat(e.getResponse().code(), is(CONFLICT.code()));
+
+        awaitDeployedStatus(id, version);
     }
 
     @Test
@@ -200,6 +191,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         HttpResponse<Object> response = deploy(id, version);
 
         assertThat(response.code(), is(OK.code()));
+
+        awaitDeployedStatus(id, version);
 
         response = undeploy(id, version);
         assertThat(response.code(), is(OK.code()));
@@ -223,19 +216,19 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
     @Test
     public void testList() {
         String id = UNIT_ID;
-        deploy(id, "1.1.1");
-        deploy(id, "1.1.2");
-        deploy(id, "1.2.1");
-        deploy(id, "2.0");
-        deploy(id, "1.0.0");
-        deploy(id, "1.0.1");
+        String[] versions = { "1.1.1", "1.1.2", "1.2.1", "2.0.0", "1.0.0", "1.0.1" };
+        for (String version : versions) {
+            deploy(id, version);
+        }
+
+        awaitDeployedStatus(id, versions);
 
         List<UnitStatus> list = list(id);
 
-        List<String> versions = list.stream()
+        List<String> actualVersions = list.stream()
                 .flatMap(unitStatus -> unitStatus.versionToStatus().stream().map(UnitVersionStatus::getVersion))
                 .collect(Collectors.toList());
-        assertThat(versions, contains("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
+        assertThat(actualVersions, containsInAnyOrder(versions));
     }
 
     @Test
@@ -246,13 +239,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         assertThat(response.code(), is(OK.code()));
 
-        await().untilAsserted(() -> {
-            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
-            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
-
-            assertThat(status.id(), is(id));
-            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
-        });
+        awaitDeployedStatus(id, version);
 
         Path workDir0 = CLUSTER.nodeWorkDir(0);
         Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
@@ -274,6 +261,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         HttpResponse<Object> response = deploy(id, version, false, zipFile);
 
         assertThat(response.code(), is(OK.code()));
+
+        awaitDeployedStatus(id, version);
 
         await().untilAsserted(() -> {
             MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
@@ -305,6 +294,20 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
                 HttpStatus.BAD_REQUEST,
                 ProblemMatcher.isProblem().withDetail("Deployment unit with unzip supports only single zip file.")
         );
+    }
+
+    private void awaitDeployedStatus(String id, String... versions) {
+        await().untilAsserted(() -> {
+            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
+            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
+
+            assertThat(status.id(), is(id));
+            UnitVersionStatus[] statuses = Arrays.stream(versions)
+                    .map(version -> new UnitVersionStatus(version, DEPLOYED))
+                    .toArray(UnitVersionStatus[]::new);
+
+            assertThat(status.versionToStatus(), containsInAnyOrder(statuses));
+        });
     }
 
     private HttpResponse<Object> deployZip(String id, String version) {

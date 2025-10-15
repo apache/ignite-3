@@ -524,6 +524,9 @@ namespace Apache.Ignite
 
             /// <summary> UnitZip error. </summary>
             public const int UnitZip = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> UnitWrite error. </summary>
+            public const int UnitWrite = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> GarbageCollector errors. </summary>
@@ -703,8 +706,11 @@ namespace Apache.Ignite
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> RestartWithCleanUp error. </summary>
-            public const int RestartWithCleanUp = (GroupCode << 16) | (5 & 0xFFFF);
+            /// <summary> NotEnoughAliveNodes error. </summary>
+            public const int NotEnoughAliveNodes = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> IllegalNodesSet error. </summary>
+            public const int IllegalNodesSet = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>

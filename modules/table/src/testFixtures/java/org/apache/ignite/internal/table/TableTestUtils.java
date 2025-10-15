@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -50,6 +49,8 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandler;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,8 +68,9 @@ public class TableTestUtils {
     /** Column name. */
     public static final String COLUMN_NAME = "TEST_COLUMN";
 
-    private static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
-            new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, 0, 0);
+    /** No-op partition modification counter. */
+    public static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
+            new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, () -> new TableStatsStalenessConfiguration(0, 0));
 
     /** No-op partition modification counter. */
     public static final PartitionModificationCounterHandler NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER =
@@ -78,8 +80,13 @@ public class TableTestUtils {
     public static PartitionModificationCounterHandlerFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
             new PartitionModificationCounterHandlerFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
                 @Override
-                public PartitionModificationCounterHandler create(LongSupplier partitionSizeSupplier, int tableId, int partitionId) {
-                    return NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER;
+                public PartitionModificationCounter create(
+                        SizeSupplier partitionSizeSupplier,
+                        StalenessConfigurationSupplier configurationSupplier,
+                        int tableId,
+                        int partitionId
+                ) {
+                    return NOOP_PARTITION_MODIFICATION_COUNTER;
                 }
             };
 
