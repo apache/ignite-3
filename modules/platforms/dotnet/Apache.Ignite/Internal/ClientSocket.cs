@@ -1030,6 +1030,8 @@ namespace Apache.Ignite.Internal
                 _exception = ex;
                 _stream.Dispose();
 
+                Metrics.ConnectionsActiveDecrement();
+
                 ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
 
                 while (!_requests.IsEmpty)
@@ -1054,8 +1056,6 @@ namespace Apache.Ignite.Internal
                         }
                     }
                 }
-
-                Metrics.ConnectionsActiveDecrement();
 
                 if (ComputeJobExecutor.IgniteComputeExecutorId != null)
                 {
