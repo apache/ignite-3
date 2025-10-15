@@ -182,7 +182,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         SqlRowProvider<RowT> keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
 
         RelDataType resultType = lookupNode.getRowType();
-        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
 
         operation = filter == null && projection == null ? new SimpleLookupExecution<>(scannableTable, rowHandler, rowFactory,
                 keySupplier, requiredColumns, internalTypeConverter)

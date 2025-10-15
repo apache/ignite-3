@@ -22,6 +22,7 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: 'jobs.gradle'
 
 description = 'ignite-compatibility-tests'
 
@@ -32,12 +33,30 @@ repositories {
 
 dependencies {
     testImplementation libs.swagger.parser
+    testImplementation project(':ignite-core')
+
+    integrationTestImplementation libs.netty.common
+    integrationTestImplementation libs.netty.buffer
 
     integrationTestImplementation testFixtures(project(':ignite-compatibility-tests'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-cli')
+    integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation project(':ignite-metastorage-api')
+    integrationTestImplementation project(':ignite-metastorage')
+    integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+
+    integrationTestImplementation libs.micronaut.junit5
+    integrationTestImplementation libs.micronaut.http.client
 
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility
@@ -50,14 +69,18 @@ dependencies {
     }
     testFixturesImplementation libs.cytodynamics.nucleus
     testFixturesImplementation libs.japicmp
+    testFixturesImplementation libs.micronaut.http.client
+
 
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
-    testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
-    testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation project(':ignite-client')
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-distribution-zones')
+    testFixturesImplementation project(':ignite-metastorage-api')
     testFixturesImplementation project(':ignite-rest-api')
+    testFixturesImplementation project(':ignite-runner')
 }
 
 private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {

@@ -493,7 +493,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     public void connectionToSelfFailsWithHandshakeException() throws Exception {
         try (ConnectionManagerWrapper manager = startManager(4000)) {
             HandshakeException ex = assertWillThrow(manager.openChannelTo(manager).toCompletableFuture(), HandshakeException.class);
-            assertThat(ex.getMessage(), startsWith("Got handshake start from self, this should never happen; this is a programming error"));
+            assertThat(ex.getMessage(), startsWith("Got handshake start from self"));
         }
     }
 

@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.deployment.version.Version.parseVersion;
+
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
+import io.micronaut.http.multipart.FileUpload;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -32,6 +36,8 @@ import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
@@ -42,6 +48,7 @@ import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
+import reactor.core.publisher.Mono;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
@@ -53,8 +60,11 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private IgniteDeployment deployment;
 
-    public DeploymentManagementController(IgniteDeployment deployment) {
+    private TempStorageProvider tempStorageProvider;
+
+    public DeploymentManagementController(IgniteDeployment deployment, TempStorageProvider tempStorageProvider) {
         this.deployment = deployment;
+        this.tempStorageProvider = tempStorageProvider;
     }
 
     @Override
@@ -65,28 +75,58 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             Optional<InitialDeployMode> deployMode,
             Optional<List<String>> initialNodes
     ) {
+        return doDeploy(unitId, unitVersion, unitContent, deployMode, initialNodes, false);
+    }
 
-        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber();
+    @Override
+    public CompletableFuture<Boolean> deployZip(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent,
+            Optional<InitialDeployMode> deployMode, Optional<List<String>> initialNodes) {
+        return doDeploy(unitId, unitVersion, unitContent, deployMode, initialNodes, true);
+    }
+
+    private CompletableFuture<Boolean> doDeploy(
+            String unitId,
+            String unitVersion,
+            Publisher<CompletedFileUpload> unitContent,
+            Optional<InitialDeployMode> deployMode,
+            Optional<List<String>> initialNodes,
+            boolean zip
+    ) {
+        Version version;
+        TempStorage tempStorage;
+        try {
+            version = parseVersion(unitVersion);
+            tempStorage = tempStorageProvider.tempStorage(unitId, version);
+        } catch (Exception e) {
+            // In case of any exception during initialization of temp storage we need to discard the uploaded file.
+            // In case of normal operation the Netty resource will be properly released
+            // by the CompletedFileUpload#getInputStream call in the CompletedFileUploadSubscriber.
+            return Mono.from(unitContent).doOnNext(FileUpload::discard).toFuture()
+                    .thenCompose(unused -> failedFuture(e));
+        }
+
+        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(tempStorage, zip);
         unitContent.subscribe(subscriber);
 
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
                 .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
 
-        return subscriber.result().thenCompose(content -> {
-            return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), content, nodesToDeploy);
-        }).whenComplete((res, throwable) -> {
-            try {
-                subscriber.close();
-            } catch (Exception e) {
-                LOG.error("Failed to close subscriber", e);
-            }
-        });
-
+        return subscriber.result().thenCompose(deploymentUnit ->
+                deployment.deployAsync(unitId, version, deploymentUnit, nodesToDeploy)
+                        .whenComplete((unitStatus, throwable) -> {
+                            tempStorage.close();
+                            try {
+                                deploymentUnit.close();
+                            } catch (Exception e) {
+                                LOG.error("Failed to close subscriber", e);
+                            }
+                        })
+        );
     }
 
     @Override
     public CompletableFuture<Boolean> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, Version.parseVersion(unitVersion));
+        return deployment.undeployAsync(unitId, parseVersion(unitVersion));
     }
 
     @Override
@@ -107,7 +147,7 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private CompletableFuture<List<UnitStatuses>> clusterStatuses(String unitId, Optional<String> version) {
         if (version.isPresent()) {
-            Version parsedVersion = Version.parseVersion(version.get());
+            Version parsedVersion = parseVersion(version.get());
             return deployment.clusterStatusAsync(unitId, parsedVersion)
                     .thenApply(deploymentStatus -> {
                         if (deploymentStatus != null) {
@@ -140,7 +180,7 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private CompletableFuture<List<UnitStatuses>> nodeStatuses(String unitId, Optional<String> version) {
         if (version.isPresent()) {
-            Version parsedVersion = Version.parseVersion(version.get());
+            Version parsedVersion = parseVersion(version.get());
             return deployment.nodeStatusAsync(unitId, parsedVersion)
                     .thenApply(deploymentStatus -> {
                         if (deploymentStatus != null) {
@@ -214,5 +254,6 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
     @Override
     public void cleanResources() {
         deployment = null;
+        tempStorageProvider = null;
     }
 }

@@ -94,20 +94,20 @@ public class CatalogTableDescriptorSerializers {
                 }
             }
 
-            return new CatalogTableDescriptor(
-                    id,
-                    schemaId,
-                    pkIndexId,
-                    name,
-                    zoneId,
-                    columns,
-                    primaryKeyColumns,
-                    colocationColumns,
-                    schemaVersions,
-                    storageProfile,
+            return CatalogTableDescriptor.builder()
+                    .id(id)
+                    .schemaId(schemaId)
+                    .primaryKeyIndexId(pkIndexId)
+                    .name(name)
+                    .zoneId(zoneId)
+                    .columns(columns)
+                    .primaryKeyColumns(primaryKeyColumns)
+                    .colocationColumns(colocationColumns)
+                    .schemaVersions(schemaVersions)
+                    .storageProfile(storageProfile)
                     // Here we use the initial timestamp because it's old storage.
-                    INITIAL_TIMESTAMP
-            );
+                    .timestamp(INITIAL_TIMESTAMP)
+                    .build();
         }
 
         @Override
@@ -202,7 +202,7 @@ public class CatalogTableDescriptorSerializers {
             HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             CatalogTableSchemaVersions schemaVersions =  input.readEntry(CatalogTableSchemaVersions.class);
-            List<CatalogTableColumnDescriptor> columns = input.readEntryList(CatalogTableColumnDescriptor.class);
+            List<CatalogTableColumnDescriptor> columns = schemaVersions.get(schemaVersions.latestVersion()).columns();
             String storageProfile = input.readUTF();
 
             int schemaId = input.readVarIntAsInt();
@@ -233,19 +233,24 @@ public class CatalogTableDescriptorSerializers {
                 }
             }
 
-            return new CatalogTableDescriptor(
-                    id,
-                    schemaId,
-                    pkIndexId,
-                    name,
-                    zoneId,
-                    columns,
-                    primaryKeyColumns,
-                    colocationColumns,
-                    schemaVersions,
-                    storageProfile,
-                    updateTimestamp
-            );
+            double staleRowsFraction = input.readDouble();
+            long minStaleRowsCount = input.readVarInt();
+
+            return CatalogTableDescriptor.builder()
+                    .id(id)
+                    .schemaId(schemaId)
+                    .primaryKeyIndexId(pkIndexId)
+                    .name(name)
+                    .zoneId(zoneId)
+                    .columns(columns)
+                    .primaryKeyColumns(primaryKeyColumns)
+                    .colocationColumns(colocationColumns)
+                    .schemaVersions(schemaVersions)
+                    .storageProfile(storageProfile)
+                    .timestamp(updateTimestamp)
+                    .staleRowsFraction(staleRowsFraction)
+                    .minStaleRowsCount(minStaleRowsCount)
+                    .build();
         }
 
         @Override
@@ -255,7 +260,6 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.updateTimestamp().longValue());
 
             output.writeEntry(descriptor.schemaVersions());
-            output.writeEntryList(descriptor.columns());
             output.writeUTF(descriptor.storageProfile());
 
             output.writeVarInt(descriptor.schemaId());
@@ -275,6 +279,9 @@ public class CatalogTableDescriptorSerializers {
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
             }
+
+            output.writeDouble(descriptor.properties().staleRowsFraction());
+            output.writeVarInt(descriptor.properties().minStaleRowsCount());
         }
 
         private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {

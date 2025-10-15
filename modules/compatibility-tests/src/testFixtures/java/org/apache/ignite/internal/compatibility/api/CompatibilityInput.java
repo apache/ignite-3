@@ -17,31 +17,38 @@
 
 package org.apache.ignite.internal.compatibility.api;
 
-class CompatibilityInput {
+import java.util.List;
+import org.apache.ignite.internal.properties.IgniteProperties;
+
+/**
+ * Parameters for checking API compatibility.
+ */
+public class CompatibilityInput {
     private final String module;
     private final String oldVersion;
     private final String newVersion;
     private final String exclude;
     private final boolean errorOnIncompatibility;
+    private final boolean currentVersion;
 
-    CompatibilityInput(String module, String oldVersion, ApiCompatibilityTest annotation) {
+    private CompatibilityInput(
+            String module,
+            String oldVersion,
+            String newVersion,
+            String exclude,
+            boolean errorOnIncompatibility,
+            boolean currentVersion
+    ) {
         this.module = module;
         this.oldVersion = oldVersion;
-        this.newVersion = annotation.newVersion();
-        this.exclude = annotation.exclude();
-        this.errorOnIncompatibility = annotation.errorOnIncompatibility();
+        this.newVersion = newVersion;
+        this.exclude = exclude;
+        this.errorOnIncompatibility = errorOnIncompatibility;
+        this.currentVersion = currentVersion;
     }
 
     String module() {
         return module;
-    }
-
-    String oldVersion() {
-        return oldVersion;
-    }
-
-    String newVersion() {
-        return newVersion;
     }
 
     String oldVersionNotation() {
@@ -58,5 +65,61 @@ class CompatibilityInput {
 
     boolean errorOnIncompatibility() {
         return errorOnIncompatibility;
+    }
+
+    boolean currentVersion() {
+        return currentVersion;
+    }
+
+    /**
+     * Builder class for input parameters.
+     */
+    public static class Builder {
+        private String module;
+        private String oldVersion;
+        private String newVersion;
+        private List<String> excludes;
+        private boolean errorOnIncompatibility = true;
+
+        public Builder module(String module) {
+            this.module = module;
+            return this;
+        }
+
+        public Builder oldVersion(String oldVersion) {
+            this.oldVersion = oldVersion;
+            return this;
+        }
+
+        public Builder newVersion(String newVersion) {
+            this.newVersion = newVersion;
+            return this;
+        }
+
+        public Builder exclude(List<String> excludes) {
+            this.excludes = excludes;
+            return this;
+        }
+
+        public Builder errorOnIncompatibility(boolean errorOnIncompatibility) {
+            this.errorOnIncompatibility = errorOnIncompatibility;
+            return this;
+        }
+
+        /**
+         * Constructs input parameters object.
+         *
+         * @return Input parameters object.
+         */
+        public CompatibilityInput build() {
+            boolean isCurrentVersion = IgniteProperties.get(IgniteProperties.VERSION).equals(newVersion);
+            String exclude = excludes != null ? String.join(";", excludes) : "";
+
+            return new CompatibilityInput(module, oldVersion, newVersion, exclude, errorOnIncompatibility, isCurrentVersion);
+        }
+
+        public void check() {
+            CompatibilityChecker.check(build());
+        }
     }
 }

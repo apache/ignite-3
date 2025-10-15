@@ -82,19 +82,17 @@ public class DotNetComputeExecutor {
     /**
      * Creates a callable for executing a job.
      *
-     * @param deploymentUnitPaths Paths to deployment units.
      * @param jobClassName Name of the job class.
      * @param arg Job argument.
      * @param context Job execution context.
      * @return Callable that executes the job.
      */
     public Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
-            List<String> deploymentUnitPaths,
             String jobClassName,
             @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
     ) {
-        return () -> executeJobAsync(deploymentUnitPaths, jobClassName, arg, context);
+        return () -> executeJobAsync(jobClassName, arg, context);
     }
 
     /**
@@ -143,7 +141,6 @@ public class DotNetComputeExecutor {
     }
 
     private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
-            List<String> deploymentUnitPaths,
             String jobClassName,
             @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
@@ -157,7 +154,7 @@ public class DotNetComputeExecutor {
 
         return getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.connectionFut()
-                        .thenCompose(c -> c.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, arg))
+                        .thenCompose(c -> c.executeJobAsync(jobId, jobClassName, context, arg))
                         .exceptionally(e -> {
                             var cause = unwrapCause(e);
 

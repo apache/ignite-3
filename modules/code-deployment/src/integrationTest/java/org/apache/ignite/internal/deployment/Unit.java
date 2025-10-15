@@ -19,15 +19,21 @@ package org.apache.ignite.internal.deployment;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
+import org.hamcrest.Matchers;
 
 class Unit {
     private final IgniteImpl deployedNode;
@@ -108,8 +114,6 @@ class Unit {
     }
 
     void waitUnitReplica(IgniteImpl ignite) {
-        Path unitDirectory = getNodeUnitDirectory(ignite);
-
         int combinedTimeout = files.stream().map(DeployFile::replicaTimeout).reduce(Integer::sum).get();
 
         await().timeout(combinedTimeout, SECONDS)
@@ -117,13 +121,32 @@ class Unit {
                 .ignoreException(IOException.class)
                 .until(() -> {
                     for (DeployFile file : files) {
-                        Path filePath = unitDirectory.resolve(file.file().getFileName());
-                        if (Files.notExists(filePath) || Files.size(filePath) != file.expectedSize()) {
-                            return false;
-                        }
+                        verify(file, ignite);
                     }
 
                     return true;
                 });
+    }
+
+    public void verify(DeployFile file, IgniteImpl entryNode) {
+        Path nodeUnitDirectory = getNodeUnitDirectory(entryNode);
+        if (file.zip()) {
+            try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(file.file()))) {
+                ZipEntry ze;
+                while ((ze = zis.getNextEntry()) != null) {
+                    assertTrue(Files.exists(nodeUnitDirectory.resolve(ze.getName())));
+                }
+            } catch (IOException e) {
+                fail(e);
+            }
+        } else {
+            try {
+                Path filePath = nodeUnitDirectory.resolve(file.file().getFileName());
+                assertTrue(Files.exists(filePath));
+                assertThat(Files.size(filePath), Matchers.is(file.expectedSize()));
+            } catch (IOException e) {
+                fail(e);
+            }
+        }
     }
 }

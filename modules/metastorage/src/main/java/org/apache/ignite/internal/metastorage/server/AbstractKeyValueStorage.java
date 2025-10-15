@@ -305,9 +305,13 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     /** Notifies of revision update. */
     protected void notifyRevisionsUpdate() {
-        if (recoveryRevisionListener != null) {
-            // Listener must be invoked only on recovery, after recovery listener must be null.
-            recoveryRevisionListener.onUpdate(createCurrentRevisions());
+        RecoveryRevisionsListener listener = recoveryRevisionListener;
+
+        if (listener != null) {
+            // The listener should be invoked only on recovery, after recovery listener will be null.
+            // Currently, there is a race that allows the listener to be invoked after recovery is complete, but this race is benign
+            // as it will simply lead to a second attempt to complete the recovery future, which will be ignored.
+            listener.onUpdate(createCurrentRevisions());
         }
     }
 

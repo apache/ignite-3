@@ -20,10 +20,14 @@ package org.apache.ignite.internal.catalog.storage;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.shorts.ShortArrayList;
+import it.unimi.dsi.fastutil.shorts.ShortList;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -61,6 +65,8 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
@@ -100,7 +106,23 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     private static Stream<Arguments> marshallableEntryTypes() {
         return Arrays.stream(MarshallableEntryType.values())
                 .filter(t -> t != MarshallableEntryType.VERSIONED_UPDATE)
-                .flatMap(t -> Stream.of(Arguments.of(t, 1), Arguments.of(t, 2)));
+                .flatMap(t -> resolveVersions(t.container()).intStream().mapToObj(v -> Arguments.of(t, v)));
+    }
+
+    private static ShortList resolveVersions(Class<?> clazz) {
+        ShortList versions = new ShortArrayList();
+
+        for (Class<?> declaredClass : clazz.getDeclaredClasses()) {
+            if (CatalogObjectSerializer.class.isAssignableFrom(declaredClass)) {
+                CatalogSerializer catalogSerializer = declaredClass.getAnnotation(CatalogSerializer.class);
+
+                versions.add(catalogSerializer.version());
+            }
+        }
+
+        assertThat(versions, not(empty()));
+
+        return versions;
     }
 
     @ParameterizedTest
@@ -252,6 +274,13 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 CatalogStorageProfilesDescriptor profiles =
                         new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
                 checkDescriptorSerialization(newCatalogZoneDescriptor("myZone", profiles));
+                break;
+
+            case ALTER_TABLE_PROPERTIES:
+                checkSerialization(version, new AlterTablePropertiesEntry(123, null, null));
+                checkSerialization(version, new AlterTablePropertiesEntry(123, 0.2, null));
+                checkSerialization(version, new AlterTablePropertiesEntry(123, null, 500L));
+                checkSerialization(version, new AlterTablePropertiesEntry(123, 0.2, 500L));
                 break;
 
             default:
@@ -559,17 +588,17 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
             List<String> pkCols,
             @Nullable List<String> colCols
     ) {
-        return new CatalogTableDescriptor(
-                1,
-                3,
-                1,
-                name,
-                17,
-                columns,
-                pkCols,
-                colCols,
-                "default"
-        );
+        return CatalogTableDescriptor.builder()
+                .id(1)
+                .schemaId(3)
+                .primaryKeyIndexId(1)
+                .name(name)
+                .zoneId(17)
+                .columns(columns)
+                .primaryKeyColumns(pkCols)
+                .colocationColumns(colCols)
+                .storageProfile("default")
+                .build();
     }
 
     private static CatalogSchemaDescriptor newSchemaDescriptor(String name) {

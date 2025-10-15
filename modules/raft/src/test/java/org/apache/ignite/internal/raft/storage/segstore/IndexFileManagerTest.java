@@ -1,0 +1,187 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.raft.storage.segstore;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class IndexFileManagerTest extends IgniteAbstractTest {
+    private static final int STRIPES = 4;
+
+    private IndexFileManager indexFileManager;
+
+    @BeforeEach
+    void setUp() {
+        indexFileManager = new IndexFileManager(workDir);
+    }
+
+    @Test
+    void testIndexFileNaming() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        Path path0 = indexFileManager.saveIndexMemtable(memtable);
+        Path path1 = indexFileManager.saveIndexMemtable(memtable);
+        Path path2 = indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(path0, is(workDir.resolve("index-0000000000-0000000000.bin")));
+        assertThat(path1, is(workDir.resolve("index-0000000001-0000000000.bin")));
+        assertThat(path2, is(workDir.resolve("index-0000000002-0000000000.bin")));
+    }
+
+    @Test
+    void testFileContent() throws IOException {
+        int numGroups = 10;
+
+        int entriesPerGroup = 5;
+
+        int[] segmentFileOffsets = IntStream.range(0, numGroups * entriesPerGroup)
+                .map(i -> ThreadLocalRandom.current().nextInt())
+                .toArray();
+
+        var memtable = new IndexMemTable(STRIPES);
+
+        for (int groupId = 1; groupId <= numGroups; groupId++) {
+            for (int i = 0; i < entriesPerGroup; i++) {
+                int offsetIndex = (groupId - 1) * entriesPerGroup + i;
+
+                memtable.appendSegmentFileOffset(groupId, i, segmentFileOffsets[offsetIndex]);
+            }
+        }
+
+        Path indexFile = indexFileManager.saveIndexMemtable(memtable);
+
+        DeserializedIndexFile deserializedIndexFile = DeserializedIndexFile.fromFile(indexFile);
+
+        for (int groupId = 1; groupId <= numGroups; groupId++) {
+            for (int i = 0; i < entriesPerGroup; i++) {
+                int offsetIndex = (groupId - 1) * entriesPerGroup + i;
+
+                int expectedOffset = segmentFileOffsets[offsetIndex];
+
+                Integer actualOffset = deserializedIndexFile.getSegmentFileOffset(groupId, i);
+
+                assertThat(actualOffset, is(expectedOffset));
+            }
+        }
+    }
+
+    @Test
+    void testSearchIndexMeta() throws IOException {
+        int numGroups = 10;
+
+        int entriesPerGroup = 5;
+
+        int numMemtables = 5;
+
+        int[] segmentFileOffsets = IntStream.range(0, numMemtables * entriesPerGroup)
+                .map(i -> ThreadLocalRandom.current().nextInt())
+                .toArray();
+
+        for (int memtableIndex = 0; memtableIndex < numMemtables; memtableIndex++) {
+            var memtable = new IndexMemTable(STRIPES);
+
+            for (int groupId = 1; groupId <= numGroups; groupId++) {
+                for (int i = 0; i < entriesPerGroup; i++) {
+                    int logIndex = memtableIndex * entriesPerGroup + i;
+
+                    memtable.appendSegmentFileOffset(groupId, logIndex, segmentFileOffsets[logIndex]);
+                }
+            }
+
+            indexFileManager.saveIndexMemtable(memtable);
+        }
+
+        for (int memtableIndex = 0; memtableIndex < numMemtables; memtableIndex++) {
+            for (int groupId = 1; groupId <= numGroups; groupId++) {
+                for (int i = 0; i < entriesPerGroup; i++) {
+                    int logIndex = memtableIndex * entriesPerGroup + i;
+
+                    SegmentFilePointer pointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
+
+                    assertThat(pointer, is(notNullValue()));
+                    assertThat(pointer.fileOrdinal(), is(memtableIndex));
+                    assertThat(pointer.payloadOffset(), is(segmentFileOffsets[logIndex]));
+                }
+            }
+        }
+    }
+
+    @Test
+    void testMissingIndexMeta() throws IOException {
+        assertThat(indexFileManager.getSegmentFilePointer(0, 0), is(nullValue()));
+
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 0, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 0), is(notNullValue()));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(nullValue()));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 0), is(nullValue()));
+    }
+
+    /**
+     * Tests a scenario when a group ID is missing in one of the intermediate index files.
+     */
+    @Test
+    void getSegmentFilePointerWithGroupGaps() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 0, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(1, 0, 2);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 3);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(
+                indexFileManager.getSegmentFilePointer(0, 0),
+                is(new SegmentFilePointer(0, 1))
+        );
+
+        assertThat(
+                indexFileManager.getSegmentFilePointer(1, 0),
+                is(new SegmentFilePointer(1, 2))
+        );
+
+        assertThat(
+                indexFileManager.getSegmentFilePointer(0, 1),
+                is(new SegmentFilePointer(2, 3))
+        );
+    }
+}

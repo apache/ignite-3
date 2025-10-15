@@ -161,8 +161,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 id(5),  new NodeWithAttributes("node5", id(5), Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
         );
 
-        when(distributionZoneManager.nodesAttributes()).thenReturn(nodeWithAttributesMap);
-
         doAnswer(invocation -> {
             ByteArray key = invocation.getArgument(0);
 

@@ -45,7 +45,6 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
@@ -55,7 +54,6 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -113,7 +111,7 @@ public class TestNode implements LifecycleAware {
     private final PrepareService prepareService;
     private final ParserService parserService;
     private final MessageService messageService;
-    private final ClusterService clusterService;
+    private final TestClusterService clusterService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
     volatile boolean exceptionRaised;
@@ -131,7 +129,7 @@ public class TestNode implements LifecycleAware {
     TestNode(
             String nodeName,
             CatalogService catalogService,
-            ClusterService clusterService,
+            TestClusterService clusterService,
             ParserService parserService,
             PrepareService prepareService,
             SqlSchemaManager schemaManager,
@@ -262,6 +260,11 @@ public class TestNode implements LifecycleAware {
 
         Collections.reverse(closeables);
         IgniteUtils.closeAll(closeables);
+    }
+
+    /** Disconnects node from the cluster. That is, removes it from physical topology, but not logical. */
+    public void disconnect() {
+        clusterService.disconnect(nodeName);
     }
 
     /** Returns the name of the current node. */
@@ -422,7 +425,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
+                .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                 .txContext(ImplicitTxContext.create())
                 .parameters();
     }

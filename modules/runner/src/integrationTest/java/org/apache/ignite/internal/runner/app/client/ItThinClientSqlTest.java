@@ -37,8 +37,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -57,6 +62,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -738,6 +744,29 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             assertTrue(rs.hasNext());
             assertEquals(expectedUsername, rs.next().stringValue(0));
             assertFalse(rs.hasNext());
+        }
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26567")
+    public void testBroadcastQueryTxInflightStateCleanup() {
+        IgniteSql sql = client().sql();
+
+        sql.execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        sql.execute(null, String.format("CREATE INDEX IF NOT EXISTS idx1 ON t1 (val)"));
+        sql.execute(null, "INSERT INTO t1 (id, val) VALUES (1, 'test1')").close();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT id FROM t1 WHERE val = ?", "test1")) {
+            assertTrue(rs.hasNext());
+            assertEquals(1, rs.next().intValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        for (int i = 0; i < nodes(); i++) {
+            IgniteImpl server = TestWrappers.unwrapIgniteImpl(server(i));
+            TxManager txManager = server.txManager();
+            TransactionInflights transactionInflights = IgniteTestUtils.getFieldValue(txManager, "transactionInflights");
+            assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights");
         }
     }
 

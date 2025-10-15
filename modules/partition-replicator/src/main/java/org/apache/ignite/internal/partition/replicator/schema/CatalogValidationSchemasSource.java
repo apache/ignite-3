@@ -102,15 +102,15 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
 
                     @Override
                     public boolean test(CatalogTableDescriptor tableDescriptor) {
-                        if (tableDescriptor.tableVersion() == prevVersion) {
+                        if (tableDescriptor.latestSchemaVersion() == prevVersion) {
                             return false;
                         }
 
-                        assert prevVersion == Integer.MIN_VALUE || tableDescriptor.tableVersion() == prevVersion + 1
+                        assert prevVersion == Integer.MIN_VALUE || tableDescriptor.latestSchemaVersion() == prevVersion + 1
                                 : String.format("Table version is expected to be prevVersion+1, but version is %d and prevVersion is %d",
-                                        tableDescriptor.tableVersion(), prevVersion);
+                                        tableDescriptor.latestSchemaVersion(), prevVersion);
 
-                        prevVersion = tableDescriptor.tableVersion();
+                        prevVersion = tableDescriptor.latestSchemaVersion();
 
                         return true;
                     }
@@ -123,14 +123,14 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
             int toTableVersion
     ) {
         return tableVersionsBetween(tableId, fromCatalogVersion, catalogService.latestCatalogVersion())
-                .takeWhile(tableDescriptor -> tableDescriptor.tableVersion() <= toTableVersion)
+                .takeWhile(tableDescriptor -> tableDescriptor.latestSchemaVersion() <= toTableVersion)
                 .map(CatalogValidationSchemasSource::fullSchemaFromTableDescriptor)
                 .collect(toList());
     }
 
     private static FullTableSchema fullSchemaFromTableDescriptor(CatalogTableDescriptor tableDescriptor) {
         return new FullTableSchema(
-                tableDescriptor.tableVersion(),
+                tableDescriptor.latestSchemaVersion(),
                 tableDescriptor.id(),
                 tableDescriptor.name(),
                 tableDescriptor.columns()

@@ -616,14 +616,15 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestUpsertAllBufferOverflow()
         {
-            int count = 50_000;
-            string val = new string('x', 100_000);
+            int count = 25;
+            string val = new string('x', 100_000_000);
 
             var tuples = Enumerable.Range(0, count)
                 .Select(id => new IgniteTuple(2) { [KeyCol] = (long)id, [ValCol] = val })
                 .ToList();
 
-            Assert.ThrowsAsync<InternalBufferOverflowException>(async () => await TupleView.UpsertAllAsync(null, tuples));
+            var ex = Assert.ThrowsAsync<InternalBufferOverflowException>(async () => await TupleView.UpsertAllAsync(null, tuples));
+            Assert.AreEqual("Buffer can't be larger than 2147483591 bytes.", ex.Message);
         }
     }
 }

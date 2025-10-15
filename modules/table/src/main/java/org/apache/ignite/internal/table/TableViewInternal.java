@@ -26,10 +26,12 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /** Internal table view interface. */
 public interface TableViewInternal extends Table {
@@ -135,4 +137,22 @@ public interface TableViewInternal extends Table {
      * @return Table metrics source.
      */
     TableMetricSource metrics();
+
+    /**
+     * Updates staleness configuration with provided parameters.
+     *
+     * <p>If parameter is {@code null}, then value from current configuration is used instead.
+     *
+     * @param staleRowsFraction A fraction of a partition to be modified before the data is considered to be "stale". Should be in
+     *         range [0, 1].
+     * @param minStaleRowsCount Minimal number of rows in partition to be modified before the data is considered to be "stale".
+     *         Should be non-negative.
+     */
+    void updateStalenessConfiguration(
+            @Nullable Double staleRowsFraction,
+            @Nullable Long minStaleRowsCount
+    );
+
+    /** Returns current staleness configuration. */
+    TableStatsStalenessConfiguration stalenessConfiguration();
 }

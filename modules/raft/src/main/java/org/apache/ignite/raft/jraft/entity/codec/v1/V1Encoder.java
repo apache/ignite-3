@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
@@ -42,6 +43,7 @@ public final class V1Encoder implements LogEntryEncoder {
      *
      * @param logEntry Log entry.
      */
+    @Override
     public int size(LogEntry logEntry) {
         EntryType type = logEntry.getType();
         LogId id = logEntry.getId();
@@ -125,46 +127,50 @@ public final class V1Encoder implements LogEntryEncoder {
     // Refactored to look closer to Ignites code style.
     @Override
     public byte[] encode(final LogEntry log) {
+        int totalLen = size(log);
+
+        ByteBuffer buffer = ByteBuffer.allocate(totalLen).order(ByteOrder.LITTLE_ENDIAN);
+
+        encode(buffer, log);
+
+        return buffer.array();
+    }
+
+    @Override
+    public void encode(ByteBuffer buffer, LogEntry log) {
         EntryType type = log.getType();
         LogId id = log.getId();
         List<PeerId> peers = log.getPeers();
         List<PeerId> oldPeers = log.getOldPeers();
         List<PeerId> learners = log.getLearners();
         List<PeerId> oldLearners = log.getOldLearners();
-        ByteBuffer data = log.getData();
+        ByteBuffer data = log.getReadOnlyData();
 
         int typeNumber = type.getNumber();
         long index = id.getIndex();
         long term = id.getTerm();
 
-        int totalLen = size(log);
+        buffer.put(LogEntryV1CodecFactory.MAGIC);
 
-        byte[] content = new byte[totalLen];
-        content[0] = LogEntryV1CodecFactory.MAGIC;
-        int pos = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
+        writeLong(typeNumber, buffer);
+        writeLong(index, buffer);
+        writeLong(term, buffer);
 
-        pos = writeLong(typeNumber, content, pos);
-        pos = writeLong(index, content, pos);
-        pos = writeLong(term, content, pos);
-
-        Bits.putLongLittleEndian(content, pos, log.getChecksum());
-        pos += Long.BYTES;
+        buffer.putLong(log.getChecksum());
 
         if (type != EntryType.ENTRY_TYPE_DATA) {
-            pos = writeNodesList(pos, content, peers);
+            writeNodesList(buffer, peers);
 
-            pos = writeNodesList(pos, content, oldPeers);
+            writeNodesList(buffer, oldPeers);
 
-            pos = writeNodesList(pos, content, learners);
+            writeNodesList(buffer, learners);
 
-            pos = writeNodesList(pos, content, oldLearners);
+            writeNodesList(buffer, oldLearners);
         }
 
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
-            System.arraycopy(data.array(), data.position(), content, pos, data.remaining());
+            buffer.put(data);
         }
-
-        return content;
     }
 
     private static int nodesListSizeInBytes(@Nullable List<PeerId> nodes) {
@@ -210,45 +216,39 @@ public final class V1Encoder implements LogEntryEncoder {
         return addr;
     }
 
-    private static int writeNodesList(int pos, byte[] content, List<PeerId> nodeStrs) {
+    private static void writeNodesList(ByteBuffer content, List<PeerId> nodeStrs) {
         if (nodeStrs == null) {
-            content[pos] = 0;
+            content.put((byte) 0);
 
-            return pos + 1;
+            return;
         }
 
-        pos = writeLong(nodeStrs.size(), content, pos);
+        writeLong(nodeStrs.size(), content);
 
         for (PeerId peerId : nodeStrs) {
             String consistentId = peerId.getConsistentId();
             int length = consistentId.length();
 
-            Bits.putShortLittleEndian(content, pos, (short) length);
-            pos += Short.BYTES;
+            content.putShort((short) length);
 
-            AsciiStringUtil.unsafeEncode(consistentId, content, pos);
-            pos += length;
+            AsciiStringUtil.unsafeEncode(consistentId, content);
 
-            pos = writeLong(peerId.getIdx(), content, pos);
-            pos = writeLong(peerId.getPriority() + 1, content, pos);
+            writeLong(peerId.getIdx(), content);
+            writeLong(peerId.getPriority() + 1, content);
         }
-
-        return pos;
     }
 
     // Based on DirectByteBufferStreamImplV1.
-    private static int writeLong(long val, byte[] out, int pos) {
+    private static void writeLong(long val, ByteBuffer out) {
         while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
             byte b = (byte) (val | 0x80);
 
-            out[pos++] = b;
+            out.put(b);
 
             val >>>= 7;
         }
 
-        out[pos++] = (byte) val;
-
-        return pos;
+        out.put((byte) val);
     }
 
     private static long writeLong(long val, long addr) {
@@ -266,7 +266,7 @@ public final class V1Encoder implements LogEntryEncoder {
     }
 
     /**
-     * Returns the number of bytes, required by the {@link #writeLong(long, byte[], int)} to write the value.
+     * Returns the number of bytes, required by the {@link #writeLong} to write the value.
     */
     private static int sizeInBytes(long val) {
         if (val >= 0) {

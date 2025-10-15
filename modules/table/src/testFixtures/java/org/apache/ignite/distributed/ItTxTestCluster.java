@@ -151,6 +151,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.Stora
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
@@ -639,7 +640,7 @@ public class ItTxTestCluster {
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.id()).thenReturn(tableId);
-        when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
+        when(tableDescriptor.latestSchemaVersion()).thenReturn(SCHEMA_VERSION);
 
         lenient().when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
 
@@ -759,7 +760,8 @@ public class ItTxTestCluster {
                         partId,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        replicationConfiguration
+                        replicationConfiguration,
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 );
 
                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);

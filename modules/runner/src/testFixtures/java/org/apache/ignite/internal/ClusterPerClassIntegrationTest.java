@@ -192,8 +192,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     void stopCluster() {
         CLUSTER.shutdown();
 
-        MicronautCleanup.removeShutdownHooks();
-
         TestMvTableStorage.resetPartitionStorageFactory();
     }
 
@@ -460,7 +458,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
     public static List<List<Object>> sql(String sql, Object... args) {
-        return sql(null, sql, args);
+        return sql((Transaction) null, sql, args);
     }
 
     /**
@@ -473,6 +471,17 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     public static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
         return sql(nodeIndex, null, sql, args);
+    }
+
+    /**
+     * Run SQL on given Ignite instance with given parameters.
+     *
+     * @param node Ignite instance to run a query.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(Ignite node, String sql, Object... args) {
+        return sql(node, null, null, null, sql, args);
     }
 
     /**

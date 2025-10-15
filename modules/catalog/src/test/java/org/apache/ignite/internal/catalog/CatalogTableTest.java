@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.lang.Double.compare;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
@@ -73,9 +74,11 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.AlterTableSetPropertyCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -102,6 +105,8 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -177,6 +182,60 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertEquals(0, table.columnIndex("key1"));
         assertEquals(1, table.columnIndex("key2"));
+    }
+
+    @Test
+    public void testCreateTableWithNamedPk() {
+        long timePriorToTableCreation = clock.nowLong();
+        String expectedName = "CUSTOM_PK_NAME";
+
+        CatalogCommand command = CreateTableCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(SCHEMA_NAME)
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(expectedName)
+                        .columns(List.of("key1", "key2"))
+                        .build())
+                .colocationColumns(List.of("key2"))
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        // Validate catalog version from the past.
+        Catalog catalog = manager.activeCatalog(timePriorToTableCreation);
+
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
+
+        assertNotNull(schema);
+        assertNull(schema.table(TABLE_NAME));
+        assertNull(schema.aliveIndex(expectedName));
+
+        assertNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, expectedName));
+
+        // Validate actual catalog
+        catalog = manager.activeCatalog(clock.nowLong());
+
+        schema = catalog.schema(SCHEMA_NAME);
+        CatalogTableDescriptor table = schema.table(TABLE_NAME);
+
+        // There should be no index with default name.
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+
+        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.aliveIndex(expectedName);
+
+        assertSame(pkIndex, catalog.aliveIndex(SCHEMA_NAME, expectedName));
+        assertSame(pkIndex, catalog.index(pkIndex.id()));
+
+        // Validate newly created pk index
+        assertEquals(expectedName, pkIndex.name());
+        assertEquals(table.id(), pkIndex.tableId());
+        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertTrue(pkIndex.unique());
+        assertTrue(pkIndex.isCreatedWithTable());
+        assertEquals(AVAILABLE, pkIndex.status());
     }
 
     @Test
@@ -517,8 +576,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(table(prevVersion, TABLE_NAME_2), is(nullValue()));
         assertThat(table(curVersion, TABLE_NAME), is(nullValue()));
 
-        assertThat(curDescriptor.tableVersion(), is(prevDescriptor.tableVersion() + 1));
-
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
@@ -526,6 +583,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
+        assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));
     }
 
     @Test
@@ -556,7 +614,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     @Test
@@ -565,7 +623,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(1));
+        assertThat(table.latestSchemaVersion(), is(1));
     }
 
     @Test
@@ -576,7 +634,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     @Test
@@ -665,7 +723,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     /**
@@ -1180,6 +1238,160 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertThat(catalog.tables(zoneDescriptor.id()), hasSize(1));
         assertThat(catalog.tables(zoneDescriptor.id()).stream().map(d -> d.id()).collect(toList()), hasItem(customTableId));
+    }
+
+    @Test
+    void createTableWithStalenessConfiguration() {
+        {
+            CatalogCommand tableCmdWithDefault = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "defaults",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+        }
+
+        {
+            CatalogCommand tableCmdWithOnlyRowFraction = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "stale_rows",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .staleRowsFraction(0.8)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithOnlyRowFraction);
+        }
+
+        {
+            CatalogCommand tableCmdWithOnlyMinRowCount = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "min_rows",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .minStaleRowsCount(2000L)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithOnlyMinRowCount);
+        }
+
+        {
+            CatalogCommand tableCmdWithEverything = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "everything",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .minStaleRowsCount(4000L)
+                    .staleRowsFraction(0.5)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithEverything);
+        }
+
+        assertThat(manager.catalog(manager.latestCatalogVersion()).tables(), hasItems(
+                tableThatSatisfies("table with stale rows conf that matches defaults", d -> 
+                        "defaults".equals(d.name())
+                                && d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
+                tableThatSatisfies("table with non-default stale rows fraction conf", d ->
+                        "stale_rows".equals(d.name())
+                                && d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                && compare(d.properties().staleRowsFraction(), 0.8) == 0),
+                tableThatSatisfies("table with non-default min stale rows conf", d ->
+                        "min_rows".equals(d.name())
+                                && d.properties().minStaleRowsCount() == 2000L
+                                && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
+                tableThatSatisfies("table with non-deafult stale rows con", d ->
+                        "everything".equals(d.name())
+                                && d.properties().minStaleRowsCount() == 4000L
+                                && compare(d.properties().staleRowsFraction(), 0.5) == 0)
+        ));
+    }
+
+    @Test
+    void alterTableStalenessConfiguration() {
+        { // create table with default row staleness configuration
+            CatalogCommand tableCmdWithDefault = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    TABLE_NAME,
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
+            );
+        }
+
+        { // let's change row fraction first
+            CatalogCommand tableCmdWithDefault = AlterTableSetPropertyCommand.builder()
+                    .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .staleRowsFraction(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
+            );
+        }
+
+        { // now let's change min rows count
+            CatalogCommand tableCmdWithDefault = AlterTableSetPropertyCommand.builder()
+                    .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .minStaleRowsCount(CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT * 2)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT * 2
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
+            );
+        }
+
+        { // finally, let's change both back to defaults
+            CatalogCommand tableCmdWithDefault = AlterTableSetPropertyCommand.builder()
+                    .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .minStaleRowsCount(CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT)
+                    .staleRowsFraction(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
+            );
+        }
+    }
+
+    private static BaseMatcher<CatalogTableDescriptor> tableThatSatisfies(String description, Predicate<CatalogTableDescriptor> predicate) {
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object o) {
+                return o instanceof CatalogTableDescriptor && predicate.test((CatalogTableDescriptor) o);
+            }
+
+            @Override
+            public void describeTo(Description description0) {
+                description0.appendText(description);
+            }
+        };
     }
 
     private CompletableFuture<CatalogApplyResult> changeColumn(

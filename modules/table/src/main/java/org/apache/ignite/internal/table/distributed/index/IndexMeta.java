@@ -94,7 +94,7 @@ public class IndexMeta {
                 catalog.version(),
                 catalogIndexDescriptor.id(),
                 catalogIndexDescriptor.tableId(),
-                catalogTableDescriptor.tableVersion(),
+                catalogTableDescriptor.latestSchemaVersion(),
                 catalogIndexDescriptor.name(),
                 MetaIndexStatus.convert(catalogIndexDescriptor.status()),
                 Map.of(

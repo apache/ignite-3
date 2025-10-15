@@ -20,9 +20,9 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,6 +36,11 @@ import org.jetbrains.annotations.Nullable;
  */
 class SegmentFile implements ManuallyCloseable {
     /**
+     * Byte order of the buffers used by {@link WriteBuffer#buffer}.
+     */
+    static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
+
+    /**
      * Special value that, when stored in {@link #bufferPosition}, means that the file is closed.
      */
     private static final int CLOSED_POS_MARKER = -1;
@@ -46,17 +51,14 @@ class SegmentFile implements ManuallyCloseable {
 
     private final AtomicInteger numWriters = new AtomicInteger();
 
-    SegmentFile(Path path, long fileSize, long position) throws IOException {
+    private SegmentFile(RandomAccessFile file) throws IOException {
+        //noinspection ChannelOpenedButNotSafelyClosed
+        buffer = file.getChannel().map(MapMode.READ_WRITE, 0, file.length());
+    }
+
+    static SegmentFile createNew(Path path, long fileSize) throws IOException {
         if (fileSize < 0) {
             throw new IllegalArgumentException("File size is negative: " + fileSize);
-        }
-
-        if (position < 0) {
-            throw new IllegalArgumentException("Position is negative: " + position);
-        }
-
-        if (position >= fileSize) {
-            throw new IllegalArgumentException("Position is greater than file size: " + position + ", fileSize: " + fileSize);
         }
 
         // FIXME: remove this limitation and replace the check with MAX_UNSIGNED_INT,
@@ -65,29 +67,25 @@ class SegmentFile implements ManuallyCloseable {
             throw new IllegalArgumentException("File size is too big: " + fileSize);
         }
 
-        try (RandomAccessFile file = openFile(path, fileSize, position)) {
-            //noinspection ChannelOpenedButNotSafelyClosed
-            buffer = file.getChannel().map(MapMode.READ_WRITE, position, fileSize - position);
+        try (var file = new RandomAccessFile(path.toFile(), "rw")) {
+            file.setLength(fileSize);
+
+            return new SegmentFile(file);
         }
     }
 
-    private static RandomAccessFile openFile(Path path, long fileSize, long position) throws IOException {
-        if (position != 0) {
-            // Segment file already exists and has some data in it.
-            return new RandomAccessFile(path.toFile(), "rw");
+    static SegmentFile openExisting(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            throw new IllegalArgumentException("File does not exist: " + path);
         }
 
-        try {
-            Files.createFile(path);
-        } catch (FileAlreadyExistsException ignored) {
-            // No-op.
+        try (var file = new RandomAccessFile(path.toFile(), "rw")) {
+            return new SegmentFile(file);
         }
+    }
 
-        var file = new RandomAccessFile(path.toFile(), "rw");
-
-        file.setLength(fileSize);
-
-        return file;
+    ByteBuffer buffer() {
+        return buffer.duplicate().order(BYTE_ORDER);
     }
 
     class WriteBuffer implements AutoCloseable {
@@ -165,6 +163,10 @@ class SegmentFile implements ManuallyCloseable {
         }
     }
 
+    void sync() {
+        buffer.force();
+    }
+
     private @Nullable ByteBuffer reserveBytes(int size) {
         while (true) {
             int pos = bufferPosition.get();
@@ -186,6 +188,8 @@ class SegmentFile implements ManuallyCloseable {
     }
 
     private ByteBuffer slice(int pos, int size) {
-        return buffer.duplicate().position(pos).limit(pos + size);
+        return buffer()
+                .position(pos)
+                .limit(pos + size);
     }
 }
