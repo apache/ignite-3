@@ -826,22 +826,26 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Evaluates the multi-row request to the cluster for a read-only single-partition implicit transaction.
      *
-     * @param rows Rows.
-     * @param op Replica requests factory.
+     * @param keyRows Rows with keys.
      * @param <R> Result type.
      * @return The future.
      */
-    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
-            Collection<BinaryRowEx> rows,
-            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
-    ) {
+    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(Collection<BinaryRowEx> keyRows) {
         InternalTransaction actualTx = txManager.beginImplicitRo(observableTimestampTracker);
 
-        int partId = partitionId(rows.iterator().next());
+        int partId = partitionId(keyRows.iterator().next());
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
-        return sendReadOnlyToPrimaryReplica(actualTx, replicationGroupId, op);
+        return sendReadOnlyToPrimaryReplica(actualTx, replicationGroupId,
+                (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
+                        .groupId(serializeReplicationGroupId(groupId))
+                        .tableId(tableId)
+                        .enlistmentConsistencyToken(consistencyToken)
+                        .schemaVersion(keyRows.iterator().next().schemaVersion())
+                        .primaryKeys(serializeBinaryTuples(keyRows))
+                        .requestType(RO_GET_ALL)
+                        .build());
     }
 
     /**
@@ -1019,21 +1023,15 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx == null && isSinglePartitionBatch(keyRows)) {
-            return evaluateReadOnlyPrimaryNode(
-                    keyRows,
-                    (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
-                            .groupId(serializeReplicationGroupId(groupId))
-                            .tableId(tableId)
-                            .enlistmentConsistencyToken(consistencyToken)
-                            .schemaVersion(keyRows.iterator().next().schemaVersion())
-                            .primaryKeys(serializeBinaryTuples(keyRows))
-                            .requestType(RO_GET_ALL)
-                            .build()
-            );
+            // Embedded batch request.
+            return evaluateReadOnlyPrimaryNode(keyRows);
         }
 
         if (tx != null && tx.isReadOnly()) {
-            assert !tx.implicit() : "implicit RO getAll not supported";
+            if (tx.implicit()) {
+                // Batch from a client TODO validate batch in partition
+                return evaluateReadOnlyPrimaryNode(keyRows);
+            }
 
             return getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), null);
         }

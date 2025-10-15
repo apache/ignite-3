@@ -121,10 +121,6 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                     tx);
         };
 
-        if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
-        }
-
         return tbl.split(tx, keys, clo, new HashMap<>(),
                 (agg, cur) -> {
                     agg.putAll(cur);

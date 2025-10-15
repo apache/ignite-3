@@ -770,8 +770,6 @@ public class ClientTable implements Table {
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
-        assert tx != null;
-
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
 
