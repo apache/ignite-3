@@ -1003,12 +1003,22 @@ namespace Apache.Ignite.Internal
         {
             lock (_disposeLock)
             {
+                // State check.
                 if (_disposeTokenSource.IsCancellationRequested)
                 {
                     return;
                 }
 
                 _disposeTokenSource.Cancel();
+
+                // Actual dispose.
+                _heartbeatTimer.Dispose();
+                _stream.Dispose();
+
+                // Metrics and logging.
+                _exception = ex;
+
+                Metrics.ConnectionsActiveDecrement();
 
                 if (ex != null)
                 {
@@ -1025,12 +1035,6 @@ namespace Apache.Ignite.Internal
                 {
                     _logger.LogConnectionClosedGracefullyDebug(ConnectionContext.ClusterNode.Address);
                 }
-
-                _heartbeatTimer.Dispose();
-                _exception = ex;
-                _stream.Dispose();
-
-                Metrics.ConnectionsActiveDecrement();
 
                 ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
 
