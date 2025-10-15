@@ -790,14 +790,6 @@ SqlNumericLiteral UnsignedIntegerLiteral() :
     }
 }
 
-SqlNumericLiteral ApproxNumericLiteral() :
-{ }
-{
-    <APPROX_NUMERIC_LITERAL> {
-        return SqlLiteral.createApproxNumeric(token.image, getPos());
-    }
-}
-
 SqlNodeList CreateZoneOptionList() :
 {
     List<SqlNode> list = new ArrayList<SqlNode>();
