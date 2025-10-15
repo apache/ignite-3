@@ -74,8 +74,8 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Cluster of nodes. Can be started with nodes of previous Ignite versions running in the external processes or in the embedded mode using
- * current sources.
+ * Cluster of nodes. Can be started with nodes of previous Ignite versions running in the external processes or in the embedded mode
+ * using current sources.
  */
 public class IgniteCluster {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteCluster.class);
@@ -104,8 +104,8 @@ public class IgniteCluster {
      *
      * @param igniteVersion Ignite version to run the nodes with.
      * @param nodesCount Number of nodes in the cluster.
-     * @param extraIgniteModuleIds Gradle dependency id notation of the extra dependencies that should be loaded together with
-     *         requested ignite version.
+     * @param extraIgniteModuleIds Gradle dependency id notation of the extra dependencies
+     *                             that should be loaded together with requested ignite version.
      */
     public void start(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
         if (started) {
@@ -200,7 +200,7 @@ public class IgniteCluster {
      * Initializes the cluster using REST API on the first node with default settings.
      */
     void init(Consumer<InitParametersBuilder> initParametersConfigurator) {
-        init(new int[]{0}, initParametersConfigurator);
+        init(new int[] { 0 }, initParametersConfigurator);
     }
 
     /**
