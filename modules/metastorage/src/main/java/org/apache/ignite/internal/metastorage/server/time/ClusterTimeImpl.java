@@ -261,11 +261,11 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                 syncTimeAction.syncTime(clock.now())
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                if (!hasCause(e, NodeStoppingException.class, TimeoutException.class)) {
-                                    failureProcessor.process(new FailureContext(e, "Unable to perform idle time sync"));
-                                }
+                                // We don't invoke FH on timeout, because it can happen when meta storage loses majority.
                                 if (hasCause(e, TimeoutException.class)) {
                                     throttledLogger.warn("Unable to perform idle time sync because of timeout on meta storage service.");
+                                } else if (!hasCause(e, NodeStoppingException.class)) {
+                                    failureProcessor.process(new FailureContext(e, "Unable to perform idle time sync"));
                                 }
                             }
                         });
