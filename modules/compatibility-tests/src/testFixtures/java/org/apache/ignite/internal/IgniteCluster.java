@@ -348,31 +348,6 @@ public class IgniteCluster {
         return new ServerRegistration(node, registrationFuture);
     }
 
-    private static ProjectConnection getProjectConnection() {
-        return GradleConnector.newConnector()
-                .forProjectDirectory(getProjectRoot())
-                .connect();
-    }
-
-    private static File getJavaHome(ProjectConnection connection) {
-        BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
-
-        return environment.getJava().getJavaHome();
-    }
-
-    private static File getArgsFile(ProjectConnection connection, String igniteVersion, List<String> extraIgniteModuleIds)
-            throws IOException {
-        Set<String> dependencyIds = new HashSet<>();
-        dependencyIds.add(IGNITE_RUNNER_DEPENDENCY_ID);
-        dependencyIds.addAll(extraIgniteModuleIds);
-
-        String dependenciesListNotation = dependencyIds.stream()
-                .map(dependency -> dependency + ":" + igniteVersion)
-                .collect(joining(","));
-
-        return constructArgFile(connection, dependenciesListNotation, false);
-    }
-
     private void startRunnerNodes(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
         try (ProjectConnection connection = getProjectConnection()) {
             File javaHome = getJavaHome(connection);
@@ -457,5 +432,30 @@ public class IgniteCluster {
                 nodeName,
                 nodeIndex
         );
+    }
+
+    private static ProjectConnection getProjectConnection() {
+        return GradleConnector.newConnector()
+                .forProjectDirectory(getProjectRoot())
+                .connect();
+    }
+
+    private static File getJavaHome(ProjectConnection connection) {
+        BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
+
+        return environment.getJava().getJavaHome();
+    }
+
+    private static File getArgsFile(ProjectConnection connection, String igniteVersion, List<String> extraIgniteModuleIds)
+            throws IOException {
+        Set<String> dependencyIds = new HashSet<>();
+        dependencyIds.add(IGNITE_RUNNER_DEPENDENCY_ID);
+        dependencyIds.addAll(extraIgniteModuleIds);
+
+        String dependenciesListNotation = dependencyIds.stream()
+                .map(dependency -> dependency + ":" + igniteVersion)
+                .collect(joining(","));
+
+        return constructArgFile(connection, dependenciesListNotation, false);
     }
 }
