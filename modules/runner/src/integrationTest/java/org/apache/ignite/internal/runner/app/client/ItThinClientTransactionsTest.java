@@ -856,6 +856,34 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testImplicitDirectMapping() {
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(600, 50, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples1 = generateKeysForNode(610, 50, map, server1.cluster().localNode(), table);
+
+        Map<Tuple, Tuple> batch = new HashMap<>();
+
+        for (Tuple tup : tuples0) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        for (Tuple tup : tuples1) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        KeyValueView<Tuple, Tuple> view = table.keyValueView();
+        view.putAll(null, batch);
+
+        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
+    }
+
+    @Test
     void testBatchScenarioWithNoopEnlistmentExplicit() {
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
 
