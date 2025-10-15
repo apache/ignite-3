@@ -218,7 +218,7 @@ import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.SizeSupplier;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.SizeSupplier;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -3210,7 +3210,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void registerPartitionModificationCounterMetrics(
             TableViewInternal table,
             int partitionId,
-            PartitionModificationCounter counter
+            PartitionModificationCounterHandler counterHandler
     ) {
         PartitionModificationCounterMetricSource metricSource =
                 new PartitionModificationCounterMetricSource(table.tableId(), partitionId);

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table.distributed;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.SizeSupplier;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.StalenessConfigurationSupplier;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.SizeSupplier;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.StalenessConfigurationSupplier;
 
 /**
  * Keeps track of the number of modifications of a partition.

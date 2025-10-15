@@ -25,6 +25,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.SizeSupplier;
 import org.jetbrains.annotations.Nullable;
 
 /** Partition modification handler. */
@@ -32,7 +33,7 @@ public class PartitionModificationCounterHandler {
     private final PartitionModificationCounter modificationCounter;
     private final int tableId;
     private final int partitionId;
-    private final LongSupplier partitionSizeSupplier;
+    private final SizeSupplier partitionSizeSupplier;
     private final MessagingService messagingService;
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
@@ -42,7 +43,7 @@ public class PartitionModificationCounterHandler {
             int tableId,
             int partitionId,
             MessagingService messagingService,
-            LongSupplier partitionSizeSupplier,
+            SizeSupplier partitionSizeSupplier,
             PartitionModificationCounter modificationCounter
     ) {
         this.modificationCounter = modificationCounter;
@@ -71,7 +72,7 @@ public class PartitionModificationCounterHandler {
             messagingService.respond(
                     sender,
                     PARTITION_REPLICATION_MESSAGES_FACTORY
-                            .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(partitionSizeSupplier.getAsLong())
+                            .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(partitionSizeSupplier.get())
                             .lastModified(lastMilestoneTimestamp()).build(),
                     correlationId
             );
