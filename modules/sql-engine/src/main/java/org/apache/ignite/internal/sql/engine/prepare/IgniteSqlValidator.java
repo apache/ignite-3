@@ -1510,7 +1510,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         if (isUnspecified(dynamicParam)) {
             throw new IllegalArgumentException(format("Value of dynamic parameter#{} is not specified", paramIndex));
         } else {
-            return dynamicParameters.get(paramIndex).relType;
+            return dynamicParameters.get(paramIndex).colType;
         }
     }
 

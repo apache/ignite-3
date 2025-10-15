@@ -360,7 +360,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                 columnType = type.spec();
             } else {
-                columnType = ColumnType.NULL;
+                columnType = null;
             }
             paramTypes[idx++] = columnType;
         }
