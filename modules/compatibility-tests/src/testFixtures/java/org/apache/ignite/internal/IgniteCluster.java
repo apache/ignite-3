@@ -306,7 +306,6 @@ public class IgniteCluster {
      * @param testInfo Test info.
      * @param nodeIndex Index of the node to start.
      * @param nodesCount the total number of nodes in the cluster.
-     *
      * @return Server registration and future that completes when the node is fully started and joined the cluster.
      */
     public ServerRegistration startEmbeddedNode(
@@ -379,12 +378,12 @@ public class IgniteCluster {
             File javaHome = getJavaHome(connection);
             File argFile = getArgsFile(connection, igniteVersion, extraIgniteModuleIds);
 
-            List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
                 String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
                 String nodeConfig = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
 
-                result.add(RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodeConfig, nodesCount, nodeName));
+                runnerNodes.add(
+                        RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodeConfig, nodesCount, nodeName));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
