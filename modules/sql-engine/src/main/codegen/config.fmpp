@@ -36,8 +36,11 @@ data: {
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableSetProperties",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTableProperty",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTablePropertyKey",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint",
@@ -95,6 +98,8 @@ data: {
       "COMPUTE"
       "MAPPING"
       "WAIT"
+      "STALE"
+      "FRACTION"
     ]
 
     # List of non-reserved keywords to add;
@@ -124,6 +129,8 @@ data: {
       "MAPPING"
       "WAIT"
       "KILL"
+      "STALE"
+      "FRACTION"
 
       # Keywords reserved by Calcite, but not required to be reserved in Ignite.
       "ALLOCATE"
