@@ -86,8 +86,14 @@ public class JdbcConnection2 implements Connection {
     private static final String TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE =
             "Transaction cannot be committed explicitly in auto-commit mode.";
 
+    private static final String COMMIT_REQUEST_FAILED
+            = "The transaction commit request failed.";
+
     private static final String TRANSACTION_CANNOT_BE_ROLLED_BACK_IN_AUTOCOMMIT_MODE =
             "Transaction cannot be rolled back explicitly in auto-commit mode.";
+
+    private static final String ROLLBACK_REQUEST_FAILED
+            = "The transaction rollback request failed.";
 
     private static final String CANNOT_SET_TRANSACTION_NONE =
             "Cannot set transaction isolation level to TRANSACTION_NONE.";
@@ -270,23 +276,35 @@ public class JdbcConnection2 implements Connection {
         }
     }
 
-    private void finishTx(boolean commit) throws SQLException {
-        try {
-            Transaction tx = this.transaction;
-            if (tx == null) {
-                return;
-            }
-            // Null out the transaction first.
-            this.transaction = null;
+    private void commitTx() throws SQLException {
+        Transaction tx = transaction;
+        if (tx == null) {
+            throw new SQLException(NO_TRANSACTION_TO_COMMIT);
+        }
 
-            if (commit) {
-                tx.commit();
-            } else {
-                tx.rollback();
-            }
+        // Null out the transaction first.
+        transaction = null;
+
+        try {
+            tx.commit();
         } catch (Exception e) {
-            String error = "The transaction " + (commit ? "commit" : "rollback") + " request failed.";
-            throw new SQLException(error, IgniteExceptionMapperUtil.mapToPublicException(e));
+            throw new SQLException(COMMIT_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(e));
+        }
+    }
+
+    private void rollbackTx() throws SQLException {
+        Transaction tx = transaction;
+        if (tx == null) {
+            throw new SQLException(NO_TRANSACTION_TO_ROLLBACK);
+        }
+
+        // Null out the transaction first.
+        transaction = null;
+
+        try {
+            tx.rollback();
+        } catch (Exception e) {
+            throw new SQLException(ROLLBACK_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(e));
         }
     }
 
@@ -304,8 +322,8 @@ public class JdbcConnection2 implements Connection {
         // Autocommit should be changed even if commit fails.
         this.autoCommit = autoCommit;
         // If this method is called during a transaction and the auto-commit mode is changed, the transaction is committed.
-        if (!wasAutoCommit) {
-            finishTx(true);
+        if (!wasAutoCommit && transaction != null) {
+            commitTx();
         }
     }
 
@@ -324,12 +342,9 @@ public class JdbcConnection2 implements Connection {
 
         if (autoCommit) {
             throw new SQLException(TRANSACTION_CANNOT_BE_COMMITED_IN_AUTOCOMMIT_MODE);
-        } else {
-            if (transaction == null) {
-                throw new SQLException(NO_TRANSACTION_TO_COMMIT);
-            }
-            finishTx(true);
         }
+
+        commitTx();
     }
 
     /** {@inheritDoc} */
@@ -339,12 +354,9 @@ public class JdbcConnection2 implements Connection {
 
         if (autoCommit) {
             throw new SQLException(TRANSACTION_CANNOT_BE_ROLLED_BACK_IN_AUTOCOMMIT_MODE);
-        } else {
-            if (transaction == null) {
-                throw new SQLException(NO_TRANSACTION_TO_ROLLBACK);
-            }
-            finishTx(false);
         }
+
+        rollbackTx();
     }
 
     /** {@inheritDoc} */
@@ -374,8 +386,8 @@ public class JdbcConnection2 implements Connection {
 
         boolean wasAutoCommit = this.autoCommit;
         // Rollback on close
-        if (!wasAutoCommit) {
-            finishTx(false);
+        if (!wasAutoCommit && transaction != null) {
+            rollbackTx();
         }
 
         lock.lock();
