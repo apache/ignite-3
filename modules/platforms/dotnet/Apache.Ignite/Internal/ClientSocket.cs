@@ -165,6 +165,11 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Finalizes an instance of the <see cref="ClientSocket"/> class.
+        /// </summary>
+        ~ClientSocket() => Dispose();
+
+        /// <summary>
         /// Gets a value indicating whether this socket is disposed.
         /// </summary>
         public bool IsDisposed => _disposeTokenSource.IsCancellationRequested;
@@ -298,6 +303,8 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
+
             Dispose(null);
         }
 
