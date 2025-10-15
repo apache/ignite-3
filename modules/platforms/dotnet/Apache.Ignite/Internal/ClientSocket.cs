@@ -298,6 +298,7 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         public void Dispose()
         {
+            // There is no finalizer because _heartbeatTimer holds a reference to this instance.
             Dispose(null);
         }
 
