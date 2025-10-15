@@ -86,11 +86,23 @@ def replaceVars = tasks.register('replaceVars', Copy) {
     into "$buildDir/docker"
 }
 
-ext.docker_image_name = "apacheignite/ignite"
+ext.docker_image_name = "apacheignite/ignite:${project.projectVersion.toString()}"
 
 docker {
     name project.docker_image_name
     dockerfile file('docker/Dockerfile')
+
+    if (project.hasProperty('target_platform')) {
+        platform project.properties["target_platform"]
+        buildx true
+    }
+
+    if (project.hasProperty('docker_push')) {
+        load false
+        push true
+    } else {
+        load true
+    }
 
     copySpec.into 'dist', {
         into('') {
