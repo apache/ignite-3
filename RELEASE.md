@@ -72,7 +72,7 @@ For all the commands going forward:
    rm -rf {dist.dev}/{version}-rc{rc}
    mkdir {dist.dev}/{version}-rc{rc}
    ```
-11. Create ZIP, DEB, RPM packages, .NET and C++ client, sign them and create checksums:
+11. Create ZIP, DEB, RPM packages, .NET, Java and C++ client, sign them and create checksums:
    ```
    ./gradlew -PprepareRelease prepareRelease -Pplatforms.enable
    ```
