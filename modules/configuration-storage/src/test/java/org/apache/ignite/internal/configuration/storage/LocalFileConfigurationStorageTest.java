@@ -637,6 +637,9 @@ public class LocalFileConfigurationStorageTest {
         public int intVal = 1;
     }
 
+    /**
+     * Polymorphic configuration schema.
+     */
     @PolymorphicConfig
     public static class PolyNamedListConfigurationSchema {
         @PolymorphicId
@@ -646,6 +649,9 @@ public class LocalFileConfigurationStorageTest {
         public String name;
     }
 
+    /**
+     * Simple implementation of polymorphic base config.
+     */
     @PolymorphicConfigInstance("first")
     public static class FirstNamedListConfigurationSchema extends PolyNamedListConfigurationSchema {
         @Value(hasDefault = true)
