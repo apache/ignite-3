@@ -216,6 +216,9 @@ class SegmentFileManager implements ManuallyCloseable {
         return readFromOtherSegmentFiles(groupId, logIndex);
     }
 
+    /**
+     * Returns the lowest log index for the given group present in the storage or {@code -1} if no such index exists.
+     */
     long firstLogIndex(long groupId) {
         long logIndexFromMemtable = firstLogIndexFromMemtable(groupId);
 
@@ -242,6 +245,9 @@ class SegmentFileManager implements ManuallyCloseable {
         return segmentInfo == null ? -1 : segmentInfo.firstLogIndex();
     }
 
+    /**
+     * Returns the highest log index for the given group present in the storage or {@code -1} if no such index exists.
+     */
     long lastLogIndex(long groupId) {
         long logIndexFromMemtable = lastLogIndexFromMemtable(groupId);
 

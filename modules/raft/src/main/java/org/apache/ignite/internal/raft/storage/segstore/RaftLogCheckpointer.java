@@ -126,6 +126,9 @@ class RaftLogCheckpointer {
         return null;
     }
 
+    /**
+     * Returns the lowest log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
+     */
     long firstLogIndex(long groupId) {
         Iterator<Entry> it = queue.tailIterator();
 
@@ -142,6 +145,9 @@ class RaftLogCheckpointer {
         return firstIndex;
     }
 
+    /**
+     * Returns the highest log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
+     */
     long lastLogIndex(long groupId) {
         Iterator<Entry> it = queue.tailIterator();
 

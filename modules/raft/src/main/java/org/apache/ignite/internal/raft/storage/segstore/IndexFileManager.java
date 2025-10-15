@@ -189,12 +189,18 @@ class IndexFileManager {
         }
     }
 
+    /**
+     * Returns the lowest log index for the given group across all index files or {@code -1} if no such index exists.
+     */
     long firstLogIndex(long groupId) {
         GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
 
         return groupIndexMeta == null ? -1 : groupIndexMeta.firstLogIndex();
     }
 
+    /**
+     * Returns the highest log index for the given group across all index files or {@code -1} if no such index exists.
+     */
     long lastLogIndex(long groupId) {
         GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
 
