@@ -40,7 +40,11 @@ public class MetricsTests
     private volatile Listener _listener = null!;
 
     [SetUp]
-    public void SetUp() => _listener = new Listener(TestContext.CurrentContext.Test.Name);
+    public void SetUp()
+    {
+        _listener = new Listener(TestContext.CurrentContext.Test.Name);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
+    }
 
     [TearDown]
     public void TearDown()
@@ -369,6 +373,8 @@ public class MetricsTests
 
         private readonly ConcurrentDictionary<string, long> _metricsWithTags = new();
 
+        private readonly int _initialConnectionsActive;
+
         public Listener(string name)
         {
             _name = name;
@@ -385,6 +391,8 @@ public class MetricsTests
             _listener.SetMeasurementEventCallback<long>(Handle);
             _listener.SetMeasurementEventCallback<int>(Handle);
             _listener.Start();
+
+            _initialConnectionsActive = GetMetric(Apache.Ignite.MetricNames.ConnectionsActive);
         }
 
         public ICollection<string> MetricNames => _metrics.Keys;
@@ -392,7 +400,15 @@ public class MetricsTests
         public int GetMetric(string name)
         {
             _listener.RecordObservableInstruments();
-            return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
+
+            var res = _metrics.TryGetValue(name, out var val)
+                ? (int)val
+                : 0;
+
+            // Workaround for initial connections active not being zero.
+            return name == Apache.Ignite.MetricNames.ConnectionsActive
+                ? res - _initialConnectionsActive
+                : res;
         }
 
         public int GetTaggedMetric(string name, string nodeAddr, Guid? clientId)
