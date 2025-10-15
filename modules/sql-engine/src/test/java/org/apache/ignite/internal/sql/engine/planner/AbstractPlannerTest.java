@@ -258,8 +258,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         for (int i = 0; i < params.size(); i++) {
             Object value = params.get(i);
             if (value != Unspecified.UNKNOWN) {
-                NativeType type = NativeTypes.fromObject(value);
-                dynamicParamTypes.put(i, type == null ? null : type.spec());
+                if (value.getClass() == Character.class) {
+                    dynamicParamTypes.put(i, ColumnType.STRING);
+                } else {
+                    NativeType type = NativeTypes.fromObject(value);
+                    dynamicParamTypes.put(i, type == null ? null : type.spec());
+                }
             }
         }
 
