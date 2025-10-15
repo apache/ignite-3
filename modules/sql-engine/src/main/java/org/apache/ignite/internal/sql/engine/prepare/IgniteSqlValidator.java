@@ -1575,7 +1575,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     private static final class DynamicParamState {
 
-        final ColumnType relType;
+        final ColumnType colType;
 
         final boolean hasType;
 
@@ -1592,13 +1592,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
          */
         RelDataType resolvedType;
 
-        private DynamicParamState(@Nullable ColumnType relType) {
-            this.relType = relType;
+        private DynamicParamState(@Nullable ColumnType colType) {
+            this.colType = colType;
             this.hasType = true;
         }
 
         private DynamicParamState() {
-            this.relType = null;
+            this.colType = null;
             this.hasType = false;
         }
     }
