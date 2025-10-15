@@ -50,12 +50,18 @@ import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
+import org.apache.ignite.internal.configuration.hocon.HoconConverter;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -85,7 +91,11 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeAll
     public static void beforeAll() {
-        treeGenerator = new ConfigurationTreeGenerator(TopConfiguration.KEY, TopEmptyConfiguration.KEY);
+        treeGenerator = new ConfigurationTreeGenerator(
+                List.of(TopConfiguration.KEY, TopEmptyConfiguration.KEY),
+                List.of(),
+                List.of(FirstNamedListConfigurationSchema.class)
+        );
     }
 
     @AfterAll
@@ -545,6 +555,28 @@ public class LocalFileConfigurationStorageTest {
         assertThat(storage.write(Map.of(), storage.localRevision().get() + 1), willCompleteSuccessfully());
     }
 
+    @Test
+    void updateAfterRestart() throws Exception {
+        assertThat(configFileContent(), emptyString());
+
+        // Initialize value
+        com.typesafe.config.Config config = ConfigFactory.parseString("top.polyNamedList = [{name=name1,strVal=foo,type=first}]");
+        ConfigurationSource source = HoconConverter.hoconSource(config.root());
+
+        changer.start();
+        assertThat(changer.change(source), willCompleteSuccessfully());
+
+        // Force restart of the storage
+        after();
+        before();
+
+        config = ConfigFactory.parseString("top.polyNamedList.name1.strVal=strVal1");
+        source = HoconConverter.hoconSource(config.root());
+
+        changer.start();
+        assertThat(changer.change(source), willCompleteSuccessfully());
+    }
+
     private String configFileContent() throws IOException {
         return Files.readString(getConfigFile());
     }
@@ -569,6 +601,9 @@ public class LocalFileConfigurationStorageTest {
         @Deprecated
         @Value(hasDefault = true)
         public int deprecated = 0;
+
+        @NamedConfigValue
+        public PolyNamedListConfigurationSchema polyNamedList;
     }
 
 
@@ -600,5 +635,26 @@ public class LocalFileConfigurationStorageTest {
 
         @Value(hasDefault = true)
         public int intVal = 1;
+    }
+
+    /**
+     * Polymorphic configuration schema.
+     */
+    @PolymorphicConfig
+    public static class PolyNamedListConfigurationSchema {
+        @PolymorphicId
+        public String type;
+
+        @InjectedName
+        public String name;
+    }
+
+    /**
+     * Simple implementation of polymorphic base config.
+     */
+    @PolymorphicConfigInstance("first")
+    public static class FirstNamedListConfigurationSchema extends PolyNamedListConfigurationSchema {
+        @Value(hasDefault = true)
+        public String strVal = "foo";
     }
 }
