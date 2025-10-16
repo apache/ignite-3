@@ -1433,8 +1433,8 @@ public class IgniteUtils {
      * Creates a comparator of lists that compares them lexicographically using the provided comparator for list elements.
      *
      * @param comparator Comparator for list elements.
-     * @return Comparator of lists.
      * @param <T> Type of list's elements.
+     * @return Comparator of lists.
      */
     public static <T> Comparator<List<T>> lexicographicListComparator(Comparator<? super T> comparator) {
         return (l, r) -> {

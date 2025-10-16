@@ -57,6 +57,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     @Nullable
     private final PartialBinaryTupleMatcher partialBinaryTupleMatcher;
 
+    @Nullable
     private JitComparator jitComparator;
 
     /** Inline size in bytes. */
@@ -88,7 +89,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             long metaPageId,
             @Nullable ReuseList reuseList,
             StorageSortedIndexDescriptor indexDescriptor,
-            JitComparator jitComparator,
+            @Nullable JitComparator jitComparator,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super("SortedIndexTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
