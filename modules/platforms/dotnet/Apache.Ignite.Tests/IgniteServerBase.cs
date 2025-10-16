@@ -186,7 +186,7 @@ public abstract class IgniteServerBase : IDisposable
 
             if (DropNewConnections)
             {
-                handler.Disconnect(true);
+                await handler.DisconnectAsync(true);
                 handler.Dispose();
 
                 continue;
