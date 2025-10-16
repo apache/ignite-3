@@ -35,15 +35,15 @@ Install the Apache Ignite 3 packages:
 tab:deb[]
 [source, shell, subs="attributes,specialchars"]
 ----
-sudo apt-get install ./ignite3-db-{version}.deb --no-install-recommends
-sudo apt-get install ./ignite3-cli-{version}.deb --no-install-recommends
+sudo apt-get install ./ignite3-db-3.1.0.deb --no-install-recommends
+sudo apt-get install ./ignite3-cli-3.1.0.deb --no-install-recommends
 ----
 
 tab:RPM[]
 [source,shell, subs="attributes,specialchars"]
 ----
-sudo rpm -i ignite3-db-{version}.noarch.rpm
-sudo rpm -i ignite3-cli-{version}.noarch.rpm
+sudo rpm -i ignite3-db-3.1.0.noarch.rpm
+sudo rpm -i ignite3-cli-3.1.0.noarch.rpm
 ----
 --
 
