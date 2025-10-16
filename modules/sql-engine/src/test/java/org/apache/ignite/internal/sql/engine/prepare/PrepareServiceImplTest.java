@@ -764,7 +764,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                     .map(PreparedPlan::timestamp)
                     .collect(Collectors.toSet());
 
-            assertEquals(2, timestamps.size(), "Plan should have different timestamps: " + timestamps);
+            assertEquals(2, timestamps.size(), "Plans should have different timestamps: " + timestamps);
         }
     }
 
