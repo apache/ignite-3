@@ -93,10 +93,10 @@ public class ReconnectTests
 
         var cfg = new IgniteClientConfiguration
         {
-            // HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            // ReconnectInterval = TimeSpan.FromMilliseconds(300),
             // SocketTimeout = TimeSpan.FromSeconds(1),
             // OperationTimeout = TimeSpan.FromSeconds(1),
+            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
+            ReconnectInterval = TimeSpan.FromMilliseconds(300),
             LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 

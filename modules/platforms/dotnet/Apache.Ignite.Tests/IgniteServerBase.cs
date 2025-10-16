@@ -48,7 +48,7 @@ public abstract class IgniteServerBase : IDisposable
         _listener.NoDelay = true;
 
         _listener.Bind(new IPEndPoint(IPAddress.Any, port));
-        _listener.Listen(backlog: 1);
+        _listener.Listen();
 
         Name = TestContext.CurrentContext.Test.Name;
 
