@@ -65,8 +65,10 @@ public final class IgniteSystemProperties {
      *
      * <p>Do not use in production code (apart from {@link NodeProperties} implementations). If a component needs colocation status,
      * it should get one from {@link NodeProperties}.
+     *
+     * @deprecated Non-colocation mode is planned to be removed in version 3.2.
      */
-    @Deprecated
+    @Deprecated(since = "3.1", forRemoval = true)
     public static boolean colocationEnabled() {
         return getBoolean(COLOCATION_FEATURE_FLAG, true);
     }
