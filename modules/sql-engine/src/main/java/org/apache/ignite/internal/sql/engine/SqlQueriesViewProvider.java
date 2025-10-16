@@ -43,6 +43,8 @@ import org.jetbrains.annotations.Nullable;
 public class SqlQueriesViewProvider {
     public static final String SCRIPT_QUERY_TYPE = "SCRIPT";
 
+    private static final NativeType TIMESTAMP_TYPE = NativeTypes.timestamp(NativeTypes.MAX_TIME_PRECISION);
+
     private final CompletableFuture<QueryExecutor> queryExecutorFuture = new CompletableFuture<>();
 
     private final CompletableFuture<PrepareService> prepareServiceFuture = new CompletableFuture<>();
@@ -69,8 +71,6 @@ public class SqlQueriesViewProvider {
         NativeType stringType = stringOf(Short.MAX_VALUE);
         NativeType idType = stringOf(36);
 
-        NativeType timestampType = NativeTypes.timestamp(NativeTypes.MAX_TIME_PRECISION);
-
         return SystemViews.<QueryInfo>nodeViewBuilder()
                 .name("SQL_QUERIES")
                 .nodeNameColumnAlias("INITIATOR_NODE")
@@ -79,7 +79,7 @@ public class SqlQueriesViewProvider {
                 .<String>addColumn("QUERY_TYPE", stringOf(10), SqlQueriesViewProvider::deriveQueryType)
                 .<String>addColumn("QUERY_DEFAULT_SCHEMA", stringType, QueryInfo::schema)
                 .<String>addColumn("SQL", stringType, QueryInfo::sql)
-                .<Instant>addColumn("QUERY_START_TIME", timestampType, QueryInfo::startTime)
+                .<Instant>addColumn("QUERY_START_TIME", TIMESTAMP_TYPE, QueryInfo::startTime)
                 .<String>addColumn("TRANSACTION_ID", idType, info -> mapId(info.transactionId()))
                 .<String>addColumn("PARENT_QUERY_ID", idType, info -> mapId(info.parentId()))
                 .<Integer>addColumn("QUERY_STATEMENT_ORDINAL", NativeTypes.INT32, info -> mapStatementNum(info.statementNum()))
@@ -89,7 +89,7 @@ public class SqlQueriesViewProvider {
                 .<String>addColumn("PHASE", stringOf(10), info -> mapPhase(info.phase()))
                 .<String>addColumn("TYPE", stringOf(10), SqlQueriesViewProvider::deriveQueryType)
                 .<String>addColumn("SCHEMA", stringType, QueryInfo::schema)
-                .<Instant>addColumn("START_TIME", timestampType, QueryInfo::startTime)
+                .<Instant>addColumn("START_TIME", TIMESTAMP_TYPE, QueryInfo::startTime)
                 .<String>addColumn("PARENT_ID", idType, info -> mapId(info.parentId()))
                 .<Integer>addColumn("STATEMENT_NUM", NativeTypes.INT32, info -> mapStatementNum(info.statementNum()))
                 // End of legacy columns list. New columns must be added below this line.
@@ -144,9 +144,10 @@ public class SqlQueriesViewProvider {
                 .addColumn("PLAN_ID", NativeTypes.STRING, (v) -> v.queryPlan().id().toString())
                 .addColumn("CATALOG_VERSION", NativeTypes.INT32, PreparedPlan::catalogVersion)
                 .addColumn("QUERY_DEFAULT_SCHEMA", NativeTypes.STRING, PreparedPlan::defaultSchemaName)
-                .addColumn("QUERY_TEXT", NativeTypes.STRING, PreparedPlan::queryText)
+                .addColumn("SQL", NativeTypes.STRING, PreparedPlan::sql)
                 .addColumn("QUERY_TYPE", NativeTypes.STRING, (v) -> mapQueryType(v.queryPlan().type()))
                 .addColumn("QUERY_PLAN", NativeTypes.STRING, (v) -> mapQueryPlan(v.queryPlan()))
+                .addColumn("QUERY_PREPARE_TIME", TIMESTAMP_TYPE, PreparedPlan::timestamp)
                 .dataProvider(viewDataPublisher)
                 .build();
     }

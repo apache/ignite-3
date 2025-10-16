@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
@@ -44,10 +45,13 @@ public class ItCachedQueryPlansSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("NODE_ID").type(ColumnType.STRING).nullable(false),
                         new MetadataMatcher().name("PLAN_ID").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("CATALOG_VERSION").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("DEFAULT_SCHEMA").type(ColumnType.STRING).nullable(true),
-                        new MetadataMatcher().name("QUERY_TEXT").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("QUERY_DEFAULT_SCHEMA").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("SQL").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("QUERY_TYPE").type(ColumnType.STRING).nullable(true),
-                        new MetadataMatcher().name("QUERY_PLAN").type(ColumnType.STRING).nullable(true))
+                        new MetadataMatcher().name("QUERY_PLAN").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("QUERY_PREPARE_TIME").type(ColumnType.TIMESTAMP)
+                                .precision(NativeTypes.MAX_TIME_PRECISION).nullable(true)
+                )
                 .check();
     }
 
@@ -75,11 +79,11 @@ public class ItCachedQueryPlansSystemViewTest extends AbstractSystemViewTest {
         String node2 = node(1).name();
 
         String selectCachedQueries = "SELECT "
-                + "node_id, catalog_version, default_schema, query_text, query_type, query_plan "
+                + "node_id, catalog_version, query_default_schema, sql, query_type, query_plan "
                 + "FROM system.sql_cached_query_plans "
                 // exclude this query out the result.
-                + "WHERE query_text not like '%SQL_CACHED_QUERY_PLANS%' "
-                + "ORDER BY query_text";
+                + "WHERE sql not like '%SQL_CACHED_QUERY_PLANS%' "
+                + "ORDER BY sql";
 
         assertQuery(selectCachedQueries)
                 .returns(node2, v2, "PUBLIC", "INSERT INTO `TEST_TABLE` (`ID`, `VAL`)\n"

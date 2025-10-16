@@ -43,7 +43,7 @@ public class CacheKey {
      *
      * @param catalogVersion Catalog version.
      * @param schemaName Schema name.
-     * @param query      Query string.
+     * @param query Query string.
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
     public CacheKey(int catalogVersion, String schemaName, String query, ColumnType[] paramTypes) {
@@ -64,7 +64,7 @@ public class CacheKey {
     ColumnType[] paramTypes() {
         return paramTypes;
     }
-    
+
     String query() {
         return query;
     }

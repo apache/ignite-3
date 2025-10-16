@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.time.Instant;
+
 /**
  * Prepared plan.
  */
@@ -28,31 +30,53 @@ public final class PreparedPlan {
 
     private final QueryPlan queryPlan;
 
-    private final String queryText;
+    private final String sql;
+
+    private final Instant timestamp;
 
     /**
      * Constructor.
      */
-    public PreparedPlan(CacheKey cacheKey, QueryPlan plan) {
+    public PreparedPlan(CacheKey cacheKey, QueryPlan plan, Instant timestamp) {
         this.defaultSchemaName = cacheKey.schemaName();
         this.catalogVersion = cacheKey.catalogVersion();
-        this.queryText = cacheKey.query();
+        this.sql = cacheKey.query();
         this.queryPlan = plan;
+        this.timestamp = timestamp;
     }
 
+    /**
+     * Catalog version.
+     */
     public int catalogVersion() {
         return catalogVersion;
     }
 
+    /**
+     * Default schema.
+     */
     public String defaultSchemaName() {
         return defaultSchemaName;
     }
 
-    public String queryText() {
-        return queryText;
+    /**
+     * Normalised SQL-string.
+     */
+    public String sql() {
+        return sql;
     }
 
+    /**
+     * Query plan.
+     */
     public QueryPlan queryPlan() {
         return queryPlan;
+    }
+
+    /**
+     * A point in time when the plan was prepared.
+     */
+    public Instant timestamp() {
+        return timestamp;
     }
 }

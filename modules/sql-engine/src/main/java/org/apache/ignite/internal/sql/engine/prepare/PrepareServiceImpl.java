@@ -31,6 +31,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -410,7 +411,8 @@ public class PrepareServiceImpl implements PrepareService {
                 .map(e -> {
                     CacheKey key = e.getKey();
                     PlanInfo value = e.getValue().getNow(null);
-                    return new PreparedPlan(key, value.queryPlan);
+                    Instant timestamp = value.timestamp;
+                    return new PreparedPlan(key, value.queryPlan, timestamp);
                 }).collect(Collectors.toSet());
     }
 
@@ -1327,6 +1329,7 @@ public class PrepareServiceImpl implements PrepareService {
         @Nullable
         private final IntSet sources;
         private volatile boolean needToInvalidate;
+        private final Instant timestamp = Instant.now();
 
         private PlanInfo(
                 QueryPlan plan,

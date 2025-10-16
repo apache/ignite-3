@@ -42,6 +42,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -743,13 +744,28 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         });
 
         // Check prepared plan
-        PreparedPlan plan = result.take();
-        String serviceId = service.prepareServiceId().toString();
-        assertThat(plan.queryPlan().id().toString(), startsWith(serviceId + "-"));
+        {
+            PreparedPlan plan = result.take();
+            String serviceId = service.prepareServiceId().toString();
+            assertThat(plan.queryPlan().id().toString(), startsWith(serviceId + "-"));
 
-        assertEquals("PUBLIC", plan.defaultSchemaName());
-        assertNotNull(plan.queryText());
-        assertNotNull(plan.queryPlan());
+            assertEquals("PUBLIC", plan.defaultSchemaName());
+            assertNotNull(plan.sql());
+            assertNotNull(plan.queryPlan());
+            assertNotNull(plan.timestamp());
+        }
+
+        // Prepare another plan
+        {
+            CompletableFuture<QueryPlan> fut = service.prepareAsync(parse("SELECT 42"), createContext());
+            fut.join();
+
+            Set<Instant> timestamps = service.preparedPlans().stream()
+                    .map(PreparedPlan::timestamp)
+                    .collect(Collectors.toSet());
+
+            assertEquals(2, timestamps.size(), "Plan should have different timestamps: " + timestamps);
+        }
     }
 
     private static Stream<Arguments> parameterTypes() {
