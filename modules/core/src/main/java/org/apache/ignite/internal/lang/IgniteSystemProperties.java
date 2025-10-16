@@ -44,7 +44,12 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK = "IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK";
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this feature flag.
-    /** Enables zone based replication (aka colocation) feature. */
+    /**
+     * Enables zone based replication (aka colocation) feature.
+     *
+     * @deprecated Non-colocation mode is planned to be removed in version 3.2.
+     */
+    @Deprecated(since = "3.1", forRemoval = true)
     public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
 
     /**
