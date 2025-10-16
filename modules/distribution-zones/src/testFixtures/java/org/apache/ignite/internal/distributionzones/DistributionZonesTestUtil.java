@@ -23,8 +23,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
@@ -57,6 +63,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
@@ -101,7 +108,7 @@ public class DistributionZonesTestUtil {
             int replicas,
             String storageProfile
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, storageProfile);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, null, storageProfile);
     }
 
     /**
@@ -113,7 +120,7 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null,  DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, null,  DEFAULT_STORAGE_PROFILE);
     }
 
     /**
@@ -131,6 +138,7 @@ public class DistributionZonesTestUtil {
         createZone(
                 catalogManager,
                 zoneName,
+                null,
                 null,
                 null,
                 null,
@@ -164,6 +172,7 @@ public class DistributionZonesTestUtil {
                 zoneName,
                 null,
                 null,
+                null,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
@@ -195,6 +204,7 @@ public class DistributionZonesTestUtil {
         createZone(
                 catalogManager,
                 zoneName,
+                null,
                 null,
                 null,
                 dataNodesAutoAdjustScaleUp,
@@ -232,6 +242,7 @@ public class DistributionZonesTestUtil {
                 zoneName,
                 null,
                 null,
+                null,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
@@ -265,6 +276,7 @@ public class DistributionZonesTestUtil {
                 zoneName,
                 partitions,
                 replicas,
+                null,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 null,
@@ -278,6 +290,7 @@ public class DistributionZonesTestUtil {
             String zoneName,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
+            @Nullable Integer quorumSize,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
@@ -292,6 +305,10 @@ public class DistributionZonesTestUtil {
 
         if (replicas != null) {
             builder.replicas(replicas);
+        }
+
+        if (quorumSize != null) {
+            builder.quorumSize(quorumSize);
         }
 
         if (dataNodesAutoAdjustScaleUp != null) {
@@ -397,7 +414,7 @@ public class DistributionZonesTestUtil {
             Set<Node> actualNodes = nodesGetter.get();
 
             return Objects.equals(actualNodes, nodes);
-        }, SECONDS.toMillis(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(colocationEnabled())) + 2000);
+        }, SECONDS.toMillis(2000));
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
@@ -728,6 +745,47 @@ public class DistributionZonesTestUtil {
         return zone == null ? null : zone.id();
     }
 
+    /**
+     * Creates a zone with default parameters and makes it default zone.
+     *
+     * @param catalogManager Catalog manager.
+     */
+    public static void createDefaultZone(CatalogManager catalogManager) {
+        createZone(
+                catalogManager,
+                DEFAULT_ZONE_NAME,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_REPLICA_COUNT,
+                DEFAULT_ZONE_QUORUM_SIZE,
+                IMMEDIATE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                DEFAULT_FILTER,
+                STRONG_CONSISTENCY,
+                DEFAULT_STORAGE_PROFILE
+        );
+
+        setDefaultZone(catalogManager, DEFAULT_ZONE_NAME);
+
+        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+        assertNotNull(latestCatalog.defaultZone());
+    }
+
+    /**
+     * Alters a zone with the given name default.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     */
+    public static void setDefaultZone(CatalogManager catalogManager, String zoneName) {
+        CatalogCommand command = AlterZoneSetDefaultCommand.builder()
+                .zoneName(zoneName)
+                .ifExists(true)
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
+    }
+
     /** Returns default distribution zone. */
     public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
         Catalog catalog = catalogService.activeCatalog(timestamp);
@@ -751,16 +809,6 @@ public class DistributionZonesTestUtil {
         assertNotNull(zoneId, "zoneName=" + zoneName + ", timestamp=" + timestamp);
 
         return zoneId;
-    }
-
-    /**
-     * Alter zone with zoneName by setting dataNodesAutoAdjustScaleUp to IMMEDIATE_TIMER_VALUE.
-     *
-     * @param catalogManager Catalog manager.
-     * @param zoneName Zone name.
-     */
-    public static void setZoneAutoAdjustScaleUpToImmediate(CatalogManager catalogManager, String zoneName) {
-        alterZone(catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
     }
 
     /**

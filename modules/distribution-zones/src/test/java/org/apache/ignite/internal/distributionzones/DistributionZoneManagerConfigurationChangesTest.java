@@ -61,8 +61,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
         topology.putNode(NODE_1);
 
         assertLogicalTopology(nodes, keyValueStorage);
-
-        assertDataNodesFromLogicalNodesInStorage(getDefaultZone().id(), nodes, keyValueStorage);
     }
 
     @ParameterizedTest

@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import java.util.Objects;
@@ -49,6 +49,10 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     @Test
     public void systemViewDefaultZone() {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        // Table for default zone creation
+        createTableOnly("test_table");
+
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = Objects.requireNonNull(
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
@@ -61,7 +65,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
                 DEFAULT_ZONE_QUORUM_SIZE,
-                defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(node.nodeProperties().colocationEnabled()),
+                IMMEDIATE_TIMER_VALUE,
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 true,
@@ -165,22 +169,22 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 DEFAULT_CONSISTENCY_MODE.name()
         ).check();
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
 
         sql("DROP ZONE " + ALTER_ZONE_NAME);
     }
 
     @Test
     public void systemViewDropCustomZone() {
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
 
         sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
 
         sql("DROP ZONE " + ZONE_NAME);
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
     }
 
     @Test

@@ -19,9 +19,6 @@ package org.apache.ignite.internal.tx;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,9 +26,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
@@ -52,16 +46,6 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     abstract InternalTransaction toInternalTransaction(Transaction tx);
 
     private Table createTestTable() throws InterruptedException {
-        if (colocationEnabled()) {
-            IgniteImpl node = unwrapIgniteImpl(node(0));
-            CatalogManager catalogManager = node.catalogManager();
-            CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
-
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
-        }
-
         ignite().sql().executeScript("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
 
         // This test is rather fragile because it's time dependent. The test uses one second as tx timeout and assumes that it's enough

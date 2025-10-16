@@ -81,7 +81,6 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("transactions").enabled(true),
             new MetricSource().name("placement-driver").enabled(true),
             new MetricSource().name("resource.vacuum").enabled(true),
-            new MetricSource().name("zones.Default").enabled(true),
             new MetricSource().name("clock.service").enabled(true)
     };
 
@@ -353,7 +352,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected static void createAndPopulateTable() {
-        createTableOnly(DEFAULT_TABLE_NAME, "Default");
+        createTableOnly(DEFAULT_TABLE_NAME);
 
         int idx = 0;
 
