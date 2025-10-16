@@ -124,8 +124,8 @@ When the link:administrators-guide/storage/distribution-zones#cluster-scaling[cl
 
 == Old Replication Mode (Table-based Replication)
 
-Most of this page describes the Zone-based Replication which is added in Ignite 3.1 (this is the default now). Ignite 3.0 used Table-based Replication, so clusters created on 3.0 and upgraded to 3.1 will still use Table-based Replication.
+Ignite 3.1 introduced Zone-based Replication and uses it by default. Ignite 3.0 used Table-based Replication, so clusters created on 3.0 and upgraded to 3.1 will still use Table-based Replication.
 
-Table-based Replication is deprecated since Ignite 3.1, it is planned to be removed in Ignite 3.2. It is recommended to migrate your clusters to Zone-based Replication. Currently, there is no automatic migration tool, so you will need to create a new cluster with Zone-based Replication and move your data there.
+Table-based Replication is deprecated in Ignite 3.1, and is planned to be removed in Ignite 3.2. It is recommended to migrate your clusters to Zone-based Replication. Currently, there is no automatic migration tool, so you will need to create a new cluster with Zone-based Replication and move your data there.
 
-You can figure out which replication mode your cluster is using by checking the startup logs, look for the following line: 'Zone based replication: true' or 'Zone based replication: false'. If it's false, you are using Table-based Replication.
+Current replication mode for your cluster is specified in the startup logs. Look for the following line: 'Zone based replication: true' or 'Zone based replication: false'. If it is false, you are using Table-based Replication.
