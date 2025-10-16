@@ -88,15 +88,21 @@ public class IgniteCluster {
     private final HttpClient client = HttpClient.newBuilder().build();
 
     // External process nodes
-    private final List<RunnerNode> runnerNodes = Collections.synchronizedList(new ArrayList<>());
+    private final List<RunnerNode> runnerNodes = new CopyOnWriteArrayList<>();
 
     private volatile boolean started = false;
     private volatile boolean stopped = false;
 
     private final ClusterConfiguration clusterConfiguration;
 
+    private @Nullable Consumer<InitParametersBuilder> initParametersConfigurator = null;
+
     IgniteCluster(ClusterConfiguration clusterConfiguration) {
         this.clusterConfiguration = clusterConfiguration;
+    }
+
+    public void setInitParametersConfigurator(@Nullable Consumer<InitParametersBuilder> initParametersConfigurator) {
+        this.initParametersConfigurator = initParametersConfigurator;
     }
 
     /**
@@ -117,15 +123,14 @@ public class IgniteCluster {
 
     /**
      * Starts cluster in embedded mode with nodes of current version.
+     * If initialization is required, {@link #setInitParametersConfigurator(Consumer)} must be called beforehand.
      *
      * @param testInfo Test info.
      * @param nodesCount Number of nodes in the cluster.
-     * @param initParametersConfigurator the configurator to use for initializing the cluster. Init is skipped if this is null.
      */
     public void startEmbedded(
             @Nullable TestInfo testInfo,
-            int nodesCount,
-            @Nullable Consumer<InitParametersBuilder> initParametersConfigurator
+            int nodesCount
     ) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
@@ -152,12 +157,12 @@ public class IgniteCluster {
 
     /**
      * Starts cluster in embedded mode with nodes of current version.
+     * If initialization is required, {@link #setInitParametersConfigurator(Consumer)} must be called beforehand.
      *
      * @param nodesCount Number of nodes in the cluster.
-     * @param initParametersConfigurator the configurator to use for initializing the cluster. Init is skipped if this is null.
      */
-    public void startEmbedded(int nodesCount, @Nullable Consumer<InitParametersBuilder> initParametersConfigurator) {
-        startEmbedded(null, nodesCount, initParametersConfigurator);
+    public void startEmbedded(int nodesCount) {
+        startEmbedded(null, nodesCount);
     }
 
     /**
@@ -181,13 +186,12 @@ public class IgniteCluster {
         LOG.info("Shut the embedded cluster down");
 
         List<String> nodeNames = runnerNodes.stream()
-                .filter(Objects::nonNull)
                 .map(RunnerNode::nodeName)
                 .collect(toList());
 
         LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
 
-        runnerNodes.parallelStream().filter(Objects::nonNull).forEach(RunnerNode::stop);
+        runnerNodes.parallelStream().forEach(RunnerNode::stop);
         runnerNodes.clear();
 
         LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
