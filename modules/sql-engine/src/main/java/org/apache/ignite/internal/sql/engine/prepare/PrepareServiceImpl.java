@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
-import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
-import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
-import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
-import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,12 +30,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -69,7 +61,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
@@ -104,7 +95,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.statistic.StatisticUpdatesNotifier;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -113,8 +103,12 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -122,7 +116,6 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
@@ -307,15 +300,7 @@ public class PrepareServiceImpl implements PrepareService {
         long timestamp = operationContext.operationTime().longValue();
         int catalogVersion = schemaManager.catalogVersion(timestamp);
 
-        RelDataType[] paramTypes = new RelDataType[operationContext.parameters().length];
-
-        int idx = 0;
-        for (Object param : operationContext.parameters()) {
-            RelDataType relType = deriveTypeFromDynamicParamValue(param);
-            paramTypes[idx++] = relType;
-        }
-
-        CacheKey key = new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), paramTypes);
+        CacheKey key = createCacheKey(parsedResult.normalizedQuery(), catalogVersion, schemaName, operationContext.parameters());
 
         CompletableFuture<PlanInfo> planFuture = cache.get(key);
 
@@ -347,7 +332,7 @@ public class PrepareServiceImpl implements PrepareService {
                 .plannerTimeout(plannerTimeout)
                 .catalogVersion(catalogVersion)
                 .defaultSchemaName(schemaName)
-                .parameters(Commons.arrayToMap(paramTypes))
+                .parameters(Commons.arrayToMap(key.paramTypes()))
                 .explicitTx(explicitTx)
                 .build();
 
@@ -357,6 +342,31 @@ public class PrepareServiceImpl implements PrepareService {
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
+    }
+
+    private static CacheKey createCacheKey(
+            String query, int catalogVersion, String schemaName, Object[] params
+    ) {
+        ColumnType[] paramTypes = new ColumnType[params.length];
+
+        int idx = 0;
+        for (Object param : params) {
+            ColumnType columnType;
+            if (param != null) {
+                @Nullable NativeType type = NativeTypes.fromObject(param);
+
+                if (type == null) {
+                    throw new IgniteException(Common.INTERNAL_ERR, "Unsupported native type: " + param.getClass());
+                }
+
+                columnType = type.spec();
+            } else {
+                columnType = null;
+            }
+            paramTypes[idx++] = columnType;
+        }
+
+        return new CacheKey(catalogVersion, schemaName, query, paramTypes);
     }
 
     private SchemaPlus getDefaultSchema(int catalogVersion, String schemaName) {
@@ -510,12 +520,36 @@ public class PrepareServiceImpl implements PrepareService {
             }
 
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey =
-                    createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(),
+                    ctx.schemaName(), stmt.parameterMetadata);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
         });
+    }
+
+    private static CacheKey createCacheKeyFromParameterMetadata(
+            String query,
+            int catalogVersion,
+            String schemaName,
+            ParameterMetadata parameterMetadata
+    ) {
+        ColumnType[] paramTypes;
+
+        List<ParameterType> parameterTypes = parameterMetadata.parameterTypes();
+        if (parameterTypes.isEmpty()) {
+            paramTypes = EMPTY_CLASS_ARRAY;
+        } else {
+            ColumnType[] result = new ColumnType[parameterTypes.size()];
+
+            for (int i = 0; i < parameterTypes.size(); i++) {
+                result[i] = parameterTypes.get(i).columnType();
+            }
+
+            paramTypes = result;
+        }
+
+        return new CacheKey(catalogVersion, schemaName, query, paramTypes);
     }
 
     private CompletableFuture<Void> rebuildQueryPlan(
@@ -553,7 +587,9 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
 
-            return new ValidStatement<>(parsedResult, validated, planner.getParameterRowType());
+            ParameterMetadata parameterMetadata = createParameterMetadata(planner.getParameterRowType());
+
+            return new ValidStatement<>(parsedResult, validated, parameterMetadata);
         }, planningPool);
     }
 
@@ -567,8 +603,6 @@ public class PrepareServiceImpl implements PrepareService {
         IgniteRel optimizedRel = relWithMetadata.rel;
         QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
 
-        ParameterMetadata parameterMetadata = createParameterMetadata(stmt.parameterType);
-
         ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
 
         int catalogVersion = ctx.catalogVersion();
@@ -581,7 +615,7 @@ public class PrepareServiceImpl implements PrepareService {
                     catalogVersion,
                     kvGet,
                     resultSetMetadata,
-                    parameterMetadata,
+                    stmt.parameterMetadata,
                     relWithMetadata.paMetadata,
                     relWithMetadata.ppMetadata
             );
@@ -594,7 +628,7 @@ public class PrepareServiceImpl implements PrepareService {
                 SqlQueryType.QUERY,
                 optimizedRel,
                 resultSetMetadata,
-                parameterMetadata,
+                stmt.parameterMetadata,
                 catalogVersion,
                 relWithMetadata.numSources,
                 fastPlan,
@@ -745,8 +779,8 @@ public class PrepareServiceImpl implements PrepareService {
 
         return validateDml(parsedResult, sqlNode, ctx).thenCompose(stmt -> {
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey =
-                    createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(),
+                    ctx.schemaName(), stmt.parameterMetadata);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
@@ -757,7 +791,6 @@ public class PrepareServiceImpl implements PrepareService {
         IgnitePlanner planner = ctx.planner();
 
         SqlNode validatedNode = stmt.value.sqlNode();
-        ParameterMetadata parameterMetadata = createParameterMetadata(stmt.parameterType);
 
         RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, onTimeoutAction);
         IgniteRel optimizedRel = relWithMetadata.rel;
@@ -773,7 +806,7 @@ public class PrepareServiceImpl implements PrepareService {
                     catalogVersion,
                     kvModify,
                     DML_METADATA,
-                    parameterMetadata,
+                    stmt.parameterMetadata,
                     relWithMetadata.paMetadata,
                     relWithMetadata.ppMetadata
             );
@@ -783,7 +816,7 @@ public class PrepareServiceImpl implements PrepareService {
                     SqlQueryType.DML,
                     optimizedRel,
                     DML_METADATA,
-                    parameterMetadata,
+                    stmt.parameterMetadata,
                     catalogVersion,
                     relWithMetadata.numSources,
                     null,
@@ -817,8 +850,9 @@ public class PrepareServiceImpl implements PrepareService {
             SqlNode validatedNode = planner.validate(sqlNode);
             ValidationResult validatedResult = new ValidationResult(validatedNode);
 
+            ParameterMetadata parameterMetadata = createParameterMetadata(planner.getParameterRowType());
             // No need whole ParsedResult
-            return new ValidStatement<>(parsedResult, validatedResult, planner.getParameterRowType());
+            return new ValidStatement<>(parsedResult, validatedResult, parameterMetadata);
         }, planningPool);
     }
 
@@ -859,27 +893,12 @@ public class PrepareServiceImpl implements PrepareService {
                 planningContext.catalogVersion(),
                 (IgniteSelectCount) fastOptRel,
                 resultSetMetadata,
-                createParameterMetadata(stmt.parameterType)
+                stmt.parameterMetadata
         );
 
         logPlan(stmt.parsedResult.originalQuery(), plan);
 
         return plan;
-    }
-
-    private static CacheKey createCacheKey(
-            String normalizedQuery,
-            int catalogVersion,
-            String schemaName,
-            RelDataType parameterRowType
-    ) {
-        RelDataType[] paramTypes = new RelDataType[parameterRowType.getFieldCount()];
-
-        for (int i = 0; i < parameterRowType.getFieldCount(); i++) {
-            paramTypes[i] = parameterRowType.getFieldList().get(i).getType();
-        }
-
-        return new CacheKey(catalogVersion, schemaName, normalizedQuery, paramTypes);
     }
 
     private static IntSet resolveSources(IgniteRel rel) {
@@ -934,7 +953,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                         ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
                                 alias != null ? alias : fld.getName(),
-                                TypeUtils.columnType(fld.getType()),
+                                columnType(fld.getType()),
                                 fld.getType().getPrecision(),
                                 fld.getType().getScale(),
                                 fld.getType().isNullable(),
@@ -1205,12 +1224,12 @@ public class PrepareServiceImpl implements PrepareService {
     private static class ValidStatement<T> {
         final ParsedResult parsedResult;
         final T value;
-        final RelDataType parameterType;
+        final ParameterMetadata parameterMetadata;
 
-        private ValidStatement(ParsedResult parsedResult, T value, RelDataType parameterType) {
+        private ValidStatement(ParsedResult parsedResult, T value, ParameterMetadata parameterMetadata) {
             this.parsedResult = parsedResult;
             this.value = value;
-            this.parameterType = parameterType;
+            this.parameterMetadata = parameterMetadata;
         }
 
         ParsedResult parsedResult() {
@@ -1318,62 +1337,5 @@ public class PrepareServiceImpl implements PrepareService {
         static PlanInfo create(QueryPlan plan) {
             return new PlanInfo(plan, null, IntSet.of());
         }
-    }
-
-    @TestOnly
-    @Nullable
-    public static RelDataType deriveTypeFromDynamicParamValueTestOnly(@Nullable Object value) {
-        return deriveTypeFromDynamicParamValue(value);
-    }
-
-    @Nullable
-    private static RelDataType deriveTypeFromDynamicParamValue(@Nullable Object value) {
-        if (value == null) {
-            return null;
-        }
-
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-        Class<?> cls = value.getClass();
-
-        if (cls == Character.class) {
-            cls = String.class;
-        }
-
-        if (cls == Boolean.class) {
-            return typeFactory.createSqlType(SqlTypeName.BOOLEAN);
-        } else if (cls == Byte.class) {
-            return typeFactory.createSqlType(SqlTypeName.TINYINT);
-        } else if (cls == Short.class) {
-            return typeFactory.createSqlType(SqlTypeName.SMALLINT);
-        } else if (cls == Integer.class) {
-            return typeFactory.createSqlType(INTEGER);
-        } else if (cls == Long.class) {
-            return typeFactory.createSqlType(SqlTypeName.BIGINT);
-        } else if (cls == Float.class) {
-            return typeFactory.createSqlType(SqlTypeName.REAL);
-        } else if (cls == Double.class) {
-            return typeFactory.createSqlType(SqlTypeName.DOUBLE);
-        } else if (cls == LocalDate.class) {
-            return typeFactory.createSqlType(SqlTypeName.DATE);
-        } else if (cls == LocalTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIME, TEMPORAL_DYNAMIC_PARAM_PRECISION);
-        } else if (cls == LocalDateTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP, TEMPORAL_DYNAMIC_PARAM_PRECISION);
-        } else if (cls == Instant.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, TEMPORAL_DYNAMIC_PARAM_PRECISION);
-        } else if (cls == byte[].class) {
-            return typeFactory.createSqlType(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED);
-        } else if (cls == String.class) {
-            return typeFactory.createSqlType(SqlTypeName.VARCHAR, PRECISION_NOT_SPECIFIED);
-        } else if (cls == UUID.class) {
-            return typeFactory.createSqlType(SqlTypeName.UUID);
-        } else if (cls == BigDecimal.class) {
-            return typeFactory.createSqlType(
-                    SqlTypeName.DECIMAL, DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE
-            );
-        }
-
-        throw new AssertionError("Unknown type " + cls);
     }
 }

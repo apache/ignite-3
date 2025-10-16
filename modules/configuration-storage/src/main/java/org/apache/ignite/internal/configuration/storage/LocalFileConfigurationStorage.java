@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.Collections.emptyNavigableMap;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
@@ -29,9 +30,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException.Parse;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
-import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigRenderOptions;
-import com.typesafe.config.ConfigSyntax;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import java.io.IOException;
@@ -53,19 +52,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
-import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
 import org.apache.ignite.internal.configuration.NodeConfigParseException;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.SuperRoot;
+import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.future.InFlightFutures;
@@ -145,61 +144,57 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         checkAndRestoreConfigFile();
     }
 
-    /**
-     * Patch the local configs with defaults from provided {@link ConfigurationModule}.
-     *
-     * @param hocon Config string in Hocon format.
-     * @param module Configuration module, which provides configuration patches.
-     * @return Patched config string in Hocon format.
-     */
-    private String patch(String hocon, ConfigurationModule module) {
-        if (module == null) {
-            return hocon;
-        }
-
-        ConfigurationDynamicDefaultsPatcher localCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
-                module,
-                generator
-        );
-
-        return localCfgDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon);
-    }
-
     @Override
     public CompletableFuture<Data> readDataOnRecovery() {
         lock.writeLock().lock();
         try {
+            // Here we don't use ConfigurationDynamicDefaultsPatcher because it works only on Hocon string representation level.
+            // But it's not applicable here because we need to produce map presentation with same ids in names lists.
+            // Each tree walk for string to map mapping produce different ids by design.
             String hocon = readHoconFromFile();
-            String hoconWithDynamicDefaults = patch(hocon, module);
+            SuperRoot superRoot = convertToSuperRoot(hocon);
 
-            transformToMap(hocon).forEach((key, value) -> {
+            Map<String, Serializable> transformedHocon = transformToMap(superRoot);
+
+            transformedHocon.forEach((key, value) -> {
                 if (value != null) { // Filter defaults.
                     latest.put(key, value);
                 }
             });
 
-            return CompletableFuture.completedFuture(new Data(transformToMap(hoconWithDynamicDefaults), lastRevision));
+            if (module != null) {
+                module.patchConfigurationWithDynamicDefaults(new SuperRootChangeImpl(superRoot));
+                transformedHocon = transformToMap(superRoot);
+            }
+
+            return completedFuture(new Data(transformedHocon, lastRevision));
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private Map<String, Serializable> transformToMap(String hocon) {
-        SuperRoot superRoot = generator.createSuperRoot();
-        SuperRoot copiedSuperRoot = superRoot.copy();
+    private SuperRoot convertToSuperRoot(String hocon) {
+        try {
+            Config config = ConfigFactory.parseString(hocon);
+            KeyIgnorer keyIgnorer = module == null ? s -> false : KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
 
-        KeyIgnorer keyIgnorer = module == null ? s -> false : KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
+            ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root(), keyIgnorer);
 
-        HoconConverter.hoconSource(parseConfig(hocon).root(), keyIgnorer).descend(copiedSuperRoot);
+            SuperRoot superRoot = generator.createSuperRoot();
+            hoconSource.descend(superRoot);
 
-        return createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap())
+            return superRoot;
+        } catch (Exception e) {
+            throw new ConfigurationValidationException("Failed to parse HOCON: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Serializable> transformToMap(SuperRoot superRoot) {
+        return createFlattenedUpdatesMap(generator.createSuperRoot(), superRoot, emptyNavigableMap())
                 .entrySet()
                 .stream()
                 .filter(e -> e.getValue() != null)
-                .collect(toMap(
-                        Entry::getKey,
-                        Entry::getValue)
-                );
+                .collect(toMap(Entry::getKey, Entry::getValue));
     }
 
     private String readHoconFromFile() {
@@ -220,21 +215,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         }
     }
 
-    private Config parseConfig(String confString) {
-        try {
-            ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
-
-            return ConfigFactory.parseString(confString, parseOptions);
-        } catch (Parse e) {
-            throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
-        }
-    }
-
     @Override
     public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
         lock.readLock().lock();
         try {
-            return CompletableFuture.completedFuture(
+            return completedFuture(
                     latest.entrySet()
                             .stream()
                             .filter(entry -> entry.getKey().startsWith(prefix))
@@ -249,7 +234,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Serializable> readLatest(String key) {
         lock.readLock().lock();
         try {
-            return CompletableFuture.completedFuture(latest.get(key));
+            return completedFuture(latest.get(key));
         } finally {
             lock.readLock().unlock();
         }
@@ -303,7 +288,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public CompletableFuture<Long> lastRevision() {
-        return CompletableFuture.completedFuture(lastRevision);
+        return completedFuture(lastRevision);
     }
 
     @Override
