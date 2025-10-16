@@ -1424,7 +1424,7 @@ public abstract class GridUnsafe {
     private static boolean unaligned() {
         String arch = System.getProperty("os.arch");
 
-        return "i386".equals(arch) || "x86".equals(arch) || "amd64".equals(arch) || "x86_64".equals(arch);
+        return "i386".equals(arch) || "x86".equals(arch) || "amd64".equals(arch) || "x86_64".equals(arch) || "aarch64".equals(arch);
     }
 
     /**
