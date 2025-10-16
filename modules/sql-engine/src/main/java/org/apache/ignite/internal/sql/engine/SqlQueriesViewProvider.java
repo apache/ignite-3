@@ -108,7 +108,7 @@ public class SqlQueriesViewProvider {
 
         SqlQueryType queryType = info.queryType();
 
-        return queryType == null ? null : queryType.toString();
+        return queryType == null ? null : mapQueryType(queryType);
     }
 
     private static String mapPhase(ExecutionPhase phase) {
@@ -143,7 +143,7 @@ public class SqlQueriesViewProvider {
                 .nodeNameColumnAlias("NODE_ID")
                 .addColumn("PLAN_ID", NativeTypes.STRING, (v) -> v.queryPlan().id().toString())
                 .addColumn("CATALOG_VERSION", NativeTypes.INT32, PreparedPlan::catalogVersion)
-                .addColumn("DEFAULT_SCHEMA", NativeTypes.STRING, PreparedPlan::defaultSchemaName)
+                .addColumn("QUERY_DEFAULT_SCHEMA", NativeTypes.STRING, PreparedPlan::defaultSchemaName)
                 .addColumn("QUERY_TEXT", NativeTypes.STRING, PreparedPlan::queryText)
                 .addColumn("QUERY_TYPE", NativeTypes.STRING, (v) -> mapQueryType(v.queryPlan().type()))
                 .addColumn("QUERY_PLAN", NativeTypes.STRING, (v) -> mapQueryPlan(v.queryPlan()))
@@ -151,15 +151,8 @@ public class SqlQueriesViewProvider {
                 .build();
     }
 
-    private static @Nullable String mapQueryType(SqlQueryType type) {
-        switch (type) {
-            case QUERY:
-                return "QUERY";
-            case DML:
-                return "DML";
-            default:
-                return null;
-        }
+    private static String mapQueryType(SqlQueryType type) {
+        return type.toString();
     }
 
     private static @Nullable String mapQueryPlan(QueryPlan plan) {

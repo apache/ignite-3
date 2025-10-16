@@ -1152,7 +1152,6 @@ public class PrepareServiceImpl implements PrepareService {
                                 CompletableFuture<Void> newPlanFut =
                                         prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
 
-                                System.err.println("INVALIDATE " + key.query());
                                 rePlanningFut.thenCompose(v -> newPlanFut);
                             }
                         }
