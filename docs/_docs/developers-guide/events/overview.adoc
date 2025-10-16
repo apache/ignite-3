@@ -37,7 +37,7 @@ cluster config update ignite.eventlog.sinks.exampleSink = {type="log", channel="
 Now, the authorization events will be written to the log. Here is how the event may look like:
 
 ----
-2024-06-04 16:19:29:840 +0300 [INFO][%defaultNode%sql-execution-pool-1][EventLog] {"type":"USER_AUTHORIZATION_SUCCESS","timestamp":1717507169840,"productVersion":"3.0.0","user":{"username":"ignite","authenticationProvider":"basic"},"fields":{"privileges":[{"action":"CREATE_TABLE","on":{"objectType":"TABLE","objectName":"TEST2","schema":"PUBLIC"}}],"roles":["system"]}}
+2024-06-04 16:19:29:840 +0300 [INFO][%defaultNode%sql-execution-pool-1][EventLog] {"type":"USER_AUTHORIZATION_SUCCESS","timestamp":1717507169840,"productVersion":"3.1.0","user":{"username":"ignite","authenticationProvider":"basic"},"fields":{"privileges":[{"action":"CREATE_TABLE","on":{"objectType":"TABLE","objectName":"TEST2","schema":"PUBLIC"}}],"roles":["system"]}}
 ----
 
 Below is the cluster configuration config in JSON.
@@ -145,7 +145,7 @@ All events in Apache Ignite 3 follow the same basic structure described below. S
   "type": "AUTHENTICATION",
   "user": { "username": "John", "authenticationProvider": "basic" },
   "timestamp": 1715169617,
-  "productVersion": "3.0.0",
+  "productVersion": "3.1.0",
   "fields": {}
 }
 ----
