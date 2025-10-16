@@ -346,6 +346,8 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
+            compactor.pause();
+
             var tracker = new CheckpointMetricsTracker();
 
             tracker.onCheckpointStart();
@@ -410,6 +412,8 @@ public class Checkpointer extends IgniteWorker {
                             chp.progress.reason()
                     );
                 }
+
+                compactor.resume();
             }
 
             currentCheckpointProgress.setPagesWriteTimeMillis(
@@ -545,6 +549,8 @@ public class Checkpointer extends IgniteWorker {
         syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
 
         tracker.onFsyncEnd();
+
+        compactor.resume();
 
         compactor.triggerCompaction();
 

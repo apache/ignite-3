@@ -30,9 +30,11 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -91,6 +93,9 @@ public class Compactor extends IgniteWorker {
     private final FailureManager failureManager;
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
+
+    /** Latch for pausing and resuming the compaction, {@code null} if there was no pause. */
+    private final AtomicReference<CountDownLatch> pauseLatchRef = new AtomicReference<>();
 
     /**
      * Creates new ignite worker with given parameters.
@@ -355,6 +360,8 @@ public class Compactor extends IgniteWorker {
         // Do not interrupt runner thread.
         isCancelled.set(true);
 
+        resume();
+
         synchronized (mux) {
             mux.notifyAll();
         }
@@ -396,6 +403,8 @@ public class Compactor extends IgniteWorker {
 
             long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
 
+            pauseCompactionIfNeeded();
+
             // pageIndex instead of pageId, only for debugging in case of errors
             // since we do not know the pageId until we read it from the pageOffset.
             boolean read = deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageIndex, pageOffset, buffer.rewind(), false);
@@ -417,6 +426,8 @@ public class Compactor extends IgniteWorker {
                 return;
             }
 
+            pauseCompactionIfNeeded();
+
             filePageStore.write(pageId, buffer.rewind());
 
             tracker.onDataPageWritten();
@@ -433,6 +444,8 @@ public class Compactor extends IgniteWorker {
             return;
         }
 
+        pauseCompactionIfNeeded();
+
         filePageStore.sync();
 
         // Removing the delta file page store from a file page store.
@@ -447,6 +460,8 @@ public class Compactor extends IgniteWorker {
         }
 
         deltaFilePageStore.markMergedToFilePageStore();
+
+        pauseCompactionIfNeeded();
 
         deltaFilePageStore.stop(true);
 
@@ -483,6 +498,47 @@ public class Compactor extends IgniteWorker {
         ) {
             this.groupPartitionFilePageStore = groupPartitionFilePageStore;
             this.deltaFilePageStoreIo = deltaFilePageStoreIo;
+        }
+    }
+
+    /**
+     * Pauses the compactor until it is resumed or compactor or stopped. It is expected that this method will not be called multiple times
+     * in parallel and subsequent calls will strictly be calls after {@link #resume}.
+     */
+    public void pause() {
+        boolean casResult = pauseLatchRef.compareAndSet(null, new CountDownLatch(1));
+
+        assert casResult : "It is expected that there will be no parallel pause, resume or previous one has ended: " + pauseLatchRef.get();
+    }
+
+    /** Resumes the compactor if it was paused. It is expected that this method will not be called multiple times in parallel. */
+    public void resume() {
+        CountDownLatch latch = pauseLatchRef.get();
+
+        boolean casResult = pauseLatchRef.compareAndSet(latch, null);
+
+        assert casResult : "It is expected that there will be no parallel pause or resume";
+
+        if (latch != null) {
+            latch.countDown();
+        }
+    }
+
+    private void pauseCompactionIfNeeded() {
+        CountDownLatch latch = pauseLatchRef.get();
+
+        if (latch != null) {
+            blockingSectionBegin();
+
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                LOG.debug("Compactor pause was interrupted", e);
+
+                Thread.currentThread().interrupt();
+            } finally {
+                blockingSectionEnd();
+            }
         }
     }
 }
