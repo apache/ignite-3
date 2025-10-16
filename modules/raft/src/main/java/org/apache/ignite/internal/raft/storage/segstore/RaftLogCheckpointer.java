@@ -129,7 +129,7 @@ class RaftLogCheckpointer {
     /**
      * Returns the lowest log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
      */
-    long firstLogIndex(long groupId) {
+    long firstLogIndexInclusive(long groupId) {
         Iterator<Entry> it = queue.tailIterator();
 
         long firstIndex = -1;
@@ -137,8 +137,9 @@ class RaftLogCheckpointer {
         while (it.hasNext()) {
             SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
 
-            if (segmentInfo != null) {
-                firstIndex = segmentInfo.firstLogIndex();
+            // Segment Info can be empty if the log suffix was truncated.
+            if (segmentInfo != null && segmentInfo.size() > 0) {
+                firstIndex = segmentInfo.firstLogIndexInclusive();
             }
         }
 
@@ -148,14 +149,14 @@ class RaftLogCheckpointer {
     /**
      * Returns the highest log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
      */
-    long lastLogIndex(long groupId) {
+    long lastLogIndexExclusive(long groupId) {
         Iterator<Entry> it = queue.tailIterator();
 
         while (it.hasNext()) {
             SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
 
             if (segmentInfo != null) {
-                return segmentInfo.lastLogIndex();
+                return segmentInfo.lastLogIndexExclusive();
             }
         }
 

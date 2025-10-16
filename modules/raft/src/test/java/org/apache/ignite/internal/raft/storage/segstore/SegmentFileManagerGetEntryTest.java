@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,11 +89,11 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
 
         int logIndex = 1;
 
-        MockEntry entry = new MockEntry(logIndex, 5);
+        LogEntry entry = createLogEntry(logIndex, 5);
 
-        fileManager.appendEntry(groupId, entry.logEntry, encoder);
+        fileManager.appendEntry(groupId, entry, encoder);
 
-        assertThat(fileManager.getEntry(groupId, logIndex, decoder), is(entry.logEntry));
+        assertThat(fileManager.getEntry(groupId, logIndex, decoder), is(entry));
 
         assertThat(fileManager.getEntry(groupId + 1, logIndex, decoder), is(nullValue()));
         assertThat(fileManager.getEntry(groupId, logIndex + 1, decoder), is(nullValue()));
@@ -104,18 +105,18 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
 
         int entrySize = FILE_SIZE / 4;
 
-        List<MockEntry> entries = IntStream.range(0, numEntries)
-                .mapToObj(logIndex -> new MockEntry(logIndex, entrySize))
+        List<LogEntry> entries = IntStream.range(0, numEntries)
+                .mapToObj(logIndex -> createLogEntry(logIndex, entrySize))
                 .collect(toList());
 
-        for (MockEntry e : entries) {
-            fileManager.appendEntry(0, e.logEntry, encoder);
+        for (LogEntry e : entries) {
+            fileManager.appendEntry(0, e, encoder);
         }
 
-        for (MockEntry e : entries) {
-            LogEntry actualEntry = fileManager.getEntry(0, e.logIndex(), decoder);
+        for (LogEntry e : entries) {
+            LogEntry actualEntry = fileManager.getEntry(0, e.getId().getIndex(), decoder);
 
-            assertThat(actualEntry, is(e.logEntry));
+            assertThat(actualEntry, is(e));
         }
     }
 
@@ -123,18 +124,18 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
     void getEntryMultithreadedTest() throws IOException {
         int numGroups = STRIPES;
 
-        Map<Long, List<MockEntry>> entriesByGroupId = generateEntries(numGroups, 100, 10);
+        Map<Long, List<LogEntry>> entriesByGroupId = generateEntries(numGroups, 100, 10);
 
         var tasks = new ArrayList<RunnableX>();
 
         for (int i = 0; i < numGroups; i++) {
             long groupId = i;
 
-            List<MockEntry> entries = entriesByGroupId.get(groupId);
+            List<LogEntry> entries = entriesByGroupId.get(groupId);
 
             tasks.add(() -> {
-                for (MockEntry e : entries) {
-                    fileManager.appendEntry(groupId, e.logEntry, encoder);
+                for (LogEntry e : entries) {
+                    fileManager.appendEntry(groupId, e, encoder);
                 }
             });
         }
@@ -142,14 +143,14 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
         for (int i = 0; i < numGroups; i++) {
             long groupId = i;
 
-            List<MockEntry> entries = entriesByGroupId.get(groupId);
+            List<LogEntry> entries = entriesByGroupId.get(groupId);
 
             RunnableX reader = () -> {
-                for (MockEntry e : entries) {
-                    LogEntry actualEntry = fileManager.getEntry(groupId, e.logIndex(), decoder);
+                for (LogEntry e : entries) {
+                    LogEntry actualEntry = fileManager.getEntry(groupId, e.getId().getIndex(), decoder);
 
                     if (actualEntry != null) {
-                        assertThat(actualEntry, is(e.logEntry));
+                        assertThat(actualEntry, is(e));
                     }
                 }
             };
@@ -162,51 +163,43 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
         runRace(tasks.toArray(RunnableX[]::new));
 
         // Validate that data was actually inserted.
-        for (Map.Entry<Long, List<MockEntry>> e : entriesByGroupId.entrySet()) {
+        for (Map.Entry<Long, List<LogEntry>> e : entriesByGroupId.entrySet()) {
             long groupId = e.getKey();
 
-            for (MockEntry entry : e.getValue()) {
-                LogEntry actualEntry = fileManager.getEntry(groupId, entry.logIndex(), decoder);
+            for (LogEntry entry : e.getValue()) {
+                LogEntry actualEntry = fileManager.getEntry(groupId, entry.getId().getIndex(), decoder);
 
-                assertThat(actualEntry, is(entry.logEntry));
+                assertThat(actualEntry, is(entry));
             }
         }
     }
 
     @Test
     void testGetEntryWithSuffixTruncate() throws IOException {
-        Map<Long, List<MockEntry>> entriesByGroupId = generateEntries(2, 3, 10);
+        int entrySize = FILE_SIZE / 10;
 
-        for (Map.Entry<Long, List<MockEntry>> e : entriesByGroupId.entrySet()) {
-            long groupId = e.getKey();
+        int numEntries = 100;
 
-            for (MockEntry entry : e.getValue()) {
-                fileManager.appendEntry(groupId, entry.logEntry, encoder);
+        long curLogIndex = 0;
+
+        for (int i = 0; i < numEntries; i++) {
+            var entry = createLogEntry(curLogIndex, entrySize);
+
+            fileManager.appendEntry(0, entry, encoder);
+
+            if (i > 0 && i % 10 == 0) {
+                curLogIndex -= 4;
+
+                fileManager.truncateSuffix(0, curLogIndex);
+
+                // Check that the "lastIndexKept" entry is accessible, while the truncated one is not.
+                assertThat(fileManager.getEntry(0, curLogIndex, decoder), is(notNullValue()));
+
+                assertThat(fileManager.getEntry(0, curLogIndex + 1, decoder), is(nullValue()));
             }
+
+            curLogIndex++;
         }
-
-        fileManager.truncateSuffix(0, 1);
-        fileManager.truncateSuffix(1, 2);
-
-        assertThat(
-                fileManager.getEntry(0, 1, decoder),
-                is(entriesByGroupId.get(0L).get(1).logEntry)
-        );
-
-        assertThat(
-                fileManager.getEntry(1, 1, decoder),
-                is(entriesByGroupId.get(1L).get(1).logEntry)
-        );
-
-        assertThat(
-                fileManager.getEntry(0, 2, decoder),
-                is(nullValue())
-        );
-
-        assertThat(
-                fileManager.getEntry(1, 2, decoder),
-                is(entriesByGroupId.get(1L).get(2).logEntry)
-        );
     }
 
     @RepeatedTest(5)
@@ -217,18 +210,18 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
 
         int numEntriesPerGroup = 100;
 
-        Map<Long, List<MockEntry>> entriesByGroupId = generateEntries(numGroups, numEntriesPerGroup, entrySize);
+        Map<Long, List<LogEntry>> entriesByGroupId = generateEntries(numGroups, numEntriesPerGroup, entrySize);
 
         // Entries that will be used to replace truncated entries.
-        var replacementEntriesByGroupId = new HashMap<Long, List<MockEntry>>();
+        var replacementEntriesByGroupId = new HashMap<Long, List<LogEntry>>();
 
         int numReplacementEntriesPerGroup = numEntriesPerGroup / 5;
 
         for (long groupId = 0; groupId < numGroups; groupId++) {
-            var entries = new ArrayList<MockEntry>(numReplacementEntriesPerGroup);
+            var entries = new ArrayList<LogEntry>(numReplacementEntriesPerGroup);
 
             for (int i = 0; i < numReplacementEntriesPerGroup; i++) {
-                entries.add(new MockEntry(i * 5, entrySize));
+                entries.add(createLogEntry(i * 5, entrySize));
             }
 
             replacementEntriesByGroupId.put(groupId, entries);
@@ -239,23 +232,23 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
         for (int i = 0; i < numGroups; i++) {
             long groupId = i;
 
-            List<MockEntry> entries = entriesByGroupId.get(groupId);
+            List<LogEntry> entries = entriesByGroupId.get(groupId);
 
-            List<MockEntry> replacementEntries = replacementEntriesByGroupId.get(groupId);
+            List<LogEntry> replacementEntries = replacementEntriesByGroupId.get(groupId);
 
             tasks.add(() -> {
                 for (int entryIndex = 0; entryIndex < entries.size(); entryIndex++) {
-                    MockEntry entry = entries.get(entryIndex);
+                    LogEntry entry = entries.get(entryIndex);
 
-                    fileManager.appendEntry(groupId, entry.logEntry, encoder);
+                    fileManager.appendEntry(groupId, entry, encoder);
 
                     // Truncate every 5th entry.
                     if (entryIndex % 5 == 0) {
                         fileManager.truncateSuffix(groupId, entryIndex - 1);
 
-                        MockEntry replacementEntry = replacementEntries.get(entryIndex / 5);
+                        LogEntry replacementEntry = replacementEntries.get(entryIndex / 5);
 
-                        fileManager.appendEntry(groupId, replacementEntry.logEntry, encoder);
+                        fileManager.appendEntry(groupId, replacementEntry, encoder);
                     }
                 }
             });
@@ -264,9 +257,9 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
         for (int i = 0; i < numGroups; i++) {
             long groupId = i;
 
-            List<MockEntry> entries = entriesByGroupId.get(groupId);
+            List<LogEntry> entries = entriesByGroupId.get(groupId);
 
-            List<MockEntry> replacementEntries = replacementEntriesByGroupId.get(groupId);
+            List<LogEntry> replacementEntries = replacementEntriesByGroupId.get(groupId);
 
             RunnableX reader = () -> {
                 for (int logIndex = 0; logIndex < entries.size(); logIndex++) {
@@ -276,15 +269,15 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
                         continue;
                     }
 
-                    MockEntry expectedEntry = entries.get(logIndex);
+                    LogEntry expectedEntry = entries.get(logIndex);
 
                     if (logIndex % 5 == 0) {
                         // Here we can read both the truncated and the replacement entry.
-                        MockEntry replacementEntry = replacementEntries.get(logIndex / 5);
+                        LogEntry replacementEntry = replacementEntries.get(logIndex / 5);
 
-                        assertThat(actualEntry, either(sameInstance(replacementEntry.logEntry)).or(sameInstance(expectedEntry.logEntry)));
+                        assertThat(actualEntry, either(sameInstance(replacementEntry)).or(sameInstance(expectedEntry)));
                     } else {
-                        assertThat(actualEntry, is(sameInstance(expectedEntry.logEntry)));
+                        assertThat(actualEntry, is(sameInstance(expectedEntry)));
                     }
                 }
             };
@@ -298,28 +291,28 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
 
         // Validate that data was actually inserted.
         for (long groupId = 0; groupId < numGroups; groupId++) {
-            List<MockEntry> entries = entriesByGroupId.get(groupId);
+            List<LogEntry> entries = entriesByGroupId.get(groupId);
 
-            List<MockEntry> replacementEntries = replacementEntriesByGroupId.get(groupId);
+            List<LogEntry> replacementEntries = replacementEntriesByGroupId.get(groupId);
 
             for (int logIndex = 0; logIndex < entries.size(); logIndex++) {
-                MockEntry expectedEntry = logIndex % 5 == 0 ? replacementEntries.get(logIndex / 5) : entries.get(logIndex);
+                LogEntry expectedEntry = logIndex % 5 == 0 ? replacementEntries.get(logIndex / 5) : entries.get(logIndex);
 
                 LogEntry actualEntry = fileManager.getEntry(groupId, logIndex, decoder);
 
-                assertThat(actualEntry, is(sameInstance(expectedEntry.logEntry)));
+                assertThat(actualEntry, is(sameInstance(expectedEntry)));
             }
         }
     }
 
-    private Map<Long, List<MockEntry>> generateEntries(int numGroups, int numEntriesPerGroup, int entrySize) {
-        Map<Long, List<MockEntry>> entriesByGroupId = newHashMap(numGroups);
+    private Map<Long, List<LogEntry>> generateEntries(int numGroups, int numEntriesPerGroup, int entrySize) {
+        Map<Long, List<LogEntry>> entriesByGroupId = newHashMap(numGroups);
 
         for (long groupId = 0; groupId < numGroups; groupId++) {
-            var entries = new ArrayList<MockEntry>(numEntriesPerGroup);
+            var entries = new ArrayList<LogEntry>(numEntriesPerGroup);
 
             for (int i = 0; i < numEntriesPerGroup; i++) {
-                entries.add(new MockEntry(i, entrySize));
+                entries.add(createLogEntry(i, entrySize));
             }
 
             entriesByGroupId.put(groupId, entries);
@@ -328,29 +321,25 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
         return entriesByGroupId;
     }
 
-    private class MockEntry {
-        private final LogEntry logEntry = new LogEntry();
+    private LogEntry createLogEntry(long logIndex, int entrySize) {
+        LogEntry logEntry = new LogEntry();
 
-        MockEntry(long logIndex, int entrySize) {
-            logEntry.setId(new LogId(logIndex, 0));
+        logEntry.setId(new LogId(logIndex, 0));
 
-            byte[] bytes = randomBytes(ThreadLocalRandom.current(), entrySize);
+        byte[] bytes = randomBytes(ThreadLocalRandom.current(), entrySize);
 
-            lenient().doAnswer(invocationOnMock -> {
-                ByteBuffer buffer = invocationOnMock.getArgument(0);
+        lenient().doAnswer(invocationOnMock -> {
+            ByteBuffer buffer = invocationOnMock.getArgument(0);
 
-                buffer.put(bytes);
+            buffer.put(bytes);
 
-                return null;
-            }).when(encoder).encode(any(), same(logEntry));
+            return null;
+        }).when(encoder).encode(any(), same(logEntry));
 
-            lenient().when(encoder.size(same(logEntry))).thenReturn(entrySize);
+        lenient().when(encoder.size(same(logEntry))).thenReturn(entrySize);
 
-            lenient().when(decoder.decode(bytes)).thenReturn(logEntry);
-        }
+        lenient().when(decoder.decode(bytes)).thenReturn(logEntry);
 
-        long logIndex() {
-            return logEntry.getId().getIndex();
-        }
+        return logEntry;
     }
 }

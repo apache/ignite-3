@@ -63,12 +63,12 @@ class GroupIndexMeta {
             return fileMetas.find(logIndex);
         }
 
-        long firstLogIndex() {
-            return fileMetas.firstLogIndex();
+        long firstLogIndexInclusive() {
+            return fileMetas.firstLogIndexInclusive();
         }
 
-        long lastLogIndex() {
-            return fileMetas.lastLogIndex();
+        long lastLogIndexExclusive() {
+            return fileMetas.lastLogIndexExclusive();
         }
     }
 
@@ -83,7 +83,7 @@ class GroupIndexMeta {
 
         // Merge consecutive index metas into a single meta block. If there's an overlap (e.g. due to log truncation), start a new block,
         // which will override the previous one during search.
-        if (curFileMetas.lastLogIndex() == indexFileMeta.firstLogIndex() - 1) {
+        if (curFileMetas.lastLogIndexExclusive() == indexFileMeta.firstLogIndexInclusive()) {
             curFileMetas.addIndexMeta(indexFileMeta);
         } else {
             fileMetaQueue.add(new IndexMetaArrayHolder(indexFileMeta));
@@ -99,7 +99,18 @@ class GroupIndexMeta {
         Iterator<IndexMetaArrayHolder> it = fileMetaQueue.descendingIterator();
 
         while (it.hasNext()) {
-            IndexFileMeta indexMeta = it.next().indexMeta(logIndex);
+            IndexFileMetaArray fileMetas = it.next().fileMetas;
+
+            // Log suffix might have been truncated, so we can have an entry on the top of the queue that cuts off part of the search range.
+            if (logIndex >= fileMetas.lastLogIndexExclusive()) {
+                return null;
+            }
+
+            if (logIndex < fileMetas.firstLogIndexInclusive()) {
+                continue;
+            }
+
+            IndexFileMeta indexMeta = fileMetas.find(logIndex);
 
             if (indexMeta != null) {
                 return indexMeta;
@@ -109,11 +120,11 @@ class GroupIndexMeta {
         return null;
     }
 
-    long firstLogIndex() {
-        return fileMetaQueue.getFirst().firstLogIndex();
+    long firstLogIndexInclusive() {
+        return fileMetaQueue.getFirst().firstLogIndexInclusive();
     }
 
-    long lastLogIndex() {
-        return fileMetaQueue.getLast().lastLogIndex();
+    long lastLogIndexExclusive() {
+        return fileMetaQueue.getLast().lastLogIndexExclusive();
     }
 }

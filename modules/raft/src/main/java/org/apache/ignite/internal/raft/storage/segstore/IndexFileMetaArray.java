@@ -45,10 +45,10 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray add(IndexFileMeta indexFileMeta) {
-        assert indexFileMeta.firstLogIndex() == array[size - 1].lastLogIndex() + 1 :
+        assert indexFileMeta.firstLogIndexInclusive() == array[size - 1].lastLogIndexExclusive() :
                 String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
-                        array[size - 1].lastLogIndex() + 1,
-                        indexFileMeta.firstLogIndex()
+                        array[size - 1].lastLogIndexExclusive() + 1,
+                        indexFileMeta.firstLogIndexInclusive()
                 );
 
         // The array can be shared between multiple instances, but since it always grows and we read at most "size" elements,
@@ -72,12 +72,12 @@ class IndexFileMetaArray {
         return size;
     }
 
-    long firstLogIndex() {
-        return array[0].firstLogIndex();
+    long firstLogIndexInclusive() {
+        return array[0].firstLogIndexInclusive();
     }
 
-    long lastLogIndex() {
-        return array[size - 1].lastLogIndex();
+    long lastLogIndexExclusive() {
+        return array[size - 1].lastLogIndexExclusive();
     }
 
     /**
@@ -93,9 +93,9 @@ class IndexFileMetaArray {
 
             IndexFileMeta midValue = array[middleArrayIndex];
 
-            if (logIndex < midValue.firstLogIndex()) {
+            if (logIndex < midValue.firstLogIndexInclusive()) {
                 highArrayIndex = middleArrayIndex - 1;
-            } else if (logIndex > midValue.lastLogIndex()) {
+            } else if (logIndex >= midValue.lastLogIndexExclusive()) {
                 lowArrayIndex = middleArrayIndex + 1;
             } else {
                 return midValue;

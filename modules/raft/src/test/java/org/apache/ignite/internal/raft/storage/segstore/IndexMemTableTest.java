@@ -246,7 +246,8 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         memTable.appendSegmentFileOffset(0, 11, 43);
 
-        assertThat(memTable.segmentInfo(0).getOffset(36), is(0));
         assertThat(memTable.segmentInfo(0).getOffset(11), is(43));
+        assertThat(memTable.segmentInfo(0).getOffset(12), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(36), is(0));
     }
 }

@@ -350,18 +350,18 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         List<byte[]> batches = randomData(batchSize, 100);
 
         IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
-            assertThat(fileManager.firstLogIndex(groupId), is(-1L));
-            assertThat(fileManager.lastLogIndex(groupId), is(-1L));
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
 
             for (int i = 0; i < batches.size(); i++) {
                 appendBytes(groupId, batches.get(i), i);
 
-                assertThat(fileManager.firstLogIndex(groupId), is(0L));
-                assertThat(fileManager.lastLogIndex(groupId), is((long) i));
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(i + 1L));
             }
 
-            assertThat(fileManager.firstLogIndex(groupId), is(0L));
-            assertThat(fileManager.lastLogIndex(groupId), is((long) (batches.size() - 1)));
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is((long) batches.size()));
         };
 
         runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
@@ -389,6 +389,40 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
             assertThat(readFully(channel, SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE), is(expectedTruncateRecord));
         }
+    }
+
+    @Test
+    void testLastIndexAfterTruncateSuffix() {
+        int batchSize = FILE_SIZE / 10;
+
+        List<byte[]> batches = randomData(batchSize, 100);
+
+        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
+
+            long curLogIndex = 0;
+
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytes(groupId, batches.get(i), curLogIndex);
+
+                if (i > 0 && i % 10 == 0) {
+                    curLogIndex -= 4;
+
+                    fileManager.truncateSuffix(groupId, curLogIndex);
+                }
+
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex + 1));
+
+                curLogIndex++;
+            }
+
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex));
+        };
+
+        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
     }
 
     private Path findSoleSegmentFile() throws IOException {
@@ -461,7 +495,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         appendBytes(GROUP_ID, serializedEntry, index);
     }
 
-    private void appendBytes(long groupId, byte[] serializedEntry, int index) throws IOException {
+    private void appendBytes(long groupId, byte[] serializedEntry, long index) throws IOException {
         var entry = new LogEntry();
 
         entry.setId(new LogId(index, 0));

@@ -197,10 +197,21 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     private @Nullable ByteBuffer getEntry(long groupId, long logIndex) throws IOException {
-        ByteBuffer bufferFromCurrentSegmentFile = readFromCurrentSegmentFile(groupId, logIndex);
+        // First, read from the current segment file.
+        SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
-        if (bufferFromCurrentSegmentFile != null) {
-            return bufferFromCurrentSegmentFile;
+        SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
+
+        if (segmentInfo != null) {
+            if (logIndex >= segmentInfo.lastLogIndexExclusive()) {
+                return null;
+            }
+
+            int segmentPayloadOffset = segmentInfo.getOffset(logIndex);
+
+            if (segmentPayloadOffset != 0) {
+                return currentSegmentFile.segmentFile().buffer().position(segmentPayloadOffset);
+            }
         }
 
         ByteBuffer bufferFromCheckpointQueue = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
@@ -241,12 +252,12 @@ class SegmentFileManager implements ManuallyCloseable {
     /**
      * Returns the lowest log index for the given group present in the storage or {@code -1} if no such index exists.
      */
-    long firstLogIndex(long groupId) {
+    long firstLogIndexInclusive(long groupId) {
         long logIndexFromMemtable = firstLogIndexFromMemtable(groupId);
 
-        long logIndexFromCheckpointQueue = checkpointer.firstLogIndex(groupId);
+        long logIndexFromCheckpointQueue = checkpointer.firstLogIndexInclusive(groupId);
 
-        long logIndexFromIndexFiles = indexFileManager.firstLogIndex(groupId);
+        long logIndexFromIndexFiles = indexFileManager.firstLogIndexInclusive(groupId);
 
         if (logIndexFromIndexFiles >= 0) {
             return logIndexFromIndexFiles;
@@ -264,26 +275,30 @@ class SegmentFileManager implements ManuallyCloseable {
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        return segmentInfo == null ? -1 : segmentInfo.firstLogIndex();
+        if (segmentInfo == null || segmentInfo.size() == 0) {
+            return -1;
+        }
+
+        return segmentInfo.firstLogIndexInclusive();
     }
 
     /**
      * Returns the highest log index for the given group present in the storage or {@code -1} if no such index exists.
      */
-    long lastLogIndex(long groupId) {
+    long lastLogIndexExclusive(long groupId) {
         long logIndexFromMemtable = lastLogIndexFromMemtable(groupId);
 
         if (logIndexFromMemtable >= 0) {
             return logIndexFromMemtable;
         }
 
-        long logIndexFromCheckpointQueue = checkpointer.lastLogIndex(groupId);
+        long logIndexFromCheckpointQueue = checkpointer.lastLogIndexExclusive(groupId);
 
         if (logIndexFromCheckpointQueue >= 0) {
             return logIndexFromCheckpointQueue;
         }
 
-        return indexFileManager.lastLogIndex(groupId);
+        return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
     private long lastLogIndexFromMemtable(long groupId) {
@@ -291,7 +306,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        return segmentInfo == null ? -1 : segmentInfo.lastLogIndex();
+        return segmentInfo == null ? -1 : segmentInfo.lastLogIndexExclusive();
     }
 
     /**
@@ -381,20 +396,6 @@ class SegmentFileManager implements ManuallyCloseable {
 
     private long maxPossibleEntrySize() {
         return fileSize - HEADER_RECORD.length - SegmentPayload.overheadSize();
-    }
-
-    private @Nullable ByteBuffer readFromCurrentSegmentFile(long groupId, long logIndex) {
-        SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
-
-        SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
-
-        int segmentPayloadOffset = segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
-
-        if (segmentPayloadOffset == 0) {
-            return null;
-        }
-
-        return currentSegmentFile.segmentFile().buffer().position(segmentPayloadOffset);
     }
 
     private @Nullable ByteBuffer readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
