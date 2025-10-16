@@ -116,6 +116,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
