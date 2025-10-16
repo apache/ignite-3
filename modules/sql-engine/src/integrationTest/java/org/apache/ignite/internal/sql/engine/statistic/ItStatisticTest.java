@@ -20,10 +20,10 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.REFRESH_PERIOD;
-import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
 import static org.hamcrest.Matchers.is;
 
@@ -80,7 +80,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                         assertQuery(format("select {} from t", inc.incrementAndGet()))
                                 .matches(nodeRowCount("TableScan", is((int) milestone1)))
                                 .check()
-                );
+        );
     }
 
     @Test

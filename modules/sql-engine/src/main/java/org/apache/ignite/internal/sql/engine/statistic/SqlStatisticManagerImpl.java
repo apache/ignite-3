@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
@@ -167,8 +166,9 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                                 return null;
                             } else {
                                 ActualSize estimatedTableSize = new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                ActualSize prevSize = tableSizeMap.get(tableId);
                                 // the table can be concurrently dropped and we shouldn't put new value in this case.
-                                ActualSize ret = tableSizeMap.compute(tableId, (k, v) -> {
+                                tableSizeMap.compute(tableId, (k, v) -> {
                                     if (v == null) {
                                         return estimatedTableSize;
                                     }
@@ -181,7 +181,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                                     return estimatedTableSize;
                                 });
 
-                                if (ret.equals(estimatedTableSize)) {
+                                if (!estimatedTableSize.equals(prevSize)) {
                                     StatisticUpdatesSupplier supplier = changesSupplier.get();
                                     if (supplier != null) {
                                         supplier.accept(tableId);

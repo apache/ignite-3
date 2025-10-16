@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -70,7 +70,7 @@ public class StatisticAggregatorImpl implements
 
         int partitions = table.partitions();
 
-        Map<Integer, String> peers = newHashMap(partitions);
+        Map<Integer, String> peers = new Int2ObjectOpenHashMap<>(partitions);
 
         for (int p = 0; p < partitions; ++p) {
             ReplicationGroupId replicationGroupId = table.targetReplicationGroupId(p);

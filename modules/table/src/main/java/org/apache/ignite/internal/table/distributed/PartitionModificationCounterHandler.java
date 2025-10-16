@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
