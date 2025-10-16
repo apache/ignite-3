@@ -144,6 +144,7 @@ public class PrepareServiceImpl implements PrepareService {
     private static final String PLANNING_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-planning-executor";
 
     public static final int PLAN_UPDATER_INITIAL_DELAY = 2_000;
+    public static final int PLAN_UPDATER_REFRESH_PERIOD = 2_000;
 
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
@@ -1140,7 +1141,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                 rePlanningFut.whenComplete((k, err) -> inProgress.set(false));
 
-            }, PLAN_UPDATER_INITIAL_DELAY, 1_000, TimeUnit.MILLISECONDS);
+            }, PLAN_UPDATER_INITIAL_DELAY, PLAN_UPDATER_REFRESH_PERIOD, TimeUnit.MILLISECONDS);
         }
     }
 

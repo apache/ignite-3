@@ -166,10 +166,11 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
                                 return null;
                             } else {
+                                ActualSize estimatedTableSize = new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
                                 // the table can be concurrently dropped and we shouldn't put new value in this case.
-                                tableSizeMap.compute(tableId, (k, v) -> {
+                                ActualSize ret = tableSizeMap.compute(tableId, (k, v) -> {
                                     if (v == null) {
-                                        return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                        return estimatedTableSize;
                                     }
 
                                     // check for stale update
@@ -177,8 +178,15 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                                         return v;
                                     }
 
-                                    return new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                    return estimatedTableSize;
                                 });
+
+                                if (ret.equals(estimatedTableSize)) {
+                                    StatisticUpdatesSupplier supplier = changesSupplier.get();
+                                    if (supplier != null) {
+                                        supplier.accept(tableId);
+                                    }
+                                }
 
                                 return null;
                             }
@@ -221,7 +229,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
         HybridTimestamp timestamp;
         long size;
 
-        public ActualSize(long size, HybridTimestamp timestamp) {
+        ActualSize(long size, HybridTimestamp timestamp) {
             this.timestamp = timestamp;
             this.size = size;
         }
@@ -232,6 +240,21 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
         long getSize() {
             return size;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ActualSize that = ((ActualSize) o);
+
+            return timestamp.equals(that.timestamp) && size == that.size;
         }
     }
 

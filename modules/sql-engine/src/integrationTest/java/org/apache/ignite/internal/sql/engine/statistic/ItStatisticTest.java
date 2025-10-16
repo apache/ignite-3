@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
@@ -38,8 +41,6 @@ import org.junit.jupiter.api.Test;
 /** Integration test to check SQL statistics. */
 public class ItStatisticTest extends BaseSqlIntegrationTest {
     private SqlStatisticManagerImpl sqlStatisticManager;
-
-    private static final AtomicInteger counter = new AtomicInteger(0);
 
     @BeforeAll
     void beforeAll() {
@@ -79,7 +80,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                         assertQuery(format("select {} from t", inc.incrementAndGet()))
                                 .matches(nodeRowCount("TableScan", is((int) milestone1)))
                                 .check()
-        );
+                );
     }
 
     @Test
@@ -112,12 +113,11 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     @Test
     public void statisticUpdatesChangeQueryPlans() throws Exception {
         try {
-            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
-
             sqlScript(""
                     + "CREATE TABLE j1(ID INTEGER PRIMARY KEY, VAL INTEGER);"
                     + "CREATE TABLE j2(ID INTEGER PRIMARY KEY, VAL INTEGER);"
             );
+
             sql("INSERT INTO j1 SELECT x, x FROM system_range(?, ?)", 0, 10);
 
             sqlStatisticManager.forceUpdateAll();
@@ -126,18 +126,22 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
                     + "j1.* FROM j2, j1 WHERE j2.id = j1.id";
 
-            assertQuery(query)
-                    // expecting right source has less rows than left
-                    .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
-                    .returnNothing()
-                    .check();
+            int statRefresh = 2 * Math.max(PLAN_UPDATER_REFRESH_PERIOD, PLAN_UPDATER_INITIAL_DELAY);
+
+            Awaitility.await().timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                    assertQuery(query)
+                            // expecting right source has less rows than left
+                            .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
+                            .returnNothing()
+                            .check()
+            );
 
             sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 100);
 
             sqlStatisticManager.forceUpdateAll();
             sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
 
-            Awaitility.await().timeout(Math.max(10_000, 2 * PLAN_UPDATER_INITIAL_DELAY), TimeUnit.MILLISECONDS).untilAsserted(() ->
+            Awaitility.await().timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
                     assertQuery(query)
                             // expecting right source has less rows than left
                             .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
@@ -150,34 +154,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @Test
-    public void testStatisticsRowCount() throws Exception {
-        // For test we should always update statistics.
-        long prevValueOfThreshold = sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
-        try {
-            insertAndUpdateRunQuery(500);
-            assertQuery(getUniqueQuery())
-                    .matches(nodeRowCount("TableScan", is(500)))
-                    .check();
-
-            insertAndUpdateRunQuery(600);
-            assertQuery(getUniqueQuery())
-                    .matches(nodeRowCount("TableScan", is(1100)))
-                    .check();
-
-            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
-            insertAndUpdateRunQuery(900);
-
-            // Statistics shouldn't be updated despite we inserted new rows.
-            assertQuery(getUniqueQuery())
-                    .matches(nodeRowCount("TableScan", is(1100)))
-                    .check();
-        } finally {
-            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(prevValueOfThreshold);
-        }
-    }
-
-    // copy-paste from private method: PartitionModificationCounter.computeNextMilestone
+    // copy-paste from private method: PartitionModificationCounter#computeNextMilestone
     // if implementation will changes, it need to be changed too
     private static long computeNextMilestone(
             long currentSize,
