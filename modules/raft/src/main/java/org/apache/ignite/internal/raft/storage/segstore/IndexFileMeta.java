@@ -25,17 +25,17 @@ import org.apache.ignite.internal.tostring.S;
  * @see IndexFileManager
  */
 class IndexFileMeta {
-    private final long firstLogIndex;
+    private final long firstLogIndexInclusive;
 
-    private final long lastLogIndex;
+    private final long lastLogIndexExclusive;
 
     private final int indexFilePayloadOffset;
 
     private final int indexFileOrdinal;
 
-    IndexFileMeta(long firstLogIndex, long lastLogIndex, int indexFilePayloadOffset, int indexFileOrdinal) {
-        this.firstLogIndex = firstLogIndex;
-        this.lastLogIndex = lastLogIndex;
+    IndexFileMeta(long firstLogIndexInclusive, long lastLogIndexExclusive, int indexFilePayloadOffset, int indexFileOrdinal) {
+        this.firstLogIndexInclusive = firstLogIndexInclusive;
+        this.lastLogIndexExclusive = lastLogIndexExclusive;
         this.indexFilePayloadOffset = indexFilePayloadOffset;
         this.indexFileOrdinal = indexFileOrdinal;
     }
@@ -43,15 +43,15 @@ class IndexFileMeta {
     /**
      * Returns the inclusive lower bound of log indices stored in the index file for the Raft Group.
      */
-    long firstLogIndex() {
-        return firstLogIndex;
+    long firstLogIndexInclusive() {
+        return firstLogIndexInclusive;
     }
 
     /**
-     * Returns the inclusive upper bound of log indices stored in the index file for the Raft Group.
+     * Returns the exclusive upper bound of log indices stored in the index file for the Raft Group.
      */
-    long lastLogIndex() {
-        return lastLogIndex;
+    long lastLogIndexExclusive() {
+        return lastLogIndexExclusive;
     }
 
     /**
@@ -75,15 +75,15 @@ class IndexFileMeta {
         }
 
         IndexFileMeta that = (IndexFileMeta) o;
-        return firstLogIndex == that.firstLogIndex && lastLogIndex == that.lastLogIndex
+        return firstLogIndexInclusive == that.firstLogIndexInclusive && lastLogIndexExclusive == that.lastLogIndexExclusive
                 && indexFilePayloadOffset == that.indexFilePayloadOffset
                 && indexFileOrdinal == that.indexFileOrdinal;
     }
 
     @Override
     public int hashCode() {
-        int result = Long.hashCode(firstLogIndex);
-        result = 31 * result + Long.hashCode(lastLogIndex);
+        int result = Long.hashCode(firstLogIndexInclusive);
+        result = 31 * result + Long.hashCode(lastLogIndexExclusive);
         result = 31 * result + indexFilePayloadOffset;
         result = 31 * result + indexFileOrdinal;
         return result;

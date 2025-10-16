@@ -350,18 +350,18 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         List<byte[]> batches = randomData(batchSize, 100);
 
         IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
-            assertThat(fileManager.firstLogIndex(groupId), is(-1L));
-            assertThat(fileManager.lastLogIndex(groupId), is(-1L));
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
 
             for (int i = 0; i < batches.size(); i++) {
                 appendBytes(groupId, batches.get(i), i);
 
-                assertThat(fileManager.firstLogIndex(groupId), is(0L));
-                assertThat(fileManager.lastLogIndex(groupId), is((long) i));
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(i + 1L));
             }
 
-            assertThat(fileManager.firstLogIndex(groupId), is(0L));
-            assertThat(fileManager.lastLogIndex(groupId), is((long) (batches.size() - 1)));
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is((long) batches.size()));
         };
 
         runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
