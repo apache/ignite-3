@@ -120,4 +120,4 @@ NOTE: Reset is likely to result in <<Partition Rebalance>>, which may take a lon
 
 == Partition Rebalance
 
-When the link:administrators-guide/storage/distribution-zones#cluster-scaling[cluster size changes], Apache Ignite waits for the timeout specified in the `AUTO SCALE UP` or `AUTO SCALE DOWN` distribution zone properties, and then redistributes partitions according to partition distribution algorithm and transfers data to make it up-to-date with the replication group. This process is called *data rebalance*.
+When the link:administrators-guide/storage/distribution-zones#cluster-scaling[cluster size changes], Apache Ignite waits for the timeout specified in the `AUTO SCALE UP` or `AUTO SCALE DOWN` distribution zone properties, and then redistributes partitions according to the partition distribution algorithm and transfers data to make it up-to-date with the replication group. This process is called *data rebalance*.

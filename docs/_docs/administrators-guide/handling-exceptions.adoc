@@ -106,7 +106,7 @@ When the exception happens, Apache Ignite provides a UUID of the specific except
 |`IGN-TX-1`|Default error for transaction state storage.|General error, check the logs and take action depending on the cause. Make sure there are no disk errors.
 |`IGN-TX-2`|Storage is stopped.|Storage is stopped due to the node stop or replica stop. No action is required unless this behavior is unexpected. Otherwise check the log for details.
 |`IGN-TX-3`|Unexpected transaction state on state change.|This can happen when trying to commit an already aborted transaction or roll back a committed one. No action is required.
-|`IGN-TX-4`|Failed to acquire a lock on a key due to a conflict.|The lock is taken by another transaction. Retry the operation or change the deadlock prevention policy.
+|`IGN-TX-4`|Failed to acquire a lock on a key due to a conflict.|The lock is held by another transaction. Retry the operation or change the deadlock prevention policy.
 |`IGN-TX-5`|Failed to acquire a lock on a key within the timeout.|The lock is held by another transaction. Make sure that the other transaction is not hanging, kill it if necessary; or retry the operation.
 |`IGN-TX-6`|Failed to commit a transaction.|Take actions depending on the cause. Make sure that all partitions in the cluster have a majority of nodes online in their groups.
 |`IGN-TX-7`|Failed to roll back a transaction.|Take actions depending on the cause. Make sure that all partitions in the cluster have a majority of nodes online in their groups.
