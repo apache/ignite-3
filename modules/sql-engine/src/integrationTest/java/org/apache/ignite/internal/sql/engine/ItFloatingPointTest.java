@@ -447,6 +447,9 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
         assertQuery("SELECT MIN(fn), MIN(dn) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();
         assertQuery("SELECT MAX(fn), MAX(dn) FROM test").returns(Float.NaN, Double.NaN).check();
         assertQuery("SELECT AVG(fn), AVG(dn) FROM test").returns(Double.NaN, Double.NaN).check();
+
+        assertQuery(node(1), "SELECT AVG(f), AVG(d) FROM test").returns(Double.NaN, Double.NaN).check();
+        assertQuery(node(1), "SELECT AVG(fn), AVG(dn) FROM test").returns(Double.NaN, Double.NaN).check();
     }
 
     @Test
