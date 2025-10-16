@@ -79,7 +79,7 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
         for (StorageSortedIndexColumnDescriptor col : columns) {
             collations.add(CatalogColumnCollation.get(col.asc(), col.nullsFirst()));
             types.add(col.type());
-            nullableFlags.add(col.nullable());
+            nullableFlags.add(true);
         }
 
         return JitComparatorGenerator.createComparator(JitComparatorOptions.builder()
