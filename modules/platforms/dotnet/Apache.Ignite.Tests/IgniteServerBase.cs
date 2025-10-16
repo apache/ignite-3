@@ -169,7 +169,7 @@ public abstract class IgniteServerBase : IDisposable
                     continue;
                 }
 
-                Console.WriteLine($"Error in FakeServer [Name={Name}]: {e}");
+                Console.WriteLine($"Error in FakeServer [port={Port}, Name={Name}]: {e}");
             }
         }
     }
@@ -180,6 +180,8 @@ public abstract class IgniteServerBase : IDisposable
         {
             Socket handler = _listener.Accept();
             handler.NoDelay = true;
+
+            Console.WriteLine($"Accepted connection [port={Port}, test={Name}, endpoint={handler.RemoteEndPoint}]");
 
             if (DropNewConnections)
             {
