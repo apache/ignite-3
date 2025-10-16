@@ -122,7 +122,9 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -252,11 +254,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             String... disabledRules
     ) {
 
-        Int2ObjectArrayMap<Object> paramsMap = new Int2ObjectArrayMap<>();
+        Int2ObjectArrayMap<ColumnType> dynamicParamTypes = new Int2ObjectArrayMap<>();
         for (int i = 0; i < params.size(); i++) {
             Object value = params.get(i);
             if (value != Unspecified.UNKNOWN) {
-                paramsMap.put(i, value);
+                if (value != null && value.getClass() == Character.class) {
+                    dynamicParamTypes.put(i, ColumnType.STRING);
+                } else {
+                    NativeType type = NativeTypes.fromObject(value);
+                    dynamicParamTypes.put(i, type == null ? null : type.spec());
+                }
             }
         }
 
@@ -285,7 +292,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 .catalogVersion(1)
                 .defaultSchemaName(defaultSchema.getName())
                 .query(sql)
-                .parameters(paramsMap)
+                .parameters(dynamicParamTypes)
                 // Assume that we use explicit transactions by default.
                 .explicitTx(true)
                 .build();

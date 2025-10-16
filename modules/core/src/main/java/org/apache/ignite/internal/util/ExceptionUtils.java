@@ -58,7 +58,7 @@ public final class ExceptionUtils {
     /**
      * The names of methods commonly used to access a wrapped exception.
      */
-    private static final String[] CAUSE_METHOD_NAMES = new String[]{
+    private static final String[] CAUSE_METHOD_NAMES = {
             "getCause",
             "getNextException",
             "getTargetException",
@@ -113,10 +113,10 @@ public final class ExceptionUtils {
      * Finds a {@code Throwable} by method name.
      *
      * @param throwable The exception to examine.
-     * @param mtdName   The name of the method to find and invoke.
+     * @param mtdName The name of the method to find and invoke.
      * @return The wrapped exception, or {@code null} if not found.
      */
-    private static Throwable getCauseUsingMethodName(Throwable throwable, String mtdName) {
+    private static @Nullable Throwable getCauseUsingMethodName(Throwable throwable, String mtdName) {
         Method mtd = null;
 
         try {
@@ -143,7 +143,7 @@ public final class ExceptionUtils {
      * @param fieldName The name of the attribute to examine.
      * @return The wrapped exception, or {@code null} if not found.
      */
-    private static Throwable getCauseUsingFieldName(Throwable throwable, String fieldName) {
+    private static @Nullable Throwable getCauseUsingFieldName(Throwable throwable, String fieldName) {
         Field field = null;
 
         try {
@@ -196,7 +196,7 @@ public final class ExceptionUtils {
             try {
                 Method mtd = cls.getMethod(methodName, (Class<?>) null);
 
-                if (mtd != null && Throwable.class.isAssignableFrom(mtd.getReturnType())) {
+                if (Throwable.class.isAssignableFrom(mtd.getReturnType())) {
                     return true;
                 }
             } catch (NoSuchMethodException | SecurityException ignored) {
@@ -205,11 +205,9 @@ public final class ExceptionUtils {
         }
 
         try {
-            Field field = cls.getField("detail");
+            cls.getField("detail");
 
-            if (field != null) {
-                return true;
-            }
+            return true;
         } catch (NoSuchFieldException | SecurityException ignored) {
             // exception ignored
         }
@@ -223,7 +221,7 @@ public final class ExceptionUtils {
      * @param throwable The throwable to introspect for a cause, may be null.
      * @return The cause of the {@code Throwable}, {@code null} if none found or null throwable input.
      */
-    public static Throwable getCause(Throwable throwable) {
+    public static @Nullable Throwable getCause(Throwable throwable) {
         return getCause(throwable, CAUSE_METHOD_NAMES);
     }
 
@@ -348,7 +346,7 @@ public final class ExceptionUtils {
      */
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCauseOrSuppressed(throwable, null, clazz);
     }
@@ -368,7 +366,7 @@ public final class ExceptionUtils {
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
             @Nullable String message,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), true);
     }
@@ -385,7 +383,7 @@ public final class ExceptionUtils {
      */
     public static boolean hasCause(
             @Nullable Throwable throwable,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCause(throwable, null, clazz);
     }
@@ -404,7 +402,7 @@ public final class ExceptionUtils {
     public static boolean hasCause(
             @Nullable Throwable throwable,
             @Nullable String message,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), false);
     }
@@ -445,7 +443,7 @@ public final class ExceptionUtils {
 
             if (considerSuppressed) {
                 for (Throwable n : th.getSuppressed()) {
-                    if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu, considerSuppressed)) {
+                    if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu, true)) {
                         return true;
                     }
                 }
@@ -496,6 +494,21 @@ public final class ExceptionUtils {
         }
 
         return e;
+    }
+
+    /**
+     * Unwraps the cause from {@link CompletionException} if the provided exception is an instance of it.
+     *
+     * @param t Given throwable.
+     * @return Unwrapped throwable.
+     */
+    @Nullable
+    public static Throwable unwrapCompletionThrowable(@Nullable Throwable t) {
+        if (t instanceof CompletionException) {
+            return t.getCause();
+        } else {
+            return t;
+        }
     }
 
     /**
@@ -663,7 +676,7 @@ public final class ExceptionUtils {
      * @param cause Cause.
      * @return New exception of the given {@code clazz} and with the specified parameters.
      */
-    public static <T extends Throwable> T copyExceptionWithCause(
+    public static <T extends Throwable> @Nullable T copyExceptionWithCause(
             Class<? extends Throwable> clazz,
             @Nullable UUID traceId,
             int code,
@@ -891,7 +904,7 @@ public final class ExceptionUtils {
 
                 return exc;
             } catch (NoSuchMethodException | IllegalAccessException | SecurityException | ClassCastException
-                    | WrongMethodTypeException ignore) {
+                     | WrongMethodTypeException ignore) {
                 // NoSuchMethodException, IllegalAccessException, SecurityException means that the required signature is not available.
                 // ClassCastException - argument cannot be converted by reference casting.
                 // WrongMethodTypeException - target's type cannot be adjusted to take the given parameters.
@@ -916,6 +929,7 @@ public final class ExceptionUtils {
          * @return a new instance of exception. Returned value can be {@code null} if the exception class cannot be constructed
          *          using a specific signature.
          */
+        @Nullable
         abstract <T extends Throwable> T copy(
                 MethodHandle constructor,
                 @Nullable UUID traceId,
@@ -928,165 +942,165 @@ public final class ExceptionUtils {
     private static final List<ExceptionFactory> EXCEPTION_FACTORIES;
 
     static {
-        EXCEPTION_FACTORIES = new ArrayList<>();
-
-        // The most specific signatures should go in the first place.
-        // Exception(UUID traceId, int code, String message, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                return (T) constructor.invokeWithArguments(traceId, code, message, cause);
-            }
-        });
-        // Exception(UUID traceId, int code, String message)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(traceId, code, message);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
+        EXCEPTION_FACTORIES = List.of(
+                // The most specific signatures should go in the first place.
+                // Exception(UUID traceId, int code, String message, Throwable cause)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        return (T) constructor.invokeWithArguments(traceId, code, message, cause);
+                    }
+                },
+                // Exception(UUID traceId, int code, String message)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(traceId, code, message);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(UUID traceId, int code, Throwable cause)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        if (cause != null) {
+                            // Workaround to avoid error code duplication in exception message.
+                            cause = new UtilException(message, cause);
+                        }
+                        return (T) constructor.invokeWithArguments(traceId, code, cause);
+                    }
+                },
+                // Exception(int code, String message, Throwable cause)
+                new ExceptionFactory(methodType(void.class, int.class, String.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        return (T) constructor.invokeWithArguments(code, message, cause);
+                    }
+                },
+                // Exception(int code, String message)
+                new ExceptionFactory(methodType(void.class, int.class, String.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(code, message);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(int code, Throwable cause)
+                new ExceptionFactory(methodType(void.class, int.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        if (cause != null) {
+                            // Workaround to avoid error code duplication in exception message.
+                            cause = new UtilException(message, cause);
+                        }
+                        return (T) constructor.invokeWithArguments(code, cause);
+                    }
+                },
+                // Exception(UUID traceId, int code)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(traceId, code);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(String msg, Throwable cause)
+                new ExceptionFactory(methodType(void.class, String.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        return (T) constructor.invokeWithArguments(message, cause);
+                    }
+                },
+                // Exception(int code)
+                new ExceptionFactory(methodType(void.class, int.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(code);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(Throwable cause)
+                new ExceptionFactory(methodType(void.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        if (cause != null) {
+                            // Workaround to avoid error code duplication in exception message.
+                            cause = new UtilException(message, cause);
+                        }
+                        return (T) constructor.invokeWithArguments(cause);
+                    }
+                },
+                // Exception(String msg)
+                new ExceptionFactory(methodType(void.class, String.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(message);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception()
+                new ExceptionFactory(methodType(void.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments();
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
                     }
                 }
-                return copy;
-            }
-        });
-        // Exception(UUID traceId, int code, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                if (cause != null) {
-                    // Workaround to avoid error code duplication in exception message.
-                    cause = new UtilException(message, cause);
-                }
-                return (T) constructor.invokeWithArguments(traceId, code, cause);
-            }
-        });
-        // Exception(int code, String message, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, String.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                return (T) constructor.invokeWithArguments(code, message, cause);
-            }
-        });
-        // Exception(int code, String message)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, String.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(code, message);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(int code, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                if (cause != null) {
-                    // Workaround to avoid error code duplication in exception message.
-                    cause = new UtilException(message, cause);
-                }
-                return (T) constructor.invokeWithArguments(code, cause);
-            }
-        });
-        // Exception(UUID traceId, int code)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(traceId, code);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(String msg, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, String.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                return (T) constructor.invokeWithArguments(message, cause);
-            }
-        });
-        // Exception(int code)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(code);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(String msg)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, String.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(message);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                if (cause != null) {
-                    // Workaround to avoid error code duplication in exception message.
-                    cause = new UtilException(message, cause);
-                }
-                return (T) constructor.invokeWithArguments(cause);
-            }
-        });
-        // Exception()
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments();
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
+        );
     }
 
     /**

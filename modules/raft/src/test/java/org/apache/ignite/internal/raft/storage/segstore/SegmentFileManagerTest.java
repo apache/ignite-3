@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManage
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.awaitility.Awaitility.await;
@@ -56,7 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
+import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -153,8 +154,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         String expectedMessage = String.format(
                 "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.",
-                FILE_SIZE + SegmentPayload.overheadSize(),
-                FILE_SIZE - HEADER_RECORD.length
+                FILE_SIZE,
+                FILE_SIZE - HEADER_RECORD.length - SegmentPayload.overheadSize()
         );
 
         assertThat(e.getMessage(), is(expectedMessage));
@@ -283,7 +284,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
             if (i == batches.size() - 1) {
                 assertNotNull(stopTask);
 
-                stopTask.get(1, TimeUnit.SECONDS);
+                assertThat(stopTask, willCompleteSuccessfully());
             }
 
             byte[] batch = batches.get(i);
@@ -340,6 +341,30 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         for (int i = 0; i < indexFiles.size(); i++) {
             validateIndexFile(indexFiles.get(i), segmentFiles.get(i));
         }
+    }
+
+    @Test
+    void testFirstAndLastIndexOnAppend() {
+        int batchSize = FILE_SIZE / 10;
+
+        List<byte[]> batches = randomData(batchSize, 100);
+
+        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
+            assertThat(fileManager.firstLogIndex(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndex(groupId), is(-1L));
+
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytes(groupId, batches.get(i), i);
+
+                assertThat(fileManager.firstLogIndex(groupId), is(0L));
+                assertThat(fileManager.lastLogIndex(groupId), is((long) i));
+            }
+
+            assertThat(fileManager.firstLogIndex(groupId), is(0L));
+            assertThat(fileManager.lastLogIndex(groupId), is((long) (batches.size() - 1)));
+        };
+
+        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
     }
 
     private Path findSoleSegmentFile() throws IOException {

@@ -144,7 +144,7 @@ Now, let's create a Java application that connects to our Ignite cluster and per
 
 Create a `Main.java` file with the following code:
 
-TIP: See the structure example above for the expected file location. This examples contains the full class file.
+TIP: See the structure example above for the expected file location. This example contains the full class file.
 
 [source, java]
 ----
@@ -311,7 +311,7 @@ Person2: Joe
 
 == Understanding Table Views in Ignite 3
 
-Ignite 3 provides multiple view patterns for interacting with tables on top of providing a robust SQL API. Examples below showcase how you can work with Ignite tables from your project without SQL. For examples of working with SQL, see the link:get-started/explore-sql[Getting Started with SQL] tutorial.
+Ignite 3 provides multiple view patterns for interacting with tables on top of providing a robust SQL API. Examples below showcase how you can work with Ignite tables from your project without SQL. For examples of working with SQL, see the link:quick-start/explore-sql[Getting Started with SQL] tutorial.
 
 === RecordView Pattern
 

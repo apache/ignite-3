@@ -1,0 +1,39 @@
+{
+  "allowedLicenses": [
+    {
+      "moduleLicense": "Apache License, Version 2.0",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "CDDL + GPLv2 with classpath exception",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "Eclipse Public License - v 2.0",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "MIT License",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "MIT-0",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "The 2-Clause BSD License",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    },
+    {
+      "moduleLicense": "The 3-Clause BSD License",
+      "moduleName": ".*",
+      "moduleVersion": ".*"
+    }
+  ]
+}

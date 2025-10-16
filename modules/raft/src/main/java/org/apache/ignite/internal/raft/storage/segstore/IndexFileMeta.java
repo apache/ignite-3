@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import org.apache.ignite.internal.tostring.S;
+
 /**
  * Meta information about a payload in an index file.
  *
@@ -29,10 +31,13 @@ class IndexFileMeta {
 
     private final int indexFilePayloadOffset;
 
-    IndexFileMeta(long firstLogIndex, long lastLogIndex, int indexFilePayloadOffset) {
+    private final int indexFileOrdinal;
+
+    IndexFileMeta(long firstLogIndex, long lastLogIndex, int indexFilePayloadOffset, int indexFileOrdinal) {
         this.firstLogIndex = firstLogIndex;
         this.lastLogIndex = lastLogIndex;
         this.indexFilePayloadOffset = indexFilePayloadOffset;
+        this.indexFileOrdinal = indexFileOrdinal;
     }
 
     /**
@@ -56,15 +61,23 @@ class IndexFileMeta {
         return indexFilePayloadOffset;
     }
 
+    /**
+     * Returns the ordinal of the index file.
+     */
+    int indexFileOrdinal() {
+        return indexFileOrdinal;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
-        IndexFileMeta fileMeta = (IndexFileMeta) o;
-        return firstLogIndex == fileMeta.firstLogIndex && lastLogIndex == fileMeta.lastLogIndex
-                && indexFilePayloadOffset == fileMeta.indexFilePayloadOffset;
+        IndexFileMeta that = (IndexFileMeta) o;
+        return firstLogIndex == that.firstLogIndex && lastLogIndex == that.lastLogIndex
+                && indexFilePayloadOffset == that.indexFilePayloadOffset
+                && indexFileOrdinal == that.indexFileOrdinal;
     }
 
     @Override
@@ -72,6 +85,12 @@ class IndexFileMeta {
         int result = Long.hashCode(firstLogIndex);
         result = 31 * result + Long.hashCode(lastLogIndex);
         result = 31 * result + indexFilePayloadOffset;
+        result = 31 * result + indexFileOrdinal;
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

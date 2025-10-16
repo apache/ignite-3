@@ -233,6 +233,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     ReplicationGroupId commitPartition,
                     boolean commitIntent,
                     boolean timeoutExceeded,
+                    boolean recovery,
                     Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {

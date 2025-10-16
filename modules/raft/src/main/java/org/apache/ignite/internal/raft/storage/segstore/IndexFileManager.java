@@ -155,22 +155,20 @@ class IndexFileManager {
             return null;
         }
 
-        IndexFilePointer filePointer = groupIndexMeta.indexFilePointer(logIndex);
+        IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
 
-        if (filePointer == null) {
+        if (indexFileMeta == null) {
             return null;
         }
 
-        Path indexFile = baseDir.resolve(indexFileName(filePointer.fileOrdinal(), 0));
-
-        IndexFileMeta fileMeta = filePointer.fileMeta();
+        Path indexFile = baseDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
 
         // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex] range.
-        long payloadArrayIndex = logIndex - fileMeta.firstLogIndex();
+        long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndex();
 
         assert payloadArrayIndex >= 0 : payloadArrayIndex;
 
-        long payloadOffset = fileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
+        long payloadOffset = indexFileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
 
         try (SeekableByteChannel channel = Files.newByteChannel(indexFile, StandardOpenOption.READ)) {
             channel.position(payloadOffset);
@@ -187,8 +185,26 @@ class IndexFileManager {
 
             int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
 
-            return new SegmentFilePointer(filePointer.fileOrdinal(), segmentPayloadOffset);
+            return new SegmentFilePointer(indexFileMeta.indexFileOrdinal(), segmentPayloadOffset);
         }
+    }
+
+    /**
+     * Returns the lowest log index for the given group across all index files or {@code -1} if no such index exists.
+     */
+    long firstLogIndex(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.firstLogIndex();
+    }
+
+    /**
+     * Returns the highest log index for the given group across all index files or {@code -1} if no such index exists.
+     */
+    long lastLogIndex(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndex();
     }
 
     private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable) {
@@ -218,7 +234,7 @@ class IndexFileManager {
 
             long lastLogIndex = segmentInfo.lastLogIndex();
 
-            var indexFileMeta = new IndexFileMeta(firstLogIndex, lastLogIndex, payloadOffset);
+            var indexFileMeta = new IndexFileMeta(firstLogIndex, lastLogIndex, payloadOffset, curFileOrdinal);
 
             putIndexFileMeta(groupId, indexFileMeta);
 
@@ -239,7 +255,7 @@ class IndexFileManager {
         GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
 
         if (existingGroupIndexMeta == null) {
-            groupIndexMetas.put(groupId, new GroupIndexMeta(curFileOrdinal, indexFileMeta));
+            groupIndexMetas.put(groupId, new GroupIndexMeta(indexFileMeta));
         } else {
             existingGroupIndexMeta.addIndexMeta(indexFileMeta);
         }
