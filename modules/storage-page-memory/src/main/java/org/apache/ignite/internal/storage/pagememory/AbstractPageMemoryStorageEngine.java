@@ -31,6 +31,7 @@ import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
@@ -49,6 +50,13 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
 
     private final HybridClock clock;
 
+    private boolean useLegacySortedIndexComparator = false;
+
+    /**
+     * This map is used to reuse comparators for sorted indexes with the same set of columns and their collations. It is beneficial to reuse
+     * comparators because otherwise every comparator will use its own generated class, which bloats metaspace and doesn't allow JVM's JIT
+     * to be as efficient.
+     */
     private final ConcurrentMap<StorageSortedIndexDescriptor, CachedComparator> cachedSortedIndexComparators
             = new ConcurrentSkipListMap<>(comparing(
                     StorageSortedIndexDescriptor::columns,
@@ -63,6 +71,18 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
     AbstractPageMemoryStorageEngine(@Nullable SystemLocalConfiguration systemLocalConfig, HybridClock clock) {
         this.systemLocalConfig = systemLocalConfig;
         this.clock = clock;
+    }
+
+    @Override
+    public void start() throws StorageException {
+        if (systemLocalConfig != null) {
+            SystemPropertyView legacyComparator = systemLocalConfig.value().properties()
+                    .get(LEGACY_PAGE_MEMERY_SORTED_INDEX_COMPARATOR_PROPERTY);
+
+            if (legacyComparator != null && "true".equalsIgnoreCase(legacyComparator.propertyValue())) {
+                useLegacySortedIndexComparator = true;
+            }
+        }
     }
 
     /**
@@ -86,6 +106,7 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
         for (StorageSortedIndexColumnDescriptor col : columns) {
             collations.add(CatalogColumnCollation.get(col.asc(), col.nullsFirst()));
             types.add(col.type());
+            // Nulls can still be passed from the outside as lower/upper bounds during the search, even if the column is not nullable.
             nullableFlags.add(true);
         }
 
@@ -104,13 +125,8 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
      * it already exists (was not disposed with {@link #disposeSortedIndexComparator(StorageSortedIndexDescriptor)}) for a given descriptor.
      */
     public @Nullable JitComparator createSortedIndexComparator(StorageSortedIndexDescriptor indexDescriptor) {
-        if (systemLocalConfig != null) {
-            SystemPropertyView legacyComparator = systemLocalConfig.value().properties()
-                    .get(LEGACY_PAGE_MEMERY_SORTED_INDEX_COMPARATOR_PROPERTY);
-
-            if (legacyComparator != null && "true".equalsIgnoreCase(legacyComparator.propertyValue())) {
-                return null;
-            }
+        if (useLegacySortedIndexComparator) {
+            return null;
         }
 
         CachedComparator c = cachedSortedIndexComparators.compute(indexDescriptor, (desc, cmp) -> {
@@ -132,6 +148,10 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
      * associated resources.
      */
     public void disposeSortedIndexComparator(StorageSortedIndexDescriptor indexDescriptor) {
+        if (useLegacySortedIndexComparator) {
+            return;
+        }
+
         cachedSortedIndexComparators.compute(indexDescriptor, (desc, cmp) -> {
             assert cmp != null;
 

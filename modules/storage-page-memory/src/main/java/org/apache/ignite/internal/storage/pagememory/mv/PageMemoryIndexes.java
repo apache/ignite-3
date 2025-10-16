@@ -160,7 +160,6 @@ class PageMemoryIndexes {
             case SORTED:
                 PageMemorySortedIndexStorage sortedIndexStorage = indexStorageFactory.restoreSortedIndexStorageForDestroy(indexMeta);
 
-                // No, I don't need to do it here, this is stupid.
                 return destroyStorage(indexMeta.indexId(), sortedIndexStorage, indexMetaTree);
 
             default:

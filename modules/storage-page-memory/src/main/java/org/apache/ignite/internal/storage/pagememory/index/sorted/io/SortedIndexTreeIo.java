@@ -218,7 +218,7 @@ public interface SortedIndexTreeIo {
     /**
      * Compare the {@link SortedIndexRowKey} from the page with passed {@link SortedIndexRowKey}. This method is very similar to
      * {@link #compare(DataPageReader, Comparator, PartialBinaryTupleMatcher, int, long, int, SortedIndexRowKey)}. Combining them into a
-     * single method would make it too bloated.
+     * single method would make it too bloated and hard to follow, assuming an optimal implementation of both methods.
      *
      * @param dataPageReader Data page reader.
      * @param comparator Comparator.
