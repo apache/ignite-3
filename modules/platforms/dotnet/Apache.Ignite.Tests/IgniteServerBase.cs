@@ -206,7 +206,10 @@ public abstract class IgniteServerBase : IDisposable
 
             if (AllowMultipleConnections)
             {
-                _ = Task.Run(handleAction);
+                _ = Task.Run(handleAction)
+                    .ContinueWith(
+                        t => Console.WriteLine($"Error handling connection: {t.Exception}"),
+                        TaskContinuationOptions.OnlyOnFaulted);
             }
             else
             {
