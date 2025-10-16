@@ -27,13 +27,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Multiple JDBC connections test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-26617")
 public class ItJdbcMultipleConnectionsTest extends AbstractJdbcSelfTest {
     private static final String URL1 = "jdbc:ignite:thin://127.0.0.1:10800";
     private static final String URL2 = "jdbc:ignite:thin://127.0.0.1:10801";
