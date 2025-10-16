@@ -40,7 +40,7 @@ class GroupIndexMeta {
         }
 
         @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
-        private volatile IndexFileMetaArray fileMetas;
+        volatile IndexFileMetaArray fileMetas;
 
         IndexMetaArrayHolder(IndexFileMeta startFileMeta) {
             this.fileMetas = new IndexFileMetaArray(startFileMeta);
@@ -57,36 +57,33 @@ class GroupIndexMeta {
 
             assert updated : "Concurrent writes detected";
         }
-
-        @Nullable
-        IndexFileMeta indexMeta(long logIndex) {
-            return fileMetas.find(logIndex);
-        }
-
-        long firstLogIndexInclusive() {
-            return fileMetas.firstLogIndexInclusive();
-        }
-
-        long lastLogIndexExclusive() {
-            return fileMetas.lastLogIndexExclusive();
-        }
     }
 
-    private final Deque<IndexMetaArrayHolder> fileMetaQueue = new ConcurrentLinkedDeque<>();
+    private final Deque<IndexMetaArrayHolder> fileMetaDeque = new ConcurrentLinkedDeque<>();
 
     GroupIndexMeta(IndexFileMeta startFileMeta) {
-        fileMetaQueue.add(new IndexMetaArrayHolder(startFileMeta));
+        fileMetaDeque.add(new IndexMetaArrayHolder(startFileMeta));
     }
 
     void addIndexMeta(IndexFileMeta indexFileMeta) {
-        IndexMetaArrayHolder curFileMetas = fileMetaQueue.getLast();
+        IndexMetaArrayHolder curFileMetas = fileMetaDeque.getLast();
+
+        long curLastLogIndex = curFileMetas.fileMetas.lastLogIndexExclusive();
+
+        long newFirstLogIndex = indexFileMeta.firstLogIndexInclusive();
+
+        assert newFirstLogIndex <= curLastLogIndex :
+                String.format(
+                        "Gaps between Index File Metas are not allowed. Last log index: %d, new log index: %d",
+                        curLastLogIndex, newFirstLogIndex
+                );
 
         // Merge consecutive index metas into a single meta block. If there's an overlap (e.g. due to log truncation), start a new block,
         // which will override the previous one during search.
-        if (curFileMetas.lastLogIndexExclusive() == indexFileMeta.firstLogIndexInclusive()) {
+        if (curLastLogIndex == newFirstLogIndex) {
             curFileMetas.addIndexMeta(indexFileMeta);
         } else {
-            fileMetaQueue.add(new IndexMetaArrayHolder(indexFileMeta));
+            fileMetaDeque.add(new IndexMetaArrayHolder(indexFileMeta));
         }
     }
 
@@ -96,7 +93,7 @@ class GroupIndexMeta {
      */
     @Nullable
     IndexFileMeta indexMeta(long logIndex) {
-        Iterator<IndexMetaArrayHolder> it = fileMetaQueue.descendingIterator();
+        Iterator<IndexMetaArrayHolder> it = fileMetaDeque.descendingIterator();
 
         while (it.hasNext()) {
             IndexFileMetaArray fileMetas = it.next().fileMetas;
@@ -121,10 +118,18 @@ class GroupIndexMeta {
     }
 
     long firstLogIndexInclusive() {
-        return fileMetaQueue.getFirst().firstLogIndexInclusive();
+        for (IndexMetaArrayHolder indexMetaArrayHolder : fileMetaDeque) {
+            IndexFileMetaArray fileMetas = indexMetaArrayHolder.fileMetas;
+
+            if (fileMetas.size() > 0) {
+                return fileMetas.firstLogIndexInclusive();
+            }
+        }
+
+        return -1;
     }
 
     long lastLogIndexExclusive() {
-        return fileMetaQueue.getLast().lastLogIndexExclusive();
+        return fileMetaDeque.getLast().fileMetas.lastLogIndexExclusive();
     }
 }

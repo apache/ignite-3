@@ -70,7 +70,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         assertThat(groupMeta.indexMeta(66), is(additionalMeta));
 
-        assertThat(groupMeta.indexMeta(101), is(nullValue()));
+        assertThat(groupMeta.indexMeta(100), is(nullValue()));
     }
 
     @RepeatedTest(10)

@@ -68,6 +68,14 @@ class IndexFileMeta {
         return indexFileOrdinal;
     }
 
+    /**
+     * Returns {@code true} if the index meta is empty. This happens if some data was inserted but then the log suffix got truncated,
+     * completely wiping it out.
+     */
+    boolean isEmpty() {
+        return firstLogIndexInclusive == lastLogIndexExclusive;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) {

@@ -73,7 +73,15 @@ class IndexFileMetaArray {
     }
 
     long firstLogIndexInclusive() {
-        return array[0].firstLogIndexInclusive();
+        for (int i = 0; i < size; i++) {
+            IndexFileMeta indexFileMeta = array[i];
+
+            if (!indexFileMeta.isEmpty()) {
+                return indexFileMeta.firstLogIndexInclusive();
+            }
+        }
+
+        return -1;
     }
 
     long lastLogIndexExclusive() {
