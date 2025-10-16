@@ -63,13 +63,13 @@ class GroupIndexMeta {
         return fileMetas.find(logIndex);
     }
 
-    long firstLogIndex() {
-        return fileMetas.get(0).firstLogIndex();
+    long firstLogIndexInclusive() {
+        return fileMetas.get(0).firstLogIndexInclusive();
     }
 
-    long lastLogIndex() {
+    long lastLogIndexExclusive() {
         IndexFileMetaArray fileMetas = this.fileMetas;
 
-        return fileMetas.get(fileMetas.size() - 1).lastLogIndex();
+        return fileMetas.get(fileMetas.size() - 1).lastLogIndexExclusive();
     }
 }

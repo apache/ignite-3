@@ -83,16 +83,18 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public long getFirstLogIndex() {
-        long firstLogIndex = segmentFileManager.firstLogIndex(groupId);
+        long firstLogIndex = segmentFileManager.firstLogIndexInclusive(groupId);
 
+        // JRaft requires to return 1 as the first log index if there are no entries.
         return firstLogIndex >= 0 ? firstLogIndex : 1;
     }
 
     @Override
     public long getLastLogIndex() {
-        long lastLogIndex = segmentFileManager.lastLogIndex(groupId);
+        long lastLogIndex = segmentFileManager.lastLogIndexExclusive(groupId);
 
-        return lastLogIndex >= 0 ? lastLogIndex : 0;
+        // JRaft requires to return 0 as the last log index if there are no entries.
+        return Math.max(lastLogIndex - 1, 0);
     }
 
     @Override
