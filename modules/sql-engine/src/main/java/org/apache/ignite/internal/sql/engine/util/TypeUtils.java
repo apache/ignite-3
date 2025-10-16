@@ -23,7 +23,6 @@ import static org.apache.calcite.sql.type.SqlTypeName.STRING_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -56,7 +55,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -228,18 +226,17 @@ public class TypeUtils {
     /**
      * Provide a function to convert internal representation of sql results into external types.
      *
-     * @param ectx SQL execution context.
      * @param resultType Type of result.
      * @return Schema-aware converting function.
      */
-    public static SchemaAwareConverter<Object, Object> resultTypeConverter(ExecutionContext<?> ectx, RelDataType resultType) {
+    public static SchemaAwareConverter<Object, Object> resultTypeConverter(RelDataType resultType) {
         assert resultType.isStruct();
 
         if (hasConvertableFields(resultType)) {
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);
             Function<Object, Object>[] converters = (Function<Object, Object>[]) new Function[types.size()];
             for (int i = 0; i < types.size(); i++) {
-                converters[i] = fieldConverter(ectx, types.get(i));
+                converters[i] = fieldConverter(types.get(i));
             }
 
             return (idx, r) -> {
@@ -251,11 +248,11 @@ public class TypeUtils {
         return IDENTITY_ROW_CONVERTER;
     }
 
-    private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
-        Type storageType = ectx.getTypeFactory().getResultClass(fieldType);
-
+    private static Function<@Nullable Object, @Nullable Object> fieldConverter(RelDataType fieldType) {
         if (isConvertableType(fieldType)) {
-            return v -> fromInternal(v, storageType);
+            ColumnType storageType = columnType(fieldType);
+
+            return v -> v == null ? null : fromInternal(v, storageType);
         }
 
         return Function.identity();
@@ -358,33 +355,6 @@ public class TypeUtils {
             default: {
                 throw new AssertionError("Type is not supported: " + spec);
             }
-        }
-    }
-
-    /**
-     * Converts the value from its presentation used by the execution engine.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-23295 Remove this method.
-    @Deprecated(forRemoval = true)
-    public static @Nullable Object fromInternal(@Nullable Object val, Type storageType) {
-        if (val == null) {
-            return null;
-        } else if (storageType == LocalDate.class && val instanceof Integer) {
-            return LocalDate.ofEpochDay((Integer) val);
-        } else if (storageType == LocalTime.class && val instanceof Integer) {
-            return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
-        } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
-            return LocalDateTime.ofInstant(Instant.ofEpochMilli((long) val), ZoneOffset.UTC);
-        } else if (storageType == Instant.class && val instanceof Long) {
-            return Instant.ofEpochMilli((long) val);
-        } else if (storageType == Duration.class && val instanceof Long) {
-            return Duration.ofMillis((Long) val);
-        } else if (storageType == Period.class && val instanceof Integer) {
-            return Period.of((Integer) val / 12, (Integer) val % 12, 0);
-        } else if (storageType == byte[].class && val instanceof ByteString) {
-            return ((ByteString) val).getBytes();
-        } else {
-            return val;
         }
     }
 

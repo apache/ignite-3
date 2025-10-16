@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
-import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * CacheKey.
@@ -26,13 +26,15 @@ import org.apache.calcite.rel.type.RelDataType;
  * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
+    static final ColumnType[] EMPTY_CLASS_ARRAY = {};
+
     private final int catalogVersion;
 
     private final String schemaName;
 
     private final String query;
 
-    private final RelDataType[] paramTypes;
+    private final ColumnType[] paramTypes;
 
     private int hashCode = 0;
 
@@ -44,7 +46,7 @@ public class CacheKey {
      * @param query      Query string.
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, RelDataType[] paramTypes) {
+    public CacheKey(int catalogVersion, String schemaName, String query, ColumnType[] paramTypes) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
@@ -59,7 +61,7 @@ public class CacheKey {
         return schemaName;
     }
 
-    RelDataType[] paramTypes() {
+    ColumnType[] paramTypes() {
         return paramTypes;
     }
 

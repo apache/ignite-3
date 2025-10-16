@@ -42,7 +42,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
-import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -345,12 +344,13 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
     private void handleLoopConnection(HandshakeStartMessage msg) {
         String message = String.format(
-                "Got handshake start from self, this should never happen; this is a programming error [localNode=%s, acceptorNode=%s]",
+                "Got handshake start from self [localNode=%s, acceptorNode=%s]",
                 localNode,
                 msg.serverNode()
         );
 
-        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, CriticalHandshakeException::new);
+        // TODO IGNITE-25802 Introduce a specific exception for this case.
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, HandshakeException::new);
     }
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
@@ -423,11 +423,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        if (!stopping.getAsBoolean() && msg.reason().logAsWarn()) {
-            LOG.warn("Handshake rejected by acceptor: {}", msg.message());
-        } else {
-            LOG.debug("Handshake rejected by acceptor: {}", msg.message());
-        }
+        msg.reason().print(stopping.getAsBoolean(), LOG, "Handshake rejected by acceptor: {}", msg.message());
 
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
             giveUpClinch();

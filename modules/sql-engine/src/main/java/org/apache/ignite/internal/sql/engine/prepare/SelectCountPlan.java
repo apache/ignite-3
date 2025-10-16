@@ -170,7 +170,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         SqlProjection<RowT> projection = ctx.expressionFactory().project(expressions, getCountType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
-        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
 
         return rowCount -> {
             RowSchema rowSchema = RowSchema.builder()

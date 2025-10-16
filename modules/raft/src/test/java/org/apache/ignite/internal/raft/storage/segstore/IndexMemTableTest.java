@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -42,10 +43,10 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
         memTable.appendSegmentFileOffset(1, 0, 3);
         memTable.appendSegmentFileOffset(1, 1, 4);
 
-        assertThat(memTable.getSegmentFileOffset(0, 0), is(1));
-        assertThat(memTable.getSegmentFileOffset(0, 1), is(2));
-        assertThat(memTable.getSegmentFileOffset(1, 0), is(3));
-        assertThat(memTable.getSegmentFileOffset(1, 1), is(4));
+        assertThat(memTable.segmentInfo(0).getOffset(0), is(1));
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(2));
+        assertThat(memTable.segmentInfo(1).getOffset(0), is(3));
+        assertThat(memTable.segmentInfo(1).getOffset(1), is(4));
 
         assertThat(memTable.numGroups(), is(2));
     }
@@ -54,9 +55,10 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
     void testMissingValue() {
         memTable.appendSegmentFileOffset(0, 5, 1);
 
-        assertThat(memTable.getSegmentFileOffset(0, 1), is(0));
-        assertThat(memTable.getSegmentFileOffset(0, 5), is(1));
-        assertThat(memTable.getSegmentFileOffset(0, 6), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(5), is(1));
+        assertThat(memTable.segmentInfo(0).getOffset(6), is(0));
+        assertThat(memTable.segmentInfo(1), is(nullValue()));
     }
 
     @Test
@@ -99,9 +101,11 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         RunnableX reader = () -> {
             for (int i = 0; i < numItems; i++) {
-                int offset = memTable.getSegmentFileOffset(0, i);
+                SegmentInfo segmentInfo = memTable.segmentInfo(0);
 
-                assertThat(offset, either(is(i + 1)).or(is(0)));
+                if (segmentInfo != null) {
+                    assertThat(segmentInfo.getOffset(i), either(is(i + 1)).or(is(0)));
+                }
             }
         };
 
@@ -129,9 +133,11 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
             actions.add(() -> {
                 for (int j = 0; j < itemsPerGroup; j++) {
-                    int offset = memTable.getSegmentFileOffset(groupId, j);
+                    SegmentInfo segmentInfo = memTable.segmentInfo(groupId);
 
-                    assertThat(offset, either(is(j + 1)).or(is(0)));
+                    if (segmentInfo != null) {
+                        assertThat(segmentInfo.getOffset(j), either(is(j + 1)).or(is(0)));
+                    }
                 }
             });
         }
@@ -143,7 +149,7 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         for (int groupId = 0; groupId < STRIPES; groupId++) {
             for (int j = 0; j < itemsPerGroup; j++) {
-                assertThat(memTable.getSegmentFileOffset(groupId, j), is(j + 1));
+                assertThat(memTable.segmentInfo(groupId).getOffset(j), is(j + 1));
             }
         }
     }
