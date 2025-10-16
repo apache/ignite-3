@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import it.unimi.dsi.fastutil.ints.IntArraySet;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -56,24 +59,28 @@ public class PartitionModificationCounterHandler {
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
-            handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender, correlationId);
+            handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender);
         }
     }
 
     private void handleRequestCounter(
             GetEstimatedSizeWithLastModifiedTsRequest message,
-            InternalClusterNode sender,
-            @Nullable Long correlationId
+            InternalClusterNode sender
     ) {
-        if (tableId == message.tableId() && partitionId == message.partitionId()) {
-            assert correlationId != null;
+        Set<Integer> partitions = message.partitions();
 
-            messagingService.respond(
+        if (tableId == message.tableId() && partitions.contains(partitionId)) {
+            //assert correlationId != null;
+
+            System.err.println("!!!! handleRequestCounter !!!!");
+
+            messagingService.send(
                     sender,
                     PARTITION_REPLICATION_MESSAGES_FACTORY
                             .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(partitionSizeSupplier.get())
-                            .lastModified(lastMilestoneTimestamp()).build(),
-                    correlationId
+                            .lastModified(lastMilestoneTimestamp())
+                            .tableId(tableId)
+                            .partitionId(partitionId).build()
             );
         }
     }
