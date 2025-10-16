@@ -143,7 +143,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         int tableId = id++;
         int pkIndexId = id++;
 
-        boolean createNewDefaultZone = false;
+        // We will have at max 5 entries if there is lazy default data zone creation action is needed.
+        List<UpdateEntry> updateEntries = new ArrayList<>(5);
 
         CatalogZoneDescriptor zone;
         if (zoneName == null) {
@@ -163,7 +164,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                         STRONG_CONSISTENCY
                 );
 
-                createNewDefaultZone = true;
+                updateEntries.add(new NewZoneEntry(zone));
+                updateEntries.add(new SetDefaultZoneEntry(zone.id()));
             } else {
                 zone = catalog.defaultZone();
             }
@@ -202,17 +204,11 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         CatalogIndexDescriptor pkIndex = createPkIndexDescriptor(indexName, pkIndexId, tableId);
 
-        return createNewDefaultZone
-                ? List.of(
-                        new NewZoneEntry(zone),
-                        new SetDefaultZoneEntry(zone.id()),
-                        new NewTableEntry(table),
-                        new NewIndexEntry(pkIndex),
-                        new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState()))
-                : List.of(
-                        new NewTableEntry(table),
-                        new NewIndexEntry(pkIndex),
-                        new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState()));
+        updateEntries.add(new NewTableEntry(table));
+        updateEntries.add(new NewIndexEntry(pkIndex));
+        updateEntries.add(new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState()));
+
+        return updateEntries;
     }
 
     private void validate() {
