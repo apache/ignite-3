@@ -283,7 +283,9 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     /**
-     * Returns the highest log index for the given group present in the storage or {@code -1} if no such index exists.
+     * Returns the highest possible exclusive log index for the given group or {@code -1} if no such index exists.
+     *
+     * <p>The highest log index currently present in the storage can be computed as {@code lastLogIndexExclusive - 1}.
      */
     long lastLogIndexExclusive(long groupId) {
         long logIndexFromMemtable = lastLogIndexFromMemtable(groupId);

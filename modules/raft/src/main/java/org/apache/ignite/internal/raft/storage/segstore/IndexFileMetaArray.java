@@ -47,7 +47,7 @@ class IndexFileMetaArray {
     IndexFileMetaArray add(IndexFileMeta indexFileMeta) {
         assert indexFileMeta.firstLogIndexInclusive() == array[size - 1].lastLogIndexExclusive() :
                 String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
-                        array[size - 1].lastLogIndexExclusive() + 1,
+                        array[size - 1].lastLogIndexExclusive(),
                         indexFileMeta.firstLogIndexInclusive()
                 );
 

@@ -147,7 +147,7 @@ class RaftLogCheckpointer {
     }
 
     /**
-     * Returns the highest log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
+     * Returns the highest possible log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
      */
     long lastLogIndexExclusive(long groupId) {
         Iterator<Entry> it = queue.tailIterator();

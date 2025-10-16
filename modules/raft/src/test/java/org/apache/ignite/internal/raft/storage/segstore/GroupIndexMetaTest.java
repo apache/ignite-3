@@ -35,7 +35,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         var groupMeta = new GroupIndexMeta(initialMeta);
 
-        var additionalMeta = new IndexFileMeta(51, 100, 42, 1);
+        var additionalMeta = new IndexFileMeta(50, 100, 42, 1);
 
         groupMeta.addIndexMeta(additionalMeta);
 
@@ -43,9 +43,11 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         assertThat(groupMeta.indexMeta(1), is(initialMeta));
 
+        assertThat(groupMeta.indexMeta(50), is(additionalMeta));
+
         assertThat(groupMeta.indexMeta(66), is(additionalMeta));
 
-        assertThat(groupMeta.indexMeta(101), is(nullValue()));
+        assertThat(groupMeta.indexMeta(100), is(nullValue()));
     }
 
     @Test
@@ -77,7 +79,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
         int logEntriesPerFile = 50;
 
-        var initialMeta = new IndexFileMeta(0, logEntriesPerFile - 1, 0, startFileOrdinal);
+        var initialMeta = new IndexFileMeta(0, logEntriesPerFile, 0, startFileOrdinal);
 
         var groupMeta = new GroupIndexMeta(initialMeta);
 
@@ -86,7 +88,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         RunnableX writer = () -> {
             for (int relativeFileOrdinal = 1; relativeFileOrdinal < totalIndexFiles; relativeFileOrdinal++) {
                 long startLogIndex = relativeFileOrdinal * logEntriesPerFile;
-                long lastLogIndex = startLogIndex + logEntriesPerFile - 1;
+                long lastLogIndex = startLogIndex + logEntriesPerFile;
 
                 groupMeta.addIndexMeta(new IndexFileMeta(startLogIndex, lastLogIndex, 0, startFileOrdinal + relativeFileOrdinal));
             }
@@ -105,7 +107,7 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
 
                     int expectedStartLogIndex = relativeFileOrdinal * logEntriesPerFile;
 
-                    int expectedEndLogIndex = expectedStartLogIndex + logEntriesPerFile - 1;
+                    int expectedEndLogIndex = expectedStartLogIndex + logEntriesPerFile;
 
                     var expectedMeta = new IndexFileMeta(expectedStartLogIndex, expectedEndLogIndex, 0, expectedFileOrdinal);
 

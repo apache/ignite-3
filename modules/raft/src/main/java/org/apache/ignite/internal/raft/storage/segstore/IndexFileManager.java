@@ -163,7 +163,7 @@ class IndexFileManager {
 
         Path indexFile = baseDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
 
-        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex] range.
+        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex) range.
         long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
 
         assert payloadArrayIndex >= 0 : payloadArrayIndex;
@@ -199,7 +199,7 @@ class IndexFileManager {
     }
 
     /**
-     * Returns the highest log index for the given group across all index files or {@code -1} if no such index exists.
+     * Returns the highest possible log index for the given group across all index files or {@code -1} if no such index exists.
      */
     long lastLogIndexExclusive(long groupId) {
         GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
