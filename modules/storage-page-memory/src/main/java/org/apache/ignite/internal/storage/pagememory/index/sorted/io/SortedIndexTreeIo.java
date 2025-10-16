@@ -280,7 +280,7 @@ public interface SortedIndexTreeIo {
     }
 
     private int compareRowId(long pageAddr, SortedIndexRowKey rowKey, int off) {
-        assert rowKey instanceof SortedIndexRow : rowKey;
+        assert rowKey instanceof SortedIndexRow : "Comparison with a binary tuple prefix returned 0. [rowKey=" + rowKey.getClass() + "]";
 
         SortedIndexRow row = (SortedIndexRow) rowKey;
 

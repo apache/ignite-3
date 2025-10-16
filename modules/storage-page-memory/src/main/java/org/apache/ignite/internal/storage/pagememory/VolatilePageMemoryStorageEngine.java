@@ -29,6 +29,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.jetbrains.annotations.Nullable;
 
 /** Storage engine implementation based on {@link VolatilePageMemory}. */
 public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEngine {
@@ -80,6 +82,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
      *
      * @param igniteInstanceName Ignite instance name.
      * @param storageConfig Storage engine and storage profiles configurations.
+     * @param systemLocalConfig Local system configuration.
      * @param ioRegistry IO registry.
      * @param failureProcessor Failure processor.
      * @param clock Hybrid Logical Clock.
@@ -87,11 +90,12 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             StorageConfiguration storageConfig,
+            @Nullable SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             FailureProcessor failureProcessor,
             HybridClock clock
     ) {
-        super(clock);
+        super(systemLocalConfig, clock);
 
         this.igniteInstanceName = igniteInstanceName;
         this.storageConfig = storageConfig;

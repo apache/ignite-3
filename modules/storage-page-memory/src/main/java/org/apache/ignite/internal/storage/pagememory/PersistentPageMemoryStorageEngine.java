@@ -96,9 +96,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final StorageConfiguration storageConfig;
 
-    // TODO Move to upper level.
-    private final @Nullable SystemLocalConfiguration systemLocalConfig;
-
     private final PageIoRegistry ioRegistry;
 
     private final Path storagePath;
@@ -153,13 +150,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             ExecutorService commonExecutorService,
             HybridClock clock
     ) {
-        super(clock);
+        super(systemLocalConfig, clock);
 
         this.igniteInstanceName = igniteInstanceName;
         this.metricManager = metricManager;
         this.storageConfig = storageConfig;
         this.engineConfig = ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
-        this.systemLocalConfig = systemLocalConfig;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;

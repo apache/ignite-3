@@ -26,6 +26,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -41,6 +43,10 @@ import org.jetbrains.annotations.VisibleForTesting;
 
 /** Abstract implementation of the storage engine based on memory {@link PageMemory}. */
 public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
+    public static final String LEGACY_PAGE_MEMERY_SORTED_INDEX_COMPARATOR_PROPERTY = "legacyPageMemorySortedIndexComparator";
+
+    protected final @Nullable SystemLocalConfiguration systemLocalConfig;
+
     private final HybridClock clock;
 
     private final ConcurrentMap<StorageSortedIndexDescriptor, CachedComparator> cachedSortedIndexComparators
@@ -54,7 +60,8 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
             ));
 
     /** Constructor. */
-    AbstractPageMemoryStorageEngine(HybridClock clock) {
+    AbstractPageMemoryStorageEngine(@Nullable SystemLocalConfiguration systemLocalConfig, HybridClock clock) {
+        this.systemLocalConfig = systemLocalConfig;
         this.clock = clock;
     }
 
@@ -96,7 +103,16 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
      * Creates or retrieves from cache a {@link JitComparator} for the given sorted index descriptor. Returns a cached comparator value if
      * it already exists (was not disposed with {@link #disposeSortedIndexComparator(StorageSortedIndexDescriptor)}) for a given descriptor.
      */
-    public JitComparator createSortedIndexComparator(StorageSortedIndexDescriptor indexDescriptor) {
+    public @Nullable JitComparator createSortedIndexComparator(StorageSortedIndexDescriptor indexDescriptor) {
+        if (systemLocalConfig != null) {
+            SystemPropertyView legacyComparator = systemLocalConfig.value().properties()
+                    .get(LEGACY_PAGE_MEMERY_SORTED_INDEX_COMPARATOR_PROPERTY);
+
+            if (legacyComparator != null && "true".equalsIgnoreCase(legacyComparator.propertyValue())) {
+                return null;
+            }
+        }
+
         CachedComparator c = cachedSortedIndexComparators.compute(indexDescriptor, (desc, cmp) -> {
             if (cmp != null) {
                 return cmp.incrementUsage();
