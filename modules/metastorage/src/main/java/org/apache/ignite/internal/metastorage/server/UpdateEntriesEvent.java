@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Notifier of {@link WatchProcessor} about updating metastorage {@link Entry entries}. */
-    public class UpdateEntriesEvent implements NotifyWatchProcessorEvent {
+public class UpdateEntriesEvent implements NotifyWatchProcessorEvent {
     private static final IgniteLogger LOG = Loggers.forClass(UpdateEntriesEvent.class);
 
     @IgniteToStringInclude
