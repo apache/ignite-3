@@ -151,7 +151,7 @@ public class SortedIndexTreeInsertBenchmark extends VolatilePageMemoryBenchmarkB
     }
 
     private static StorageSortedIndexColumnDescriptor descriptor(int i, NativeType nativeType) {
-        return new StorageSortedIndexColumnDescriptor("col" + i, nativeType, false, true, true);
+        return new StorageSortedIndexColumnDescriptor("col" + i, nativeType, true, true, true);
     }
 
     private static ByteBuffer newLongTuple() {

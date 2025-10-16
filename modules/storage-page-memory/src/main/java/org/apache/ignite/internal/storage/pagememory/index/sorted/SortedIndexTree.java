@@ -75,7 +75,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param indexDescriptor Index descriptor.
-     * @param jitComparator
+     * @param jitComparator Optional optimized binary tuple comparator to be used by the tree.
      * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating
      *         it for the first time), {@code false} if not necessary (for example, when restoring a tree).
      * @throws IgniteInternalCheckedException If failed.
@@ -152,7 +152,9 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             StorageSortedIndexDescriptor indexDescriptor,
             JitComparator jitComparator
     ) throws IgniteInternalCheckedException {
-        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, jitComparator, true);
+        return new SortedIndexTree(
+                grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, jitComparator, true
+        );
     }
 
     /**
@@ -169,7 +171,9 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             StorageSortedIndexDescriptor indexDescriptor,
             JitComparator jitComparator
     ) throws IgniteInternalCheckedException {
-        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, jitComparator, false);
+        return new SortedIndexTree(
+                grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, jitComparator, false
+        );
     }
 
     /**
