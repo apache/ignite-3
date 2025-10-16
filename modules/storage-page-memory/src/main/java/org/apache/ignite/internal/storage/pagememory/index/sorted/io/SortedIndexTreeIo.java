@@ -253,7 +253,7 @@ public interface SortedIndexTreeIo {
             int cmp = comparator.compare(outerAccessor, outerBuffer.capacity(), innerAccessor, innerSize);
 
             if (cmp != 0) {
-                return cmp;
+                return -cmp;
             }
 
             long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
@@ -263,6 +263,7 @@ public interface SortedIndexTreeIo {
             dataPageReader.traverse(link, indexColumnsTraversal, null);
 
             byte[] innerBytes = indexColumnsTraversal.result();
+            innerSize = innerBytes.length;
             innerAccessor = new UnsafeByteBufferAccessor(innerBytes, 0, innerBytes.length);
         } else {
             innerSize = indexColumnsSize;
@@ -272,21 +273,20 @@ public interface SortedIndexTreeIo {
         int cmp = comparator.compare(outerAccessor, outerBuffer.capacity(), innerAccessor, innerSize);
 
         if (cmp != 0) {
-            return cmp;
+            return -cmp;
         }
 
         return compareRowId(pageAddr, rowKey, off);
     }
 
     private int compareRowId(long pageAddr, SortedIndexRowKey rowKey, int off) {
-        int cmp;
         assert rowKey instanceof SortedIndexRow : rowKey;
 
         SortedIndexRow row = (SortedIndexRow) rowKey;
 
         long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
 
-        cmp = Long.compare(rowIdMsb, row.rowId().mostSignificantBits());
+        int cmp = Long.compare(rowIdMsb, row.rowId().mostSignificantBits());
 
         if (cmp != 0) {
             return cmp;
