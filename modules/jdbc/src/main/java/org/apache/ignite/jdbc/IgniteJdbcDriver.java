@@ -19,6 +19,7 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import com.google.auto.service.AutoService;
 import java.sql.Connection;
@@ -31,7 +32,6 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.logging.Logger;
 import org.apache.ignite.client.BasicAuthenticator;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.SslConfiguration;
@@ -39,6 +39,7 @@ import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.JdbcClientQueryEventHandler;
@@ -175,6 +176,15 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
+    /**
+     * Tracker of the latest time observed by client.
+     *
+     * <p>All connections created by this driver use the same tracker.
+     * This is done so that read-only transactions from different connections can observe changes made in other connections,
+     * which in turn ensures visibility of changes when working through the jdbc connection pool.
+     */
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
+
     /** {@inheritDoc} */
     @Override
     public Connection connect(String url, Properties props) throws SQLException {
@@ -187,7 +197,7 @@ public class IgniteJdbcDriver implements Driver {
 
         TcpIgniteClient client;
         try {
-            client = createIgniteClient(connProps);
+            client = createIgniteClient(connProps, observableTimeTracker);
         } catch (Exception e) {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
@@ -240,7 +250,6 @@ public class IgniteJdbcDriver implements Driver {
     /**
      * Register the driver instance.
      *
-     * @return Driver instance.
      * @throws RuntimeException when failed to register driver.
      */
     private static synchronized void register() {
@@ -266,21 +275,34 @@ public class IgniteJdbcDriver implements Driver {
         return instance != null;
     }
 
-    private static TcpIgniteClient createIgniteClient(ConnectionProperties connProps) {
-        String[] addresses = Arrays.stream(connProps.getAddresses())
+    private static TcpIgniteClient createIgniteClient(
+            ConnectionProperties connectionProperties,
+            HybridTimestampTracker observableTimeTracker
+    ) {
+        String[] addresses = Arrays.stream(connectionProperties.getAddresses())
                 .map(HostAndPort::toString)
                 .toArray(String[]::new);
 
-        SslConfiguration sslConfiguration = extractSslConfiguration(connProps);
-        IgniteClientAuthenticator authenticator = extractAuthenticationConfiguration(connProps);
+        int networkTimeout = connectionProperties.getConnectionTimeout();
 
-        return (TcpIgniteClient) IgniteClient.builder()
-                .addresses(addresses)
-                .authenticator(authenticator)
-                .ssl(sslConfiguration)
-                .operationTimeout(IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT)
-                .backgroundReconnectInterval(IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL)
-                .build();
+        var cfg = new IgniteClientConfigurationImpl(
+                null,
+                addresses,
+                networkTimeout,
+                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL,
+                null,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
+                null,
+                null,
+                extractSslConfiguration(connectionProperties),
+                false,
+                extractAuthenticationConfiguration(connectionProperties),
+                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
+                IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
+        );
+
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
     }
 
     private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
