@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -2329,8 +2330,8 @@ public class InternalTableImpl implements InternalTable {
             previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
             previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newStorageIndexTracker);
 
-            safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
-            storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
+            safeTimeTrackerByPartitionId = unmodifiable(newSafeTimeTrackerMap);
+            storageIndexTrackerByPartitionId = unmodifiable(newStorageIndexTrackerMap);
         }
 
         if (previousSafeTimeTracker != null) {
