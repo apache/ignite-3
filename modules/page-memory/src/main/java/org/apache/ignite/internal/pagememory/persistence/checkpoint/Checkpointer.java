@@ -120,7 +120,7 @@ public class Checkpointer extends IgniteWorker {
 
     private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
             + "checkpointId={}, "
-            + "pages={}, "
+            + "writtenPages={}, "
             + "fsyncFiles={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
@@ -425,13 +425,14 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    long totalWriteBytes = (long) pageSize * chp.dirtyPagesSize;
+                    int totalWrittenPages = chp.progress.writtenPages();
+                    long totalWriteBytes = (long) pageSize * totalWrittenPages;
                     long totalDurationInNanos = tracker.checkpointDuration(NANOSECONDS);
 
                     log.info(
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
-                            chp.dirtyPagesSize,
+                            totalWrittenPages,
                             currentCheckpointProgress.syncedFilesCounter().get(),
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
