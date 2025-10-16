@@ -63,6 +63,11 @@ public interface CheckpointProgress {
     AtomicInteger syncedPagesCounter();
 
     /**
+     * Returns a number of fsync-ed checkpoint files.
+     */
+    AtomicInteger syncedFilesCounter();
+
+    /**
      * Return a number of evicted pages during current checkpoint.
      */
     AtomicInteger evictedPagesCounter();
