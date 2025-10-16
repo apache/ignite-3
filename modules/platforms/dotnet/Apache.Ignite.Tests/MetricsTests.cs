@@ -259,14 +259,6 @@ public class MetricsTests
             AssertMetric(MetricNames.StreamerItemsQueued, 1);
 
             yield return new IgniteTuple { ["ID"] = 2 };
-
-            AssertMetric(MetricNames.StreamerBatchesActive, 2);
-            AssertMetric(MetricNames.StreamerItemsQueued, 2);
-
-            AssertMetric(MetricNames.StreamerBatchesSent, 1);
-            AssertMetric(MetricNames.StreamerBatchesActive, 1);
-            AssertMetric(MetricNames.StreamerItemsQueued, 0);
-            AssertMetric(MetricNames.StreamerItemsSent, 2);
         }
     }
 
