@@ -51,9 +51,8 @@ public abstract class IgniteServerBase : IDisposable
         _listener.Listen(backlog: 1);
 
         Name = TestContext.CurrentContext.Test.Name;
-        Console.WriteLine($"Fake server started [port={Port}, test={Name}]");
 
-        Task.Run(ListenLoop);
+        Task.Run(async () => await ListenLoop());
     }
 
     public int Port => ((IPEndPoint)Listener.LocalEndPoint!).Port;
@@ -154,13 +153,15 @@ public abstract class IgniteServerBase : IDisposable
         }
     }
 
-    private void ListenLoop()
+    private async Task ListenLoop()
     {
+        Console.WriteLine($"Fake server started [port={Port}, test={Name}]");
+
         while (!_cts.IsCancellationRequested)
         {
             try
             {
-                ListenLoopInternal();
+                await ListenLoopInternal();
             }
             catch (Exception e)
             {
@@ -174,11 +175,11 @@ public abstract class IgniteServerBase : IDisposable
         }
     }
 
-    private void ListenLoopInternal()
+    private async Task ListenLoopInternal()
     {
         while (!_cts.IsCancellationRequested)
         {
-            Socket handler = _listener.Accept();
+            Socket handler = await _listener.AcceptAsync();
             handler.NoDelay = true;
 
             Console.WriteLine($"Accepted connection [port={Port}, test={Name}, endpoint={handler.RemoteEndPoint}]");
@@ -205,7 +206,7 @@ public abstract class IgniteServerBase : IDisposable
 
             if (AllowMultipleConnections)
             {
-                Task.Run(handleAction);
+                _ = Task.Run(handleAction);
             }
             else
             {
