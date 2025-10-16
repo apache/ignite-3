@@ -98,7 +98,9 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -1279,7 +1281,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             copyStateTo(operationFuture).accept(res, ex);
 
                             if (ex != null) {
-                                if (!hasCause(ex, NodeStoppingException.class)) {
+                                if (!hasCause(
+                                        ex,
+                                        NodeStoppingException.class,
+                                        UnresolvableConsistentIdException.class,
+                                        RecipientLeftException.class
+                                )) {
                                     failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
                                 }
                             }
@@ -1295,7 +1302,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             }
 
                             if (ex != null) {
-                                if (!hasCause(ex, NodeStoppingException.class, NotEnoughAliveNodesException.class)) {
+                                if (!hasCause(
+                                        ex,
+                                        NodeStoppingException.class,
+                                        UnresolvableConsistentIdException.class,
+                                        RecipientLeftException.class,
+                                        NotEnoughAliveNodesException.class
+                                )) {
                                     failureManager.process(new FailureContext(ex, "Unable to handle disaster recovery request."));
                                 }
                             }

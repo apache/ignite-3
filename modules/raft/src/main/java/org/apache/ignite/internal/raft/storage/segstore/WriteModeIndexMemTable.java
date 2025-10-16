@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Mutable index memtable.
  *
@@ -28,10 +30,9 @@ package org.apache.ignite.internal.raft.storage.segstore;
  */
 interface WriteModeIndexMemTable {
     /**
-     * Returns the offset in the segment file where the log entry with the given {@code logIndex} is stored or {@code 0} if the log entry
-     * was not found in the memtable.
+     * Returns information about a segment file for the given group ID or {@code null} if it is not present in this memtable.
      */
-    int getSegmentFileOffset(long groupId, long logIndex);
+    @Nullable SegmentInfo segmentInfo(long groupId);
 
     /**
      * Appends a new segment file offset to the memtable.

@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage.segstore;
+package org.apache.ignite.internal.sql.engine.sql;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-import org.jetbrains.annotations.Nullable;
+import org.apache.calcite.sql.Symbolizable;
 
 /**
- * Immutable version of an index memtable used by the {@link RaftLogCheckpointer}.
- *
- * @see WriteModeIndexMemTable
+ * Enumeration of supported table properties.
  */
-interface ReadModeIndexMemTable {
-    /**
-     * Returns information about a segment file for the given group ID or {@code null} if it is not present in this memtable.
-     */
-    @Nullable SegmentInfo segmentInfo(long groupId);
+public enum IgniteSqlTablePropertyKey implements Symbolizable {
+    MIN_STALE_ROWS_COUNT("MIN STALE ROWS"),
+    STALE_ROWS_FRACTION("STALE ROWS FRACTION");
 
-    /**
-     * Returns an iterator over all {@code Group ID -> SegmentInfo} entries in this memtable.
-     */
-    Iterator<Entry<Long, SegmentInfo>> iterator();
+    /** Name of the property as it appears in sql grammar. That is, this name may be used to build valid sql string. */
+    public final String sqlName;
 
-    /**
-     * Returns the number of Raft Group IDs stored in this memtable.
-     */
-    int numGroups();
+    IgniteSqlTablePropertyKey(String sqlName) {
+        this.sqlName = sqlName;
+    }
 }

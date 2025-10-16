@@ -161,6 +161,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartSpecifiedPartitionsWithCleanup() {
         Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
 
