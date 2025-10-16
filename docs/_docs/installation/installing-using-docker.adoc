@@ -60,7 +60,7 @@ NOTE: Docker compose version 2.23.1 or later is required to use the provided com
 +
 [source,shell, subs="attributes,specialchars"]
 ----
-docker pull apache/ignite3:{version}
+docker pull apache/ignite3:3.1.0
 ----
 +
 - Run the docker compose command.
@@ -94,7 +94,7 @@ docker network connect ignite-network {container-id}
 +
 [source,shell, subs="attributes,specialchars"]
 ----
-docker run -p 10301:10300 -p 10801:10800 -p 3345:3344 -it --network=ignite-network apache/ignite3:{version} cli
+docker run -p 10301:10300 -p 10801:10800 -p 3345:3344 -it --network=ignite-network apache/ignite3:3.1.0 cli
 ----
 +
 [TIP]
@@ -103,7 +103,7 @@ You may need to mount configuration or data files. To provide them, mount the fi
 +
 [source, text, subs="attributes,specialchars"]
 ----
-docker run --rm -it --network=host -v /opt/etc/config.conf:/opt/ignite/etc/ignite-config.conf apache/ignite3:{version} cli
+docker run --rm -it --network=host -v /opt/etc/config.conf:/opt/ignite/etc/ignite-config.conf apache/ignite3:3.1.0 cli
 ----
 ====
 

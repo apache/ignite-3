@@ -48,20 +48,20 @@ First, you need to add Ignite to your project. The easiest way to do this is by 
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-api</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-runner</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 </dependencies>
 ----
 
 == Prepare Ignite Configuration
 
-To start an Ignite node, you will need an Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.0.0/etc/ignite-config.conf` file.
+To start an Ignite node, you will need an Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.1.0/etc/ignite-config.conf` file.
 
 == Pass JVM Parameters
 
