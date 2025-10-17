@@ -32,7 +32,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * This class declares an abstract method for creating a new table descriptor and
  * provides default implementation for applying the table descriptor changes to a catalog.
  */
-abstract class UpdateTable implements UpdateEntry {
+abstract class AbstractUpdateTableEntry implements UpdateEntry {
     @Override
     public final Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId());
@@ -67,8 +67,8 @@ abstract class UpdateTable implements UpdateEntry {
     /** Returns table id for a table affected by an update table command. */
     abstract int tableId();
 
-    /** Returns a new schema version for provided {@link CatalogTableDescriptor}. */
-    static int newSchemaVersion(CatalogTableDescriptor table) {
+    /** Returns the next schema version for provided {@link CatalogTableDescriptor}. */
+    static int nextSchemaVersion(CatalogTableDescriptor table) {
         return table.latestSchemaVersion() + 1;
     }
 }

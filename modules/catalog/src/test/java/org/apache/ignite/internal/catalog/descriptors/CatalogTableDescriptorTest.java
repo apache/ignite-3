@@ -97,7 +97,6 @@ class CatalogTableDescriptorTest {
             assertions.assertThat(descriptorV2.isPrimaryKeyColumn("pkCol")).isTrue();
             assertions.assertThat(descriptorV2.latestSchemaVersion()).isEqualTo(2);
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-26501
             assertions.assertThat(descriptorV2.schemaVersions().latestVersion()).isEqualTo(2);
             assertions.assertThat(descriptorV2.storageProfile()).isEqualTo(CatalogService.DEFAULT_STORAGE_PROFILE);
         });

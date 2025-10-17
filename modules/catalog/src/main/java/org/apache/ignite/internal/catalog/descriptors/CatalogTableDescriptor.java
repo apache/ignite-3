@@ -470,7 +470,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 }
             }
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-26501
             CatalogTableSchemaVersions newSchemaVersions = latestSchemaVersion == schemaVersions.latestVersion()
                     ? schemaVersions
                     : schemaVersions.append(new TableVersion(columns), latestSchemaVersion);

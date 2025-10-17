@@ -1039,6 +1039,7 @@ public class TestBuilders {
                     Objects.requireNonNull(name),
                     tableId != null ? tableId : TABLE_ID_GEN.incrementAndGet(),
                     1,
+                    1L,
                     tableDescriptor,
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),
