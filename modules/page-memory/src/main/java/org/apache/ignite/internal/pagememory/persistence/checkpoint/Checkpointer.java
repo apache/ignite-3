@@ -424,7 +424,7 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    int totalWrittenPages = chp.progress.writtenPages();
+                    int totalWrittenPages = chp.writtenPages;
                     long totalWriteBytes = (long) pageSize * totalWrittenPages;
                     long totalDurationInNanos = tracker.checkpointDuration(NANOSECONDS);
 
