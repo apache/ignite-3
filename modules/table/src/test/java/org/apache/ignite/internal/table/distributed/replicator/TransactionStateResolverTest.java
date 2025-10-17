@@ -237,7 +237,8 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         assertEquals(COORDINATOR_NODE, nodeCaptor.getValue());
 
         // Verify that commit partition fallback was NOT called.
-        verify(txMessageSender, never()).resolveTxStateFromCommitPartition(any(String.class), eq(txId), eq(commitPartitionId), any(Long.class));
+        verify(txMessageSender, never())
+                .resolveTxStateFromCommitPartition(any(String.class), eq(txId), eq(commitPartitionId), any(Long.class));
 
         // Verify that the transaction meta was updated.
         verify(txManager).updateTxMeta(eq(txId), any());
