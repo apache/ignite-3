@@ -502,7 +502,7 @@ public class Compactor extends IgniteWorker {
     }
 
     /**
-     * Pauses the compactor until it is resumed or compactor or stopped. It is expected that this method will not be called multiple times
+     * Pauses the compactor until it is resumed or compactor is stopped. It is expected that this method will not be called multiple times
      * in parallel and subsequent calls will strictly be calls after {@link #resume}.
      */
     public void pause() {
@@ -526,30 +526,22 @@ public class Compactor extends IgniteWorker {
 
     /** Must be called before each IO operation to provide other IO components with resources. */
     private void pauseCompactionIfNeeded() throws InterruptedException {
-        InterruptedException interruptedException = null;
+        try {
+            synchronized (pauseMux) {
+                while (paused) {
+                    blockingSectionBegin();
 
-        synchronized (pauseMux) {
-            while (paused) {
-                blockingSectionBegin();
-
-                try {
-                    pauseMux.wait();
-                } catch (InterruptedException e) {
-                    LOG.debug("Compactor pause was interrupted", e);
-
-                    interruptedException = e;
-
-                    break;
-                } finally {
-                    blockingSectionEnd();
+                    try {
+                        pauseMux.wait();
+                    } finally {
+                        blockingSectionEnd();
+                    }
                 }
             }
-        }
-
-        if (interruptedException != null) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
-            throw interruptedException;
+            throw e;
         }
     }
 }
