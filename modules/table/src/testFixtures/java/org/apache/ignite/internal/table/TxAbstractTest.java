@@ -526,7 +526,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
      * Tests uncaught exception in the closure.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26669")
     public void testTxClosureUncaughtExceptionAsync() {
         double balance = 10.;
         double delta = 50.;
