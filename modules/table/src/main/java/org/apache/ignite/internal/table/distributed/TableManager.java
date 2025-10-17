@@ -132,6 +132,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -152,6 +153,7 @@ import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
@@ -159,7 +161,9 @@ import org.apache.ignite.internal.partition.replicator.NaiveAsyncReadWriteLock;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
@@ -180,6 +184,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -196,9 +201,12 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.TransientReplicaStartException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -474,6 +482,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final PartitionModificationCounterHandlerFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
 
+    private final PartitionModificationCounterHandler0 counterHandler;
+
     /**
      * Creates a new table manager.
      *
@@ -589,6 +599,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clockService
         );
 
+        GetEstimatedSizeWithLastModifiedTsRequest req;
+
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
                 clockService,
@@ -637,6 +649,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableId -> tablesById().get(tableId)
         );
 
+        counterHandler = new PartitionModificationCounterHandler0(messagingService);
+
         this.sharedTxStateStorage = txStateRocksDbSharedStorage;
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
@@ -656,6 +670,92 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         partitionReplicaLifecycleManager.listen(BEFORE_REPLICA_STARTED, onBeforeZoneReplicaStartedListener);
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
+    }
+
+    private class PartitionModificationCounterHandler0 {
+        MessagingService messagingService;
+
+        PartitionModificationCounterHandler0(MessagingService messagingService) {
+            this.messagingService = messagingService;
+
+            messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
+        }
+
+        private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+            if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
+                handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender);
+            }
+        }
+
+        private void handleRequestCounter(
+                GetEstimatedSizeWithLastModifiedTsRequest message,
+                InternalClusterNode sender
+        ) {
+            List<CompletableFuture<Replica>> futs = new ArrayList<>();
+
+            for (ReplicationGroupIdMessage repl : message.replicas()) {
+                ReplicationGroupId replGrpId = repl.asReplicationGroupId();
+
+                if (replicaMgr.replica(replGrpId) != null) {
+                    Replica repl0 = replicaMgr.replica(replGrpId).join();
+                    System.err.println("!!!! get replica !!!! " + repl0);
+
+                    ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
+                            .groupId(repl)
+                            .build();
+
+                    repl0.processRequest(req, localNode().id()).whenComplete((res, ex) -> {
+                        if (ex != null) {
+/*                            if (hasCause(ex, TimeoutException.class, ReplicationTimeoutException.class)) {
+                                tryToLogTimeoutFailure(replicaGroupId, ex);
+                            } else {
+                                // Reset counter if timeouts aren't the reason.
+                                timeoutAttemptsCounters.put(replicaGroupId, 0);
+                            }
+
+                            if (!hasCause(
+                                    ex,
+                                    NodeStoppingException.class,
+                                    ComponentStoppingException.class,
+                                    // Not a problem, there will be a retry.
+                                    TimeoutException.class,
+                                    GroupOverloadedException.class
+                            )) {
+                                failureProcessor.process(
+                                        new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
+                            }*/
+                        }
+                    });
+                }
+
+                futs.add(replicaMgr.replica(replGrpId));
+            }
+
+            CompletableFuture[] arr = futs.toArray(new CompletableFuture[0]);
+
+            allOf(arr).thenAccept(unused -> {
+                for (CompletableFuture<Replica> f : futs) {
+                    System.err.println("fut: " + f.join());
+                }
+            });
+
+            //Set<Integer> partitions = message.partitions();
+
+/*            if (tableId == message.tableId() && partitions.contains(partitionId)) {
+                //assert correlationId != null;
+
+                System.err.println("!!!! handleRequestCounter !!!!");
+
+                messagingService.send(
+                        sender,
+                        PARTITION_REPLICATION_MESSAGES_FACTORY
+                                .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(partitionSizeSupplier.get())
+                                .lastModified(lastMilestoneTimestamp())
+                                .tableId(tableId)
+                                .partitionId(partitionId).build()
+                );
+            }*/
+        }
     }
 
     @Override

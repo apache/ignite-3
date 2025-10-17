@@ -18,12 +18,16 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -43,6 +47,10 @@ import org.apache.ignite.internal.partition.replicator.network.message.GetEstima
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
@@ -55,6 +63,7 @@ public class StatisticAggregatorImpl implements
     private final MessagingService messagingService;
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
     private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
     private final Map<Integer, Map<Integer, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>>>
             requestsCompletion = new HashMap<>();
@@ -100,11 +109,13 @@ public class StatisticAggregatorImpl implements
     private CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdateInternal(InternalTable table) {
         int partitions = table.partitions();
 
-        Map<String, Set<Integer>> peers = new HashMap<>();
+        Map<String, List<ReplicationGroupIdMessage>> peersWithGroups = new HashMap<>();
+        List<ReplicationGroupIdMessage> replGrpId = new ArrayList<>();
+        Set<String> peers = new HashSet<>();
 
         HybridTimestamp clockNow = currentClock.get();
 
-        Map<Integer, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> partRequests = new Int2ObjectOpenHashMap<>();
+        //Map<Integer, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> partRequests = new Int2ObjectOpenHashMap<>();
 
         for (int p = 0; p < partitions; ++p) {
             ReplicationGroupId replicationGroupId = table.targetReplicationGroupId(p);
@@ -112,15 +123,16 @@ public class StatisticAggregatorImpl implements
             ReplicaMeta repl = placementDriver.getCurrentPrimaryReplica(replicationGroupId, clockNow);
 
             if (repl != null && repl.getLeaseholder() != null) {
-                Set<Integer> peer = peers.computeIfAbsent(repl.getLeaseholder(), k -> new HashSet<>());
-                peer.add(p);
+                peers.add(repl.getLeaseholder());
+                replGrpId.add(toReplicationGroupIdMessage(replicationGroupId));
+                //peer.add(p);
             } else {
                 return CompletableFuture.failedFuture(
                         new IgniteInternalException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
                         + " [replicationGroupId=" + replicationGroupId + ']'));
             }
 
-            partRequests.put(p, new CompletableFuture<>());
+            //partRequests.put(p, new CompletableFuture<>());
         }
 
         if (peers.isEmpty()) {
@@ -128,9 +140,48 @@ public class StatisticAggregatorImpl implements
                     + " [tableId=" + table.tableId() + ']'));
         }
 
-        requestsCompletion.put(table.tableId(), partRequests);
+        peers.forEach(p -> peersWithGroups.put(p, replGrpId));
 
-        CompletableFuture<?>[] sendFutures = peers.entrySet().stream()
+        CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>[] invokeFutures = peersWithGroups.entrySet().stream()
+                .map(ent -> {
+                    GetEstimatedSizeWithLastModifiedTsRequest request =
+                            PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
+                                    .tableId(table.tableId()).replicas(ent.getValue()).build();
+
+                    System.err.println("!!!! messagingService.invoke");
+
+                    return messagingService.invoke(ent.getKey(), request, REQUEST_ESTIMATION_TIMEOUT_MILLIS)
+                            .thenApply(networkMessage -> {
+                                assert networkMessage instanceof GetEstimatedSizeWithLastModifiedTsResponse : networkMessage;
+
+                                GetEstimatedSizeWithLastModifiedTsResponse response
+                                        = (GetEstimatedSizeWithLastModifiedTsResponse) networkMessage;
+
+                                return LongObjectImmutablePair.of(response.estimatedSize(), response.lastModified());
+                            });
+                })
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(invokeFutures).thenApply(unused -> {
+            HybridTimestamp last = HybridTimestamp.MIN_VALUE;
+            long count = 0L;
+
+            for (CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> requestFut : invokeFutures) {
+                LongObjectImmutablePair<HybridTimestamp> partitionState = requestFut.join();
+
+                if (partitionState.value().compareTo(last) > 0) {
+                    last = partitionState.value();
+                }
+
+                count += partitionState.keyLong();
+            }
+
+            return LongObjectImmutablePair.of(count, last);
+        });
+
+        //requestsCompletion.put(table.tableId(), partRequests);
+
+/*        CompletableFuture<?>[] sendFutures = peers.entrySet().stream()
                 .map(ent -> {
                     GetEstimatedSizeWithLastModifiedTsRequest request =
                             PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
@@ -168,6 +219,17 @@ public class StatisticAggregatorImpl implements
                 .whenComplete((ignore, ex) -> {
                     requestsCompletion.remove(table.tableId());
                     requestsInbound.remove(table.tableId());
-                });
+                });*/
+    }
+
+    // TODO: IGNITE-22630 Fix serialization into message
+    private static ReplicationGroupIdMessage toReplicationGroupIdMessage(ReplicationGroupId replicationGroupId) {
+        if (replicationGroupId instanceof TablePartitionId) {
+            return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) replicationGroupId);
+        } else if (replicationGroupId instanceof ZonePartitionId) {
+            return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) replicationGroupId);
+        }
+
+        throw new AssertionError("Not supported: " + replicationGroupId);
     }
 }

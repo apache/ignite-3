@@ -54,7 +54,7 @@ public class PartitionModificationCounterHandler {
         this.messagingService = messagingService;
         this.partitionSizeSupplier = partitionSizeSupplier;
 
-        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
+        //messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
     }
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
@@ -67,7 +67,7 @@ public class PartitionModificationCounterHandler {
             GetEstimatedSizeWithLastModifiedTsRequest message,
             InternalClusterNode sender
     ) {
-        Set<Integer> partitions = message.partitions();
+/*        Set<Integer> partitions = message.partitions();
 
         if (tableId == message.tableId() && partitions.contains(partitionId)) {
             //assert correlationId != null;
@@ -82,7 +82,7 @@ public class PartitionModificationCounterHandler {
                             .tableId(tableId)
                             .partitionId(partitionId).build()
             );
-        }
+        }*/
     }
 
     public long value() {
