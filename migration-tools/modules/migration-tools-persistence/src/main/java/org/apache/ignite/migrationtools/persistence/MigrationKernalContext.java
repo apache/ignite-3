@@ -63,6 +63,7 @@ import org.apache.ignite.internal.processors.security.NoOpIgniteSecurityProcesso
 import org.apache.ignite.internal.processors.subscription.GridInternalSubscriptionProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.migrationtools.persistence.marshallers.ForeignJdkMarshaller;
 import org.apache.ignite.spi.deployment.local.LocalDeploymentSpi;
 import org.apache.ignite.spi.encryption.noop.NoopEncryptionSpi;
 import org.apache.ignite.spi.eventstorage.NoopEventStorageSpi;
@@ -82,6 +83,8 @@ public class MigrationKernalContext extends GridKernalContextImpl {
 
     private static final Field MARSH_CTX_FIELD;
 
+    private static final Field JDK_MARSHALLER_FIELD;
+
     static {
         try {
             CFG_FIELD = GridKernalContextImpl.class.getDeclaredField("cfg");
@@ -92,6 +95,9 @@ public class MigrationKernalContext extends GridKernalContextImpl {
 
             MARSH_CTX_FIELD = GridKernalContextImpl.class.getDeclaredField("marshCtx");
             MARSH_CTX_FIELD.setAccessible(true);
+
+            JDK_MARSHALLER_FIELD = MarshallerContextImpl.class.getDeclaredField("jdkMarsh");
+            JDK_MARSHALLER_FIELD.setAccessible(true);
         } catch (NoSuchFieldException e) {
             throw new RuntimeException(e);
         }
@@ -127,6 +133,7 @@ public class MigrationKernalContext extends GridKernalContextImpl {
 
         try {
             CFG_FIELD.set(this, adaptedConfiguration);
+            JDK_MARSHALLER_FIELD.set(marshCtx, new ForeignJdkMarshaller());
             MARSH_CTX_FIELD.set(this, marshCtx);
 
             // Unnecessarily required by CacheObjectBinaryProcessorImpl & by GridCacheDefaultAffinityKeyMapper#ignite

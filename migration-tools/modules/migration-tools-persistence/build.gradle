@@ -32,6 +32,7 @@ dependencies {
     implementation libs.commons.collections4
     implementation libs.jackson.databind
     implementation libs.slf4j.api
+    implementation libs.bytebuddy
     compileOnly libs.spotbugs.annotations
 
     testImplementation project(":migration-tools-commons-tests")
