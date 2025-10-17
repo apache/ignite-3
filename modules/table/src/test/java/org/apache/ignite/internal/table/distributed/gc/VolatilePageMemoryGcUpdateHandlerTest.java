@@ -53,6 +53,7 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
         engine = new VolatilePageMemoryStorageEngine(
                 testNodeName(testInfo, 0),
                 storageConfig,
+                null,
                 ioRegistry,
                 mock(FailureProcessor.class),
                 clock

@@ -184,6 +184,15 @@ public abstract class BinaryTupleComparatorBaseTest {
         validate(descNullFirstComparator, tuple1, tuple2);
         validate(ascNullLastComparator, tuple2, tuple1);
         validate(descNullLastComparator, tuple2, tuple1);
+
+        if (supportsPartialComparison()) {
+            ByteBuffer partialTuple2 = tuple2.duplicate().order(ByteOrder.LITTLE_ENDIAN).limit(tuple2.limit() - 1);
+
+            validate(ascNullFirstComparator, tuple1, partialTuple2);
+            validate(descNullFirstComparator, tuple1, partialTuple2);
+            validate(ascNullLastComparator, partialTuple2, tuple1);
+            validate(descNullLastComparator, partialTuple2, tuple1);
+        }
     }
 
     @Test

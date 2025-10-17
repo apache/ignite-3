@@ -66,7 +66,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, ioRegistry, mock(FailureProcessor.class), clock);
+        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, null, ioRegistry, mock(FailureProcessor.class), clock);
 
         engine.start();
 
