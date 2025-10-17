@@ -222,6 +222,7 @@ public class CheckpointProgressImpl implements CheckpointProgress {
         writtenPagesCntr.set(0);
         syncedPagesCntr.set(0);
         evictedPagesCntr.set(0);
+        syncedFilesCntr.set(0);
     }
 
     /**

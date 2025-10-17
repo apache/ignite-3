@@ -433,7 +433,7 @@ public class Checkpointer extends IgniteWorker {
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
                             totalWrittenPages,
-                            currentCheckpointProgress.syncedFilesCounter().get(),
+                            chp.syncedFiles,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
