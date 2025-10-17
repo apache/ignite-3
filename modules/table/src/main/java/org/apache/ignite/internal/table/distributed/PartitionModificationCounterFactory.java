@@ -24,7 +24,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * Factory for producing {@link PartitionModificationCounter}.
  */
 public class PartitionModificationCounterFactory {
-
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
 
     public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier) {
