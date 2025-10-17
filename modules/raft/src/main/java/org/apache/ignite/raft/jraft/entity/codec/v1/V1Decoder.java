@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -26,7 +27,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
-import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  * V1 log entry decoder.
@@ -42,7 +42,16 @@ public final class V1Decoder implements LogEntryDecoder {
         if (content == null || content.length == 0) {
             return null;
         }
-        if (content[0] != LogEntryV1CodecFactory.MAGIC) {
+
+        return decode(ByteBuffer.wrap(content).order(ByteOrder.LITTLE_ENDIAN));
+    }
+
+    @Override
+    public LogEntry decode(ByteBuffer content) {
+        if (content == null || content.remaining() == 0) {
+            return null;
+        }
+        if (content.get() != LogEntryV1CodecFactory.MAGIC) {
             // Corrupted log
             return null;
         }
@@ -53,65 +62,52 @@ public final class V1Decoder implements LogEntryDecoder {
     }
 
     // Refactored to look closer to Ignites code style.
-    private void decode(final LogEntry log, final byte[] content) {
-        var reader = new Reader(content);
-        reader.pos = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
-
-        int typeNumber = (int)reader.readLong();
+    private void decode(final LogEntry log, final ByteBuffer content) {
+        int typeNumber = (int)readLong(content);
         EnumOutter.EntryType type = Objects.requireNonNull(EnumOutter.EntryType.forNumber(typeNumber));
         log.setType(type);
 
-        long index = reader.readLong();
-        long term = reader.readLong();
+        long index = readLong(content);
+        long term = readLong(content);
         log.setId(new LogId(index, term));
 
-        long checksum = Bits.getLongLittleEndian(content, reader.pos);
+        long checksum = content.getLong();
         log.setChecksum(checksum);
-
-        int pos = reader.pos + Long.BYTES;
 
         // Peers and learners.
         if (type != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
-            reader.pos = pos;
-            int peerCount = (int)reader.readLong();
-            pos = reader.pos;
+            int peerCount = (int)readLong(content);
             if (peerCount > 0) {
                 List<PeerId> peers = new ArrayList<>(peerCount);
 
-                pos = readNodesList(reader, pos, content, peerCount, peers);
+                readNodesList(content, peerCount, peers);
 
                 log.setPeers(peers);
             }
 
-            reader.pos = pos;
-            int oldPeerCount = (int)reader.readLong();
-            pos = reader.pos;
+            int oldPeerCount = (int)readLong(content);
             if (oldPeerCount > 0) {
                 List<PeerId> oldPeers = new ArrayList<>(oldPeerCount);
 
-                pos = readNodesList(reader, pos, content, oldPeerCount, oldPeers);
+                readNodesList(content, oldPeerCount, oldPeers);
 
                 log.setOldPeers(oldPeers);
             }
 
-            reader.pos = pos;
-            int learnersCount = (int)reader.readLong();
-            pos = reader.pos;
+            int learnersCount = (int)readLong(content);
             if (learnersCount > 0) {
                 List<PeerId> learners = new ArrayList<>(learnersCount);
 
-                pos = readNodesList(reader, pos, content, learnersCount, learners);
+                readNodesList(content, learnersCount, learners);
 
                 log.setLearners(learners);
             }
 
-            reader.pos = pos;
-            int oldLearnersCount = (int)reader.readLong();
-            pos = reader.pos;
+            int oldLearnersCount = (int)readLong(content);
             if (oldLearnersCount > 0) {
                 List<PeerId> oldLearners = new ArrayList<>(oldLearnersCount);
 
-                pos = readNodesList(reader, pos, content, oldLearnersCount, oldLearners);
+                readNodesList(content, oldLearnersCount, oldLearners);
 
                 log.setOldLearners(oldLearners);
             }
@@ -119,63 +115,38 @@ public final class V1Decoder implements LogEntryDecoder {
 
         // Data.
         if (type != EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
-            if (content.length > pos) {
-                int len = content.length - pos;
-
-                ByteBuffer data = ByteBuffer.wrap(content, pos, len).slice();
-
-                log.setData(data);
+            if (content.remaining() > 0) {
+                log.setData(content.slice());
             }
         }
     }
 
-    private static int readNodesList(Reader reader, int pos, byte[] content, int count, List<PeerId> nodes) {
+    private static void readNodesList(ByteBuffer content, int count, List<PeerId> nodes) {
         for (int i = 0; i < count; i++) {
-            short len = Bits.getShortLittleEndian(content, pos);
-            pos += Short.BYTES;
+            short len = content.getShort();
 
-            String consistentId = AsciiStringUtil.unsafeDecode(content, pos, len);
-            pos += len;
+            String consistentId = AsciiStringUtil.unsafeDecode(content, len);
 
-            reader.pos = pos;
-            int idx = (int) reader.readLong();
-            int priority = (int) (reader.readLong() - 1);
-            pos = reader.pos;
+            int idx = (int) readLong(content);
+            int priority = (int) (readLong(content) - 1);
 
             nodes.add(new PeerId(consistentId, idx, priority));
         }
-
-        return pos;
     }
 
-    /*
-     * Allows reading varlen numbers and tracking position at the same time. Simply having a "readLong" method wasn't enough.
-     */
-    private static class Reader {
-        private final byte[] content;
-        int pos;
+    private static long readLong(ByteBuffer content) {
+        long val = 0;
+        int shift = 0;
 
-        private Reader(byte[] content) {
-            this.content = content;
-        }
+        while (true) {
+            byte b = content.get();
 
-        // Based on DirectByteBufferStreamImplV1.
-        long readLong() {
-            long val = 0;
-            int shift = 0;
+            val |= ((long) b & 0x7F) << shift;
 
-            while (true) {
-                byte b = content[pos];
-
-                pos++;
-
-                val |= ((long) b & 0x7F) << shift;
-
-                if ((b & 0x80) == 0) {
-                    return val;
-                } else {
-                    shift += 7;
-                }
+            if ((b & 0x80) == 0) {
+                return val;
+            } else {
+                shift += 7;
             }
         }
     }
