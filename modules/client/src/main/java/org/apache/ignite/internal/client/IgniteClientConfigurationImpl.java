@@ -68,6 +68,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final @Nullable String name;
 
+    InetAddressResolver addressResolver = InetAddressResolver.DEFAULT;
+
     /**
      * Constructor.
      *
@@ -122,6 +124,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.operationTimeout = operationTimeout;
         this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
         this.name = name;
+        this.addressResolver = addressResolver == null ? InetAddressResolver.DEFAULT : addressResolver;
     }
 
     /** {@inheritDoc} */
