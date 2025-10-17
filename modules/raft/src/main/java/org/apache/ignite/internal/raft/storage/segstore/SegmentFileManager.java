@@ -217,6 +217,64 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     /**
+     * Returns the lowest log index for the given group present in the storage or {@code -1} if no such index exists.
+     */
+    long firstLogIndexInclusive(long groupId) {
+        long logIndexFromMemtable = firstLogIndexFromMemtable(groupId);
+
+        long logIndexFromCheckpointQueue = checkpointer.firstLogIndexInclusive(groupId);
+
+        long logIndexFromIndexFiles = indexFileManager.firstLogIndexInclusive(groupId);
+
+        if (logIndexFromIndexFiles >= 0) {
+            return logIndexFromIndexFiles;
+        }
+
+        if (logIndexFromCheckpointQueue >= 0) {
+            return logIndexFromCheckpointQueue;
+        }
+
+        return logIndexFromMemtable;
+    }
+
+    private long firstLogIndexFromMemtable(long groupId) {
+        SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
+
+        SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
+
+        return segmentInfo == null ? -1 : segmentInfo.firstLogIndexInclusive();
+    }
+
+    /**
+     * Returns the highest possible exclusive log index for the given group or {@code -1} if no such index exists.
+     *
+     * <p>The highest log index currently present in the storage can be computed as {@code lastLogIndexExclusive - 1}.
+     */
+    long lastLogIndexExclusive(long groupId) {
+        long logIndexFromMemtable = lastLogIndexFromMemtable(groupId);
+
+        if (logIndexFromMemtable >= 0) {
+            return logIndexFromMemtable;
+        }
+
+        long logIndexFromCheckpointQueue = checkpointer.lastLogIndexExclusive(groupId);
+
+        if (logIndexFromCheckpointQueue >= 0) {
+            return logIndexFromCheckpointQueue;
+        }
+
+        return indexFileManager.lastLogIndexExclusive(groupId);
+    }
+
+    private long lastLogIndexFromMemtable(long groupId) {
+        SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
+
+        SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
+
+        return segmentInfo == null ? -1 : segmentInfo.lastLogIndexExclusive();
+    }
+
+    /**
      * Returns the current segment file possibly waiting for an ongoing rollover to complete.
      */
     private SegmentFileWithMemtable currentSegmentFile() {
@@ -309,7 +367,9 @@ class SegmentFileManager implements ManuallyCloseable {
     private @Nullable ByteBuffer readFromCurrentSegmentFile(long groupId, long logIndex) {
         SegmentFileWithMemtable currentSegmentFile = this.currentSegmentFile.get();
 
-        int segmentPayloadOffset = currentSegmentFile.memtable().getSegmentFileOffset(groupId, logIndex);
+        SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
+
+        int segmentPayloadOffset = segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
 
         if (segmentPayloadOffset == 0) {
             return null;

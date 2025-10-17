@@ -982,8 +982,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             localFragments.add(node);
 
             if (!(node instanceof Outbox)) {
-                SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ectx,
-                        treeRoot.getRowType());
+                SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(
+                        treeRoot.getRowType()
+                );
 
                 AsyncRootNode<RowT, InternalSqlRow> rootNode = new AsyncRootNode<>(
                         node,

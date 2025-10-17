@@ -24,9 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
-import java.util.Base64;
+import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -36,36 +35,46 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.Statements;
-import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
+import org.apache.ignite.internal.raft.BaseCommandsCompatibilityTest;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Compatibility testing for serialization/deserialization of metastorage raft commands. It is verified that deserialization of commands
  * that were created on earlier versions of the product will be error-free.
- *
- * <p>For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
- * {@code GridUnsafe#unaligned()} for the tests to pass. For more details, see
- * <a href="https://lists.apache.org/thread/67coyvm8mo7106mkndt24yqwtbvb7590">discussion</a>.</p>
- *
- * <p>To serialize commands, use {@link #serializeAll()} and insert the result into the appropriate tests.</p>
  */
-public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest {
-    private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
-
-    private final Marshaller marshaller = new ThreadLocalOptimizedMarshaller(registry);
-
+public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibilityTest {
     private final MetaStorageCommandsFactory factory = new MetaStorageCommandsFactory();
 
-    @BeforeEach
-    void setUp() {
-        new MetaStorageCommandsSerializationRegistryInitializer().registerFactories(registry);
-        new MetaStorageMessagesSerializationRegistryInitializer().registerFactories(registry);
+    @Override
+    protected Collection<MessageSerializationRegistryInitializer> initializers() {
+        return List.of(
+                new MetaStorageCommandsSerializationRegistryInitializer(),
+                new MetaStorageMessagesSerializationRegistryInitializer()
+        );
+    }
+
+    @Override
+    protected Collection<Command> commandsToSerialize() {
+        return List.of(
+                createCompactionCommand(),
+                createEvictIdempotentCommandsCacheCommand(),
+                createGetAllCommand(),
+                createGetChecksumCommand(),
+                createGetCommand(),
+                createGetCurrentRevisionsCommand(),
+                createGetPrefixCommand(),
+                createGetRangeCommand(),
+                createInvokeCommand(),
+                createMultiInvokeCommand(),
+                createPutAllCommand(),
+                createPutCommand(),
+                createRemoveAllCommand(),
+                createRemoveByPrefixCommand(),
+                createRemoveCommand(),
+                createSyncTimeCommand()
+        );
     }
 
     @Test
@@ -255,18 +264,6 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
         assertEquals(42, command.initiatorTerm());
     }
 
-    private static HybridTimestamp initiatorTime() {
-        return HybridTimestamp.hybridTimestamp(70);
-    }
-
-    private static HybridTimestamp safeTime() {
-        return HybridTimestamp.hybridTimestamp(69);
-    }
-
-    private static UUID uuid() {
-        return new UUID(42, 69);
-    }
-
     private static CommandId commandId() {
         return CommandId.fromString(uuid() + "_cnt_" + 70);
     }
@@ -281,40 +278,6 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
 
     private static ByteArray keyAsByteArray(String key) {
         return ByteArray.fromString(key);
-    }
-
-    private <T extends Command> T deserializeCommand(byte[] bytes) {
-        return marshaller.unmarshall(bytes);
-    }
-
-    private <T extends Command> T decodeCommand(String base64) {
-        return deserializeCommand(Base64.getDecoder().decode(base64));
-    }
-
-    @SuppressWarnings("unused")
-    private void serializeAll() {
-        List<Command> commands = List.of(
-                createCompactionCommand(),
-                createEvictIdempotentCommandsCacheCommand(),
-                createGetAllCommand(),
-                createGetChecksumCommand(),
-                createGetCommand(),
-                createGetCurrentRevisionsCommand(),
-                createGetPrefixCommand(),
-                createGetRangeCommand(),
-                createInvokeCommand(),
-                createMultiInvokeCommand(),
-                createPutAllCommand(),
-                createPutCommand(),
-                createRemoveAllCommand(),
-                createRemoveByPrefixCommand(),
-                createRemoveCommand(),
-                createSyncTimeCommand()
-        );
-
-        for (Command c : commands) {
-            log.info(">>>>> Serialized command: [c={}, base64='{}']", c.getClass().getSimpleName(), encodeCommand(c));
-        }
     }
 
     private SyncTimeCommand createSyncTimeCommand() {
@@ -471,13 +434,5 @@ public class MetastorageCommandsCompatibilityTest extends BaseIgniteAbstractTest
                 .initiatorTime(initiatorTime())
                 .compactionRevision(42)
                 .build();
-    }
-
-    private byte[] serializeCommand(Command c) {
-        return marshaller.marshall(c);
-    }
-
-    private String encodeCommand(Command c) {
-        return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
 }

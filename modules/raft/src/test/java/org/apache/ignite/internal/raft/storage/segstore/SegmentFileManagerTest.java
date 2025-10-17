@@ -57,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -340,6 +341,30 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         for (int i = 0; i < indexFiles.size(); i++) {
             validateIndexFile(indexFiles.get(i), segmentFiles.get(i));
         }
+    }
+
+    @Test
+    void testFirstAndLastIndexOnAppend() {
+        int batchSize = FILE_SIZE / 10;
+
+        List<byte[]> batches = randomData(batchSize, 100);
+
+        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
+
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytes(groupId, batches.get(i), i);
+
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(i + 1L));
+            }
+
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is((long) batches.size()));
+        };
+
+        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
     }
 
     private Path findSoleSegmentFile() throws IOException {

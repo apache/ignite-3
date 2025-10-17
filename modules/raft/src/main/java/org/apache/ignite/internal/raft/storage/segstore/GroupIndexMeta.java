@@ -60,8 +60,16 @@ class GroupIndexMeta {
      */
     @Nullable
     IndexFileMeta indexMeta(long logIndex) {
+        return fileMetas.find(logIndex);
+    }
+
+    long firstLogIndexInclusive() {
+        return fileMetas.get(0).firstLogIndexInclusive();
+    }
+
+    long lastLogIndexExclusive() {
         IndexFileMetaArray fileMetas = this.fileMetas;
 
-        return fileMetas.find(logIndex);
+        return fileMetas.get(fileMetas.size() - 1).lastLogIndexExclusive();
     }
 }

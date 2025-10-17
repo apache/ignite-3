@@ -277,6 +277,7 @@ namespace Apache.Ignite.Internal
         }
 
         /// <inheritdoc/>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed.")]
         public void Dispose()
         {
             _socketLock.Wait();
@@ -292,7 +293,14 @@ namespace Apache.Ignite.Internal
 
                 foreach (var endpoint in _endpoints)
                 {
-                    endpoint.Socket?.Dispose();
+                    try
+                    {
+                        endpoint.Socket?.Dispose();
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogFailedSocketDispose(e);
+                    }
                 }
             }
             finally

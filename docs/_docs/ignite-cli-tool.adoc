@@ -89,7 +89,7 @@ All CLI commands can provide additional output that can be helpful in debugging.
 CLI tool stores extended logs for your operations. These logs contain additional information not displayed during normal operation. You can configure the directory in the following ways:
 
 - By setting the `IGNITE_CLI_LOGS_DIR` environment variable to the directory where logs will be stored.
-- By setting the `$XDG_STATE_HOME` environment variable to set the CLI home folder. This configuration variable follows the link:https://specifications.freedesktop.org/basedir-spec/latest/[XDG Base Directory Specification] and does not override the `IGNITE_CLI_LOGS_DIR`. If `$XDG_STATE_HOME` is set and `IGNITE_CLI_LOGS_DIR` is not, logs will be stored in `$XDG_STATE_HOME/ignitecli/logs` directory.
+- By setting the `$XDG_STATE_HOME` environment variable to set the CLI home folder. This configuration variable follows the link:https://specifications.freedesktop.org/basedir-spec/latest/[XDG Base Directory Specification] and does not override the `IGNITE_CLI_LOGS_DIR`. If `$XDG_STATE_HOME` is set and `IGNITE_CLI_LOGS_DIR` is not, logs will be stored in the `$XDG_STATE_HOME/ignitecli/logs` directory.
 
 If neither of the above properties are set, the logs are stored in the following locations:
 
