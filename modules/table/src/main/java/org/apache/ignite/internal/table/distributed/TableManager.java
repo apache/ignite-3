@@ -72,7 +72,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -133,7 +132,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -154,7 +152,6 @@ import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
@@ -162,9 +159,7 @@ import org.apache.ignite.internal.partition.replicator.NaiveAsyncReadWriteLock;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
@@ -185,7 +180,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
-import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -196,20 +190,15 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
-import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.TransientReplicaStartException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.EstimatedSizeRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -229,7 +218,7 @@ import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterHandlerFactory.SizeSupplier;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.SizeSupplier;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -482,10 +471,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final MetricManager metricManager;
-    private final PartitionModificationCounterHandlerFactory partitionModificationCounterFactory;
+    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
 
-    private final PartitionModificationCounterHandler0 counterHandler;
+    private final PartitionModificationHandler partitionModificationHandler;
 
     /**
      * Creates a new table manager.
@@ -559,7 +548,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             MetricManager metricManager,
-            PartitionModificationCounterHandlerFactory partitionModificationCounterFactory
+            PartitionModificationCounterFactory partitionModificationCounterFactory
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -650,7 +639,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableId -> tablesById().get(tableId)
         );
 
-        counterHandler = new PartitionModificationCounterHandler0(messagingService);
+        partitionModificationHandler = new PartitionModificationHandler(messagingService, replicaMgr::replica,
+                () -> topologyService.localMember().id());
 
         this.sharedTxStateStorage = txStateRocksDbSharedStorage;
 
@@ -671,83 +661,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         partitionReplicaLifecycleManager.listen(BEFORE_REPLICA_STARTED, onBeforeZoneReplicaStartedListener);
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
-    }
-
-    private class PartitionModificationCounterHandler0 {
-        MessagingService messagingService;
-
-        private final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
-                new PartitionReplicationMessagesFactory();
-
-        PartitionModificationCounterHandler0(MessagingService messagingService) {
-            this.messagingService = messagingService;
-
-            messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
-        }
-
-        private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
-            if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
-                handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender, correlationId);
-            }
-        }
-
-        private void handleRequestCounter(
-                GetEstimatedSizeWithLastModifiedTsRequest message,
-                InternalClusterNode sender,
-                Long correlationId
-        ) {
-            assert correlationId != null;
-
-            List<CompletableFuture<ReplicaResult>> replicaReqFutures = new ArrayList<>();
-
-            for (ReplicationGroupIdMessage repl : message.replicas()) {
-                ReplicationGroupId replGrpId = repl.asReplicationGroupId();
-
-                CompletableFuture<Replica> replica = replicaMgr.replica(replGrpId);
-
-                if (replica != null) {
-                    replicaReqFutures.add(
-                            replica.thenCompose(r -> {
-                                EstimatedSizeRequest req = REPLICA_MESSAGES_FACTORY.estimatedSizeRequest()
-                                        .groupId(repl)
-                                        .tableId(message.tableId())
-                                        .build();
-
-                                        return r.processRequest(req, localNode().id());
-                            }).exceptionally(e -> null)
-                    );
-                }
-            }
-
-            var replicaRequests = replicaReqFutures.toArray(new CompletableFuture[0]);
-
-            allOf(replicaRequests).thenAccept(unused -> {
-                HybridTimestamp last = HybridTimestamp.MIN_VALUE;
-                long count = 0L;
-
-                for (CompletableFuture<ReplicaResult> requestFut : replicaReqFutures) {
-                    ReplicaResult replResult = requestFut.join();
-
-                    if (replResult != null) {
-                        LongObjectImmutablePair<HybridTimestamp> result = (LongObjectImmutablePair<HybridTimestamp>) replResult.result();
-
-                        if (result.value().compareTo(last) > 0) {
-                            last = result.value();
-                        }
-
-                        count += result.keyLong();
-                    }
-                }
-
-                messagingService.respond(
-                        sender,
-                        PARTITION_REPLICATION_MESSAGES_FACTORY
-                                .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(count)
-                                .lastModified(last).build(),
-                        correlationId
-                );
-            });
-        }
     }
 
     @Override
@@ -3283,8 +3196,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         SizeSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
 
-        PartitionModificationCounterHandler modificationCounter =
-                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration, table.tableId(), partitionId);
+        PartitionModificationCounter modificationCounter =
+                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration);
 
         registerPartitionModificationCounterMetrics(table, partitionId, modificationCounter);
 
@@ -3302,7 +3215,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void registerPartitionModificationCounterMetrics(
             TableViewInternal table,
             int partitionId,
-            PartitionModificationCounterHandler counterHandler
+            PartitionModificationCounter counterHandler
     ) {
         PartitionModificationCounterMetricSource metricSource =
                 new PartitionModificationCounterMetricSource(table.tableId(), partitionId);

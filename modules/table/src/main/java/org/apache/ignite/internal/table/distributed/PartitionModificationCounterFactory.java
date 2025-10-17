@@ -19,21 +19,17 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.MessagingService;
 
 /**
- * Factory for producing {@link PartitionModificationCounterHandler}.
+ * Factory for producing {@link PartitionModificationCounter}.
  */
-public class PartitionModificationCounterHandlerFactory {
+public class PartitionModificationCounterFactory {
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
-    private final MessagingService messagingService;
 
-    public PartitionModificationCounterHandlerFactory(
-            Supplier<HybridTimestamp> currentTimestampSupplier,
-            MessagingService messagingService
+    public PartitionModificationCounterFactory(
+            Supplier<HybridTimestamp> currentTimestampSupplier
     ) {
         this.currentTimestampSupplier = currentTimestampSupplier;
-        this.messagingService = messagingService;
     }
 
     /**
@@ -41,28 +37,16 @@ public class PartitionModificationCounterHandlerFactory {
      *
      * @param partitionSizeSupplier Partition size supplier.
      * @param stalenessConfigurationSupplier Partition size supplier.
-     * @param tableId Table ID.
-     * @param partitionId partition ID.
-     * @return New partition modification handler.
+     * @return New partition modification counter.
      */
-    public PartitionModificationCounterHandler create(
+    public PartitionModificationCounter create(
             SizeSupplier partitionSizeSupplier,
-            StalenessConfigurationSupplier stalenessConfigurationSupplier,
-            int tableId,
-            int partitionId
+            StalenessConfigurationSupplier stalenessConfigurationSupplier
     ) {
-        PartitionModificationCounter modificationCounter = new PartitionModificationCounter(
+        return new PartitionModificationCounter(
                 currentTimestampSupplier.get(),
                 partitionSizeSupplier,
                 stalenessConfigurationSupplier
-        );
-
-        return new PartitionModificationCounterHandler(
-                tableId,
-                partitionId,
-                messagingService,
-                partitionSizeSupplier,
-                modificationCounter
         );
     }
 

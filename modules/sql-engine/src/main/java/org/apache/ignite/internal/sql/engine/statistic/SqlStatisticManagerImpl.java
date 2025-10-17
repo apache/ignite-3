@@ -83,7 +83,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private final StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> statSupplier;
 
     static final long INITIAL_DELAY = 5_000;
-    static final long REFRESH_PERIOD = 2_000;//20_000; CHANGE !!!
+    static final long REFRESH_PERIOD = 20_000;
 
     /** Constructor. */
     public SqlStatisticManagerImpl(

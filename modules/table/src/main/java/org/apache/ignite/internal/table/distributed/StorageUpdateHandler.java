@@ -68,7 +68,7 @@ public class StorageUpdateHandler {
     private final ReplicationConfiguration replicationConfiguration;
 
     /** Partition modification counter handler. */
-    private final PartitionModificationCounterHandler modificationCounter;
+    private final PartitionModificationCounter modificationCounter;
 
     /**
      * The constructor.
@@ -84,7 +84,7 @@ public class StorageUpdateHandler {
             PartitionDataStorage storage,
             IndexUpdateHandler indexUpdateHandler,
             ReplicationConfiguration replicationConfiguration,
-            PartitionModificationCounterHandler modificationCounter
+            PartitionModificationCounter modificationCounter
     ) {
         this.partitionId = partitionId;
         this.storage = storage;

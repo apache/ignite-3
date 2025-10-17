@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.partition.replicator.network.message;
 
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 
 /** A message that queries a partition estimate size and last modification ts. */
@@ -32,8 +29,6 @@ public interface GetEstimatedSizeWithLastModifiedTsRequest extends NetworkMessag
     /** ID of the table. */
     int tableId();
 
-    /** Partition ID`s. */
-    //Set<Integer> partitions();
-
+    /** Collection of replicas estimate size need to be processed.  */
     List<ReplicationGroupIdMessage> replicas();
 }

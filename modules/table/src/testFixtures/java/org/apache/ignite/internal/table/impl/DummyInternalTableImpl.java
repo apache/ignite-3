@@ -450,7 +450,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_HANDLER
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);

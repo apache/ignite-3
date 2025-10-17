@@ -28,8 +28,4 @@ public interface GetEstimatedSizeWithLastModifiedTsResponse extends NetworkMessa
     HybridTimestamp lastModified();
 
     long estimatedSize();
-
-    //int tableId();
-
-    //int partitionId();
 }

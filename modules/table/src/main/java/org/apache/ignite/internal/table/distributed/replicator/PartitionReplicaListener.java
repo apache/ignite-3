@@ -165,7 +165,7 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.EstimatedSizeRequest;
+import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithModifyTsRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -592,7 +592,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processGetEstimatedSizeRequest();
         }
 
-        if (request instanceof EstimatedSizeRequest/* && replicaPrimacy.isPrimary()*/) {
+        if (request instanceof GetEstimatedSizeWithModifyTsRequest) {
             return processGetEstimatedSizeWithTsRequest();
         }
 

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 
+/** Partition modification information request. */
 @Transferable(ReplicaMessageGroup.ESTIMATED_SIZE_REQUEST)
-public interface EstimatedSizeRequest extends ReplicaSafeTimeSyncRequest, TableAware {
-
+public interface GetEstimatedSizeWithModifyTsRequest extends ReplicaSafeTimeSyncRequest, TableAware {
 }
