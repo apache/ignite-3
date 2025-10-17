@@ -48,4 +48,11 @@ public interface PrepareService extends LifecycleAware {
     default CompletableFuture<Void> invalidateCache(Set<String> tableNames) {
         return CompletableFutures.nullCompletedFuture();
     }
+
+    /**
+     * Returns prepared plans stored in cached.
+     *
+     * @return Cached prepared plans.
+     */
+    Set<PreparedPlan> preparedPlans();
 }

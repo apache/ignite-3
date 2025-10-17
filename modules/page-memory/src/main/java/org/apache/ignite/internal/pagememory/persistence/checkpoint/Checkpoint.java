@@ -30,6 +30,9 @@ class Checkpoint {
     /** Number of dirty pages. */
     final int dirtyPagesSize;
 
+    /** Number of written dirty pages. */
+    int writtenPages;
+
     /**
      * Constructor.
      *
@@ -49,7 +52,17 @@ class Checkpoint {
     /**
      * Returns {@code true} if this checkpoint contains at least one dirty page.
      */
-    public boolean hasDelta() {
+    boolean hasDelta() {
         return dirtyPagesSize != 0;
+    }
+
+    void finishCheckpoint() {
+        if (hasDelta()) {
+            writtenPages = progress.writtenPages();
+
+            progress.pagesToWrite(null);
+
+            progress.clearCounters();
+        }
     }
 }
