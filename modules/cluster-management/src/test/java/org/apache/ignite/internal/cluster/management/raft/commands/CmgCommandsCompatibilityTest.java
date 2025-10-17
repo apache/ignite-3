@@ -20,44 +20,44 @@ package org.apache.ignite.internal.cluster.management.raft.commands;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
-import java.util.Base64;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
-import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
+import org.apache.ignite.internal.raft.BaseCommandsCompatibilityTest;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Compatibility testing for serialization/deserialization of CMG raft commands. It is verified that deserialization of commands that were
  * created on earlier versions of the product will be error-free.
- *
- * <p>For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
- * {@code GridUnsafe#unaligned()} for the tests to pass. For more details, see
- * <a href="https://lists.apache.org/thread/67coyvm8mo7106mkndt24yqwtbvb7590">discussion</a>.</p>
- *
- * <p>To serialize commands, use {@link #serializeAll()} and insert the result into the appropriate tests.</p>
  */
-public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
-    private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
-
-    private final Marshaller marshaller = new ThreadLocalOptimizedMarshaller(registry);
-
+public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest {
     private final CmgMessagesFactory factory = new CmgMessagesFactory();
 
-    @BeforeEach
-    void setUp() {
-        new CmgMessagesSerializationRegistryInitializer().registerFactories(registry);
+    @Override
+    protected Collection<MessageSerializationRegistryInitializer> initializers() {
+        return List.of(new CmgMessagesSerializationRegistryInitializer());
+    }
+
+    @Override
+    protected Collection<Command> commandsToSerialize() {
+        return List.of(
+                createChangeMetaStorageInfoCommand(),
+                createInitCmgStateCommand(),
+                createJoinReadyCommand(),
+                createJoinRequestCommand(),
+                createNodesLeaveCommand(),
+                createReadLogicalTopologyCommand(),
+                createReadMetaStorageInfoCommand(),
+                createReadStateCommand(),
+                createReadValidatedNodesCommand()
+        );
     }
 
     @Test
@@ -138,10 +138,6 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
         assertInstanceOf(ReadValidatedNodesCommand.class, command);
     }
 
-    private static UUID uuid() {
-        return new UUID(42, 69);
-    }
-
     private ClusterNodeMessage createClusterNodeMessage() {
         return factory.clusterNodeMessage()
                 .id(uuid())
@@ -163,33 +159,6 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
                 .initialClusterConfiguration("initConfig1")
                 .formerClusterIds(List.of(uuid()))
                 .build();
-    }
-
-    private <T extends Command> T deserializeCommand(byte[] bytes) {
-        return marshaller.unmarshall(bytes);
-    }
-
-    private <T extends Command> T decodeCommand(String base64) {
-        return deserializeCommand(Base64.getDecoder().decode(base64));
-    }
-
-    @SuppressWarnings("unused")
-    private void serializeAll() {
-        List<Command> commands = List.of(
-                createChangeMetaStorageInfoCommand(),
-                createInitCmgStateCommand(),
-                createJoinReadyCommand(),
-                createJoinRequestCommand(),
-                createNodesLeaveCommand(),
-                createReadLogicalTopologyCommand(),
-                createReadMetaStorageInfoCommand(),
-                createReadStateCommand(),
-                createReadValidatedNodesCommand()
-        );
-
-        for (Command c : commands) {
-            log.info(">>>>> Serialized command: [c={}, base64='{}']", c.getClass().getSimpleName(), encodeCommand(c));
-        }
     }
 
     private ReadValidatedNodesCommand createReadValidatedNodesCommand() {
@@ -240,13 +209,5 @@ public class CmgCommandsCompatibilityTest extends BaseIgniteAbstractTest {
                 .metaStorageNodes(Set.of("msNode1", "msNode2"))
                 .metastorageRepairingConfigIndex(42L)
                 .build();
-    }
-
-    private byte[] serializeCommand(Command c) {
-        return marshaller.marshall(c);
-    }
-
-    private String encodeCommand(Command c) {
-        return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
 }

@@ -434,21 +434,18 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     private List<Path> segmentFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
-            return files
-                    .filter(p -> p.getFileName().toString().startsWith("segment"))
-                    .sorted()
-                    .collect(toList());
+        try (Stream<Path> files = Files.list(fileManager.segmentFilesDir())) {
+            return files.sorted().collect(toList());
         }
     }
 
     private List<Path> indexFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
+        try (Stream<Path> files = Files.list(fileManager.indexFilesDir())) {
             return files
                     .filter(p -> {
                         String fileName = p.getFileName().toString();
 
-                        return fileName.startsWith("index") && !fileName.endsWith(".tmp");
+                        return !fileName.endsWith(".tmp");
                     })
                     .sorted()
                     .collect(toList());

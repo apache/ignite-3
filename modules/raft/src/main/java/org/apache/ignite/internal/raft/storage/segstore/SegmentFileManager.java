@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -95,7 +96,7 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     static final byte[] SWITCH_SEGMENT_RECORD = new byte[8]; // 8 zero bytes.
 
-    private final Path baseDir;
+    private final Path segmentFilesDir;
 
     /** Configured size of a segment file. */
     private final long fileSize;
@@ -129,12 +130,15 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     private boolean isStopped;
 
-    SegmentFileManager(String nodeName, Path baseDir, long fileSize, int stripes, FailureProcessor failureProcessor) {
+    SegmentFileManager(String nodeName, Path baseDir, long fileSize, int stripes, FailureProcessor failureProcessor) throws IOException {
         if (fileSize <= HEADER_RECORD.length) {
             throw new IllegalArgumentException("File size must be greater than the header size: " + fileSize);
         }
 
-        this.baseDir = baseDir;
+        this.segmentFilesDir = baseDir.resolve("segments");
+
+        Files.createDirectories(segmentFilesDir);
+
         this.fileSize = fileSize;
         this.stripes = stripes;
 
@@ -149,8 +153,16 @@ class SegmentFileManager implements ManuallyCloseable {
         currentSegmentFile.set(allocateNewSegmentFile(0));
     }
 
+    Path segmentFilesDir() {
+        return segmentFilesDir;
+    }
+
+    Path indexFilesDir() {
+        return indexFileManager.indexFilesDir();
+    }
+
     private SegmentFileWithMemtable allocateNewSegmentFile(int fileOrdinal) throws IOException {
-        Path path = baseDir.resolve(segmentFileName(fileOrdinal, 0));
+        Path path = segmentFilesDir.resolve(segmentFileName(fileOrdinal, 0));
 
         SegmentFile segmentFile = SegmentFile.createNew(path, fileSize);
 
@@ -407,7 +419,7 @@ class SegmentFileManager implements ManuallyCloseable {
             return null;
         }
 
-        Path path = baseDir.resolve(segmentFileName(segmentFilePointer.fileOrdinal(), 0));
+        Path path = segmentFilesDir.resolve(segmentFileName(segmentFilePointer.fileOrdinal(), 0));
 
         // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
         SegmentFile segmentFile = SegmentFile.openExisting(path);
