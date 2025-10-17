@@ -78,6 +78,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(CompactionCommand.class)
     void testCompactionCommand() {
         CompactionCommand command = decodeCommand("cEkrR0Y=");
 
@@ -87,6 +88,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(EvictIdempotentCommandsCacheCommand.class)
     void testEvictIdempotentCommandsCacheCommand() {
         EvictIdempotentCommandsCacheCommand command = decodeCommand("cEhlR0Y=");
 
@@ -96,6 +98,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(GetAllCommand.class)
     void testGetAllCommand() {
         GetAllCommand command = decodeCommand("cB8DAwVrZXkxAwVrZXkyKw==");
 
@@ -104,6 +107,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(GetChecksumCommand.class)
     void testGetChecksumCommand() {
         GetChecksumCommand command = decodeCommand("cCMr");
 
@@ -111,6 +115,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(GetCommand.class)
     void testGetCommand() {
         GetCommand command = decodeCommand("cBUDBWtleTEr");
 
@@ -119,6 +124,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(GetCurrentRevisionsCommand.class)
     void testGetCurrentRevisionsCommand() {
         Command command = decodeCommand("cCI=");
 
@@ -126,6 +132,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(GetPrefixCommand.class)
     void testGetPrefixCommand() {
         GetPrefixCommand command = decodeCommand("cD5lAQMIcHJlZml4MQ1wcmV2aW91c0tleTEr");
 
@@ -137,6 +144,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(GetRangeCommand.class)
     void testGetRangeCommand() {
         GetRangeCommand command = decodeCommand("cD1lAQMJa2V5RnJvbTEDB2tleVRvMQ1wcmV2aW91c0tleTEr");
 
@@ -149,6 +157,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(InvokeCommand.class)
     void testInvokeCommand() {
         InvokeCommand command = decodeCommand(
                 "cAvfAQIDCGV4aXN0czEOAt8BBgMIcmVtb3ZlMQQA3wEMRwAAAAAAAAAAKgAAAAAAAABFR0YC3wEGAwVwdXQxAwMFdmFsMQ=="
@@ -169,6 +178,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(MultiInvokeCommand.class)
     void testMultiInvokeCommand() {
         MultiInvokeCommand command = decodeCommand(
                 "cAzfAQxHAAAAAAAAAAAqAAAAAAAAAEXfAQnfAQvfAQgC3wEGAwVwdXQxAwMFdmFsMd8BBwMCAd8BBd8BBd8BAgMLdG9tYnN0b25lMRDfAQIDDm5vdFRvbWJzd"
@@ -209,6 +219,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(PutAllCommand.class)
     void testPutAllCommand() {
         PutAllCommand command = decodeCommand("cDNHAwMFa2V5MQMFa2V5MkYDAwV2YWwxAwV2YWwy");
 
@@ -219,6 +230,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(PutCommand.class)
     void testPutCommand() {
         PutCommand command = decodeCommand("cClHAwVrZXkxRgMFdmFsMQ==");
 
@@ -229,6 +241,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(RemoveAllCommand.class)
     void testRemoveAllCommand() {
         RemoveAllCommand command = decodeCommand("cDRHAwMFa2V5MQMFa2V5MkY=");
 
@@ -238,6 +251,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(RemoveByPrefixCommand.class)
     void testRemoveByPrefixCommand() {
         RemoveByPrefixCommand command = decodeCommand("cDVHAwhwcmVmaXgxRg==");
 
@@ -247,6 +261,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(RemoveCommand.class)
     void testRemoveCommand() {
         RemoveCommand command = decodeCommand("cCpHAwVrZXkxRg==");
 
@@ -256,6 +271,7 @@ public class MetastorageCommandsCompatibilityTest extends BaseCommandsCompatibil
     }
 
     @Test
+    @TestCommand(SyncTimeCommand.class)
     void testSyncTimeCommand() {
         SyncTimeCommand command = decodeCommand("cEcrR0Y=");
 
