@@ -84,6 +84,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
+import org.apache.ignite.internal.ConfigOverride;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -1957,6 +1958,27 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         assertTrue(success);
+    }
+
+    @Test
+    @ConfigOverride(
+            name = "nodeAttributes",
+            value = "{ nodeAttributes: {region = US}}"
+    )
+    public void emptyDataNodesTest() {
+        IgniteImpl node0 = startNode(0);
+
+        String zoneName = "ZONE_TEST";
+
+        node0.sql().execute(null,
+                String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d, NODES FILTER '$[?(@.region == \"US\")]') "
+                                + "STORAGE PROFILES ['%s']",
+                        zoneName, 1, 1, DEFAULT_STORAGE_PROFILE));
+
+        node0.sql().execute(null,
+                String.format("CREATE table TEST(id int primary key, name varchar) zone %s", zoneName));
+
+        node0.sql().execute(null, String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", zoneName, "$[?(@.region == \"EU\")]"));
     }
 
     private int latestCatalogVersionInMs(MetaStorageManager metaStorageManager) {
