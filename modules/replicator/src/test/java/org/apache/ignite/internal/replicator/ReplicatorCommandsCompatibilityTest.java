@@ -51,7 +51,7 @@ public class ReplicatorCommandsCompatibilityTest extends BaseCommandsCompatibili
     }
 
     @Test
-    @TestCommand(SafeTimeSyncCommand.class)
+    @TestForCommand(SafeTimeSyncCommand.class)
     void testSafeTimeSyncCommand() {
         SafeTimeSyncCommand command = decodeCommand("CSlH");
 
@@ -59,7 +59,7 @@ public class ReplicatorCommandsCompatibilityTest extends BaseCommandsCompatibili
     }
 
     @Test
-    @TestCommand(PrimaryReplicaChangeCommand.class)
+    @TestForCommand(PrimaryReplicaChangeCommand.class)
     void testPrimaryReplicaChangeCommand() {
         PrimaryReplicaChangeCommand command = decodeCommand("CSorAAAAAAAAAAAqAAAAAAAAAEUGbm9kZTE=");
 

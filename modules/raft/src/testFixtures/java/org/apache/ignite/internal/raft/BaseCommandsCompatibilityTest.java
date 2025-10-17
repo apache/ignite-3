@@ -101,8 +101,8 @@ public abstract class BaseCommandsCompatibilityTest extends BaseIgniteAbstractTe
     /** Annotation to indicate which raft command is being tested. */
     @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
-    public @interface TestCommand {
-        /** Raft command is being tested. */
+    public @interface TestForCommand {
+        /** Raft command being tested. */
         Class<? extends Command> value();
     }
 }

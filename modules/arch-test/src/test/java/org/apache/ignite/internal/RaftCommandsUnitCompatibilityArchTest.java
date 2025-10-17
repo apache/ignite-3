@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal;
 
-import static com.tngtech.archunit.base.DescribedPredicate.and;
-import static com.tngtech.archunit.core.domain.properties.CanBeAnnotated.Predicates.annotatedWith;
 import static com.tngtech.archunit.core.importer.ImportOption.Predefined.DO_NOT_INCLUDE_TESTS;
 import static com.tngtech.archunit.core.importer.ImportOption.Predefined.DO_NOT_INCLUDE_TEST_FIXTURES;
-import static com.tngtech.archunit.lang.SimpleConditionEvent.violated;
 import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 
@@ -33,15 +31,11 @@ import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
-import com.tngtech.archunit.lang.ArchCondition;
-import com.tngtech.archunit.lang.ArchRule;
-import com.tngtech.archunit.lang.ConditionEvents;
-import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.BaseCommandsCompatibilityTest;
-import org.apache.ignite.internal.raft.BaseCommandsCompatibilityTest.TestCommand;
+import org.apache.ignite.internal.raft.BaseCommandsCompatibilityTest.TestForCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.lang.IgniteTestImportOption;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
@@ -59,73 +53,44 @@ import org.junit.jupiter.params.ParameterizedTest;
 public class RaftCommandsUnitCompatibilityArchTest {
     @ArchTest
     void test(JavaClasses classes) {
-        Set<String> raftCommands = toClassNames(collectRaftCommands());
+        Set<String> raftCommands = collectRaftCommands();
 
         assertThat(raftCommands, not(empty()));
 
-        ArchRule archRule = ArchRuleDefinition.classes()
-                .that()
-                .areAssignableTo(BaseCommandsCompatibilityTest.class)
-                .and()
-                .containAnyMethodsThat(and(
-                        annotatedWith(TestCommand.class),
-                        annotatedWith(Test.class).or(annotatedWith(ParameterizedTest.class))
-                ))
-                .should(shouldContainsTestMethodsForRaftCommands(raftCommands));
-
-        archRule.check(classes);
+        Set<String> testedRaftCommands = collectTestedRaftCommands(classes);
 
         assertThat(
                 "There are still some raft commands that haven't been tested; for example, see the successors of "
                         + BaseCommandsCompatibilityTest.class.getName(),
                 raftCommands,
-                empty()
+                containsInAnyOrder(testedRaftCommands.toArray(new String[0]))
         );
     }
 
-    private static ArchCondition<JavaClass> shouldContainsTestMethodsForRaftCommands(Set<String> raftCommands) {
-        return new ArchCondition<>("should contain test methods for raft commands") {
-            @Override
-            public void check(JavaClass item, ConditionEvents events) {
-                System.out.println("Checking class: " + item.getName());
-
-                for (JavaMethod method : item.getMethods()) {
-                    if (hasTestMethodTestCommand(method)) {
-                        String testedRaftCommandClass = method.getAnnotationOfType(TestCommand.class).value().getName();
-
-                        if (!raftCommands.remove(testedRaftCommandClass)) {
-                            events.add(violated(
-                                    method,
-                                    "another method is already testing the command: " + testedRaftCommandClass
-                            ));
-                        }
-                    }
-                }
-            }
-        };
-    }
-
-    private static Set<JavaClass> collectRaftCommands() {
+    private static Set<String> collectRaftCommands() {
         // Uses its own JavaClasses to avoid OutOfMemoryError from a large number of classes.
         JavaClasses classes = new ClassFileImporter()
                 .withImportOptions(List.of(DO_NOT_INCLUDE_TESTS, DO_NOT_INCLUDE_TEST_FIXTURES))
                 .importPackages("org.apache.ignite");
 
-        JavaClass raftCommandJavaClass = classes.get(Command.class);
-
-        return classes.stream()
+        return classes.get(Command.class).getAllSubclasses().stream()
                 .filter(JavaClass::isInterface)
                 .filter(javaClass -> javaClass.isAnnotatedWith(Transferable.class))
-                .filter(javaClass -> javaClass.getAllRawInterfaces().contains(raftCommandJavaClass))
+                .map(JavaClass::getName)
                 .collect(toSet());
     }
 
-    private static Set<String> toClassNames(Set<JavaClass> classes) {
-        return classes.stream().map(JavaClass::getName).collect(toSet());
+    private static Set<String> collectTestedRaftCommands(JavaClasses classes) {
+        return classes.get(BaseCommandsCompatibilityTest.class).getAllSubclasses().stream()
+                .flatMap(javaClass -> javaClass.getMethods().stream())
+                .filter(RaftCommandsUnitCompatibilityArchTest::hasTestMethodTestCommand)
+                .map(method -> method.getAnnotationOfType(TestForCommand.class).value())
+                .map(Class::getName)
+                .collect(toSet());
     }
 
     private static boolean hasTestMethodTestCommand(JavaMethod method) {
-        return method.isAnnotatedWith(TestCommand.class)
+        return method.isAnnotatedWith(TestForCommand.class)
                 && (method.isAnnotatedWith(Test.class) || method.isAnnotatedWith(ParameterizedTest.class));
     }
 }
