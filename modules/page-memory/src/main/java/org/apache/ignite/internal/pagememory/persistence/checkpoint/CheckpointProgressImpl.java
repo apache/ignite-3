@@ -64,6 +64,9 @@ public class CheckpointProgressImpl implements CheckpointProgress {
     /** Counter for fsynced checkpoint pages. */
     private final AtomicInteger syncedPagesCntr = new AtomicInteger();
 
+    /** Counter for fsynced checkpoint files. */
+    private final AtomicInteger syncedFilesCntr = new AtomicInteger();
+
     /** Counter for evicted checkpoint pages. */
     private final AtomicInteger evictedPagesCntr = new AtomicInteger();
 
@@ -154,6 +157,16 @@ public class CheckpointProgressImpl implements CheckpointProgress {
         return syncedPagesCntr;
     }
 
+    /** Returns counter of fsync-ed checkpoint files. */
+    public AtomicInteger syncedFilesCounter() {
+        return syncedFilesCntr;
+    }
+
+    @Override
+    public int syncedFiles() {
+        return syncedFilesCntr.get();
+    }
+
     @Override
     public AtomicInteger evictedPagesCounter() {
         return evictedPagesCntr;
@@ -214,6 +227,7 @@ public class CheckpointProgressImpl implements CheckpointProgress {
         writtenPagesCntr.set(0);
         syncedPagesCntr.set(0);
         evictedPagesCntr.set(0);
+        syncedFilesCntr.set(0);
     }
 
     /**

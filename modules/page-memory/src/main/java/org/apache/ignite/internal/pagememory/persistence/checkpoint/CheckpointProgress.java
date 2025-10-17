@@ -81,4 +81,7 @@ public interface CheckpointProgress {
      * Returns a number of written checkpoint pages.
      */
     int writtenPages();
+
+    /** Returns a number of fsync-ed checkpoint files. */
+    int syncedFiles();
 }

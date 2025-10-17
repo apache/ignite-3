@@ -33,6 +33,9 @@ class Checkpoint {
     /** Number of written dirty pages. */
     int writtenPages;
 
+    /** Number of fsync-ed files. */
+    int syncedFiles;
+
     /**
      * Constructor.
      *
@@ -59,6 +62,7 @@ class Checkpoint {
     void finishCheckpoint() {
         if (hasDelta()) {
             writtenPages = progress.writtenPages();
+            syncedFiles = progress.syncedFiles();
 
             progress.pagesToWrite(null);
 
