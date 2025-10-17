@@ -50,7 +50,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.junit.jupiter.api.Test;
@@ -217,12 +216,5 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
 
         ByteBuffer smallDirectBuffer = bigDirectBuffer.position(1).limit(4).slice();
         assertArrayEquals(new byte[] {1, 2, 3}, byteBufferToByteArray(smallDirectBuffer));
-    }
-
-    @Test
-    void test() {
-        AtomicReference<Integer> reference = new AtomicReference<>();
-
-        assertTrue(reference.compareAndSet(null, null));
     }
 }

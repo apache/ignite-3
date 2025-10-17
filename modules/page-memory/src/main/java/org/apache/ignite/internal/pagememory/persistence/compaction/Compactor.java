@@ -524,6 +524,7 @@ public class Compactor extends IgniteWorker {
         }
     }
 
+    /** Must be called before each IO operation to provide other IO components with resources. */
     private void pauseCompactionIfNeeded() {
         CountDownLatch latch = pauseLatchRef.get();
 
