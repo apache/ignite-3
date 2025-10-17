@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,7 +36,6 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
      * Test for multiple insert queries. It ensures that the output contains the number of updated rows for each query.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void sequentialUpdates() {
         String testQuery = "insert into mytable(id) values (1);insert into mytable(id) values (2), (3)";
         String expectedOutput = "Updated 1 rows.\n"
@@ -53,7 +51,6 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void sequentialSelects() {
         String testQuery = "select * from mytable order by id; insert into mytable(id) values(3); select * from mytable order by id;";
         String expectedOutput =
@@ -87,7 +84,6 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void deleteAfterInserts() {
         String testQuery = "insert into mytable(id) values (1);insert into mytable(id) values (2), (3); delete from mytable;";
         String expectedOutput = "Updated 1 rows.\n"
@@ -104,7 +100,6 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void updateAfterInserts() {
         String testQuery = "insert into mytable(id) values (1);insert into mytable(id) values (2), (3); update mytable set Name = 'Name1';";
         String expectedOutput = "Updated 1 rows.\n"
@@ -121,7 +116,6 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void sequentialCreateTable() {
         String testQuery = "create table mytable1(id int primary key); create table mytable2(id int primary key)";
         String expectedOutput = "Updated 0 rows.\n"

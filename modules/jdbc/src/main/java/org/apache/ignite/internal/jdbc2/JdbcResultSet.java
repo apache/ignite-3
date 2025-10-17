@@ -19,6 +19,7 @@ package org.apache.ignite.internal.jdbc2;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -52,13 +53,11 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
-import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -77,13 +76,11 @@ public class JdbcResultSet implements ResultSet {
 
     private static final String SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED = "SQL-specific types are not supported.";
 
-    private static final ResultSetMetadata EMPTY_METADATA = new ResultSetMetadataImpl(List.of());
-
     private static final BigDecimal MIN_DOUBLE = BigDecimal.valueOf(-Double.MAX_VALUE);
 
     private static final BigDecimal MAX_DOUBLE = BigDecimal.valueOf(Double.MAX_VALUE);
 
-    private final org.apache.ignite.sql.ResultSet<SqlRow> rs;
+    private final ClientSyncResultSet rs;
 
     private final ResultSetMetadata rsMetadata;
 
@@ -111,7 +108,7 @@ public class JdbcResultSet implements ResultSet {
      * Constructor.
      */
     JdbcResultSet(
-            org.apache.ignite.sql.ResultSet<SqlRow> rs,
+            ClientSyncResultSet rs,
             Statement statement,
             Supplier<ZoneId> zoneIdSupplier,
             boolean closeOnCompletion,
@@ -119,9 +116,7 @@ public class JdbcResultSet implements ResultSet {
     ) {
         this.rs = rs;
 
-        ResultSetMetadata metadata = rs.metadata();
-        this.rsMetadata = metadata != null ? metadata : EMPTY_METADATA;
-
+        this.rsMetadata = rs.metadata();
         this.zoneIdSupplier = zoneIdSupplier;
         this.statement = statement;
         this.currentRow = null;
@@ -133,20 +128,52 @@ public class JdbcResultSet implements ResultSet {
     }
 
     int updateCount() {
-        assert !isQuery() : "Should not be called on a query";
-        if (rs.wasApplied() || rs.affectedRows() == -1) {
+        if (rs.hasRowSet()) {
+            return -1;
+        } else if (rs.wasApplied() || !rs.wasApplied() && rs.affectedRows() == -1) {
+            // DDL or control statements
             return 0;
-        } else {
-            //noinspection NumericCastThatLosesPrecision
+        } else if (rs.affectedRows() >= 0) {
             return (int) rs.affectedRows();
+        } else {
+            return -1;
         }
     }
 
     boolean isQuery() {
         return rs.hasRowSet();
     }
+    
+    ClientSyncResultSet resultSet() {
+        return rs;
+    }
 
-    void closeStatement(boolean close) {
+    @Nullable
+    JdbcResultSet tryNextResultSet() throws SQLException {
+        if (!rs.hasNextResultSet()) {
+            return null;
+        }
+        
+        ClientSyncResultSet clientResultSet;
+        
+        try {
+            clientResultSet = rs.nextResultSet();
+        } catch (Exception e) {
+            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e));
+            throw new SQLException(cause.getMessage(), cause);
+        }
+        
+        JdbcStatement2 statement2 = statement.unwrap(JdbcStatement2.class);
+        boolean closeOnCompletion = statement2.isCloseOnCompletion();
+
+        return new JdbcResultSet(clientResultSet, statement, zoneIdSupplier, closeOnCompletion, maxRows);
+    }
+
+    boolean isCloseOnCompletion() {
+        return closeOnCompletion;
+    }
+
+    void setCloseStatement(boolean close) {
         closeOnCompletion = close;
     }
 
@@ -167,7 +194,7 @@ public class JdbcResultSet implements ResultSet {
             currentPosition += 1;
             return true;
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
+            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e));
             throw new SQLException(cause.getMessage(), cause);
         }
     }
@@ -178,14 +205,17 @@ public class JdbcResultSet implements ResultSet {
             return;
         }
         closed = true;
-
+        
+        boolean moreResultSets = rs.hasNextResultSet();
+      
         try {
             rs.close();
         } catch (Exception e) {
             Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
             throw new SQLException(cause.getMessage(), cause);
         } finally {
-            if (closeOnCompletion) {
+            // Close the statement if this result set is the last one.
+            if (closeOnCompletion && !moreResultSets) {
                 JdbcStatement2 statement2 = statement.unwrap(JdbcStatement2.class);
                 statement2.closeIfAllResultsClosed();
             }

@@ -21,6 +21,7 @@ import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -288,7 +289,7 @@ public class JdbcConnection2 implements Connection {
         try {
             tx.commit();
         } catch (Exception e) {
-            throw new SQLException(COMMIT_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(e));
+            throw new SQLException(COMMIT_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e)));
         }
     }
 

@@ -134,18 +134,18 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void nextExceptionIsWrapped() {
         // ClientResultSet hasNext() throws
         {
             Statement statement = Mockito.mock(Statement.class);
 
-            org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+            ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+            when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
 
             RuntimeException cause = new RuntimeException("Some error");
-            when(igniteRs.hasNext()).thenThrow(cause);
+            when(clientRs.hasNext()).thenThrow(cause);
 
-            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false, 0);
+            ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, false, 0);
 
             SQLException err = assertThrows(SQLException.class, rs::next);
             assertEquals("Some error", err.getMessage());
@@ -157,13 +157,14 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         {
             Statement statement = Mockito.mock(Statement.class);
 
-            org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+            ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+            when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
 
             RuntimeException cause = new RuntimeException("Some error");
-            when(igniteRs.hasNext()).thenReturn(true);
-            when(igniteRs.next()).thenThrow(cause);
+            when(clientRs.hasNext()).thenReturn(true);
+            when(clientRs.next()).thenThrow(cause);
 
-            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false, 0);
+            ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, false, 0);
 
             SQLException err = assertThrows(SQLException.class, rs::next);
             assertEquals("Some error", err.getMessage());
@@ -173,40 +174,40 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void closeClosesResultSet() throws SQLException {
         Statement statement = Mockito.mock(Statement.class);
 
-        org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
-        when(igniteRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of()));
+        ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+        when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
 
         JdbcStatement2 statement2 = Mockito.mock(JdbcStatement2.class);
         when(statement.unwrap(JdbcStatement2.class)).thenReturn(statement2);
 
-        ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, true, 0);
+        ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, true, 0);
 
         rs.close();
         rs.close();
 
-        verify(igniteRs, times(1)).close();
-        verify(igniteRs, times(1)).metadata();
+        verify(clientRs, times(1)).close();
+        verify(clientRs, times(1)).metadata();
         verify(statement2, times(1)).closeIfAllResultsClosed();
-        verifyNoMoreInteractions(igniteRs, statement2);
+        verify(clientRs, times(1)).hasNextResultSet();
+        verifyNoMoreInteractions(clientRs, statement2);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    @SuppressWarnings("unchecked")
     public void closeExceptionIsWrapped(boolean closeOnCompletion) throws SQLException {
         JdbcStatement2 statement = Mockito.mock(JdbcStatement2.class);
         when(statement.unwrap(JdbcStatement2.class)).thenReturn(statement);
 
-        org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+        ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+        when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
 
         RuntimeException cause = new RuntimeException("Some error");
-        doAnswer(new ThrowsException(cause)).when(igniteRs).close();
+        doAnswer(new ThrowsException(cause)).when(clientRs).close();
 
-        ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, closeOnCompletion, 0);
+        ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, closeOnCompletion, 0);
 
         SQLException err = assertThrows(SQLException.class, rs::close);
         assertEquals("Some error", err.getMessage());
@@ -218,19 +219,19 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     public void getValueExceptionIsWrapped() throws SQLException {
         Statement statement = Mockito.mock(Statement.class);
 
-        org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+        ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
         SqlRow row = Mockito.mock(SqlRow.class);
 
         ColumnMetadataImpl column = new ColumnMetadataImpl("C", ColumnType.INT32, 0, 0, false, null);
 
-        when(igniteRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of(column)));
-        when(igniteRs.hasNext()).thenReturn(true);
-        when(igniteRs.next()).thenReturn(row);
+        when(clientRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of(column)));
+        when(clientRs.hasNext()).thenReturn(true);
+        when(clientRs.next()).thenReturn(row);
 
         RuntimeException cause = new RuntimeException("Corrupted value");
         when(row.value(0)).thenThrow(cause);
 
-        JdbcResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault, false, 0);
+        JdbcResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, false, 0);
         assertTrue(rs.next());
 
         SQLException err = assertThrows(SQLException.class, () -> rs.getValue(1));
@@ -291,7 +292,6 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         return createResultSet(statement, zoneId, cols, rows, 0);
     }
 
-    @SuppressWarnings("unchecked")
     private static ResultSet createResultSet(
             Statement statement,
             @SuppressWarnings("unused")
@@ -311,8 +311,8 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         // ResultSet has no metadata
         if (cols.isEmpty() && rows.isEmpty()) {
-            org.apache.ignite.sql.ResultSet<SqlRow> rs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
-            when(rs.metadata()).thenReturn(null);
+            ClientSyncResultSet rs = Mockito.mock(ClientSyncResultSet.class);
+            when(rs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
 
             return new JdbcResultSet(rs, statement, zoneIdSupplier, false, 0);
         }
@@ -332,7 +332,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false, maxRows);
     }
 
-    private static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
+    private static class ResultSetStub implements ClientSyncResultSet {
         private final ResultSetMetadata meta;
         private final Iterator<List<Object>> it;
         private @Nullable List<Object> current;
@@ -360,6 +360,16 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         @Override
         public boolean wasApplied() {
+            throw new IllegalStateException("Should not be called");
+        }
+
+        @Override
+        public boolean hasNextResultSet() {
+            return false;
+        }
+
+        @Override
+        public ClientSyncResultSet nextResultSet() {
             throw new IllegalStateException("Should not be called");
         }
 
