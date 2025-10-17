@@ -69,7 +69,8 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         clientVersion = clientVer;
 
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir, CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE);
-        cluster.startEmbedded(1, true);
+        cluster.startEmbedded(1);
+        cluster.init(x -> {});
 
         initTestData(cluster.node(0));
 
