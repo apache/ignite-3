@@ -698,6 +698,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
 
             partitionReplicatorNodeRecovery.start();
+            partitionModificationHandler.start();
 
             if (!nodeProperties.colocationEnabled()) {
                 executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);

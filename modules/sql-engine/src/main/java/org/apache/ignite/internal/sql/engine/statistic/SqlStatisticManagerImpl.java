@@ -256,6 +256,13 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
             return timestamp.equals(that.timestamp) && size == that.size;
         }
+
+        @Override
+        public int hashCode() {
+            int result = (int) size;
+            result = 31 * result + timestamp.hashCode();
+            return result;
+        }
     }
 
     /** Internal event. */

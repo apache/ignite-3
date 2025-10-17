@@ -62,7 +62,12 @@ class PartitionModificationHandler {
         this.messagingService = messagingService;
         this.replicaGetter = replicaGetter;
         this.localNode = localNode;
+    }
 
+    /**
+     * Starts the component.
+     */
+    void start() {
         messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
     }
 
