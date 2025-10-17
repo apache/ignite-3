@@ -525,8 +525,8 @@ public class Compactor extends IgniteWorker {
     }
 
     /** Must be called before each IO operation to provide other IO components with resources. */
-    private void pauseCompactionIfNeeded() {
-        boolean interrupted = false;
+    private void pauseCompactionIfNeeded() throws InterruptedException {
+        InterruptedException interruptedException = null;
 
         synchronized (pauseMux) {
             while (paused) {
@@ -537,15 +537,19 @@ public class Compactor extends IgniteWorker {
                 } catch (InterruptedException e) {
                     LOG.debug("Compactor pause was interrupted", e);
 
-                    interrupted = true;
+                    interruptedException = e;
+
+                    break;
                 } finally {
                     blockingSectionEnd();
                 }
             }
         }
 
-        if (interrupted) {
+        if (interruptedException != null) {
             Thread.currentThread().interrupt();
+
+            throw interruptedException;
         }
     }
 }

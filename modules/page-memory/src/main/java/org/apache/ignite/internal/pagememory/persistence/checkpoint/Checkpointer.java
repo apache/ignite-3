@@ -412,8 +412,6 @@ public class Checkpointer extends IgniteWorker {
                             chp.progress.reason()
                     );
                 }
-
-                compactor.resume();
             }
 
             currentCheckpointProgress.setPagesWriteTimeMillis(
@@ -457,6 +455,8 @@ public class Checkpointer extends IgniteWorker {
             throw e;
         } finally {
             currentCheckpointProgressForThrottling = null;
+
+            compactor.resume();
         }
     }
 
@@ -549,8 +549,6 @@ public class Checkpointer extends IgniteWorker {
         syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
 
         tracker.onFsyncEnd();
-
-        compactor.resume();
 
         compactor.triggerCompaction();
 
