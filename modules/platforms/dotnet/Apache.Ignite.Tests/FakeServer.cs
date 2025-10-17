@@ -145,7 +145,11 @@ namespace Apache.Ignite.Tests
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
-            cfg ??= new IgniteClientConfiguration();
+            cfg ??= new IgniteClientConfiguration
+            {
+                OperationTimeout = TimeSpan.FromSeconds(2),
+                SocketTimeout = TimeSpan.FromSeconds(2)
+            };
 
             cfg.Endpoints.Clear();
             cfg.Endpoints.Add(Endpoint);
