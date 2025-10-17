@@ -36,7 +36,7 @@ class IndexFileManagerTest extends IgniteAbstractTest {
     private IndexFileManager indexFileManager;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         indexFileManager = new IndexFileManager(workDir);
     }
 
@@ -48,9 +48,9 @@ class IndexFileManagerTest extends IgniteAbstractTest {
         Path path1 = indexFileManager.saveIndexMemtable(memtable);
         Path path2 = indexFileManager.saveIndexMemtable(memtable);
 
-        assertThat(path0, is(workDir.resolve("index-0000000000-0000000000.bin")));
-        assertThat(path1, is(workDir.resolve("index-0000000001-0000000000.bin")));
-        assertThat(path2, is(workDir.resolve("index-0000000002-0000000000.bin")));
+        assertThat(path0, is(indexFileManager.indexFilesDir().resolve("index-0000000000-0000000000.bin")));
+        assertThat(path1, is(indexFileManager.indexFilesDir().resolve("index-0000000001-0000000000.bin")));
+        assertThat(path2, is(indexFileManager.indexFilesDir().resolve("index-0000000002-0000000000.bin")));
     }
 
     @Test
