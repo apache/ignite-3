@@ -26,14 +26,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 public class PartitionModificationCounterFactory {
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
 
-    public PartitionModificationCounterFactory(
-            Supplier<HybridTimestamp> currentTimestampSupplier
-    ) {
+    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier) {
         this.currentTimestampSupplier = currentTimestampSupplier;
     }
 
     /**
-     * Creates a new partition modification counter handler.
+     * Creates a new partition modification counter.
      *
      * @param partitionSizeSupplier Partition size supplier.
      * @param stalenessConfigurationSupplier Partition size supplier.

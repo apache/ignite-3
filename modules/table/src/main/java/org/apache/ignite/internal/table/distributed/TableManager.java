@@ -3215,7 +3215,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void registerPartitionModificationCounterMetrics(
             TableViewInternal table,
             int partitionId,
-            PartitionModificationCounter counterHandler
+            PartitionModificationCounter counter
     ) {
         PartitionModificationCounterMetricSource metricSource =
                 new PartitionModificationCounterMetricSource(table.tableId(), partitionId);
@@ -3224,21 +3224,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 PartitionModificationCounterMetricSource.METRIC_COUNTER,
                 "The value of the volatile counter of partition modifications. "
                         + "This value is used to determine staleness of the related SQL statistics.",
-                counterHandler::value
+                counter::value
         ));
 
         metricSource.addMetric(new LongGauge(
                 PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE,
                 "The value of the next milestone for the number of partition modifications. "
                         + "This value is used to determine staleness of the related SQL statistics.",
-                counterHandler::nextMilestone
+                counter::nextMilestone
         ));
 
         metricSource.addMetric(new LongGauge(
                 PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP,
                 "The timestamp value representing the commit time of the last modification operation that "
                         + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
-                () -> counterHandler.lastMilestoneTimestamp().longValue()
+                () -> counter.lastMilestoneTimestamp().longValue()
         ));
 
         try {

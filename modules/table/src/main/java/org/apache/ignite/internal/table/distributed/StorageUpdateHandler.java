@@ -67,7 +67,7 @@ public class StorageUpdateHandler {
     /** Replication configuration. */
     private final ReplicationConfiguration replicationConfiguration;
 
-    /** Partition modification counter handler. */
+    /** Partition modification counter. */
     private final PartitionModificationCounter modificationCounter;
 
     /**
