@@ -95,14 +95,8 @@ public class IgniteCluster {
 
     private final ClusterConfiguration clusterConfiguration;
 
-    private @Nullable Consumer<InitParametersBuilder> initParametersConfigurator = null;
-
     IgniteCluster(ClusterConfiguration clusterConfiguration) {
         this.clusterConfiguration = clusterConfiguration;
-    }
-
-    public void setInitParametersConfigurator(@Nullable Consumer<InitParametersBuilder> initParametersConfigurator) {
-        this.initParametersConfigurator = initParametersConfigurator;
     }
 
     /**
@@ -123,7 +117,6 @@ public class IgniteCluster {
 
     /**
      * Starts cluster in embedded mode with nodes of current version.
-     * If initialization is required, {@link #setInitParametersConfigurator(Consumer)} must be called beforehand.
      *
      * @param testInfo Test info.
      * @param nodesCount Number of nodes in the cluster.
@@ -144,10 +137,6 @@ public class IgniteCluster {
             nodeRegistrations.add(startEmbeddedNode(testInfo, nodeIndex, nodesCount));
         }
 
-        if (initParametersConfigurator != null) {
-            init(initParametersConfigurator);
-        }
-
         for (ServerRegistration registration : nodeRegistrations) {
             assertThat(registration.registrationFuture(), willCompleteSuccessfully());
         }
@@ -157,7 +146,6 @@ public class IgniteCluster {
 
     /**
      * Starts cluster in embedded mode with nodes of current version.
-     * If initialization is required, {@link #setInitParametersConfigurator(Consumer)} must be called beforehand.
      *
      * @param nodesCount Number of nodes in the cluster.
      */
@@ -203,7 +191,7 @@ public class IgniteCluster {
     /**
      * Initializes the cluster using REST API on the first node with default settings.
      */
-    void init(Consumer<InitParametersBuilder> initParametersConfigurator) {
+    public void init(Consumer<InitParametersBuilder> initParametersConfigurator) {
         init(new int[] { 0 }, initParametersConfigurator);
     }
 
