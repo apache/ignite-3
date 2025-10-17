@@ -28,6 +28,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadO
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
+import org.apache.ignite.internal.replicator.message.EstimatedSizeRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
@@ -97,6 +98,7 @@ public class TableAwareReplicaRequestPreProcessor {
         assert txTs == null
                 ? request instanceof GetEstimatedSizeRequest || request instanceof ScanCloseReplicaRequest
                 || request instanceof BuildIndexReplicaRequest || request instanceof TableWriteIntentSwitchReplicaRequest
+                || request instanceof EstimatedSizeRequest
                 : opTs.compareTo(txTs) >= 0 :
                 "Invalid request timestamps [request=" + request + ']';
 

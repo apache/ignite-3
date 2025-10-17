@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -45,7 +46,9 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
-        sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
+
+        sql("CREATE ZONE zone_with_repl (replicas 2) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']");
+        sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl");
     }
 
     @AfterAll

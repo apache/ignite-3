@@ -72,6 +72,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -195,6 +196,7 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -203,6 +205,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.EstimatedSizeRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
@@ -599,8 +602,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clockService
         );
 
-        GetEstimatedSizeWithLastModifiedTsRequest req;
-
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
                 clockService,
@@ -675,6 +676,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private class PartitionModificationCounterHandler0 {
         MessagingService messagingService;
 
+        private final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+                new PartitionReplicationMessagesFactory();
+
         PartitionModificationCounterHandler0(MessagingService messagingService) {
             this.messagingService = messagingService;
 
@@ -683,78 +687,66 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
             if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
-                handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender);
+                handleRequestCounter((GetEstimatedSizeWithLastModifiedTsRequest) message, sender, correlationId);
             }
         }
 
         private void handleRequestCounter(
                 GetEstimatedSizeWithLastModifiedTsRequest message,
-                InternalClusterNode sender
+                InternalClusterNode sender,
+                Long correlationId
         ) {
-            List<CompletableFuture<Replica>> futs = new ArrayList<>();
+            assert correlationId != null;
+
+            List<CompletableFuture<ReplicaResult>> replicaReqFutures = new ArrayList<>();
 
             for (ReplicationGroupIdMessage repl : message.replicas()) {
                 ReplicationGroupId replGrpId = repl.asReplicationGroupId();
 
-                if (replicaMgr.replica(replGrpId) != null) {
-                    Replica repl0 = replicaMgr.replica(replGrpId).join();
-                    System.err.println("!!!! get replica !!!! " + repl0);
+                CompletableFuture<Replica> replica = replicaMgr.replica(replGrpId);
 
-                    ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                            .groupId(repl)
-                            .build();
+                if (replica != null) {
+                    replicaReqFutures.add(
+                            replica.thenCompose(r -> {
+                                EstimatedSizeRequest req = REPLICA_MESSAGES_FACTORY.estimatedSizeRequest()
+                                        .groupId(repl)
+                                        .tableId(message.tableId())
+                                        .build();
 
-                    repl0.processRequest(req, localNode().id()).whenComplete((res, ex) -> {
-                        if (ex != null) {
-/*                            if (hasCause(ex, TimeoutException.class, ReplicationTimeoutException.class)) {
-                                tryToLogTimeoutFailure(replicaGroupId, ex);
-                            } else {
-                                // Reset counter if timeouts aren't the reason.
-                                timeoutAttemptsCounters.put(replicaGroupId, 0);
-                            }
-
-                            if (!hasCause(
-                                    ex,
-                                    NodeStoppingException.class,
-                                    ComponentStoppingException.class,
-                                    // Not a problem, there will be a retry.
-                                    TimeoutException.class,
-                                    GroupOverloadedException.class
-                            )) {
-                                failureProcessor.process(
-                                        new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
-                            }*/
-                        }
-                    });
+                                        return r.processRequest(req, localNode().id());
+                            }).exceptionally(e -> null)
+                    );
                 }
-
-                futs.add(replicaMgr.replica(replGrpId));
             }
 
-            CompletableFuture[] arr = futs.toArray(new CompletableFuture[0]);
+            var replicaRequests = replicaReqFutures.toArray(new CompletableFuture[0]);
 
-            allOf(arr).thenAccept(unused -> {
-                for (CompletableFuture<Replica> f : futs) {
-                    System.err.println("fut: " + f.join());
+            allOf(replicaRequests).thenAccept(unused -> {
+                HybridTimestamp last = HybridTimestamp.MIN_VALUE;
+                long count = 0L;
+
+                for (CompletableFuture<ReplicaResult> requestFut : replicaReqFutures) {
+                    ReplicaResult replResult = requestFut.join();
+
+                    if (replResult != null) {
+                        LongObjectImmutablePair<HybridTimestamp> result = (LongObjectImmutablePair<HybridTimestamp>) replResult.result();
+
+                        if (result.value().compareTo(last) > 0) {
+                            last = result.value();
+                        }
+
+                        count += result.keyLong();
+                    }
                 }
-            });
 
-            //Set<Integer> partitions = message.partitions();
-
-/*            if (tableId == message.tableId() && partitions.contains(partitionId)) {
-                //assert correlationId != null;
-
-                System.err.println("!!!! handleRequestCounter !!!!");
-
-                messagingService.send(
+                messagingService.respond(
                         sender,
                         PARTITION_REPLICATION_MESSAGES_FACTORY
-                                .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(partitionSizeSupplier.get())
-                                .lastModified(lastMilestoneTimestamp())
-                                .tableId(tableId)
-                                .partitionId(partitionId).build()
+                                .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(count)
+                                .lastModified(last).build(),
+                        correlationId
                 );
-            }*/
+            });
         }
     }
 

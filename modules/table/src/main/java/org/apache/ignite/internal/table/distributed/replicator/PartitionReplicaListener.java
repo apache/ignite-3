@@ -58,6 +58,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
+import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -164,6 +165,7 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.EstimatedSizeRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -590,6 +592,10 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processGetEstimatedSizeRequest();
         }
 
+        if (request instanceof EstimatedSizeRequest/* && replicaPrimacy.isPrimary()*/) {
+            return processGetEstimatedSizeWithTsRequest();
+        }
+
         if (request instanceof ChangePeersAndLearnersAsyncReplicaRequest) {
             return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
         }
@@ -613,6 +619,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
         return completedFuture(mvDataStorage.estimatedSize());
+    }
+
+    private CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> processGetEstimatedSizeWithTsRequest() {
+        return completedFuture(LongObjectImmutablePair.of(mvDataStorage.estimatedSize(),
+                storageUpdateHandler.lastModificationCounterMilestone()));
     }
 
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {

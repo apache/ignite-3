@@ -60,4 +60,6 @@ public interface ReplicaMessageGroup {
 
     /** Message type for {@link ZonePartitionIdMessage}. */
     short ZONE_PARTITION_ID_MESSAGE = 43;
+
+    short ESTIMATED_SIZE_REQUEST = 44;
 }

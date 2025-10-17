@@ -80,10 +80,10 @@ public class StatisticAggregatorImpl implements
         this.currentClock = currentClock;
         this.messagingService = messagingService;
 
-        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
+        //messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
     }
 
-    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+/*    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof GetEstimatedSizeWithLastModifiedTsResponse) {
             GetEstimatedSizeWithLastModifiedTsResponse response
                     = (GetEstimatedSizeWithLastModifiedTsResponse) message;
@@ -93,7 +93,7 @@ public class StatisticAggregatorImpl implements
 
             fut.complete(LongObjectImmutablePair.of(response.estimatedSize(), response.lastModified()));
         }
-    }
+    }*/
 
     /**
      * Returns the pair<<em>last modification timestamp</em>, <em>estimated size</em>> of this table.
@@ -125,7 +125,7 @@ public class StatisticAggregatorImpl implements
             if (repl != null && repl.getLeaseholder() != null) {
                 peers.add(repl.getLeaseholder());
                 replGrpId.add(toReplicationGroupIdMessage(replicationGroupId));
-                //peer.add(p);
+                peersWithGroups.computeIfAbsent(repl.getLeaseholder(), k -> new ArrayList<>()).add(toReplicationGroupIdMessage(replicationGroupId));
             } else {
                 return CompletableFuture.failedFuture(
                         new IgniteInternalException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
@@ -140,7 +140,7 @@ public class StatisticAggregatorImpl implements
                     + " [tableId=" + table.tableId() + ']'));
         }
 
-        peers.forEach(p -> peersWithGroups.put(p, replGrpId));
+        //peers.forEach(p -> peersWithGroups.put(p, replGrpId));
 
         CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>[] invokeFutures = peersWithGroups.entrySet().stream()
                 .map(ent -> {
