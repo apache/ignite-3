@@ -73,15 +73,15 @@ class IndexFileMetaArray {
     }
 
     long firstLogIndexInclusive() {
-        for (int i = 0; i < size; i++) {
-            IndexFileMeta indexFileMeta = array[i];
+        IndexFileMeta firstMeta = array[0];
+        IndexFileMeta lastMeta = array[size - 1];
 
-            if (!indexFileMeta.isEmpty()) {
-                return indexFileMeta.firstLogIndexInclusive();
-            }
+        if (firstMeta.firstLogIndexInclusive() >= lastMeta.lastLogIndexExclusive()) {
+            // Log for this group has been truncated.
+            return -1;
         }
 
-        return -1;
+        return firstMeta.firstLogIndexInclusive();
     }
 
     long lastLogIndexExclusive() {

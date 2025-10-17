@@ -73,6 +73,31 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         assertThat(groupMeta.indexMeta(100), is(nullValue()));
     }
 
+    @Test
+    void testEmptyMetas() {
+        var initialMeta = new IndexFileMeta(1, 1, 0, 0);
+
+        var groupMeta = new GroupIndexMeta(initialMeta);
+
+        assertThat(groupMeta.indexMeta(1), is(nullValue()));
+
+        assertThat(groupMeta.firstLogIndexInclusive(), is(-1L));
+
+        assertThat(groupMeta.lastLogIndexExclusive(), is(1L));
+
+        var additionalMeta = new IndexFileMeta(1, 2, 42, 1);
+
+        groupMeta.addIndexMeta(additionalMeta);
+
+        assertThat(groupMeta.indexMeta(1), is(additionalMeta));
+
+        assertThat(groupMeta.indexMeta(2), is(nullValue()));
+
+        assertThat(groupMeta.firstLogIndexInclusive(), is(1L));
+
+        assertThat(groupMeta.lastLogIndexExclusive(), is(2L));
+    }
+
     @RepeatedTest(10)
     void testOneWriterMultipleReaders() {
         int startFileOrdinal = 100;

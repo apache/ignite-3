@@ -119,10 +119,12 @@ class GroupIndexMeta {
 
     long firstLogIndexInclusive() {
         for (IndexMetaArrayHolder indexMetaArrayHolder : fileMetaDeque) {
-            IndexFileMetaArray fileMetas = indexMetaArrayHolder.fileMetas;
+            long firstLogIndex = indexMetaArrayHolder.fileMetas.firstLogIndexInclusive();
 
-            if (fileMetas.size() > 0) {
-                return fileMetas.firstLogIndexInclusive();
+            // "firstLogIndexInclusive" can return -1 of the index file does not contain any entries for this group, only the truncation
+            // record.
+            if (firstLogIndex >= 0) {
+                return firstLogIndex;
             }
         }
 
