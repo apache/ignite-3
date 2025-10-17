@@ -157,9 +157,14 @@ public class CheckpointProgressImpl implements CheckpointProgress {
         return syncedPagesCntr;
     }
 
-    @Override
+    /** Returns counter of fsync-ed checkpoint files. */
     public AtomicInteger syncedFilesCounter() {
         return syncedFilesCntr;
+    }
+
+    @Override
+    public int syncedFiles() {
+        return syncedFilesCntr.get();
     }
 
     @Override

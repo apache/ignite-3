@@ -62,7 +62,7 @@ class Checkpoint {
     void finishCheckpoint() {
         if (hasDelta()) {
             writtenPages = progress.writtenPages();
-            syncedFiles = progress.syncedFilesCounter().get();
+            syncedFiles = progress.syncedFiles();
 
             progress.pagesToWrite(null);
 
