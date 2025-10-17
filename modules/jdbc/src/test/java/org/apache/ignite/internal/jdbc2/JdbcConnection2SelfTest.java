@@ -207,17 +207,13 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
             expectNotSupported(conn::getTypeMap);
             expectNotSupported(() -> conn.setTypeMap(Map.of()));
 
-            /*
-            TODO https://issues.apache.org/jira/browse/IGNITE-26139 autocommit != true
-             
-            Requires autocommit = false
+            conn.setAutoCommit(false);
             expectNotSupported(conn::setSavepoint);
             expectNotSupported(() -> conn.setSavepoint("S"));
-            
+
             Savepoint savepoint = Mockito.mock(Savepoint.class);
             expectNotSupported(() -> conn.rollback(savepoint));
             expectNotSupported(() -> conn.releaseSavepoint(savepoint));
-             */
 
             // createStatement - not supported flags
 

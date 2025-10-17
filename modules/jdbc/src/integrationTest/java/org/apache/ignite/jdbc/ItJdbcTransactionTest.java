@@ -44,7 +44,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Verifies that SQL DML statements can use an explicit transaction using the jdbc API.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-26139")
 public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     /** Insert query. */
     private static final String SQL_INSERT = "insert into TEST values (%d, '%s')";
@@ -190,6 +189,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatch() throws Exception {
         checkRollbackAndCommit((conn, start, cnt) -> {
             try (Statement stmt = conn.createStatement()) {
@@ -211,6 +211,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26190")
     public void testBatchPrepared() throws Exception {
         checkRollbackAndCommit((conn, start, cnt) -> {
             try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {

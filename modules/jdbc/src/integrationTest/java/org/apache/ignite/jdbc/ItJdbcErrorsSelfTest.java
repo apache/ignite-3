@@ -137,7 +137,6 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      * @throws SQLException if failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26139")
     public void testDdlWithDisabledAutoCommit() throws SQLException {
         conn.setAutoCommit(false);
 
