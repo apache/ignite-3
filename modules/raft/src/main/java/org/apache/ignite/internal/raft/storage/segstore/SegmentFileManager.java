@@ -219,12 +219,12 @@ class SegmentFileManager implements ManuallyCloseable {
     /**
      * Returns the lowest log index for the given group present in the storage or {@code -1} if no such index exists.
      */
-    long firstLogIndex(long groupId) {
+    long firstLogIndexInclusive(long groupId) {
         long logIndexFromMemtable = firstLogIndexFromMemtable(groupId);
 
-        long logIndexFromCheckpointQueue = checkpointer.firstLogIndex(groupId);
+        long logIndexFromCheckpointQueue = checkpointer.firstLogIndexInclusive(groupId);
 
-        long logIndexFromIndexFiles = indexFileManager.firstLogIndex(groupId);
+        long logIndexFromIndexFiles = indexFileManager.firstLogIndexInclusive(groupId);
 
         if (logIndexFromIndexFiles >= 0) {
             return logIndexFromIndexFiles;
@@ -242,26 +242,28 @@ class SegmentFileManager implements ManuallyCloseable {
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        return segmentInfo == null ? -1 : segmentInfo.firstLogIndex();
+        return segmentInfo == null ? -1 : segmentInfo.firstLogIndexInclusive();
     }
 
     /**
-     * Returns the highest log index for the given group present in the storage or {@code -1} if no such index exists.
+     * Returns the highest possible exclusive log index for the given group or {@code -1} if no such index exists.
+     *
+     * <p>The highest log index currently present in the storage can be computed as {@code lastLogIndexExclusive - 1}.
      */
-    long lastLogIndex(long groupId) {
+    long lastLogIndexExclusive(long groupId) {
         long logIndexFromMemtable = lastLogIndexFromMemtable(groupId);
 
         if (logIndexFromMemtable >= 0) {
             return logIndexFromMemtable;
         }
 
-        long logIndexFromCheckpointQueue = checkpointer.lastLogIndex(groupId);
+        long logIndexFromCheckpointQueue = checkpointer.lastLogIndexExclusive(groupId);
 
         if (logIndexFromCheckpointQueue >= 0) {
             return logIndexFromCheckpointQueue;
         }
 
-        return indexFileManager.lastLogIndex(groupId);
+        return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
     private long lastLogIndexFromMemtable(long groupId) {
@@ -269,7 +271,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         SegmentInfo segmentInfo = currentSegmentFile.memtable().segmentInfo(groupId);
 
-        return segmentInfo == null ? -1 : segmentInfo.lastLogIndex();
+        return segmentInfo == null ? -1 : segmentInfo.lastLogIndexExclusive();
     }
 
     /**

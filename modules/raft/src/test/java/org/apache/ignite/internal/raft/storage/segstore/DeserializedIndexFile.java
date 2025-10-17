@@ -75,7 +75,7 @@ class DeserializedIndexFile {
                 long lastIndex = groupMeta.getLong();
 
                 // Read the payload of the group.
-                int payloadEntriesNum = (int) (lastIndex - firstIndex + 1);
+                int payloadEntriesNum = (int) (lastIndex - firstIndex);
 
                 Map<Long, Integer> logIndexToSegmentFileOffset = newHashMap(payloadEntriesNum);
 
@@ -89,7 +89,7 @@ class DeserializedIndexFile {
 
                 channel.position(currentPosition);
 
-                for (long logIndex = firstIndex; logIndex <= lastIndex; logIndex++) {
+                for (long logIndex = firstIndex; logIndex < lastIndex; logIndex++) {
                     logIndexToSegmentFileOffset.put(logIndex, indexPayload.getInt());
                 }
             }
