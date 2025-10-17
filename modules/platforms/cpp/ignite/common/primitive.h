@@ -38,7 +38,7 @@
 namespace ignite {
 
 /**
- * Ignite primitive type.
+ * @brief Basic types for which Ignite has native support.
  */
 class primitive {
 public:

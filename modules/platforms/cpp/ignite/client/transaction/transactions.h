@@ -32,7 +32,7 @@ class transactions_impl;
 }
 
 /**
- * Ignite transactions.
+ * @brief Ignite Transactions API facade.
  */
 class transactions {
     friend class ignite_client;

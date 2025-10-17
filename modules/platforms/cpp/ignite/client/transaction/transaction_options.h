@@ -19,7 +19,7 @@
 
 namespace ignite {
 /**
- * Transaction options.
+ * @brief Transaction options.
  */
 class transaction_options {
 public:

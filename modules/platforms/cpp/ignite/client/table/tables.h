@@ -39,7 +39,7 @@ class tables_impl;
 class ignite_client;
 
 /**
- * Table management.
+ * @brief Ignite Table API facade.
  */
 class tables {
     friend class ignite_client;

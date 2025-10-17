@@ -27,7 +27,9 @@
 namespace ignite {
 
 /**
- * Job execution target.
+ * @brief Compute task target.
+ *
+ * Encapsulates which nodes will be used as targets for compute task.
  */
 class broadcast_job_target {
 public:

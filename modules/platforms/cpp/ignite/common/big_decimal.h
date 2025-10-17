@@ -28,7 +28,7 @@
 namespace ignite {
 
 /**
- * Big decimal number implementation.
+ * @brief Big decimal number implementation.
  *
  * TODO: Modernize this code to C++17 and update coding style
  */
