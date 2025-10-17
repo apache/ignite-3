@@ -76,6 +76,13 @@ ext {
     }
 }
 
+def trimQuotes(String input) {
+    if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
+        return input.substring(1, input.length() - 1);
+    }
+    return input;
+}
+
 allprojects {
     group 'org.apache.ignite'
     version = projectVersion
@@ -89,11 +96,11 @@ allprojects {
         def extraJvmArgs = []
 
         if (project.hasProperty('extraJvmArgs')) {
-            extraJvmArgs = project.property('extraJvmArgs')
-                .toString()
-                .trim()
-                .split(/\s+/)  // Split on whitespace
-                .toList()
+            def prop = project.property('extraJvmArgs').toString().trim()
+
+            extraJvmArgs = trimQuotes(prop)
+                    .split(/\s+/)  // Split on whitespace
+                    .toList()
         }
 
         jvmArgs += defaultJvmArgs + extraJvmArgs
