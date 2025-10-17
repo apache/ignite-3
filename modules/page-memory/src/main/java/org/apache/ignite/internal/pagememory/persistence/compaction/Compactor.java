@@ -30,11 +30,9 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -94,8 +92,10 @@ public class Compactor extends IgniteWorker {
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
 
-    /** Latch for pausing and resuming the compaction, {@code null} if there was no pause. */
-    private final AtomicReference<CountDownLatch> pauseLatchRef = new AtomicReference<>();
+    private final Object pauseMux = new Object();
+
+    /** Guarded by {@link #pauseMux}. */
+    private boolean paused;
 
     /**
      * Creates new ignite worker with given parameters.
@@ -506,40 +506,46 @@ public class Compactor extends IgniteWorker {
      * in parallel and subsequent calls will strictly be calls after {@link #resume}.
      */
     public void pause() {
-        boolean casResult = pauseLatchRef.compareAndSet(null, new CountDownLatch(1));
+        synchronized (pauseMux) {
+            assert !paused : "It is expected that a further pause will only occur after resume";
 
-        assert casResult : "It is expected that there will be no parallel pause, resume or previous one has ended: " + pauseLatchRef.get();
+            paused = true;
+        }
     }
 
     /** Resumes the compactor if it was paused. It is expected that this method will not be called multiple times in parallel. */
     public void resume() {
-        CountDownLatch latch = pauseLatchRef.get();
+        synchronized (pauseMux) {
+            if (paused) {
+                paused = false;
 
-        boolean casResult = pauseLatchRef.compareAndSet(latch, null);
-
-        assert casResult : "It is expected that there will be no parallel pause or resume";
-
-        if (latch != null) {
-            latch.countDown();
+                pauseMux.notifyAll();
+            }
         }
     }
 
     /** Must be called before each IO operation to provide other IO components with resources. */
     private void pauseCompactionIfNeeded() {
-        CountDownLatch latch = pauseLatchRef.get();
+        boolean interrupted = false;
 
-        if (latch != null) {
-            blockingSectionBegin();
+        synchronized (pauseMux) {
+            while (paused) {
+                blockingSectionBegin();
 
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                LOG.debug("Compactor pause was interrupted", e);
+                try {
+                    pauseMux.wait();
+                } catch (InterruptedException e) {
+                    LOG.debug("Compactor pause was interrupted", e);
 
-                Thread.currentThread().interrupt();
-            } finally {
-                blockingSectionEnd();
+                    interrupted = true;
+                } finally {
+                    blockingSectionEnd();
+                }
             }
+        }
+
+        if (interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 }
