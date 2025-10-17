@@ -318,11 +318,7 @@ class CheckpointWorkflow {
             }
         }
 
-        if (chp.hasDelta()) {
-            chp.progress.pagesToWrite(null);
-
-            chp.progress.clearCounters();
-        }
+        chp.finishCheckpoint();
 
         for (CheckpointListener listener : collectCheckpointListeners(dataRegions)) {
             listener.afterCheckpointEnd(chp.progress);
