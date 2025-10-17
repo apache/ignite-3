@@ -35,6 +35,8 @@ public final class CliRequests {
         String leaderId();
 
         String peerId();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.ADD_PEER_RESPONSE)
@@ -52,6 +54,8 @@ public final class CliRequests {
         String leaderId();
 
         String peerId();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.REMOVE_PEER_RESPONSE)
@@ -74,6 +78,8 @@ public final class CliRequests {
 
         // term is intentionally Long and not long in order to perform nullable (not initialized) check.
         Long term();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_AND_LEARNERS_RESPONSE)
@@ -101,6 +107,8 @@ public final class CliRequests {
 
         // term is intentionally Long and not long in order to perform nullable (not initialized) check.
         Long term();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_AND_LEARNERS_ASYNC_RESPONSE)
@@ -133,6 +141,8 @@ public final class CliRequests {
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.TRANSFER_LEADER_REQUEST)
@@ -183,6 +193,8 @@ public final class CliRequests {
         String leaderId();
 
         Collection<String> learnersList();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.REMOVE_LEARNERS_REQUEST)
@@ -192,6 +204,8 @@ public final class CliRequests {
         String leaderId();
 
         Collection<String> learnersList();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.RESET_LEARNERS_REQUEST)
@@ -201,6 +215,8 @@ public final class CliRequests {
         String leaderId();
 
         Collection<String> learnersList();
+
+        Long sequenceToken();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.LEARNERS_OP_RESPONSE)

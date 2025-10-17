@@ -43,6 +43,7 @@ public class ChangePeersAndLearnersAsyncRequestProcessorTest extends AbstractCli
                 .newPeersList(PEERS)
                 .newLearnersList(LEARNERS)
                 .term(1L)
+                .sequenceToken(0L)
                 .build();
     }
 

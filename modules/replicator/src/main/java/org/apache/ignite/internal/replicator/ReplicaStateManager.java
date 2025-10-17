@@ -169,7 +169,8 @@ class ReplicaStateManager {
     CompletableFuture<Boolean> weakStartReplica(
             ReplicationGroupId groupId,
             Supplier<CompletableFuture<Boolean>> startOperation,
-            @Nullable Assignments forcedAssignments
+            @Nullable Assignments forcedAssignments,
+            long revision
     ) {
         ReplicaStateContext context = getContext(groupId);
 
@@ -185,7 +186,7 @@ class ReplicaStateManager {
                     assert forcedAssignments.force() :
                             format("Unexpected assignments to force [assignments={}, groupId={}].", forcedAssignments, groupId);
 
-                    replicaManager.resetPeers(groupId, fromAssignments(forcedAssignments.nodes()));
+                    replicaManager.resetPeers(groupId, fromAssignments(forcedAssignments.nodes()), revision);
                 }
 
                 // Telling the caller that the replica is started.

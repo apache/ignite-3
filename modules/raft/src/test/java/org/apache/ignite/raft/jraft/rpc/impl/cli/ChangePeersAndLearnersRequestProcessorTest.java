@@ -16,6 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.eq;
+
 import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -26,10 +30,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersReques
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.eq;
 
 public class ChangePeersAndLearnersRequestProcessorTest extends AbstractCliRequestProcessorTest<ChangePeersAndLearnersRequest> {
     private static final long CURRENT_TERM = 1L;
@@ -42,6 +42,7 @@ public class ChangePeersAndLearnersRequestProcessorTest extends AbstractCliReque
             .newPeersList(List.of("localhost:8084", "localhost:8085"))
             .newLearnersList(List.of("localhost:8086", "localhost:8087"))
             .term(CURRENT_TERM)
+            .sequenceToken(0L)
             .build();
     }
 
