@@ -418,6 +418,21 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         });
     }
 
+    @Test
+    public void executeScriptWithErrors() {
+        client().sql().executeScript("SELECT 1; SELECT 2/0; SELECT 3;");
+    }
+
+    @Test
+    public void iterateOverScriptWithErrors() {
+        ClientAsyncResultSet<SqlRow> rs = runSql("SELECT 1; SELECT 2/0; SELECT 3; SELECT 4;");
+        try {
+            rs.nextResultSet().join();
+        } catch (Exception ignore) {
+            // Resources should not leak after this error.
+        }
+    }
+
     private void expectRowsCount(@Nullable Transaction tx, String table, long expectedCount) {
         try (ResultSet<SqlRow> rs = client().sql().execute(tx, "SELECT COUNT(*) FROM " + table)) {
             assertThat(rs.next().longValue(0), is(expectedCount));
@@ -444,7 +459,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         return count;
     }
 
-    private ClientAsyncResultSet<SqlRow> runSql(String query, Object ... args) {
+    private ClientAsyncResultSet<SqlRow> runSql(String query, Object... args) {
         return runSql(null, null, null, query, args);
     }
 
@@ -474,7 +489,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         executeSql(null, sql, args);
     }
 
-    private void executeSql(@Nullable Transaction tx, String sql, Object ... args) {
+    private void executeSql(@Nullable Transaction tx, String sql, Object... args) {
         fetchAllResults(runSql(tx, null, null, sql, args))
                 .forEach(rs -> await(rs.closeAsync()));
     }

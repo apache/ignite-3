@@ -25,6 +25,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
@@ -51,7 +52,7 @@ public class ClientSqlCursorNextPageRequest {
                     if (!r.hasMorePages()) {
                         try {
                             resources.remove(resourceId);
-                        } catch (IgniteInternalCheckedException ignored) {
+                        } catch (IgniteInternalCheckedException | IgniteInternalException ignored) {
                             // Ignore: either resource already removed, or registry is closing.
                         }
 
