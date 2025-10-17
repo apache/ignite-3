@@ -121,6 +121,7 @@ public class Checkpointer extends IgniteWorker {
     private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
             + "checkpointId={}, "
             + "writtenPages={}, "
+            + "fsyncFiles={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
             + "replicatorLogSyncTime={}ms, "
@@ -434,6 +435,7 @@ public class Checkpointer extends IgniteWorker {
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
                             totalWrittenPages,
+                            chp.syncedFiles,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
@@ -643,9 +645,9 @@ public class Checkpointer extends IgniteWorker {
                 return;
             }
 
-            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore);
+            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, currentCheckpointProgress);
 
-            fsyncFilePageStoreOnCheckpointThread(filePageStore);
+            fsyncFilePageStoreOnCheckpointThread(filePageStore, currentCheckpointProgress);
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
 
@@ -657,11 +659,16 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
-    private void fsyncFilePageStoreOnCheckpointThread(FilePageStore filePageStore) throws IgniteInternalCheckedException {
+    private void fsyncFilePageStoreOnCheckpointThread(
+            FilePageStore filePageStore,
+            CheckpointProgressImpl currentCheckpointProgress
+    ) throws IgniteInternalCheckedException {
         blockingSectionBegin();
 
         try {
             filePageStore.sync();
+
+            currentCheckpointProgress.syncedFilesCounter().incrementAndGet();
         } finally {
             blockingSectionEnd();
         }
@@ -894,7 +901,10 @@ public class Checkpointer extends IgniteWorker {
         return safeAbs(interval + startDelay);
     }
 
-    private void fsyncDeltaFilePageStoreOnCheckpointThread(FilePageStore filePageStore) throws IgniteInternalCheckedException {
+    private void fsyncDeltaFilePageStoreOnCheckpointThread(
+            FilePageStore filePageStore,
+            CheckpointProgressImpl currentCheckpointProgress
+    ) throws IgniteInternalCheckedException {
         blockingSectionBegin();
 
         try {
@@ -905,6 +915,8 @@ public class Checkpointer extends IgniteWorker {
             }
 
             deltaFilePageStoreFuture.join().sync();
+
+            currentCheckpointProgress.syncedFilesCounter().incrementAndGet();
         } finally {
             blockingSectionEnd();
         }

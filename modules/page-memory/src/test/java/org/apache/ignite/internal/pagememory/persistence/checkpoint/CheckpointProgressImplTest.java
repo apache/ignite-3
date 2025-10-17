@@ -90,10 +90,12 @@ public class CheckpointProgressImplTest {
         assertEquals(0, progressImpl.writtenPagesCounter().get());
         assertEquals(0, progressImpl.syncedPagesCounter().get());
         assertEquals(0, progressImpl.evictedPagesCounter().get());
+        assertEquals(0, progressImpl.syncedFilesCounter().get());
 
         progressImpl.writtenPagesCounter().incrementAndGet();
         progressImpl.syncedPagesCounter().incrementAndGet();
         progressImpl.evictedPagesCounter().incrementAndGet();
+        progressImpl.syncedFilesCounter().incrementAndGet();
 
         progressImpl.initCounters(100500);
 
@@ -102,10 +104,12 @@ public class CheckpointProgressImplTest {
         assertEquals(0, progressImpl.writtenPagesCounter().get());
         assertEquals(0, progressImpl.syncedPagesCounter().get());
         assertEquals(0, progressImpl.evictedPagesCounter().get());
+        assertEquals(0, progressImpl.syncedFilesCounter().get());
 
         progressImpl.writtenPagesCounter().incrementAndGet();
         progressImpl.syncedPagesCounter().incrementAndGet();
         progressImpl.evictedPagesCounter().incrementAndGet();
+        progressImpl.syncedFilesCounter().incrementAndGet();
 
         progressImpl.clearCounters();
 
@@ -114,6 +118,7 @@ public class CheckpointProgressImplTest {
         assertEquals(0, progressImpl.writtenPagesCounter().get());
         assertEquals(0, progressImpl.syncedPagesCounter().get());
         assertEquals(0, progressImpl.evictedPagesCounter().get());
+        assertEquals(0, progressImpl.syncedFilesCounter().get());
 
         progressImpl.currentCheckpointPagesCount(42);
 
