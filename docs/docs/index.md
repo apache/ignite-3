@@ -1,23 +1,66 @@
 # Apache Ignite 3 Documentation
 
-Welcome to the Apache Ignite 3 documentation.
-
-## Version 3.1.0
-
-This documentation is for Apache Ignite 3.1.0.
-
-Content migration from Jekyll to Docusaurus is in progress.
-
-## About Apache Ignite 3
-
 Apache Ignite 3 is a distributed database for high-performance computing with in-memory speed.
 
-## Getting Help
+##  Where to Start
 
-- [Apache Ignite Website](https://ignite.apache.org)
-- [User Mailing List](https://ignite.apache.org/community.html)
-- [GitHub Repository](https://github.com/apache/ignite-3)
+<div class="row">
+  <div class="col col--6">
+    <h3>New to Ignite?</h3>
+    <ul>
+      <li><a href="./getting-started/intro">Introduction to Apache Ignite 3</a></li>
+      <li><a href="./getting-started/quick-start">Quick Start Guide</a></li>
+      <li><a href="./getting-started/start-cluster">Start Your First Cluster</a></li>
+    </ul>
+  </div>
+  <div class="col col--6">
+    <h3>Developers</h3>
+    <ul>
+      <li><a href="./develop/ignite-clients/java">Java Client</a></li>
+      <li><a href="./develop/work-with-data/table-api">Table API</a></li>
+      <li><a href="./sql/working-with-sql/execute-queries">Execute SQL Queries</a></li>
+    </ul>
+  </div>
+</div>
 
-## License
+<div class="row">
+  <div class="col col--6">
+    <h3>Operations</h3>
+    <ul>
+      <li><a href="./configure-and-operate/installation/zip">Install Using ZIP Archive</a></li>
+      <li><a href="./configure-and-operate/configuration/cluster-and-nodes">Configure Cluster and Nodes</a></li>
+      <li><a href="./configure-and-operate/operations/lifecycle">Manage Cluster Lifecycle</a></li>
+    </ul>
+  </div>
+  <div class="col col--6">
+    <h3>API Reference</h3>
+    <ul>
+      <li><a href="./api-reference/native-clients/java/client-api">Java API</a></li>
+      <li><a href="./api-reference/native-clients/dotnet/client-api">.NET API</a></li>
+      <li><a href="./api-reference/sql-only-apis/jdbc">JDBC Driver</a></li>
+    </ul>
+  </div>
+</div>
 
-Licensed under the Apache License, Version 2.0.
+## Documentation Sections
+
+### [Getting Started](./getting-started/)
+Tutorials and quick start guides to get up and running with Apache Ignite 3.
+
+### [Develop](./develop/)
+Build applications with Ignite clients, work with data, and integrate with frameworks.
+
+### [SQL](./sql/)
+Complete SQL reference including fundamentals, syntax, and performance tuning.
+
+### [Configure and Operate](./configure-and-operate/)
+Install, configure, and operate Ignite clusters in production.
+
+### [Understand](./understand/)
+Core concepts, architecture, and performance characteristics.
+
+### [API Reference](./api-reference/)
+Comprehensive API documentation for all supported languages and drivers.
+
+### [Tools](./tools/)
+CLI commands, REST API, and utilities.

@@ -1,0 +1,154 @@
+---
+id: dml
+title: Data Manipulation Language (DML)
+---
+
+{/*
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/}
+
+import RailroadDiagram from '@site/src/components/RailroadDiagram';
+
+This section walks you through all data manipulation language (DML) commands supported by Apache Ignite 3.
+
+## DELETE
+
+Deletes data from a table.
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('DELETE FROM'),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Optional(
+Sequence(
+Optional('AS'),
+NonTerminal('alias'),
+)
+),
+Optional(
+Sequence(
+NonTerminal('WHERE'),
+Terminal('booleanExpression')
+)
+)
+)
+`}</RailroadDiagram>
+
+### Parameters
+
+- `alias` - an SQL alias for an expression or value.
+- `booleanExpression` - an SQL expression that returns a boolean value. Only the records for which `TRUE` was returned will be deleted. If not specified, all records are deleted.
+
+---
+
+## INSERT
+
+Inserts data into a table.
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('INSERT INTO'),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Optional(
+NonTerminal('column_list', {href:'./grammar-reference/#column_list'}),
+),
+NonTerminal('query', {href:'./grammar-reference/#query'})
+)
+`}</RailroadDiagram>
+
+---
+
+## MERGE
+
+Merges data into a table.
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('MERGE INTO'),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Optional(
+Sequence(
+Optional('AS'),
+NonTerminal('alias'),
+)
+),
+Terminal('USING'),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('ON'),
+NonTerminal('booleanExpression'),
+End({type:'complex'})
+)
+`}</RailroadDiagram>
+
+<RailroadDiagram>{`
+Diagram(
+Start({type:'complex'}),
+Optional(
+Sequence(
+NonTerminal('WHEN MATCHED THEN UPDATE SET'),
+OneOrMore(Sequence(Terminal('assign', {href:'./grammar-reference/#assign'})
+),
+Terminal(',')
+))),
+Optional(
+Sequence(
+NonTerminal('WHEN NOT MATCHED THEN INSERT VALUES'),
+NonTerminal('('),
+OneOrMore(Sequence(Terminal('value')
+),
+Terminal(',')
+),
+NonTerminal(')'),
+)))
+`}</RailroadDiagram>
+
+:::note
+At least one of the `WHEN MATCHED` and `WHEN NOT MATCHED` clauses must be present.
+:::
+
+### Parameters
+
+- `alias` - an SQL alias for an expression or value.
+- `booleanExpression` - an SQL expression that returns a boolean value. If `TRUE` is returned, the `WHEN MATCHED` clause is executed, otherwise the `WHEN NOT MATCHED` is executed.
+- `value` - arbitrary value that will be inserted into the table during the operation.
+
+---
+
+## UPDATE
+
+Updates data in a table.
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('UPDATE'),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('SET'),
+OneOrMore(Sequence(Terminal('assign', {href:'./grammar-reference/#assign'})
+),
+Terminal(',')
+),
+Optional(
+Sequence(
+Terminal('WHERE'),
+NonTerminal('booleanExpression')
+)
+)
+)
+`}</RailroadDiagram>
+
+### Parameters
+
+- `booleanExpression` - an SQL expression that returns a boolean value. Only the records for which `TRUE` was returned will be updated. If not specified, all records will be updated.

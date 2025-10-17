@@ -529,26 +529,54 @@ table tbody tr:nth-of-type(even) {
    Admonitions (Note, Tip, Caution, Warning)
    ============================================ */
 
+/* Admonition styling - override Docusaurus defaults
+   Using !important until we create a formal theme */
 .admonition {
-  border-left-width: 6px;
+  border-left-width: 6px !important;
   margin-bottom: 16px;
 }
 
-.admonition-note {
-  border-left-color: #055799;
+/* Note admonitions - Blue */
+.theme-admonition.theme-admonition-note.alert.alert--secondary {
+  --ifm-alert-background-color: rgba(0, 136, 204, 0.1) !important;
+  --ifm-alert-background-color-highlight: rgba(0, 136, 204, 0.15) !important;
+  --ifm-alert-foreground-color: #004085 !important;
+  --ifm-alert-border-color: #0088cc !important;
+  border-left-color: #0088cc !important;
+  background-color: rgba(0, 136, 204, 0.1) !important;
 }
 
-.admonition-tip {
-  border-left-color: #fcb903;
+/* Tip admonitions - Green */
+.theme-admonition.theme-admonition-tip.alert.alert--success {
+  --ifm-alert-background-color: rgba(0, 168, 84, 0.1) !important;
+  --ifm-alert-background-color-highlight: rgba(0, 168, 84, 0.15) !important;
+  --ifm-alert-foreground-color: #155724 !important;
+  --ifm-alert-border-color: #00a854 !important;
+  border-left-color: #00a854 !important;
+  background-color: rgba(0, 168, 84, 0.1) !important;
 }
 
-.admonition-caution,
-.admonition-important {
-  border-left-color: #b02032;
+/* Caution/Important admonitions - Yellow */
+.theme-admonition.theme-admonition-caution.alert.alert--warning,
+.theme-admonition.theme-admonition-important.alert.alert--info {
+  --ifm-alert-background-color: rgba(250, 173, 20, 0.1) !important;
+  --ifm-alert-background-color-highlight: rgba(250, 173, 20, 0.15) !important;
+  --ifm-alert-foreground-color: #856404 !important;
+  --ifm-alert-border-color: #faad14 !important;
+  border-left-color: #faad14 !important;
+  background-color: rgba(250, 173, 20, 0.1) !important;
 }
 
-.admonition-warning {
-  border-left-color: #b02032;
+/* Warning/Danger admonitions - Red */
+.theme-admonition.theme-admonition-warning.alert.alert--danger,
+.theme-admonition.theme-admonition-danger.alert.alert--danger,
+.theme-admonition.theme-admonition-warning.alert.alert--warning {
+  --ifm-alert-background-color: rgba(245, 34, 45, 0.1) !important;
+  --ifm-alert-background-color-highlight: rgba(245, 34, 45, 0.15) !important;
+  --ifm-alert-foreground-color: #721c24 !important;
+  --ifm-alert-border-color: #f5222d !important;
+  border-left-color: #f5222d !important;
+  background-color: rgba(245, 34, 45, 0.1) !important;
 }
 
 /* ============================================
@@ -607,4 +635,73 @@ article.markdown img {
   .theme-doc-toc-desktop {
     width: 230px;
   }
+}
+
+/* ============================================
+   Railroad Diagram Styling
+   ============================================ */
+
+.railroad-diagram-container {
+  margin: 2rem 0;
+  overflow-x: auto;
+  background-color: var(--ifm-background-color);
+  border: 1px solid var(--code-border-color);
+  border-radius: var(--ifm-code-border-radius);
+  padding: 1.5rem;
+}
+
+.railroad-diagram-container svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Railroad diagram text styling */
+.railroad-diagram-container svg text {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 14px;
+}
+
+/* Override railroad-diagrams default colors */
+.railroad-diagram-container svg.railroad-diagram rect {
+  fill: white;
+  stroke: black;
+  stroke-width: 3;
+}
+
+/* Make links clickable and visible */
+.railroad-diagram-container svg.railroad-diagram a {
+  cursor: pointer;
+}
+
+.railroad-diagram-container svg.railroad-diagram a:hover rect {
+  fill: var(--ifm-color-primary-lightest);
+}
+
+.railroad-diagram-container svg.railroad-diagram a text {
+  fill: var(--ifm-link-color);
+  text-decoration: none;
+}
+
+.railroad-diagram-container svg.railroad-diagram a:hover text {
+  text-decoration: underline;
+}
+
+/* Dark mode support for railroad diagrams */
+[data-theme='dark'] .railroad-diagram-container {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram rect {
+  fill: var(--ifm-color-emphasis-100);
+  stroke: var(--ifm-color-emphasis-800);
+}
+
+[data-theme='dark'] .railroad-diagram-container svg.railroad-diagram path {
+  stroke: var(--ifm-color-emphasis-800);
+}
+
+[data-theme='dark'] .railroad-diagram-container svg text {
+  fill: currentColor;
 }

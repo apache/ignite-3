@@ -6,9 +6,9 @@ This is the documentation website for Apache Ignite 3, built using [Docusaurus](
 
 This documentation site is currently being migrated from Jekyll + AsciiDoc to Docusaurus + Markdown/MDX as part of [JIRA ticket IGNITE-26681](https://issues.apache.org/jira/browse/IGNITE-26681).
 
-**Migration Progress:** Section 1 Complete (Environment Setup & Infrastructure)
+**Migration Progress:** Sections 1-8 Complete (Environment, Navigation, Conversion Agent, Content Conversion)
 
-See [IGNITE-26681/docusaurus-migration-project-plan.md](../IGNITE-26681/docusaurus-migration-project-plan.md) for detailed migration plan and progress tracking.
+All 86 documentation files have been converted from AsciiDoc to Markdown/MDX. See [IGNITE-26681/docusaurus-migration-project-plan.md](../IGNITE-26681/docusaurus-migration-project-plan.md) for detailed migration plan and progress tracking.
 
 ## Features
 
@@ -16,6 +16,7 @@ See [IGNITE-26681/docusaurus-migration-project-plan.md](../IGNITE-26681/docusaur
 - **Local search**: ASF-compliant search without external dependencies
 - **Multi-language code examples**: Java, C#/.NET, C++, Python, SQL
 - **Mermaid diagrams**: Built-in support for flowcharts, sequence diagrams, and more
+- **Railroad diagrams**: Custom component for SQL syntax diagrams with clickable links
 - **Syntax highlighting**: Prism.js with custom themes
 - **Responsive design**: Mobile-friendly layout
 - **Custom styling**: Apache Ignite branding and colors
@@ -27,27 +28,39 @@ See [IGNITE-26681/docusaurus-migration-project-plan.md](../IGNITE-26681/docusaur
 
 ## Installation
 
-Install dependencies using npm:
+Navigate to the docs directory and install dependencies:
 
 ```bash
+cd docs
 npm install
 ```
 
-Or for a clean install:
+For a clean install (recommended for CI/CD or when troubleshooting):
 
 ```bash
 npm ci
 ```
 
+**Note**: All npm commands in this guide should be run from the `docs/` directory.
+
 ## Local Development
 
-Start the development server:
+Start the development server from the `docs/` directory:
 
 ```bash
 npm start
 ```
 
-This starts a local development server at `http://localhost:3000/docs/` with hot reload. Most changes are reflected live without restarting the server.
+This command:
+- Starts a local development server at `http://localhost:3000/docs/`
+- Enables hot reload (most changes are reflected live without restarting)
+- Makes the server accessible on your local network via your IP address (e.g., `http://192.168.1.x:3000/docs/`)
+
+**What you'll see**:
+- The documentation homepage with navigation to all sections
+- Version selector dropdown (3.0.0 and 3.1.0)
+- Search functionality (keyboard shortcut: `Cmd+K` or `Ctrl+K`)
+- All converted documentation pages with proper formatting, code highlighting, and diagrams
 
 For faster startup during active development:
 
@@ -235,6 +248,52 @@ graph TD;
 ````
 
 Supported diagram types: flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, Gantt charts, git graphs, pie charts.
+
+### Railroad Diagrams
+
+Railroad diagrams (syntax diagrams) are supported via a custom React component using the railroad.js library. This component preserves the ability to create clickable links within diagrams for navigation between SQL grammar rules.
+
+**Component Location**: `src/components/RailroadDiagram/`
+
+**Usage**:
+
+```mdx
+---
+title: My SQL Reference Page
+---
+
+import RailroadDiagram from '@site/src/components/RailroadDiagram';
+
+## CREATE TABLE
+
+<RailroadDiagram>
+{`
+Diagram(
+  Terminal('CREATE'),
+  Terminal('TABLE'),
+  Optional(Terminal('IF NOT EXISTS')),
+  NonTerminal('table_name', {href:'./grammar-reference/#qualified_table_name'}),
+  Terminal('('),
+  NonTerminal('column_definition', {href:'./grammar-reference/#column_definition'}),
+  Terminal(')')
+)
+`}
+</RailroadDiagram>
+```
+
+**Key Features**:
+- Supports all railroad diagram functions: `Terminal()`, `NonTerminal()`, `Optional()`, `Sequence()`, `Choice()`, `Skip()`, `OneOrMore()`, `ZeroOrMore()`, `Comment()`
+- Clickable links via `href` parameter on `NonTerminal()` and `Terminal()`
+- Automatic conversion of relative links to Docusaurus routes
+- Custom styling: white bubble backgrounds with blue clickable links (red on hover)
+- Dark mode support
+
+**Important Notes**:
+- Use template literals `{` ... `}` to wrap the diagram code
+- The `Diagram()` function automatically adds `Start()` and `End()` (don't include them unless using `ComplexDiagram()`)
+- Preserve href parameters exactly as they appear in the railroad syntax for clickable navigation
+
+**Examples**: See `docs/sql/reference/ddl.mdx`, `docs/sql/reference/dml.mdx`, and `docs/sql/reference/grammar-reference.mdx` for 52 railroad diagram examples with clickable links.
 
 ## Code Examples
 

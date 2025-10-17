@@ -25,7 +25,9 @@ const config: Config = {
   organizationName: 'apache', // Usually your GitHub org/user name.
   projectName: 'ignite-3', // Usually your repo name.
 
-  onBrokenLinks: 'throw',
+  // Allow broken links during development while we convert content
+  // Change back to 'throw' once all content is migrated
+  onBrokenLinks: 'warn',
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you

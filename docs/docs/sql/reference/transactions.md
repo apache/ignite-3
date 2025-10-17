@@ -1,0 +1,46 @@
+---
+title: Transactions
+---
+
+# Transactions
+
+A transaction is a sequence of SQL operations that starts with the `START TRANSACTION` statement and ends with the `COMMIT` statement. Either the effect of all operations will be published, or no results will be published at all.
+
+:::warning
+Transaction control statements are only allowed within a [script](/developers-guide/sql/sql-api#sql-scripts).
+:::
+
+In Apache Ignite 3, you start the transaction by using the `START TRANSACTION` statement:
+
+```sql
+START TRANSACTION [READ ONLY | READ WRITE]
+```
+
+:::note
+DDL statements are not supported inside transactions.
+:::
+
+Parameters:
+
+- `READ WRITE` - both read and write operations are allowed in the transaction. Used by default.
+- `READ ONLY` - only read operations are allowed in the transaction.
+
+You close and commit the transaction by using the `COMMIT` statement:
+
+```sql
+COMMIT
+```
+
+## Example
+
+The example below inserts 3 lines into the table in a single transaction, ensuring they will all be committed together:
+
+```sql
+START TRANSACTION READ WRITE;
+
+INSERT INTO Person (id, name, surname) VALUES (1, 'John', 'Smith');
+INSERT INTO Person (id, name, surname) VALUES (2, 'Jane', 'Smith');
+INSERT INTO Person (id, name, surname) VALUES (3, 'Adam', 'Mason');
+
+COMMIT;
+```
