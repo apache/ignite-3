@@ -417,6 +417,21 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
             rs.closeAsync();
         });
     }
+    
+    @Test
+    public void executeScriptWithErrors() {
+        client().sql().executeScript("SELECT 1; SELECT 2/0; SELECT 3;");
+    }
+    
+    @Test
+    public void iterateOverScriptWithErrors() {
+        ClientAsyncResultSet<SqlRow> rs = runSql("SELECT 1; SELECT 2/0; SELECT 3; SELECT 4;");
+        try {
+            rs.nextResultSet().join();
+        } catch (Exception ignore) {
+            // Should not leak
+        }
+    }
 
     private void expectRowsCount(@Nullable Transaction tx, String table, long expectedCount) {
         try (ResultSet<SqlRow> rs = client().sql().execute(tx, "SELECT COUNT(*) FROM " + table)) {

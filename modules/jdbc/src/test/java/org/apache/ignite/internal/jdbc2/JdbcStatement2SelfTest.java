@@ -379,8 +379,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
         try (Statement stmt = createStatement()) {
             JdbcStatement2 jdbc = stmt.unwrap(JdbcStatement2.class);
 
-            @SuppressWarnings("unchecked")
-            org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+            ClientSyncResultSet igniteRs = Mockito.mock(ClientSyncResultSet.class);
             when(igniteRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of()));
 
             {

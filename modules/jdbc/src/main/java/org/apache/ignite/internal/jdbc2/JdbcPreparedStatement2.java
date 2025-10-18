@@ -190,7 +190,10 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
     public boolean execute() throws SQLException {
         execute0(ALL, sql, currentArguments.toArray());
 
-        return isQuery();
+        ResultSetWrapper rs = result;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
     /** {@inheritDoc} */
