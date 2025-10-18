@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.lang.Math.max;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
@@ -54,6 +56,17 @@ class SegmentInfo {
             array[size] = element;
 
             return new ArrayWithSize(array, size + 1);
+        }
+
+        ArrayWithSize truncate(int newSize) {
+            assert newSize <= size
+                    : String.format("Array must shrink on truncation, current size: %d, size after truncation: %d", size, newSize);
+
+            int[] newArray = new int[size];
+
+            System.arraycopy(array, 0, newArray, 0, newSize);
+
+            return new ArrayWithSize(newArray, newSize);
         }
 
         int get(int index) {
@@ -158,5 +171,24 @@ class SegmentInfo {
         ArrayWithSize offsets = segmentFileOffsets;
 
         buffer.asIntBuffer().put(offsets.array, 0, offsets.size);
+    }
+
+    void truncateSuffix(long lastLogIndexKept) {
+        ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
+
+        long newSize = max(lastLogIndexKept - logIndexBase + 1, 0);
+
+        if (newSize >= segmentFileOffsets.size()) {
+            // Nothing to truncate.
+            return;
+        }
+
+        ArrayWithSize newSegmentFileOffsets = segmentFileOffsets.truncate((int) newSize);
+
+        // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
+        // this invariant, just in case.
+        boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, segmentFileOffsets, newSegmentFileOffsets);
+
+        assert updated : "Concurrent writes detected";
     }
 }

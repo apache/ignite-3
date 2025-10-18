@@ -35,6 +35,15 @@ class SegmentPayload {
 
     static final int HASH_SIZE = Integer.BYTES;
 
+    /**
+     * Length of the byte sequence that is written when suffix truncation happens.
+     *
+     * <p>Format: {@code groupId, 0 (special length value), last kept index, crc}
+     */
+    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE;
+
+    private static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
+
     static void writeTo(
             ByteBuffer buffer,
             long groupId,
@@ -58,6 +67,21 @@ class SegmentPayload {
         int crc = FastCrc.calcCrc(buffer, dataSize);
 
         // After CRC calculation the position will be at the provided end of the buffer.
+        buffer.putInt(crc);
+    }
+
+    static void writeTruncateSuffixRecordTo(ByteBuffer buffer, long groupId, long lastLogIndexKept) {
+        int originalPos = buffer.position();
+
+        buffer
+                .putLong(groupId)
+                .putInt(TRUNCATE_SUFFIX_RECORD_MARKER)
+                .putLong(lastLogIndexKept);
+
+        buffer.position(originalPos);
+
+        int crc = FastCrc.calcCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - HASH_SIZE);
+
         buffer.putInt(crc);
     }
 

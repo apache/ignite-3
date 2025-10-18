@@ -120,7 +120,13 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public boolean truncateSuffix(long lastIndexKept) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.truncateSuffix(groupId, lastIndexKept);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        return true;
     }
 
     @Override

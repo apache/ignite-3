@@ -91,4 +91,18 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
         assertThat(array.find(99), is(nullValue()));
         assertThat(array.find(201), is(nullValue()));
     }
+
+    @Test
+    void testFindWorksCorrectlyWithEmptyMetas() {
+        var meta1 = new IndexFileMeta(1, 10, 100, 0);
+        var meta2 = new IndexFileMeta(10, 10, 200, 1);
+        var meta3 = new IndexFileMeta(10, 20, 200, 2);
+
+        IndexFileMetaArray array = new IndexFileMetaArray(meta1)
+                .add(meta2)
+                .add(meta3);
+
+        assertThat(array.find(9), is(meta1));
+        assertThat(array.find(10), is(meta3));
+    }
 }

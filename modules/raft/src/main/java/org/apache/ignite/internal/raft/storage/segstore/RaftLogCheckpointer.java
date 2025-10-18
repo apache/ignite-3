@@ -137,7 +137,8 @@ class RaftLogCheckpointer {
         while (it.hasNext()) {
             SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
 
-            if (segmentInfo != null) {
+            // Segment Info can be empty if the log suffix was truncated.
+            if (segmentInfo != null && segmentInfo.size() > 0) {
                 firstIndex = segmentInfo.firstLogIndexInclusive();
             }
         }
