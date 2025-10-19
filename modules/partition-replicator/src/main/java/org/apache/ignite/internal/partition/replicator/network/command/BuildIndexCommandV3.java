@@ -15,33 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.replication;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TableAware;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 
-/**
- * Replica request to build a table index.
- *
- * <p>It is possible to receive a {@link PrimaryReplicaMissException} in response to message processing if the leaseholder changes.</p>
- */
-@Transferable(PartitionReplicationMessageGroup.BUILD_INDEX_REPLICA_REQUEST)
-public interface BuildIndexReplicaRequest extends PrimaryReplicaRequest, TableAware {
-    /** Returns index ID. */
-    int indexId();
-
-    /** Returns row IDs for which to build indexes. */
-    List<UUID> rowIds();
-
-    /** Returns {@code true} if this batch is the last one. */
-    boolean finish();
-
+/** Extension of {@link BuildIndexCommandV2} with new fields to support backward compatibility. */
+@Transferable(Commands.BUILD_INDEX_V3)
+public interface BuildIndexCommandV3 extends BuildIndexCommandV2 {
     /** IDs of transactions (to which write intents in this batch belong) that are known to have been aborted. */
     Set<UUID> abortedTransactionIds();
 }

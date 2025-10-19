@@ -1198,7 +1198,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 failureManager,
                 nodeProperties,
-                lowWatermark
+                lowWatermark,
+                txManager
         );
 
         qryEngine = new SqlQueryProcessor(

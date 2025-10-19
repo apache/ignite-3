@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.handlers;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.storage.BinaryRowAndRowIdMatcher.equalToBinaryRowAndRowId;
 import static org.apache.ignite.internal.storage.RowId.lowestRowId;
@@ -25,8 +26,10 @@ import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.spy;
 
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -63,11 +66,16 @@ public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
 
     private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
 
-    private final BuildIndexRowVersionChooser chooser = new BuildIndexRowVersionChooser(
-            partitionDataStorage,
-            CREATE_INDEX_ACTIVATION_TS_MILLS,
-            START_BUILDING_INDEX_ACTIVATION_TS_MILLS
-    );
+    private final BuildIndexRowVersionChooser chooser = createChooser(emptySet());
+
+    private BuildIndexRowVersionChooser createChooser(Set<UUID> abortedTransactionIds) {
+        return new BuildIndexRowVersionChooser(
+                partitionDataStorage,
+                CREATE_INDEX_ACTIVATION_TS_MILLS,
+                START_BUILDING_INDEX_ACTIVATION_TS_MILLS,
+                abortedTransactionIds
+        );
+    }
 
     @Test
     void testEmptyStorage() {
@@ -105,6 +113,20 @@ public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
         addWrite(rowId, row, txId);
 
         assertThat(chooser.chooseForBuildIndex(rowId), contains(expBinaryRowAndRowId(rowId, row)));
+    }
+
+    @Test
+    void testWriteIntentBelongingToAbortedTransaction() {
+        UUID txId = txId(CREATE_INDEX_ACTIVATION_TS_MILLS - 1);
+
+        var customizedChooser = createChooser(Set.of(txId));
+
+        RowId rowId = lowestRowId(PARTITION_ID);
+        BinaryRow row = binaryRow(1, 2);
+
+        addWrite(rowId, row, txId);
+
+        assertThat(customizedChooser.chooseForBuildIndex(rowId), is(empty()));
     }
 
     @Test

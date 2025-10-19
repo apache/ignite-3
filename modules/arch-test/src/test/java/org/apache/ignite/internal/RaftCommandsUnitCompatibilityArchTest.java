@@ -21,8 +21,8 @@ import static com.tngtech.archunit.core.importer.ImportOption.Predefined.DO_NOT_
 import static com.tngtech.archunit.core.importer.ImportOption.Predefined.DO_NOT_INCLUDE_TEST_FIXTURES;
 import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -59,11 +59,14 @@ public class RaftCommandsUnitCompatibilityArchTest {
 
         Set<String> testedRaftCommands = collectTestedRaftCommands(classes);
 
+        Set<String> notTestedRaftCommands = raftCommands.stream()
+                .filter(cmd -> !testedRaftCommands.contains(cmd))
+                .collect(toSet());
+
         assertThat(
-                "There are still some raft commands that haven't been tested; for example, see the successors of "
-                        + BaseCommandsCompatibilityTest.class.getName(),
-                testedRaftCommands,
-                containsInAnyOrder(raftCommands.toArray(new String[0]))
+                "There are still some raft commands that haven't been tested",
+                notTestedRaftCommands,
+                is(empty())
         );
     }
 

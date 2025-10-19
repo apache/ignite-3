@@ -3374,6 +3374,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexId(indexId)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .rowIds(List.of())
+                .abortedTransactionIds(Set.of())
                 .timestamp(clock.current())
                 .build();
 
