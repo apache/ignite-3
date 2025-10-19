@@ -131,4 +131,8 @@ public class ThreadId {
             }
         }
     }
+
+    public boolean isLocked() {
+        return this.lock.isLocked();
+    }
 }

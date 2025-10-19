@@ -198,6 +198,10 @@ public class Replicator implements ThreadId.OnError {
             gauges.put("install-snapshot-times", (Gauge<Long>) () -> this.r.installSnapshotCounter);
             gauges.put("probe-times", (Gauge<Long>) () -> this.r.probeCounter);
             gauges.put("append-entries-times", (Gauge<Long>) () -> this.r.appendEntriesCounter);
+            gauges.put("consecutive-error-times", (Gauge<Long>) () -> (long) this.r.consecutiveErrorTimes);
+            gauges.put("state", (Gauge<Long>) () -> (long) this.r.state.ordinal());
+            gauges.put("running-state", (Gauge<Long>) () -> (long) this.r.statInfo.runningState.ordinal());
+            gauges.put("locked", (Gauge<Long>) () ->  (null == this.r.id ? -1L : this.r.id.isLocked() ? 1L : 0L));
             return gauges;
         }
     }
