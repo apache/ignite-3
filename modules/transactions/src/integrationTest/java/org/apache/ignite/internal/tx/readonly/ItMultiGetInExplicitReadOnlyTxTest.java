@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.tx.readonly;
 
 import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -39,7 +42,9 @@ class ItMultiGetInExplicitReadOnlyTxTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void roTransactionNoticesGarbageCollectedTupleVersionsOnDataNodes() {
+    void roTransactionWithGetAllOperation() {
+        assertEquals(2, cluster.nodes().size());
+
         Ignite coordinator = node(0);
 
         coordinator.sql().executeScript("CREATE ZONE NEW_ZONE (PARTITIONS 2, REPLICAS 1) STORAGE PROFILES ['default']");
@@ -53,7 +58,10 @@ class ItMultiGetInExplicitReadOnlyTxTest extends ClusterPerTestIntegrationTest {
         Transaction roTx = coordinator.transactions().begin(new TransactionOptions().readOnly(true));
 
         List<Integer> keys = IntStream.range(0, KEY_COUNT).boxed().collect(toList());
-        kvView.getAll(roTx, keys);
+
+        Map<Integer, String> getAllResult = assertDoesNotThrow(() -> kvView.getAll(roTx, keys));
+
+        assertEquals(KEY_COUNT, getAllResult.size());
     }
 
     private static void insertOriginalValues(int keyCount, KeyValueView<Integer, String> kvView) {

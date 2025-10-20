@@ -1057,10 +1057,6 @@ public class InternalTableImpl implements InternalTable {
             @Nullable UUID coordinatorId,
             @Nullable InternalClusterNode recipientNode
     ) {
-        Function<Integer, CompletableFuture<InternalClusterNode>> calculateRecipientNode = recipientNode == null
-                ? partId -> evaluateReadOnlyRecipientNode(partId, readTimestamp)
-                : forEveryPartId -> completedFuture(recipientNode);
-
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
@@ -1079,8 +1075,10 @@ public class InternalTableImpl implements InternalTable {
                     .coordinatorId(coordinatorId)
                     .build();
 
-            partitionRowBatch.getValue().resultFuture = calculateRecipientNode.apply(partitionId)
-                    .thenCompose(recipient -> replicaSvc.invoke(recipient, request));
+            partitionRowBatch.getValue().resultFuture = recipientNode != null
+                    ? replicaSvc.invoke(recipientNode, request)
+                    : evaluateReadOnlyRecipientNode(partitionId, readTimestamp)
+                            .thenCompose(targetNode -> replicaSvc.invoke(targetNode, request));
         }
 
         return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
