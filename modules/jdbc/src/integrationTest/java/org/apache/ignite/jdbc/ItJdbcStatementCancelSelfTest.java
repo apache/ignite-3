@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Statement cancel test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-26139")
 @SuppressWarnings({"ThrowableNotThrown", "JDBCResourceOpenedButNotSafelyClosed"})
 public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     @AfterEach
@@ -78,6 +77,7 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void cancellationOfMultiStatementQuery() throws Exception {
         stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
         stmt.setFetchSize(1);
@@ -115,10 +115,8 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     void fetchingNextPageAfterCancelingShouldThrow() throws Exception {
-        stmt.setFetchSize(50);
-
         {
-            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
+            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 7500)");
 
             assertTrue(rs.next());
 
@@ -136,22 +134,20 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
         {
             // but new execute should work
-            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
+            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 7500)");
 
             //noinspection StatementWithEmptyBody
-            while (rs.next()) { }
+            while (rs.next()) {
+            }
         }
     }
 
     @Test
     public void cancellationOfOneStatementShouldNotAffectAnother() throws Exception {
-        stmt.setFetchSize(50);
+
         try (Statement anotherStmt = conn.createStatement()) {
-            anotherStmt.setFetchSize(50);
-
-            ResultSet rs1 = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
-
-            ResultSet rs2 = anotherStmt.executeQuery("SELECT * FROM system_range(0, 75)");
+            ResultSet rs1 = stmt.executeQuery("SELECT * FROM system_range(0, 7500)");
+            ResultSet rs2 = anotherStmt.executeQuery("SELECT * FROM system_range(0, 7500)");
 
             stmt.cancel();
 
@@ -164,7 +160,8 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
             );
 
             //noinspection StatementWithEmptyBody
-            while (rs2.next()) { }
+            while (rs2.next()) {
+            }
         }
     }
 
@@ -192,6 +189,7 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     void cancellationOfBatch() throws Exception {
         stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
         stmt.addBatch("INSERT INTO dummy SELECT x, x FROM system_range(1, 1)");
@@ -214,6 +212,7 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26190")
     void cancellationOfPreparedBatch() throws Exception {
         stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
         try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dummy SELECT x, x FROM system_range(?, ?)")) {
