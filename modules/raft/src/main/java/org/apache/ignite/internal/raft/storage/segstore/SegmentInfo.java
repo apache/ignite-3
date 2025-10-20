@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static java.lang.Math.max;
-
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
@@ -173,10 +171,23 @@ class SegmentInfo {
         buffer.asIntBuffer().put(offsets.array, 0, offsets.size);
     }
 
+    /**
+     * Removes all data which log indices are strictly greater than {@code lastLogIndexKept}.
+     */
     void truncateSuffix(long lastLogIndexKept) {
+        assert lastLogIndexKept >= logIndexBase : String.format("logIndexBase=%d, lastLogIndexKept=%d", logIndexBase, lastLogIndexKept);
+
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
-        long newSize = max(lastLogIndexKept - logIndexBase + 1, 0);
+        long newSize = lastLogIndexKept - logIndexBase + 1;
+
+        // Not using an assertion here, because this value comes doesn't come from the storage code.
+        if (newSize < 0) {
+            throw new IllegalArgumentException(String.format(
+                    "lastLogIndexKept is too large. Last index in memtable: %d, lastLogIndexKept: %d",
+                    logIndexBase + segmentFileOffsets.size(), lastLogIndexKept
+            ));
+        }
 
         if (newSize >= segmentFileOffsets.size()) {
             // Nothing to truncate.
