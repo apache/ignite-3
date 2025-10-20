@@ -73,7 +73,7 @@ public abstract class BaseLogEntryCodecFactoryTest {
             this.encoder.encode(null);
         });
 
-        assertNull(this.decoder.decode(null));
+        assertNull(this.decoder.decode((byte[]) null));
         assertNull(this.decoder.decode(new byte[0]));
     }
 

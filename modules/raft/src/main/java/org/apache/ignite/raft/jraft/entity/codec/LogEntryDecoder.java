@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 /**
@@ -29,4 +30,12 @@ public interface LogEntryDecoder {
      * @return The entry.
      */
     LogEntry decode(byte[] bs);
+
+    /**
+     * Decode a log entry from byte buffer, return null when fail to decode.
+     *
+     * @param bs Bytes.
+     * @return The entry.
+     */
+    LogEntry decode(ByteBuffer bs);
 }
