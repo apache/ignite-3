@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.network.ClientCluster;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
@@ -96,9 +97,11 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param cfg Config.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param requiredFeature The feature that the node must support in order to connect to it.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
-        this(TcpClientChannel::createAsync, cfg, observableTimeTracker);
+    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable ProtocolBitmaskFeature requiredFeature) {
+        this(TcpClientChannel::createAsync, cfg, observableTimeTracker, requiredFeature);
     }
 
     /**
@@ -107,15 +110,17 @@ public class TcpIgniteClient implements IgniteClient {
      * @param chFactory Channel factory.
      * @param cfg Config.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param requiredFeature The feature that the node must support in order to connect to it.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable ProtocolBitmaskFeature requiredFeature) {
         assert chFactory != null;
         assert cfg != null;
 
         this.cfg = cfg;
 
         metrics = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
+        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker, requiredFeature);
         tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -159,7 +164,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
-        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null));
+        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null), null);
     }
 
     /**
@@ -167,14 +172,16 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param cfg Thin client configuration.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param requiredFeature The feature that the node must support in order to connect to it.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable ProtocolBitmaskFeature requiredFeature) {
         ErrorGroups.initialize();
 
         try {
             //noinspection resource: returned from method
-            var client = new TcpIgniteClient(cfg, observableTimeTracker);
+            var client = new TcpIgniteClient(cfg, observableTimeTracker, requiredFeature);
 
             return client.initAsync().thenApply(x -> client);
         } catch (IgniteException e) {

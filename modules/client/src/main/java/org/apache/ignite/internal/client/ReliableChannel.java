@@ -62,6 +62,7 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -133,6 +134,9 @@ public final class ReliableChannel implements AutoCloseable {
     /** Inflights. */
     private final ClientTransactionInflights inflights;
 
+    /** The feature that the node must support in order to connect to it. */
+    private final @Nullable ProtocolBitmaskFeature requiredFeature;
+
     /**
      * Constructor.
      *
@@ -140,17 +144,21 @@ public final class ReliableChannel implements AutoCloseable {
      * @param clientCfg Client config.
      * @param metrics Client metrics.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param requiredFeature The feature that the node must support in order to connect to it.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
             ClientMetricSource metrics,
-            HybridTimestampTracker observableTimeTracker) {
+            HybridTimestampTracker observableTimeTracker,
+            @Nullable ProtocolBitmaskFeature requiredFeature
+    ) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
         this.observableTimeTracker = Objects.requireNonNull(observableTimeTracker, "observableTime");
+        this.requiredFeature = requiredFeature;
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
@@ -568,7 +576,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             // Create new holders for new addrs.
             if (!curAddrs.containsKey(addr)) {
-                ClientChannelHolder hld = new ClientChannelHolder(new ClientChannelConfiguration(clientCfg, addr));
+                ClientChannelHolder hld = new ClientChannelHolder(new ClientChannelConfiguration(clientCfg, addr), requiredFeature);
 
                 for (int i = 0; i < newAddrs.get(addr); i++) {
                     reinitHolders.add(hld);
@@ -833,6 +841,8 @@ public final class ReliableChannel implements AutoCloseable {
         /** Channel configuration. */
         private final ClientChannelConfiguration chCfg;
 
+        private final @Nullable ProtocolBitmaskFeature requiredFeature;
+
         /** Channel. */
         private volatile @Nullable CompletableFuture<ClientChannel> chFut;
 
@@ -846,9 +856,11 @@ public final class ReliableChannel implements AutoCloseable {
          * Constructor.
          *
          * @param chCfg Channel config.
+         * @param requiredFeature The feature that the node must support in order to connect to it.
          */
-        private ClientChannelHolder(ClientChannelConfiguration chCfg) {
+        private ClientChannelHolder(ClientChannelConfiguration chCfg, @Nullable ProtocolBitmaskFeature requiredFeature) {
             this.chCfg = chCfg;
+            this.requiredFeature = requiredFeature;
         }
 
         /**
@@ -916,6 +928,14 @@ public final class ReliableChannel implements AutoCloseable {
                     if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
                         // New node on the old address.
                         nodeChannelsByName.remove(oldServerNode.name(), this);
+                    }
+
+                    if (requiredFeature != null && !ch.protocolContext().isFeatureSupported(requiredFeature)) {
+                        throw new IgniteClientConnectionException(
+                                CONNECTION_ERR,
+                                "Server is missing a required feature " + requiredFeature,
+                                ch.endpoint()
+                        );
                     }
 
                     serverNode = newNode;

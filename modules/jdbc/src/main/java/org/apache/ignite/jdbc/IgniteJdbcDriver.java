@@ -38,6 +38,7 @@ import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
@@ -302,7 +303,8 @@ public class IgniteJdbcDriver implements Driver {
                 IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
         );
 
-        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(
+                cfg, observableTimeTracker, ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT));
     }
 
     private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
