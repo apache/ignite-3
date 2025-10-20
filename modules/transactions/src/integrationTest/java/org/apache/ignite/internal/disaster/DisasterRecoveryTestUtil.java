@@ -47,7 +47,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for disaster recovery tests.

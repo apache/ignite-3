@@ -307,6 +307,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
             }
 
+            // We need to recalculate assignments to ensure that we have a valid set of nodes with correct roles (peers/learners).
             partAssignments = calculateAssignmentForPartition(
                     partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
                     partId.partitionId(),
