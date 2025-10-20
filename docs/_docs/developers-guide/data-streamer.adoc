@@ -23,7 +23,7 @@ Data streaming provides at-least-once delivery guarantee.
 
 == Using Data Streamer API
 
-The link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerTarget.html[Data Streamer API] lets you load large amounts of data into your cluster quickly and reliably using a publisher–subscriber model, where you create a publisher that streams your data entries to a table view, and the system distributes these entries across the cluster. You can configure how the data is processed via a `DataStreamerOptions` object that allows to set batch sizes, auto-flush intervals, retry limits.
+The link:https://ignite.apache.org/releases/3.1.0/javadoc/org/apache/ignite/table/DataStreamerTarget.html[Data Streamer API] lets you load large amounts of data into your cluster quickly and reliably using a publisher–subscriber model, where you create a publisher that streams your data entries to a table view, and the system distributes these entries across the cluster. You can configure how the data is processed via a `DataStreamerOptions` object that allows to set batch sizes, auto-flush intervals, retry limits.
 
 === Configuring Data Streamer
 
@@ -187,12 +187,12 @@ public record Account(int Id, string Name);
 The Apache Ignite 3 streaming API supports advanced streaming scenarios by allowing you to create a custom receiver that defines server-side processing logic. Use a receiver when you need to process or transform data on the server, update multiple tables from a single data stream, or work with incoming data that does not match a table schema.
 
 With a receiver, you can stream data in any format, as it is schema-agnostic.
-The receiver also has access to the full Ignite 3 API through the link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerReceiverContext.html[`DataStreamerReceiverContext`].
+The receiver also has access to the full Ignite 3 API through the link:https://ignite.apache.org/releases/3.1.0/javadoc/org/apache/ignite/table/DataStreamerReceiverContext.html[`DataStreamerReceiverContext`].
 
 The data streamer controls data flow by requesting items only when partition buffers have space. `DataStreamerOptions.perPartitionParallelOperations` controls how many buffers can be allocated per partition. When buffers are full, the streamer stops requesting more data until some items are processed.
 Additionally, if a `resultSubscriber` is specified, it also applies backpressure on the streamer. If the subscriber is slow at consuming results, the streamer reduces its request rate from the publisher accordingly.
 
-To use a receiver, you need to implement the link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerReceiver.html[`DataStreamerReceiver`] interface. The receiver’s `receive` method processes each batch of items streamed to the server, so you can apply custom logic and return results for each item as needed:
+To use a receiver, you need to implement the link:https://ignite.apache.org/releases/3.1.0/javadoc/org/apache/ignite/table/DataStreamerReceiver.html[`DataStreamerReceiver`] interface. The receiver's `receive` method processes each batch of items streamed to the server, so you can apply custom logic and return results for each item as needed:
 
 [tabs]
 --
@@ -605,7 +605,7 @@ await Task.Yield(); // Simulate async data source.
 
 ==== Custom Marshallers in .NET
 
-In .NET, you can define custom marshallers by implementing the link:https://ignite.apache.org/releases/3.0.0/dotnetdoc/api/Apache.Ignite.Marshalling.IMarshaller-1.html[`IMarshaller`] interface.
+In .NET, you can define custom marshallers by implementing the link:https://ignite.apache.org/releases/3.1.0/dotnetdoc/api/Apache.Ignite.Marshalling.IMarshaller-1.html[`IMarshaller`] interface.
 
 For example, the code below demonstrates how to use `JsonMarshaller` to serialize data, arguments, and results.
 

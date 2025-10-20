@@ -36,7 +36,7 @@ class IndexFileManagerTest extends IgniteAbstractTest {
     private IndexFileManager indexFileManager;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         indexFileManager = new IndexFileManager(workDir);
     }
 
@@ -48,9 +48,9 @@ class IndexFileManagerTest extends IgniteAbstractTest {
         Path path1 = indexFileManager.saveIndexMemtable(memtable);
         Path path2 = indexFileManager.saveIndexMemtable(memtable);
 
-        assertThat(path0, is(workDir.resolve("index-0000000000-0000000000.bin")));
-        assertThat(path1, is(workDir.resolve("index-0000000001-0000000000.bin")));
-        assertThat(path2, is(workDir.resolve("index-0000000002-0000000000.bin")));
+        assertThat(path0, is(indexFileManager.indexFilesDir().resolve("index-0000000000-0000000000.bin")));
+        assertThat(path1, is(indexFileManager.indexFilesDir().resolve("index-0000000001-0000000000.bin")));
+        assertThat(path2, is(indexFileManager.indexFilesDir().resolve("index-0000000002-0000000000.bin")));
     }
 
     @Test
@@ -183,5 +183,85 @@ class IndexFileManagerTest extends IgniteAbstractTest {
                 indexFileManager.getSegmentFilePointer(0, 1),
                 is(new SegmentFilePointer(2, 3))
         );
+    }
+
+    @Test
+    void testFirstLastLogIndicesIndependence() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(2L));
+
+        assertThat(indexFileManager.firstLogIndexInclusive(1), is(-1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(1), is(-1L));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(1, 2, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(2L));
+
+        assertThat(indexFileManager.firstLogIndexInclusive(1), is(2L));
+        assertThat(indexFileManager.lastLogIndexExclusive(1), is(3L));
+    }
+
+    @Test
+    void testFirstLastLogIndicesWithTruncate() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 1);
+        memtable.appendSegmentFileOffset(0, 2, 1);
+        memtable.appendSegmentFileOffset(0, 3, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(4L));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.truncateSuffix(0, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(2L));
+    }
+
+    @Test
+    void testGetSegmentPointerWithTruncate() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 1);
+        memtable.appendSegmentFileOffset(0, 2, 2);
+        memtable.appendSegmentFileOffset(0, 3, 3);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(0, 2)));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.truncateSuffix(0, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(new SegmentFilePointer(0, 1)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(nullValue()));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 2, 2);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(2, 2)));
     }
 }

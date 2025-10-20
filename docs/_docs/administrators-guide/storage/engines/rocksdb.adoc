@@ -17,7 +17,7 @@
 
 WARNING: RocksDB support is experimental.
 
-RocksDB is a persistent storage engine based on LSM tree. It is best used in environments with a large number of write requests.
+RocksDB is a persistent storage engine based on an LSM tree. It is best used in environments with a large number of write requests.
 
 == Profile Configuration
 

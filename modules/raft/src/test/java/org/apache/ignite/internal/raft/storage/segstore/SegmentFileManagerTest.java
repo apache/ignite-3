@@ -350,18 +350,76 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         List<byte[]> batches = randomData(batchSize, 100);
 
         IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
-            assertThat(fileManager.firstLogIndex(groupId), is(-1L));
-            assertThat(fileManager.lastLogIndex(groupId), is(-1L));
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
 
             for (int i = 0; i < batches.size(); i++) {
                 appendBytes(groupId, batches.get(i), i);
 
-                assertThat(fileManager.firstLogIndex(groupId), is(0L));
-                assertThat(fileManager.lastLogIndex(groupId), is((long) i));
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(i + 1L));
             }
 
-            assertThat(fileManager.firstLogIndex(groupId), is(0L));
-            assertThat(fileManager.lastLogIndex(groupId), is((long) (batches.size() - 1)));
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is((long) batches.size()));
+        };
+
+        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
+    }
+
+    @Test
+    void truncateRecordIsWrittenOnSuffixTruncate() throws IOException {
+        long groupId = 36;
+
+        long lastLogIndexKept = 42;
+
+        fileManager.truncateSuffix(groupId, lastLogIndexKept);
+
+        Path path = findSoleSegmentFile();
+
+        ByteBuffer expectedTruncateRecord = ByteBuffer.allocate(SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE)
+                .order(SegmentFile.BYTE_ORDER);
+
+        SegmentPayload.writeTruncateSuffixRecordTo(expectedTruncateRecord, groupId, lastLogIndexKept);
+
+        expectedTruncateRecord.rewind();
+
+        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
+            channel.position(HEADER_RECORD.length);
+
+            assertThat(readFully(channel, SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE), is(expectedTruncateRecord));
+        }
+    }
+
+    @Test
+    void testLastIndexAfterTruncateSuffix() {
+        int batchSize = FILE_SIZE / 10;
+
+        List<byte[]> batches = randomData(batchSize, 100);
+
+        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
+
+            long curLogIndex = 0;
+
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytes(groupId, batches.get(i), curLogIndex);
+
+                if (i > 0 && i % 10 == 0) {
+                    curLogIndex -= 4;
+
+                    fileManager.truncateSuffix(groupId, curLogIndex);
+                }
+
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex + 1));
+
+                curLogIndex++;
+            }
+
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex));
         };
 
         runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
@@ -376,21 +434,18 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     private List<Path> segmentFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
-            return files
-                    .filter(p -> p.getFileName().toString().startsWith("segment"))
-                    .sorted()
-                    .collect(toList());
+        try (Stream<Path> files = Files.list(fileManager.segmentFilesDir())) {
+            return files.sorted().collect(toList());
         }
     }
 
     private List<Path> indexFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
+        try (Stream<Path> files = Files.list(fileManager.indexFilesDir())) {
             return files
                     .filter(p -> {
                         String fileName = p.getFileName().toString();
 
-                        return fileName.startsWith("index") && !fileName.endsWith(".tmp");
+                        return !fileName.endsWith(".tmp");
                     })
                     .sorted()
                     .collect(toList());
@@ -437,7 +492,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         appendBytes(GROUP_ID, serializedEntry, index);
     }
 
-    private void appendBytes(long groupId, byte[] serializedEntry, int index) throws IOException {
+    private void appendBytes(long groupId, byte[] serializedEntry, long index) throws IOException {
         var entry = new LogEntry();
 
         entry.setId(new LogId(index, 0));

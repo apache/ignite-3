@@ -42,11 +42,11 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
     @Override
     protected LogStorage newLogStorage() {
-        segmentFileManager = new SegmentFileManager(NODE_NAME, path, SEGMENT_SIZE, 1, new NoOpFailureManager());
-
-        logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
-
         try {
+            segmentFileManager = new SegmentFileManager(NODE_NAME, path, SEGMENT_SIZE, 1, new NoOpFailureManager());
+
+            logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
+
             segmentFileManager.start();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -65,11 +65,5 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
     @Override
     public void testTruncatePrefix() {
         super.testTruncatePrefix();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26284")
-    @Override
-    public void testTruncateSuffix() {
-        super.testTruncateSuffix();
     }
 }
