@@ -182,16 +182,11 @@ class SegmentInfo {
         long newSize = lastLogIndexKept - logIndexBase + 1;
 
         // Not using an assertion here, because this value comes doesn't come from the storage code.
-        if (newSize < 0) {
+        if (newSize > segmentFileOffsets.size()) {
             throw new IllegalArgumentException(String.format(
                     "lastLogIndexKept is too large. Last index in memtable: %d, lastLogIndexKept: %d",
-                    logIndexBase + segmentFileOffsets.size(), lastLogIndexKept
+                    logIndexBase + segmentFileOffsets.size() - 1, lastLogIndexKept
             ));
-        }
-
-        if (newSize >= segmentFileOffsets.size()) {
-            // Nothing to truncate.
-            return;
         }
 
         ArrayWithSize newSegmentFileOffsets = segmentFileOffsets.truncate((int) newSize);

@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -213,10 +214,7 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         memTable.appendSegmentFileOffset(1, 5, 42);
 
-        // Truncating larger indices does not affect existing data.
-        memTable.truncateSuffix(0, 10);
-
-        assertThat(memTable.segmentInfo(1).getOffset(5), is(42));
+        assertThrows(IllegalArgumentException.class, () -> memTable.truncateSuffix(1, 10));
     }
 
     @Test
