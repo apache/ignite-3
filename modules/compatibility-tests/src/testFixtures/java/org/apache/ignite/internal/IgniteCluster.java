@@ -348,9 +348,10 @@ public class IgniteCluster {
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
                 String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
                 String nodeConfig = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
+                RunnerNode newNode = RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodeConfig, nodesCount,
+                        nodeName);
 
-                runnerNodes.add(
-                        RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodeConfig, nodesCount, nodeName));
+                runnerNodes.add(newNode);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
