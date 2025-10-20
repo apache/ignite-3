@@ -83,9 +83,9 @@ public class JdbcStatement2 implements Statement {
     private static final String ONLY_FORWARD_DIRECTION_IS_SUPPORTED =
             "Only forward direction is supported.";
 
-    private final IgniteSql igniteSql;
+    final Connection connection;
 
-    private final Connection connection;
+    final IgniteSql igniteSql;
 
     private final String schemaName;
 
@@ -103,7 +103,7 @@ public class JdbcStatement2 implements Statement {
 
     private boolean closeOnCompletion;
 
-    private volatile @Nullable CancelHandle cancelHandle;
+    volatile @Nullable CancelHandle cancelHandle;
 
     JdbcStatement2(
             Connection connection,
@@ -166,25 +166,7 @@ public class JdbcStatement2 implements Statement {
             throw new UnsupportedOperationException("Multi-statements are not supported yet.");
         }
 
-        StatementBuilder stmtBuilder = igniteSql.statementBuilder()
-                .query(sql)
-                .defaultSchema(schemaName);
-
-        if (queryTimeoutSeconds > 0) {
-            stmtBuilder.queryTimeout(queryTimeoutSeconds, TimeUnit.SECONDS);
-        }
-
-        if (getFetchSize() > 0) {
-            stmtBuilder.pageSize(getFetchSize());
-        }
-
-        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
-        ZoneId zoneId = conn.properties().getConnectionTimeZone();
-
-        org.apache.ignite.sql.Statement igniteStmt = stmtBuilder
-                .timeZoneId(zoneId)
-                .build();
-
+        org.apache.ignite.sql.Statement igniteStmt = createIgniteStatement(sql);
         ClientSql clientSql = (ClientSql) igniteSql;
 
         // Cancel handle is not reusable, we should create a new one for each execution.
@@ -678,6 +660,25 @@ public class JdbcStatement2 implements Statement {
         assert rs != null;
 
         return rs.isQuery();
+    }
+
+    org.apache.ignite.sql.Statement createIgniteStatement(String sql) throws SQLException {
+        StatementBuilder builder = igniteSql.statementBuilder()
+                .query(sql)
+                .defaultSchema(schemaName);
+
+        if (queryTimeoutSeconds > 0) {
+            builder.queryTimeout(queryTimeoutSeconds, TimeUnit.SECONDS);
+        }
+
+        if (getFetchSize() > 0) {
+            builder.pageSize(getFetchSize());
+        }
+
+        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
+        ZoneId zoneId = conn.properties().getConnectionTimeZone();
+
+        return builder.timeZoneId(zoneId).build();
     }
 
     void ensureNotClosed() throws SQLException {

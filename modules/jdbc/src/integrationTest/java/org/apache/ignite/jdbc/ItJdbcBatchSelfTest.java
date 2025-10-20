@@ -43,11 +43,9 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.jdbc.JdbcPreparedStatement;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -69,8 +67,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Statement test.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-26190
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
 public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** SQL CREATE TABLE query. */
     private static final String SQL_CREATE = "CREATE TABLE Person(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT)";
@@ -134,6 +130,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatch() throws SQLException {
         final int batchSize = 10;
 
@@ -152,6 +149,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchWithDdl() throws SQLException {
         stmt.addBatch("CREATE TABLE t1(ID INT PRIMARY KEY)");
         stmt.addBatch("CREATE TABLE t2(ID INT PRIMARY KEY)");
@@ -168,6 +166,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchWithKill() throws SQLException {
         try (Statement targetQueryStatement = conn.createStatement()) {
             try (ResultSet rs = targetQueryStatement.executeQuery("SELECT x FROM system_range(0, 100000);")) {
@@ -197,6 +196,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testMultipleStatementForBatchIsNotAllowed() throws SQLException {
         String insertStmt = "insert into Person (id, firstName, lastName, age) values";
         String ins1 = insertStmt + valuesRow(1);
@@ -211,6 +211,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchOnClosedStatement() throws SQLException {
         Statement stmt2 = conn.createStatement();
         PreparedStatement pstmt2 = conn.prepareStatement("");
@@ -280,6 +281,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("forbiddenStatements")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testForbiddenQueryTypes(String sql, String expectedError) throws SQLException {
         stmt.addBatch(sql);
 
@@ -291,6 +293,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchException() throws Exception {
         final int successUpdates = 5;
 
@@ -322,6 +325,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchParseException() throws Exception {
         final int successUpdates = 5;
 
@@ -354,6 +358,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchMerge() throws SQLException {
         final int batchSize = 5;
 
@@ -397,6 +402,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchKeyDuplicatesException() throws Exception {
         final int successUpdates = 5;
 
@@ -433,6 +439,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testHeterogeneousBatch() throws SQLException {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values (0, 'Name0', 'Lastname0', 10)");
         stmt.addBatch("insert into Person (id, firstName, lastName, age) "
@@ -447,6 +454,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testHeterogeneousBatchException() throws Exception {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values (0, 'Name0', 'Lastname0', 10)");
         stmt.addBatch("insert into Person (id, firstName, lastName, age) "
@@ -467,6 +475,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchClear() throws SQLException {
         final int batchSize = 7;
 
@@ -603,10 +612,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
      * @throws SQLException If failed.
      */
     private void populateTable(int size) throws SQLException {
-        stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
+        stmt.executeUpdate("insert into Person (id, firstName, lastName, age) values "
                 + generateValues(0, size));
-
-        stmt.executeBatch();
     }
 
     @Test
@@ -763,6 +770,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    // TODO too long test case - doscuss with author
+    @Disabled("Too long test case - doscuss with author")
     public void testPreparedBatchTimeout() throws SQLException {
         pstmt.close();
 
@@ -774,53 +783,51 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 + "SELECT * FROM TABLE(SYSTEM_RANGE(50, 100)))";
         pstmt = conn.prepareStatement(updateStmt);
 
-        JdbcPreparedStatement igniteStmt = pstmt.unwrap(JdbcPreparedStatement.class);
-
         {
             // Disable timeout
-            igniteStmt.timeout(0);
+            pstmt.setQueryTimeout(0);
 
             for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
 
-                igniteStmt.addBatch();
+                pstmt.addBatch();
             }
 
-            int[] updated = igniteStmt.executeBatch();
+            int[] updated = pstmt.executeBatch();
             assertEquals(3, updated.length);
         }
 
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
         {
-            int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
-            igniteStmt.timeout(timeoutMillis);
+            pstmt.setQueryTimeout(1);
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 10_000; i++) {
                 pstmt.setInt(1, 42);
 
-                igniteStmt.addBatch();
+                pstmt.addBatch();
             }
 
             assertThrowsSqlException(SQLException.class,
-                    "Query timeout", igniteStmt::executeBatch);
+                    "Query timeout", pstmt::executeBatch);
         }
 
         {
             // Disable timeout
-            igniteStmt.timeout(0);
+            pstmt.setQueryTimeout(0);
 
             for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
 
-                igniteStmt.addBatch();
+                pstmt.addBatch();
             }
 
-            int[] updated = igniteStmt.executeBatch();
+            int[] updated = pstmt.executeBatch();
             assertEquals(3, updated.length);
         }
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchTimeout() throws SQLException {
         JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
 

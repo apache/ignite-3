@@ -71,7 +71,6 @@ import org.springframework.data.util.Streamable;
  */
 @SpringBootTest(classes = TestApplication.class)
 @ExtendWith(WorkDirectoryExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-26190")
 public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @WorkDirectory
