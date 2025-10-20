@@ -45,6 +45,7 @@ public class TxCommandsCompatibilityTest extends BaseCommandsCompatibilityTest {
     }
 
     @Test
+    @TestForCommand(VacuumTxStatesCommand.class)
     void testVacuumTxStatesCommand() {
         VacuumTxStatesCommand command = decodeCommand("Bg4CAAAAAAAAAAAqAAAAAAAAAEU=");
 
