@@ -38,11 +38,13 @@ import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -101,6 +103,8 @@ public class JdbcStatement2 implements Statement {
 
     private boolean closeOnCompletion;
 
+    private volatile @Nullable CancelHandle cancelHandle;
+
     JdbcStatement2(
             Connection connection,
             IgniteSql igniteSql,
@@ -149,10 +153,8 @@ public class JdbcStatement2 implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26139 Implement autocommit = false
-        if (!connection.getAutoCommit()) {
-            throw new UnsupportedOperationException("Explicit transactions are not supported yet.");
-        }
+        JdbcConnection2 connection2 = connection.unwrap(JdbcConnection2.class);
+        Transaction tx = connection2.startTransactionIfNoAutoCommit();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-26142 multistatement.
         if (sql.indexOf(';') == -1 || sql.indexOf(';') == sql.length() - 1) {
@@ -185,11 +187,15 @@ public class JdbcStatement2 implements Statement {
 
         ClientSql clientSql = (ClientSql) igniteSql;
 
+        // Cancel handle is not reusable, we should create a new one for each execution.
+        CancelHandle handle = CancelHandle.create();
+        cancelHandle = handle;
+
         AsyncResultSet<SqlRow> clientRs;
         try {
-            clientRs = clientSql.executeAsyncInternal(null,
+            clientRs = clientSql.executeAsyncInternal(tx,
                     (Mapper<SqlRow>) null,
-                    null,
+                    handle.token(),
                     queryModifiers,
                     igniteStmt,
                     args
@@ -337,7 +343,10 @@ public class JdbcStatement2 implements Statement {
     public void cancel() throws SQLException {
         ensureNotClosed();
 
-        throw new UnsupportedOperationException();
+        CancelHandle handle = cancelHandle;
+        if (handle != null) {
+            handle.cancel();
+        }
     }
 
     /** {@inheritDoc} */
