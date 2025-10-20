@@ -1035,10 +1035,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             assert !tx.implicit() : "implicit RO getAll not supported";
 
-            BinaryRowEx firstRow = keyRows.iterator().next();
-
-            return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
-                    .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
+            return getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), null);
         }
 
         return enlistInTx(
@@ -1058,7 +1055,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            InternalClusterNode recipientNode
+            @Nullable InternalClusterNode recipientNode
     ) {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
