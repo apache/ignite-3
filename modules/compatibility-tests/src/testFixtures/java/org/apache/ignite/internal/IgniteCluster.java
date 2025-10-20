@@ -119,11 +119,9 @@ public class IgniteCluster {
      * Starts cluster in embedded mode with nodes of current version.
      *
      * @param nodesCount Number of nodes in the cluster.
-     *
-     * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbeddedPreInitialized(int nodesCount) {
-        return startEmbeddedPreInitialized(null, nodesCount);
+    public void startEmbedded(int nodesCount) {
+        startEmbedded(null, nodesCount);
     }
 
     /**
@@ -131,22 +129,18 @@ public class IgniteCluster {
      *
      * @param testInfo Test info.
      * @param nodesCount Number of nodes in the cluster.
-     *
-     * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbeddedPreInitialized(
+    public void startEmbedded(
             @Nullable TestInfo testInfo,
             int nodesCount
     ) {
-        List<ServerRegistration> nodeRegistrations = startEmbedded(testInfo, nodesCount);
+        List<ServerRegistration> nodeRegistrations = startEmbeddedNotInitialized(testInfo, nodesCount);
 
         for (ServerRegistration registration : nodeRegistrations) {
             assertThat(registration.registrationFuture(), willCompleteSuccessfully());
         }
 
         started = true;
-
-        return nodeRegistrations;
     }
 
     /**
@@ -156,8 +150,8 @@ public class IgniteCluster {
      *
      * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbedded(int nodesCount) {
-        return startEmbedded(null, nodesCount);
+    public List<ServerRegistration> startEmbeddedNotInitialized(int nodesCount) {
+        return startEmbeddedNotInitialized(null, nodesCount);
     }
 
     /**
@@ -168,7 +162,7 @@ public class IgniteCluster {
      *
      * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbedded(
+    public List<ServerRegistration> startEmbeddedNotInitialized(
             @Nullable TestInfo testInfo,
             int nodesCount
     ) {
@@ -183,6 +177,8 @@ public class IgniteCluster {
         for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
             nodeRegistrations.add(startEmbeddedNode(testInfo, nodeIndex, nodesCount));
         }
+
+        started = true;
 
         return nodeRegistrations;
     }

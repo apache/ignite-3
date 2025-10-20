@@ -67,7 +67,7 @@ public class ItPartitionRaftLogOneNodeCompatibilityTest extends CompatibilityTes
 
         cleanTableStoragesDir();
 
-        cluster.startEmbeddedPreInitialized(nodesCount());
+        cluster.startEmbedded(nodesCount());
 
         assertThat(sql(String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
     }
