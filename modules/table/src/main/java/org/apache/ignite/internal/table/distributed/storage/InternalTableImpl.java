@@ -1063,7 +1063,9 @@ public class InternalTableImpl implements InternalTable {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            ReplicationGroupId replicationGroupId = targetReplicationGroupId(partitionRowBatch.getIntKey());
+            int partitionId = partitionRowBatch.getIntKey();
+
+            ReplicationGroupId replicationGroupId = targetReplicationGroupId(partitionId);
 
             ReadOnlyMultiRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
                     .groupId(serializeReplicationGroupId(replicationGroupId))
@@ -1076,7 +1078,8 @@ public class InternalTableImpl implements InternalTable {
                     .coordinatorId(coordinatorId)
                     .build();
 
-            partitionRowBatch.getValue().resultFuture = replicaSvc.invoke(recipientNode, request);
+            partitionRowBatch.getValue().resultFuture = evaluateReadOnlyRecipientNode(partitionId, readTimestamp)
+                    .thenCompose(recipient -> replicaSvc.invoke(recipient, request));
         }
 
         return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
