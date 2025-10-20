@@ -79,6 +79,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(BuildIndexCommand.class)
     void testBuildIndexCommand() {
         BuildIndexCommand command = decodeCommand("Ci0BRgIAAAAAAAAAACoAAAAAAAAARQ==");
 
@@ -88,6 +89,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(BuildIndexCommandV2.class)
     void testBuildIndexCommandV2() {
         BuildIndexCommandV2 command = decodeCommand("CjIBRgIAAAAAAAAAACoAAAAAAAAARQg=");
 
@@ -98,6 +100,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(FinishTxCommandV1.class)
     void testFinishTxCommandV1() {
         FinishTxCommandV1 command = decodeCommand("CikBSAFHAgkrLSJGAAAAAAAAAAAqAAAAAAAAAEU=");
 
@@ -111,6 +114,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(FinishTxCommandV2.class)
     void testFinishTxCommandV2() {
         FinishTxCommandV2 command = decodeCommand("CjMBSAFHAgYVCSwXDAMtIkYAAAAAAAAAACoAAAAAAAAARQ==");
 
@@ -124,6 +128,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(UpdateAllCommand.class)
     void testUpdateAllCommand() {
         UpdateAllCommand command = decodeCommand(
                 "CisBRwErAgAAAAAAAAAAKgAAAAAAAABFChkKEwMEAQIDAdMJRgkrLSIAAAAAAAAAACoAAAAAAAAARQAAAAAAAAAAKgAAAAAAAABF"
@@ -140,6 +145,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(UpdateAllCommandV2.class)
     void testUpdateAllCommandV2() {
         UpdateAllCommandV2 command = decodeCommand(
                 "CjEBRwErAgAAAAAAAAAAKgAAAAAAAABFChkKEwMEAQIDAdMJRggJKy0iAAAAAAAAAAAqAAAAAAAAAEUAAAAAAAAAACoAAAAAAAAARQ=="
@@ -157,6 +163,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(UpdateCommand.class)
     void testUpdateCommand() {
         UpdateCommand command = decodeCommand(
                 "CiwBRwErChkKEwMEAQIDAdMJAAAAAAAAAAAqAAAAAAAAAEVGCSstIgAAAAAAAAAAKgAAAAAAAABFAAAAAAAAAAAqAAAAAAAAAEU="
@@ -174,6 +181,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(UpdateCommandV2.class)
     void testUpdateCommandV2() {
         UpdateCommandV2 command = decodeCommand(
                 "CjABRwErChkKEwMEAQIDAdMJAAAAAAAAAAAqAAAAAAAAAEVGCAkrLSIAAAAAAAAAACoAAAAAAAAARQAAAAAAAAAAKgAAAAAAAABF"
@@ -192,6 +200,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(UpdateMinimumActiveTxBeginTimeCommand.class)
     void testUpdateMinimumActiveTxBeginTimeCommand() {
         UpdateMinimumActiveTxBeginTimeCommand command = decodeCommand("Ci5HRtMJ");
 
@@ -201,6 +210,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(WriteIntentSwitchCommand.class)
     void testWriteIntentSwitchCommand() {
         WriteIntentSwitchCommand command = decodeCommand("CioBSAFHRgAAAAAAAAAAKgAAAAAAAABF");
 
@@ -213,6 +223,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
     }
 
     @Test
+    @TestForCommand(WriteIntentSwitchCommandV2.class)
     void testWriteIntentSwitchCommandV2() {
         WriteIntentSwitchCommandV2 command = decodeCommand("Ci8BSAFHRgMJCAAAAAAAAAAAKgAAAAAAAABF");
 
