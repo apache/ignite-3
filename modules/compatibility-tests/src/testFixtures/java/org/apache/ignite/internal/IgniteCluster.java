@@ -234,8 +234,6 @@ public class IgniteCluster {
         for (ServerRegistration registration : nodeRegistrations) {
             assertThat(registration.registrationFuture(), willCompleteSuccessfully());
         }
-
-        started = true;
     }
 
     /**
