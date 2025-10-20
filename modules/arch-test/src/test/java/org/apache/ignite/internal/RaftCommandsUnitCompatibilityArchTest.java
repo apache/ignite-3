@@ -62,8 +62,8 @@ public class RaftCommandsUnitCompatibilityArchTest {
         assertThat(
                 "There are still some raft commands that haven't been tested; for example, see the successors of "
                         + BaseCommandsCompatibilityTest.class.getName(),
-                raftCommands,
-                containsInAnyOrder(testedRaftCommands.toArray(new String[0]))
+                testedRaftCommands,
+                containsInAnyOrder(raftCommands.toArray(new String[0]))
         );
     }
 
