@@ -188,7 +188,6 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     void cancellationOfBatch() throws Exception {
         stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
         stmt.addBatch("INSERT INTO dummy SELECT x, x FROM system_range(1, 1)");
