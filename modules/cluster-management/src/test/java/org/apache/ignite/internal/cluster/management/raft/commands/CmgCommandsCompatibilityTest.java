@@ -61,6 +61,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(ChangeMetaStorageInfoCommand.class)
     void testChangeMetaStorageInfoCommand() {
         ChangeMetaStorageInfoCommand command = decodeCommand("CDADCG1zTm9kZTIIbXNOb2RlMQEr");
 
@@ -69,6 +70,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(InitCmgStateCommand.class)
     void testInitCmgStateCommand() {
         InitCmgStateCommand command = decodeCommand(
                 "CCkIPgg/AAAAAAAAAAAqAAAAAAAAAEUNY2x1c3Rlck5hbWUxAwljbWdOb2RlMQljbWdOb2RlMgIAAAAAAAAAACoAAAAAAAAARQxpbml0Q29uZmlnMQMIbXNOb"
@@ -81,6 +83,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(JoinReadyCommand.class)
     void testJoinReadyCommand() {
         JoinReadyCommand command = decodeCommand(
                 "CC0IPQZob3N0MQAAAAAAAAAAKgAAAAAAAABFBm5hbWUx6QcCCXByb2ZpbGUxAghzeXNLZXkxCHN5c1ZhbDECCXVzZXJLZXkxCXVzZXJWYWwx"
@@ -90,6 +93,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(JoinRequestCommand.class)
     void testJoinRequestCommand() {
         JoinRequestCommand command = decodeCommand(
                 "CCwIPwAAAAAAAAAAKgAAAAAAAABFDWNsdXN0ZXJOYW1lMQg9Bmhvc3QxAAAAAAAAAAAqAAAAAAAAAEUGbmFtZTHpBwIJcHJvZmlsZTECCHN5c0tleTEIc3lzV"
@@ -102,6 +106,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(NodesLeaveCommand.class)
     void testNodesLeaveCommand() {
         NodesLeaveCommand command = decodeCommand(
                 "CC4CCD0GaG9zdDEAAAAAAAAAACoAAAAAAAAARQZuYW1lMekHAglwcm9maWxlMQIIc3lzS2V5MQhzeXNWYWwxAgl1c2VyS2V5MQl1c2VyVmFsMQ=="
@@ -111,6 +116,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(ReadLogicalTopologyCommand.class)
     void testReadLogicalTopologyCommand() {
         Command command = decodeCommand("CCs=");
 
@@ -118,6 +124,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(ReadMetaStorageInfoCommand.class)
     void testReadMetaStorageInfoCommand() {
         Command command = decodeCommand("CEM=");
 
@@ -125,6 +132,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(ReadStateCommand.class)
     void testReadStateCommand() {
         Command command = decodeCommand("CCo=");
 
@@ -132,6 +140,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     }
 
     @Test
+    @TestForCommand(ReadValidatedNodesCommand.class)
     void testReadValidatedNodesCommand() {
         Command command = decodeCommand("CC8=");
 
