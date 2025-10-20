@@ -500,7 +500,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .forced(forced)
                 .build();
 
-        return sendWithRetry(peer, requestFactory, false)
+        return sendWithRetry(peer, -1, Long.MAX_VALUE, NO_DESCRIPTION, requestFactory, false)
                 .thenAccept(resp -> {});
     }
 
@@ -604,12 +604,23 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Function<Peer, ? extends NetworkMessage> requestFactory,
             boolean throttleOnOverload
     ) {
-        return sendWithRetry(peer, defaultTimeout(), NO_DESCRIPTION, requestFactory, throttleOnOverload);
+        return sendWithRetry(peer, defaultTimeout(), -1, NO_DESCRIPTION, requestFactory, throttleOnOverload);
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
             Peer peer,
             long timeoutMillis,
+            Supplier<String> originDescription,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            boolean throttleOnOverload
+    ) {
+        return sendWithRetry(peer, timeoutMillis, -1, originDescription, requestFactory, throttleOnOverload);
+    }
+
+    private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
+            Peer peer,
+            long timeoutMillis,
+            long responseTimeoutMillis,
             Supplier<String> originDescription,
             Function<Peer, ? extends NetworkMessage> requestFactory,
             boolean throttleOnOverload
@@ -636,7 +647,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
 
             long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
-            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
+            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime, responseTimeoutMillis);
 
             sendWithRetry(future, context, peerThrottlingContextHolder);
 
@@ -689,7 +700,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
 
             peerThrottlingContextHolder.beforeRequest();
-            long responseTimeout = peerThrottlingContextHolder.peerRequestTimeoutMillis();
+
+            long responseTimeout = retryContext.responseTimeoutMillis() == -1
+                    ? peerThrottlingContextHolder.peerRequestTimeoutMillis() : retryContext.responseTimeoutMillis();
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService()
