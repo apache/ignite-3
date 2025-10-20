@@ -118,10 +118,57 @@ public class IgniteCluster {
     /**
      * Starts cluster in embedded mode with nodes of current version.
      *
+     * @param nodesCount Number of nodes in the cluster.
+     *
+     * @return a list of server registrations, one for each node.
+     */
+    public List<ServerRegistration> startEmbedded(int nodesCount) {
+        return startEmbedded(null, nodesCount);
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
      * @param testInfo Test info.
      * @param nodesCount Number of nodes in the cluster.
+     *
+     * @return a list of server registrations, one for each node.
      */
-    public void startEmbedded(
+    public List<ServerRegistration> startEmbedded(
+            @Nullable TestInfo testInfo,
+            int nodesCount
+    ) {
+        List<ServerRegistration> nodeRegistrations = startEmbeddedNoInit(testInfo, nodesCount);
+
+        for (ServerRegistration registration : nodeRegistrations) {
+            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+        }
+
+        started = true;
+
+        return nodeRegistrations;
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param nodesCount Number of nodes in the cluster.
+     *
+     * @return a list of server registrations, one for each node.
+     */
+    public List<ServerRegistration> startEmbeddedNoInit(int nodesCount) {
+        return startEmbeddedNoInit(null, nodesCount);
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param testInfo Test info.
+     * @param nodesCount Number of nodes in the cluster.
+     *
+     * @return a list of server registrations, one for each node.
+     */
+    public List<ServerRegistration> startEmbeddedNoInit(
             @Nullable TestInfo testInfo,
             int nodesCount
     ) {
@@ -137,20 +184,7 @@ public class IgniteCluster {
             nodeRegistrations.add(startEmbeddedNode(testInfo, nodeIndex, nodesCount));
         }
 
-        for (ServerRegistration registration : nodeRegistrations) {
-            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
-        }
-
-        started = true;
-    }
-
-    /**
-     * Starts cluster in embedded mode with nodes of current version.
-     *
-     * @param nodesCount Number of nodes in the cluster.
-     */
-    public void startEmbedded(int nodesCount) {
-        startEmbedded(null, nodesCount);
+        return nodeRegistrations;
     }
 
     /**
@@ -186,6 +220,22 @@ public class IgniteCluster {
 
         started = false;
         stopped = true;
+    }
+
+    /**
+     * Init a cluster running in embedded mode. Only required if this has not been done before in a prior run.
+     *
+     * @param nodeRegistrations list of server registrations.
+     * @param initParametersConfigurator the consumer to use for configuration.
+     */
+    public void initEmbedded(List<ServerRegistration> nodeRegistrations, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        init(initParametersConfigurator);
+
+        for (ServerRegistration registration : nodeRegistrations) {
+            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+        }
+
+        started = true;
     }
 
     /**
