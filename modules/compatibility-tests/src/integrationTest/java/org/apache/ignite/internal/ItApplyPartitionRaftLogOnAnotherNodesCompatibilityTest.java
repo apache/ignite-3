@@ -73,7 +73,7 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
     void testIncreaseReplicas() throws Exception {
         cluster.stop();
 
-        cluster.startEmbedded(nodesCount());
+        cluster.startEmbeddedPreInitialized(nodesCount());
 
         sql(String.format("ALTER ZONE %s SET REPLICAS=3, DATA_NODES_FILTER='$..*'", ZONE_NAME));
 

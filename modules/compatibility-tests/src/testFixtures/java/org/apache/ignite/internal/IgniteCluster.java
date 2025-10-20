@@ -122,8 +122,8 @@ public class IgniteCluster {
      *
      * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbedded(int nodesCount) {
-        return startEmbedded(null, nodesCount);
+    public List<ServerRegistration> startEmbeddedPreInitialized(int nodesCount) {
+        return startEmbeddedPreInitialized(null, nodesCount);
     }
 
     /**
@@ -134,11 +134,11 @@ public class IgniteCluster {
      *
      * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbedded(
+    public List<ServerRegistration> startEmbeddedPreInitialized(
             @Nullable TestInfo testInfo,
             int nodesCount
     ) {
-        List<ServerRegistration> nodeRegistrations = startEmbeddedNoInit(testInfo, nodesCount);
+        List<ServerRegistration> nodeRegistrations = startEmbedded(testInfo, nodesCount);
 
         for (ServerRegistration registration : nodeRegistrations) {
             assertThat(registration.registrationFuture(), willCompleteSuccessfully());
@@ -156,8 +156,8 @@ public class IgniteCluster {
      *
      * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbeddedNoInit(int nodesCount) {
-        return startEmbeddedNoInit(null, nodesCount);
+    public List<ServerRegistration> startEmbedded(int nodesCount) {
+        return startEmbedded(null, nodesCount);
     }
 
     /**
@@ -168,7 +168,7 @@ public class IgniteCluster {
      *
      * @return a list of server registrations, one for each node.
      */
-    public List<ServerRegistration> startEmbeddedNoInit(
+    public List<ServerRegistration> startEmbedded(
             @Nullable TestInfo testInfo,
             int nodesCount
     ) {
