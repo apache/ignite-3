@@ -283,10 +283,7 @@ public class TableImpl implements TableViewInternal {
     ) {
         int indexId = indexDescriptor.id();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
-        partitions.stream().forEach(partitionId -> {
-            tbl.storage().createHashIndex(partitionId, indexDescriptor);
-        });
+        partitions.stream().forEach(partitionId -> tbl.storage().createHashIndex(partitionId, indexDescriptor));
 
         indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }
@@ -300,10 +297,7 @@ public class TableImpl implements TableViewInternal {
     ) {
         int indexId = indexDescriptor.id();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
-        partitions.stream().forEach(partitionId -> {
-            tbl.storage().createSortedIndex(partitionId, indexDescriptor);
-        });
+        partitions.stream().forEach(partitionId -> tbl.storage().createSortedIndex(partitionId, indexDescriptor));
 
         indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }
