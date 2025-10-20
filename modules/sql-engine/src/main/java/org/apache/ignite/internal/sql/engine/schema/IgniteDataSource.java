@@ -38,11 +38,16 @@ public interface IgniteDataSource extends TranslatableTable, Wrapper {
     int id();
 
     /**
-     * Returns the version of the table's schema.
+     * Returns the version of the table's schema. The version is bumped only, when table structure was modified (e.g. column added/dropped).
      *
      * @return the version of the table's schema.
      */
     int version();
+
+    /**
+     * Return table descriptor modification timestamp.
+     */
+    long timestamp();
 
     /**
      * Gets a name of the table.

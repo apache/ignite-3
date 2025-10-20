@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Describes changing of table properties.
  */
-public class AlterTablePropertiesEntry extends UpdateTable implements Fireable {
+public class AlterTablePropertiesEntry extends AbstractUpdateTableEntry implements Fireable {
     private final int tableId;
 
     private final @Nullable Double staleRowsFraction;
