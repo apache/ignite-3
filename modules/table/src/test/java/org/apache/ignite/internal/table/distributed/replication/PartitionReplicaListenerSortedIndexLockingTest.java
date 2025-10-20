@@ -111,6 +111,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
@@ -265,7 +266,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 new TestLowWatermark(),
                 new NoOpFailureManager(),
                 new SystemPropertiesNodeProperties(),
-                new TableMetricSource(QualifiedName.fromSimple("test_table"))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("test_table")))
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

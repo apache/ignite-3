@@ -57,7 +57,7 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -585,7 +585,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public TableMetricSource metrics() {
+    public TableMetrics metrics() {
         return null;
     }
 }
