@@ -46,6 +46,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * {@link Statement} implementation backed by the thin client.
@@ -93,7 +94,7 @@ public class JdbcStatement2 implements Statement {
 
     private volatile @Nullable JdbcResultSet resultSet;
 
-    private int queryTimeoutSeconds;
+    private long queryTimeoutMillis;
 
     private int pageSize;
 
@@ -305,7 +306,7 @@ public class JdbcStatement2 implements Statement {
     public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        return queryTimeoutSeconds;
+        return (int) TimeUnit.MILLISECONDS.toSeconds(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -317,7 +318,7 @@ public class JdbcStatement2 implements Statement {
             throw new SQLException("Invalid timeout value.");
         }
 
-        this.queryTimeoutSeconds = timeout;
+        this.queryTimeoutMillis = TimeUnit.SECONDS.toMillis(timeout);
     }
 
     /** {@inheritDoc} */
@@ -652,6 +653,12 @@ public class JdbcStatement2 implements Statement {
         return iface != null && iface.isAssignableFrom(JdbcStatement2.class);
     }
 
+    /** Sets timeout in milliseconds. */
+    @TestOnly
+    public void timeout(long timeoutMillis) {
+        this.queryTimeoutMillis = timeoutMillis;
+    }
+
     protected boolean isQuery() {
         // This method is called after statement is executed, so the reference points to a correct result set.
         // The statement is not expected to be used from multiple threads, so this reference points to a correct result set.
@@ -667,8 +674,8 @@ public class JdbcStatement2 implements Statement {
                 .query(sql)
                 .defaultSchema(schemaName);
 
-        if (queryTimeoutSeconds > 0) {
-            builder.queryTimeout(queryTimeoutSeconds, TimeUnit.SECONDS);
+        if (queryTimeoutMillis > 0) {
+            builder.queryTimeout(queryTimeoutMillis, TimeUnit.MILLISECONDS);
         }
 
         if (getFetchSize() > 0) {

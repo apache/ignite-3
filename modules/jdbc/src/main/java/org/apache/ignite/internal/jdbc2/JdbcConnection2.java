@@ -101,12 +101,6 @@ public class JdbcConnection2 implements Connection {
     private static final String INVALID_TRANSACTION_ISOLATION_LEVEL =
             "Invalid transaction isolation level.";
 
-    private static final String NO_TRANSACTION_TO_COMMIT =
-            "No transaction to commit.";
-
-    private static final String NO_TRANSACTION_TO_ROLLBACK =
-            "No transaction to rollback.";
-
     private static final String SHARDING_KEYS_ARE_NOT_SUPPORTED =
             "Sharding keys are not supported.";
 
@@ -279,7 +273,7 @@ public class JdbcConnection2 implements Connection {
     private void commitTx() throws SQLException {
         Transaction tx = transaction;
         if (tx == null) {
-            throw new SQLException(NO_TRANSACTION_TO_COMMIT);
+            return;
         }
 
         // Null out the transaction first.
@@ -295,7 +289,7 @@ public class JdbcConnection2 implements Connection {
     private void rollbackTx() throws SQLException {
         Transaction tx = transaction;
         if (tx == null) {
-            throw new SQLException(NO_TRANSACTION_TO_ROLLBACK);
+            return;
         }
 
         // Null out the transaction first.

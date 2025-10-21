@@ -43,17 +43,21 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.jdbc2.JdbcPreparedStatement2;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -84,6 +88,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** Prepared statement. */
     private PreparedStatement pstmt;
 
+    /** The number of open thin client resources before the test started. */
+    private int resourcesBefore;
+
     @BeforeAll
     public static void beforeAll() throws Exception {
         try (Statement statement = conn.createStatement()) {
@@ -109,6 +116,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         try (Statement statement = conn.createStatement()) {
             statement.executeUpdate(SQL_DELETE);
         }
+
+        resourcesBefore = openResources();
     }
 
     /** {@inheritDoc} */
@@ -127,6 +136,10 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 .getSum();
 
         assertEquals(0, countOfPendingTransactions);
+
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertThat(openResources() - resourcesBefore, is(0));
+        });
     }
 
     @Test
@@ -770,8 +783,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    // TODO too long test case - doscuss with author
-    @Disabled("Too long test case - doscuss with author")
     public void testPreparedBatchTimeout() throws SQLException {
         pstmt.close();
 
@@ -783,45 +794,48 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 + "SELECT * FROM TABLE(SYSTEM_RANGE(50, 100)))";
         pstmt = conn.prepareStatement(updateStmt);
 
+        JdbcPreparedStatement2 igniteStmt = pstmt.unwrap(JdbcPreparedStatement2.class);
+
         {
             // Disable timeout
-            pstmt.setQueryTimeout(0);
+            igniteStmt.timeout(0);
 
             for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
 
-                pstmt.addBatch();
+                igniteStmt.addBatch();
             }
 
-            int[] updated = pstmt.executeBatch();
+            int[] updated = igniteStmt.executeBatch();
             assertEquals(3, updated.length);
         }
 
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
         {
-            pstmt.setQueryTimeout(1);
-
-            for (int i = 0; i < 10_000; i++) {
-                pstmt.setInt(1, 42);
-
-                pstmt.addBatch();
-            }
-
-            assertThrowsSqlException(SQLException.class,
-                    "Query timeout", pstmt::executeBatch);
-        }
-
-        {
-            // Disable timeout
-            pstmt.setQueryTimeout(0);
+            int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
+            igniteStmt.timeout(timeoutMillis);
 
             for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
 
-                pstmt.addBatch();
+                igniteStmt.addBatch();
             }
 
-            int[] updated = pstmt.executeBatch();
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", igniteStmt::executeBatch);
+        }
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int i = 0; i < 3; i++) {
+                pstmt.setInt(1, 42);
+
+                igniteStmt.addBatch();
+            }
+
+            int[] updated = igniteStmt.executeBatch();
             assertEquals(3, updated.length);
         }
     }
