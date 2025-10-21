@@ -114,6 +114,8 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
     private Stripe stripe(long groupId) {
         int stripeIndex = Long.hashCode(groupId) % stripes.length;
 
+        assert stripeIndex >= 0 : String.format("Stripe index must not be negative [groupId=%d]", groupId);
+
         return stripes[stripeIndex];
     }
 

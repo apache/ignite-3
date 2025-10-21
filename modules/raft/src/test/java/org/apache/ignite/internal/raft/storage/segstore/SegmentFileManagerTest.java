@@ -60,6 +60,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -85,13 +86,19 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     private static final String NODE_NAME = "test";
 
+    private final FailureManager failureManager = new NoOpFailureManager();
+
     private SegmentFileManager fileManager;
 
     @BeforeEach
     void setUp() throws IOException {
-        fileManager = new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, new NoOpFailureManager());
+        fileManager = createFileManager();
 
         fileManager.start();
+    }
+
+    private SegmentFileManager createFileManager() throws IOException {
+        return new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, failureManager);
     }
 
     @AfterEach
@@ -423,6 +430,42 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         };
 
         runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
+    }
+
+    @Test
+    void testRecovery() throws Exception {
+        int batchSize = FILE_SIZE / 4;
+
+        List<byte[]> batches = randomData(batchSize, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        List<Path> segmentFiles = segmentFiles();
+
+        assertThat(segmentFiles, hasSize(greaterThan(1)));
+
+        List<Path> indexFiles = await().until(this::indexFiles, hasSize(segmentFiles.size() - 1));
+
+        fileManager.close();
+
+        // Delete an index file. We expect it to be re-created after recovery.
+        Files.delete(indexFiles.get(0));
+
+        fileManager = new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, new NoOpFailureManager());
+
+        fileManager.start();
+
+        for (int i = 0; i < batches.size(); i++) {
+            byte[] expectedEntry = batches.get(i);
+
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                assertThat(bs, is(expectedEntry));
+
+                return null;
+            });
+        }
     }
 
     private Path findSoleSegmentFile() throws IOException {
