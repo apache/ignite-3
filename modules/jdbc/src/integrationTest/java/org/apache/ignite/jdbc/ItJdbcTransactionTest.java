@@ -211,7 +211,6 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26190")
     public void testBatchPrepared() throws Exception {
         checkRollbackAndCommit((conn, start, cnt) -> {
             try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {

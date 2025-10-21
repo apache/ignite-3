@@ -518,6 +518,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                     conn::commit
             );
 
+            conn.setAutoCommit(false);
+            assertFalse(conn.getAutoCommit());
+
+            // No exception is expected.
+            conn.commit();
+
             conn.close();
 
             // Exception when called on closed connection
@@ -533,6 +539,11 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                     "Transaction cannot be rolled back explicitly in auto-commit mode.",
                     conn::rollback
             );
+
+            conn.setAutoCommit(false);
+
+            // No exception is expected.
+            conn.rollback();
 
             conn.close();
 
