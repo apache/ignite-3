@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.jdbc2;
 
+import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.Array;
+import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
@@ -52,8 +55,17 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -102,6 +114,9 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
 
     private List<Object> currentArguments = List.of();
 
+    /** Batched query arguments. */
+    private @Nullable BatchedArguments batchedArgs;
+
     JdbcPreparedStatement2(
             Connection connection,
             IgniteSql igniteSql,
@@ -140,7 +155,35 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
     public int[] executeBatch() throws SQLException {
         ensureNotClosed();
 
-        throw new UnsupportedOperationException("Batch operation");
+        if (CollectionUtils.nullOrEmpty(batchedArgs)) {
+            return INT_EMPTY_ARRAY;
+        }
+
+        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
+        Transaction tx = conn.startTransactionIfNoAutoCommit();
+
+        // Cancel handle is not reusable, we should create a new one for each execution.
+        CancelHandle handle = CancelHandle.create();
+        cancelHandle = handle;
+
+        Statement igniteStmt = createIgniteStatement(sql);
+        ClientSql clientSql = (ClientSql) igniteSql;
+
+        try {
+            long[] longUpdateCounters = clientSql.executeBatch(tx, handle.token(), igniteStmt, batchedArgs);
+
+            return longsArrayToIntsArrayUnsafe(longUpdateCounters);
+        } catch (SqlBatchException e) {
+            throw new BatchUpdateException(e.getMessage(),
+                    IgniteQueryErrorCode.codeToSqlState(e.errorCode()),
+                    IgniteQueryErrorCode.UNKNOWN,
+                    longsArrayToIntsArrayUnsafe(e.updateCounters()));
+        } catch (Exception e) {
+            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
+            throw new SQLException(cause.getMessage(), cause);
+        } finally {
+            batchedArgs = null;
+        }
     }
 
     /** {@inheritDoc} */
@@ -226,7 +269,16 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
     public void addBatch() throws SQLException {
         ensureNotClosed();
 
-        throw new UnsupportedOperationException("Batch operation");
+        if (currentArguments.isEmpty()) {
+            return;
+        }
+
+        if (batchedArgs == null) {
+            batchedArgs = BatchedArguments.create();
+        }
+
+        batchedArgs.add(currentArguments.toArray());
+        currentArguments = List.of();
     }
 
     /** {@inheritDoc} */
@@ -241,7 +293,7 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
     public void clearBatch() throws SQLException {
         ensureNotClosed();
 
-        throw new UnsupportedOperationException("Batch operation");
+        batchedArgs = null;
     }
 
     /** {@inheritDoc} */
@@ -826,5 +878,15 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
         if (!SUPPORTED_TYPES.contains(jdbcType)) {
             throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
         }
+    }
+
+    private static int[] longsArrayToIntsArrayUnsafe(long[] longs) {
+        int[] ints = new int[longs.length];
+
+        for (int i = 0; i < longs.length; i++) {
+            ints[i] = (int) longs[i];
+        }
+
+        return ints;
     }
 }
