@@ -83,7 +83,7 @@ In your terminal, run:
 
 [source, bash]
 ----
-docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -v ./sql/:/opt/ignite/downloads/ apacheignite/ignite:3.0.0 cli
+docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -v ./sql/:/opt/ignite/downloads/ apacheignite/ignite:3.1.0 cli
 ----
 
 This starts an interactive CLI container connected to the same Docker network as our cluster and mounts a volume containing the sql files for the Chinook Database. When prompted, connect to the default node. If you refused the connection, you can do it manually with the following command:
@@ -124,7 +124,7 @@ NOTE: If the license is not available, make sure the license file was mounted co
      ####  ##         /___/ \__, //_/ /_//_/ \__/ \___/   /____/
        ##                  /____/
 
-                      Apache Ignite CLI version 3.0.0
+                      Apache Ignite CLI version 3.1.0
 
 
 You appear to have not connected to any node yet. Do you want to connect to the default node http://localhost:10300? [Y/n] y

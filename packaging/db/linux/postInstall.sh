@@ -54,8 +54,44 @@ setup_host_name() {
   fi
 }
 
+escape_forward_slashes() {
+  echo "$1" | sed 's;/;\\/;g'
+}
+
+replace_or_append_property_in_file() (
+  LHS="$(escape_forward_slashes "$1")"
+  RHS="$(escape_forward_slashes "$2")"
+  sed -i "/^$LHS=/{h;s/=.*/=$RHS/};\${x;/^$/{s//$LHS=$RHS/;H};x}" "$3"
+)
+
+replace_or_append_properties() (
+  replace_or_append_property() {
+    LHS="$(echo "$1" | cut -d'=' -f1)"
+    RHS="$(echo "$1" | cut -d'=' -f2-)"
+    replace_or_append_property_in_file "$LHS" "$RHS" "$2"
+  }
+  while IFS='' read -r LINE || [ -n "${LINE}" ]; do
+    case "$LINE" in
+      *=*) replace_or_append_property "$LINE" "$2" ;;
+    esac
+  done < "$1"
+)
+
+persist_properties() {
+  if [ -f '@CONF_DIR@/backup/vars.env' ]; then
+    if [ -f '@CONF_DIR@/vars.env.rpmnew' ]; then
+      mv '@CONF_DIR@/vars.env.rpmnew' '@CONF_DIR@/vars.env'
+    fi
+    replace_or_append_properties '@CONF_DIR@/backup/vars.env' '@CONF_DIR@/vars.env'
+  fi
+  if [ -f '@CONF_DIR@/backup/ignite-config.conf' ]; then
+    cp -f "@CONF_DIR@/backup/ignite-config.conf" "@CONF_DIR@/ignite-config.conf"
+  fi
+}
+
 setup_directories
 setup_service_files
+persist_properties
 setup_host_name
 
 echo
