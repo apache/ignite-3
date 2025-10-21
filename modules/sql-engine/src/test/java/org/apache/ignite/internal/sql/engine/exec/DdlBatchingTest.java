@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -92,7 +94,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     @Test
     void schemaAndTableCreatedInTheSameBatch() {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
-                "CREATE SCHEMA my_schema;" 
+                "CREATE SCHEMA my_schema;"
                         + "CREATE TABLE my_schema.t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE INDEX t1_ind_1 ON my_schema.t1 (val_1);"
         );
@@ -124,8 +126,8 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     void fewDdlAreBatched() {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
                 "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
-                + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
-                + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
+                        + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
+                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
         );
 
         // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
@@ -197,12 +199,101 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void batchIsSplitByAlter() {
+        AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
+                "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "ALTER TABLE t1 ADD COLUMN val_3 INT;"
+                        + "ALTER TABLE t1 DROP COLUMN val_2;"
+                        + "CREATE INDEX t1_ind_3 ON t1 (val_3);"
+        );
+
+        // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // ALTER TABLE t ADD COLUMN val_3 INT;
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // ALTER TABLE t DROP COLUMN val_2 INT;
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t1_ind_3 ON t1 (val_3)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(false));
+
+        // ALTER splits the batch
+        assertEquals(4, executeCallCounter.get());
+
+        assertTableExists("t1");
+        assertIndexExists("t1_ind_3");
+    }
+
+    @Test
+    void batchIsSplitByDrop() {
+        System.out.println("XXX: " + executeCallCounter.get());
+        AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
+                "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "CREATE INDEX t2_ind_1 ON t2 (val_1);"
+                        + "CREATE INDEX t2_ind_2 ON t2 (val_2);"
+                        + "DROP TABLE t2;"
+                        + "DROP TABLE t1;"
+                        + "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+        );
+
+        // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t2_ind_1 ON t2 (val_1)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP TABLE t2
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CCREATE INDEX t1_ind_3 ON t1 (val_3)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(false));
+
+        // ALTER splits the batch
+        assertEquals(3, executeCallCounter.get());
+        assertTableExists("t1");
+        assertTableNotExists("t2");
+        assertIndexNotExists("t2_ind_1");
+        assertIndexNotExists("t2_ind_2");
+    }
+
+    @Test
     void batchIsSplitByOtherStatements() {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
                 "INSERT INTO blackhole SELECT x FROM system_range(1, 10);"
                         + "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
-                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);" 
+                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
                         + "INSERT INTO blackhole SELECT x FROM system_range(1, 10);"
                         + "CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE INDEX t2_ind_1 ON t2 (val_1);"
@@ -367,12 +458,10 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * This case makes sure that exception thrown is matched the order of execution, and not the order 
-     * exceptions appear.
+     * This case makes sure that exception thrown is matched the order of execution, and not the order exceptions appear.
      *
-     * <p>To be more specific, first seen exception relates to absent PK definition in 3rd statement, but 
-     * during execution the exception that should be thrown is the one denoting that table with given name
-     * already exists (2nd statement).
+     * <p>To be more specific, first seen exception relates to absent PK definition in 3rd statement, but
+     * during execution the exception that should be thrown is the one denoting that table with given name already exists (2nd statement).
      */
     @Test
     void mixedErrorsInBatch() {
@@ -482,10 +571,11 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     private CatalogManager catalogManagerDecorator(CatalogManager original) {
         return (CatalogManager) Proxy.newProxyInstance(
                 QueryTimeoutTest.class.getClassLoader(),
-                new Class<?>[] {CatalogManager.class},
+                new Class<?>[]{CatalogManager.class},
                 (proxy, method, args) -> {
                     if ("execute".equals(method.getName())) {
-                        executeCallCounter.incrementAndGet();
+                        int i = executeCallCounter.incrementAndGet();
+                        System.out.println(IgniteStringFormatter.format("CALL: try={}, args={}", i, Arrays.toString(args)));
                     }
 
                     return method.invoke(original, args);
