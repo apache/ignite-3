@@ -89,10 +89,8 @@ class BuildIndexRowVersionChooser {
                 }
 
                 if (readResult.isWriteIntent()) {
-                    if (beginTs(readResult) >= createIndexActivationTs) {
-                        continue;
-                    }
-                    if (abortedTransactionIds.contains(readResult.transactionId())) {
+                    if (beginTs(readResult) >= createIndexActivationTs
+                            || abortedTransactionIds.contains(readResult.transactionId())) {
                         continue;
                     }
                 } else {
