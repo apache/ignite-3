@@ -500,7 +500,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .forced(forced)
                 .build();
 
-        return sendWithRetry(peer, requestFactory, false)
+        return sendWithRetry(peer, -1, Long.MAX_VALUE, NO_DESCRIPTION, requestFactory, false)
                 .thenAccept(resp -> {});
     }
 
@@ -614,6 +614,30 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Function<Peer, ? extends NetworkMessage> requestFactory,
             boolean throttleOnOverload
     ) {
+        return sendWithRetry(peer, timeoutMillis, -1, originDescription, requestFactory, throttleOnOverload);
+    }
+
+    /**
+     * Sends a request with retry until success or reaches a timeout.
+     *
+     * @param peer Target peer to which the request will be sent.
+     * @param sendWithRetryTimeoutMillis Timeout for entire request sending (with retries) in milliseconds, a negative value means no
+     *      timeout.
+     * @param singleRequestTimeoutMillis Timeout for sending a single request in milliseconds, {@code -1} if there is no timeout.
+     * @param originDescription Origin request description supplier for logging purposes.
+     * @param requestFactory Factory for creating requests to the target peer.
+     * @param throttleOnOverload Whether to throttle the request if the target peer is overloaded.
+     * @param <R> Response type.
+     * @return Future representing the result of the request.
+     */
+    private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
+            Peer peer,
+            long sendWithRetryTimeoutMillis,
+            long singleRequestTimeoutMillis,
+            Supplier<String> originDescription,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            boolean throttleOnOverload
+    ) {
         var future = new CompletableFuture<R>();
 
         if (!busyLock.enterBusy()) {
@@ -635,8 +659,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 return future;
             }
 
-            long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
-            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
+            long stopTime = sendWithRetryTimeoutMillis >= 0 ? currentTimeMillis() + sendWithRetryTimeoutMillis : Long.MAX_VALUE;
+            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime, singleRequestTimeoutMillis);
 
             sendWithRetry(future, context, peerThrottlingContextHolder);
 
@@ -689,7 +713,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
 
             peerThrottlingContextHolder.beforeRequest();
-            long responseTimeout = peerThrottlingContextHolder.peerRequestTimeoutMillis();
+
+            long responseTimeout = retryContext.responseTimeoutMillis() == -1
+                    ? peerThrottlingContextHolder.peerRequestTimeoutMillis() : retryContext.responseTimeoutMillis();
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService()
