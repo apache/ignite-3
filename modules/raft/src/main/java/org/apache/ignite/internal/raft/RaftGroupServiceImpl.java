@@ -617,6 +617,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return sendWithRetry(peer, timeoutMillis, -1, originDescription, requestFactory, throttleOnOverload);
     }
 
+    /**
+     * Sends a request with retry until success or a timeout.
+     *
+     * @param peer Target peer to which the request will be sent.
+     * @param timeoutMillis Timeout for entire request sending (with retries) in milliseconds, a negative value means no timeout.
+     * @param responseTimeoutMillis Timeout for sending a single request in milliseconds, {@code -1} if there is no timeout.
+     * @param originDescription Origin request description supplier for logging purposes.
+     * @param requestFactory Factory for creating requests to the target peer.
+     * @param throttleOnOverload Whether to throttle the request if the target peer is overloaded.
+     * @param <R> Response type.
+     * @return Future representing the result of the request.
+     */
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
             Peer peer,
             long timeoutMillis,

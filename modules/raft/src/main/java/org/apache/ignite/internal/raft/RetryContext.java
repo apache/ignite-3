@@ -48,7 +48,7 @@ class RetryContext {
 
     private Peer targetPeer;
 
-    private final Supplier<String> originDescription;
+    private final Supplier<@Nullable String> originDescription;
 
     private final Function<Peer, ? extends NetworkMessage> requestFactory;
 
@@ -109,7 +109,7 @@ class RetryContext {
     RetryContext(
             String groupId,
             Peer targetPeer,
-            Supplier<String> originDescription,
+            Supplier<@Nullable String> originDescription,
             Function<Peer, ? extends NetworkMessage> requestFactory,
             long stopTime,
             long responseTimeoutMillis
