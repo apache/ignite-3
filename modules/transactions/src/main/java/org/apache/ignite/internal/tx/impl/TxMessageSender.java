@@ -208,7 +208,7 @@ public class TxMessageSender {
     /**
      * Send TxStateCoordinatorRequest.
      *
-     * @param coordinatorClusterNode Node id to send the request to.
+     * @param coordinatorClusterNode Node to send the request to.
      * @param txId Transaction id.
      * @param timestamp Timestamp to pass to target node.
      * @return Completable future of {@link TxStateResponse}.

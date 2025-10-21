@@ -224,7 +224,9 @@ public class TransactionStateResolver {
             txMessageSender.resolveTxStateFromCoordinator(coordinator, txId, timestamp)
                     .whenComplete((response, e) -> {
                         if (e == null && response.txStateMeta() != null) {
-                            txMetaFuture.complete(asTransactionMeta(Objects.requireNonNull(response.txStateMeta())));
+                            TransactionMetaMessage transactionMetaMessage = Objects.requireNonNull(response.txStateMeta(),
+                                    "Transaction state meta must not be null after check");
+                            txMetaFuture.complete(asTransactionMeta(transactionMetaMessage));
                         } else {
                             if (e != null && e.getCause() instanceof RecipientLeftException) {
                                 markAbandoned(txId);
