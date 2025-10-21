@@ -26,6 +26,7 @@ import java.sql.Statement;
 import java.util.List;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.jdbc.ItJdbcStatementSelfTest;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -35,8 +36,8 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
 
     private static final List<String> STATEMENTS = List.of(
             "SELECT 1; SELECT 2/0; SELECT 3",
-            "SELECT * FROM SYSTEM_RANGE(1, 1500); SELECT 2/0; SELECT 3"
-            // "SELECT 1; SELECT 2/0; SELECT * FROM SYSTEM_RANGE(3, 1500)"
+            "SELECT * FROM SYSTEM_RANGE(1, 1500); SELECT 2/0; SELECT 3",
+            "SELECT 1; SELECT 2/0; SELECT * FROM SYSTEM_RANGE(3, 1500)"
     );
 
     private static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
@@ -47,7 +48,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    public void noResourcesAfterExecutingFailingScript() throws Exception {
+    public void noScriptResourcesAfterExecutingFailingScript() throws Exception {
         for (String statement : STATEMENTS) {
             log.info("Run statement: {}", statement);
 
@@ -62,7 +63,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    public void noResourcesAfterExecutingFailingScript2() throws Exception {
+    public void noScriptResourcesAfterExecutingFailingScript2() throws Exception {
         for (String statement : STATEMENTS) {
             log.info("Run statement: {}", statement);
 
@@ -78,7 +79,8 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    public void noResourcesAfterClientTerminates() throws Exception {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26789")
+    public void noResourcesScriptAfterClientTerminates() throws Exception {
         for (String statement : STATEMENTS) {
             log.info("Run statement: {}", statement);
 
@@ -94,6 +96,21 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
 
             expectNoResources();
         }
+    }
+
+    @Test
+    public void noStatementResourcesAfterClientTerminates() throws Exception {
+        Connection conn = DriverManager.getConnection(JDBC_URL);
+        JdbcConnection2 jdbcConnection = conn.unwrap(JdbcConnection2.class);
+
+        Statement stmt = conn.createStatement();
+        // Do not close the statement, closing the client should release its resources.
+        stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(1, 15000)");
+
+        // Close the client
+        jdbcConnection.closeClient();
+
+        expectNoResources();
     }
 
     private void expectNoResources() throws InterruptedException {
