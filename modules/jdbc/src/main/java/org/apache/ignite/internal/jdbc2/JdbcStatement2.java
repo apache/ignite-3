@@ -46,6 +46,7 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * {@link Statement} implementation backed by the thin client.
@@ -83,9 +84,9 @@ public class JdbcStatement2 implements Statement {
     private static final String ONLY_FORWARD_DIRECTION_IS_SUPPORTED =
             "Only forward direction is supported.";
 
-    private final IgniteSql igniteSql;
+    final Connection connection;
 
-    private final Connection connection;
+    final IgniteSql igniteSql;
 
     private final String schemaName;
 
@@ -93,7 +94,7 @@ public class JdbcStatement2 implements Statement {
 
     protected volatile @Nullable ResultSetWrapper result;
 
-    private int queryTimeoutSeconds;
+    private long queryTimeoutMillis;
 
     private int pageSize;
 
@@ -103,7 +104,7 @@ public class JdbcStatement2 implements Statement {
 
     boolean closeOnCompletion;
 
-    private volatile @Nullable CancelHandle cancelHandle;
+    volatile @Nullable CancelHandle cancelHandle;
 
     JdbcStatement2(
             Connection connection,
@@ -159,25 +160,7 @@ public class JdbcStatement2 implements Statement {
         JdbcConnection2 connection2 = connection.unwrap(JdbcConnection2.class);
         Transaction tx = connection2.startTransactionIfNoAutoCommit();
 
-        StatementBuilder stmtBuilder = igniteSql.statementBuilder()
-                .query(sql)
-                .defaultSchema(schemaName);
-
-        if (queryTimeoutSeconds > 0) {
-            stmtBuilder.queryTimeout(queryTimeoutSeconds, TimeUnit.SECONDS);
-        }
-
-        if (getFetchSize() > 0) {
-            stmtBuilder.pageSize(getFetchSize());
-        }
-
-        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
-        ZoneId zoneId = conn.properties().getConnectionTimeZone();
-
-        org.apache.ignite.sql.Statement igniteStmt = stmtBuilder
-                .timeZoneId(zoneId)
-                .build();
-
+        org.apache.ignite.sql.Statement igniteStmt = createIgniteStatement(sql);
         ClientSql clientSql = (ClientSql) igniteSql;
 
         // Cancel handle is not reusable, we should create a new one for each execution.
@@ -315,7 +298,7 @@ public class JdbcStatement2 implements Statement {
     public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        return queryTimeoutSeconds;
+        return (int) TimeUnit.MILLISECONDS.toSeconds(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */
@@ -327,7 +310,7 @@ public class JdbcStatement2 implements Statement {
             throw new SQLException("Invalid timeout value.");
         }
 
-        this.queryTimeoutSeconds = timeout;
+        this.queryTimeoutMillis = TimeUnit.SECONDS.toMillis(timeout);
     }
 
     /** {@inheritDoc} */
@@ -675,6 +658,31 @@ public class JdbcStatement2 implements Statement {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface != null && iface.isAssignableFrom(JdbcStatement2.class);
+    }
+
+    /** Sets timeout in milliseconds. */
+    @TestOnly
+    public void timeout(long timeoutMillis) {
+        this.queryTimeoutMillis = timeoutMillis;
+    }
+
+    org.apache.ignite.sql.Statement createIgniteStatement(String sql) throws SQLException {
+        StatementBuilder builder = igniteSql.statementBuilder()
+                .query(sql)
+                .defaultSchema(schemaName);
+
+        if (queryTimeoutMillis > 0) {
+            builder.queryTimeout(queryTimeoutMillis, TimeUnit.MILLISECONDS);
+        }
+
+        if (getFetchSize() > 0) {
+            builder.pageSize(getFetchSize());
+        }
+
+        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
+        ZoneId zoneId = conn.properties().getConnectionTimeZone();
+
+        return builder.timeZoneId(zoneId).build();
     }
 
     void ensureNotClosed() throws SQLException {
