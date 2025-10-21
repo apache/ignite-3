@@ -63,13 +63,13 @@ public final class ForeignObjectInputStream extends ObjectInputStream {
                 throw ex;
             }
 
-            // TODO: Test if it makes sense to throw a more positive exception instead of just shielding the constructor.
             c = new ByteBuddy()
                     .subclass(Object.class, Default.NO_CONSTRUCTORS)
                     .name(className)
                     .defineConstructor(Visibility.PRIVATE)
                     .intercept(SuperMethodCall.INSTANCE.andThen(MethodCall.run(() -> {
-                        throw new RuntimeException("");
+                        throw new RuntimeException(String.format("Cannot instantiate dummy object for class '%s'."
+                                + " This class could not be found and a placeholder was generated.", className));
                     })))
                     .make()
                     .load(publicClassloader, ClassLoadingStrategy.Default.WRAPPER)

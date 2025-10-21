@@ -1,5 +1,3 @@
-import groovy.json.JsonOutput
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
@@ -59,7 +57,7 @@ def unpackTask = tasks.register('unpackClassesFromDependencies', Copy) {
 }
 
 def createFullSampleClusterResources = tasks.register('createFullSampleClusterResources') {
-    description = 'Generates the "compute-deployment-units.json" resource file.'
+    description = 'Generates the "fullsamplecluster" resource file.'
 
     def outputFile = file("$buildDir/resources/main/fullsamplecluster")
     outputs.file(outputFile)
