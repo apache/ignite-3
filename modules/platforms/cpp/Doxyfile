@@ -2901,7 +2901,7 @@ MSCGEN_TOOL            =
 
 MSCFILE_DIRS           =
 
-;INPUT= \
+INPUT= \
     ignite/client \
     ignite/common \
     docs/index.dox
