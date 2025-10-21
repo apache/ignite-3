@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.internal.IgniteCluster;
 import org.apache.ignite.internal.OldClientLoader;
@@ -69,7 +70,8 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         clientVersion = clientVer;
 
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir, CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE);
-        cluster.startEmbedded(1, true);
+        List<ServerRegistration> serverRegistrations = cluster.startEmbeddedNotInitialized(1);
+        cluster.initEmbedded(serverRegistrations, x -> {});
 
         initTestData(cluster.node(0));
 

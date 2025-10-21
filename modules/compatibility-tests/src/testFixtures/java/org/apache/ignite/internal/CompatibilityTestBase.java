@@ -125,7 +125,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();
 
-            cluster.startEmbedded(nodesCount, false);
+            cluster.startEmbedded(nodesCount);
             await().until(this::noActiveRebalance, willBe(true));
         }
     }

@@ -86,14 +86,14 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
 
     @Test
     void testReapplication() {
-        cluster.startEmbedded(1, false);
+        cluster.startEmbedded(1);
 
         checkMetastorage();
     }
 
     @Test
     void testStreamToFollower() throws InterruptedException {
-        cluster.startEmbedded(2, false);
+        cluster.startEmbedded(2);
 
         checkMetastorage();
 
