@@ -484,7 +484,7 @@ private:
 };
 
 /**
- * @brief Key-Value view interface for a table.
+ * @brief Key-Value view interface for table.
  *
  * Provides methods to access table records in form of separate key and value parts.
  */
