@@ -25,11 +25,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
+import org.apache.ignite.internal.raft.util.VarlenEncoder;
+import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
@@ -121,10 +126,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
     /**
      * Current segment file ordinal (used to generate segment file names).
-     *
-     * <p>Must always be accessed under the {@link #rolloverLock}.
      */
-    private int curSegmentFileOrdinal;
+    private final AtomicInteger curSegmentFileOrdinal = new AtomicInteger();
 
     /**
      * Flag indicating whether the file manager has been stopped.
@@ -150,10 +153,43 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     void start() throws IOException {
-        checkpointer.start();
+        Path lastSegmentFilePath = null;
 
-        // TODO: implement recovery, see https://issues.apache.org/jira/browse/IGNITE-26283.
-        currentSegmentFile.set(allocateNewSegmentFile(0));
+        try (Stream<Path> segmentFiles = Files.list(segmentFilesDir)) {
+            Iterator<Path> it = segmentFiles.sorted().iterator();
+
+            while (it.hasNext()) {
+                Path segmentFilePath = it.next();
+
+                // Last segment file is treated differently.
+                if (!it.hasNext()) {
+                    lastSegmentFilePath = segmentFilePath;
+                } else {
+                    int segmentFileOrdinal = segmentFileOrdinal(segmentFilePath);
+
+                    if (!indexFileManager.indexFileExists(segmentFileOrdinal)) {
+                        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath);
+
+                        WriteModeIndexMemTable memTable = recoverMemtable(segmentFile, segmentFilePath);
+
+                        indexFileManager.saveIndexMemtable(memTable.transitionToReadMode(), segmentFileOrdinal);
+                    }
+                }
+            }
+        }
+
+        if (lastSegmentFilePath == null) {
+            currentSegmentFile.set(allocateNewSegmentFile(0));
+        } else {
+            curSegmentFileOrdinal.set(segmentFileOrdinal(lastSegmentFilePath));
+
+            currentSegmentFile.set(recoverLatestSegmentFile(lastSegmentFilePath));
+        }
+
+        // Index File Manager must be started strictly before the checkpointer.
+        indexFileManager.start();
+
+        checkpointer.start();
     }
 
     Path segmentFilesDir() {
@@ -172,6 +208,12 @@ class SegmentFileManager implements ManuallyCloseable {
         writeHeader(segmentFile);
 
         return new SegmentFileWithMemtable(segmentFile, new IndexMemTable(stripes), false);
+    }
+
+    private SegmentFileWithMemtable recoverLatestSegmentFile(Path segmentFilePath) throws IOException {
+        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath);
+
+        return new SegmentFileWithMemtable(segmentFile, recoverLatestMemtable(segmentFile, segmentFilePath), false);
     }
 
     private static String segmentFileName(int fileOrdinal, int generation) {
@@ -376,7 +418,7 @@ class SegmentFileManager implements ManuallyCloseable {
                 throw new IgniteInternalException(NODE_STOPPING_ERR);
             }
 
-            currentSegmentFile.set(allocateNewSegmentFile(++curSegmentFileOrdinal));
+            currentSegmentFile.set(allocateNewSegmentFile(curSegmentFileOrdinal.incrementAndGet()));
 
             rolloverLock.notifyAll();
         }
@@ -427,6 +469,99 @@ class SegmentFileManager implements ManuallyCloseable {
         SegmentFile segmentFile = SegmentFile.openExisting(path);
 
         return segmentFile.buffer().position(segmentFilePointer.payloadOffset());
+    }
+
+    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        ByteBuffer buffer = segmentFile.buffer();
+
+        int magicNumber = buffer.getInt();
+
+        if (magicNumber != MAGIC_NUMBER) {
+            throw new IllegalStateException(String.format("Invalid magic number in segment file %s: %d.", segmentFilePath, magicNumber));
+        }
+
+        int formatVersion = buffer.getInt();
+
+        if (formatVersion > FORMAT_VERSION) {
+            throw new IllegalStateException(String.format(
+                    "Unsupported format version in segment file %s: %d.", segmentFilePath, formatVersion
+            ));
+        }
+
+        var memtable = new IndexMemTable(stripes);
+
+        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
+            long groupId = buffer.getLong();
+
+            buffer.position(buffer.position() + Integer.BYTES); // skip payload length.
+
+            VarlenEncoder.readLong(buffer); // skip term.
+
+            long index = VarlenEncoder.readLong(buffer);
+
+            int logEntryOffset = buffer.position();
+
+            memtable.appendSegmentFileOffset(groupId, index, logEntryOffset);
+        }
+
+        return memtable;
+    }
+
+    private WriteModeIndexMemTable recoverLatestMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        ByteBuffer buffer = segmentFile.buffer();
+
+        int magicNumber = buffer.getInt();
+
+        if (magicNumber != MAGIC_NUMBER) {
+            throw new IllegalStateException(String.format("Invalid magic number in segment file %s: %d.", segmentFilePath, magicNumber));
+        }
+
+        int formatVersion = buffer.getInt();
+
+        if (formatVersion > FORMAT_VERSION) {
+            throw new IllegalStateException(String.format(
+                    "Unsupported format version in segment file %s: %d.", segmentFilePath, formatVersion
+            ));
+        }
+
+        var memtable = new IndexMemTable(stripes);
+
+        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
+            int originalPosition = buffer.position();
+
+            long groupId = buffer.getLong();
+
+            int payloadLength = buffer.getInt();
+
+            int payloadOffset = buffer.position();
+
+            VarlenEncoder.readLong(buffer); // skip term.
+
+            long index = VarlenEncoder.readLong(buffer);
+
+            int logEntryOffset = buffer.position();
+
+            int crcPosition = payloadOffset + payloadLength;
+
+            int crc = buffer.getInt(crcPosition);
+
+            buffer.position(originalPosition);
+
+            int expectedCrc = FastCrc.calcCrc(buffer, crcPosition - originalPosition);
+
+            // CRC violation signals the end of meaningful data in the segment file.
+            if (crc != expectedCrc) {
+                break;
+            }
+
+            memtable.appendSegmentFileOffset(groupId, index, logEntryOffset);
+        }
+
+        return memtable;
+    }
+
+    private static int segmentFileOrdinal(Path segmentFile) {
+        return Integer.parseInt(segmentFile.getFileName().toString().split("-")[0]);
     }
 
     private static class WriteBufferWithMemtable implements AutoCloseable {
