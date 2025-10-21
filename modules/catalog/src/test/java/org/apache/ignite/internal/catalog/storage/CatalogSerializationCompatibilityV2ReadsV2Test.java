@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.junit.jupiter.api.Test;
 
@@ -57,5 +58,22 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
         checker.addExpectedVersion(MarshallableEntryType.ALTER_TABLE_PROPERTIES.id(), 1);
         checker.compareEntries(entries, "AlterTableProperties", 1);
+    }
+
+    @Test
+    public void newTableV3() {
+        int tableSerializerVersion = 2;
+        int tableVersionsSerializerVersion = 3;
+        int tableColumnSerializerVersion = 3;
+        int snapshotFileSuffix = 3;
+
+        List<UpdateEntry> entries = TestTableDescriptors.tables(state, tableSerializerVersion)
+                .stream()
+                .map(NewTableEntry::new)
+                .collect(Collectors.toList());
+
+        checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS.id(), tableVersionsSerializerVersion);
+        checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id(), tableColumnSerializerVersion);
+        checker.compareEntries(entries, "NewTableEntry", snapshotFileSuffix);
     }
 }

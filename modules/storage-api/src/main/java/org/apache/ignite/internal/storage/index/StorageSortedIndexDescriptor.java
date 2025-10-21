@@ -188,16 +188,16 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
         return index.columns().stream()
                 .map(columnDescriptor -> {
-                    String columnName = columnDescriptor.name();
+                    int columnId = columnDescriptor.columnId();
 
-                    CatalogTableColumnDescriptor column = table.column(columnName);
+                    CatalogTableColumnDescriptor column = table.columnById(columnId);
 
-                    assert column != null : "indexId=" + index.id() + ", columnName=" + columnName;
+                    assert column != null : "indexId=" + index.id() + ", columnId=" + columnId;
 
                     CatalogColumnCollation collation = columnDescriptor.collation();
 
                     return new StorageSortedIndexColumnDescriptor(
-                            columnName, getNativeType(column), column.nullable(), collation.asc(), collation.nullsFirst()
+                            column.name(), getNativeType(column), column.nullable(), collation.asc(), collation.nullsFirst()
                     );
                 })
                 .collect(toList());
