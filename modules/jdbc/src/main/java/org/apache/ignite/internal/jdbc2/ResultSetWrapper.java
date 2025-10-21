@@ -85,6 +85,7 @@ final class ResultSetWrapper {
         JdbcResultSet rs = current;
 
         do {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-26789 Close properly.
             // w/o iteration over all cursors, the cursors that are not retrieved hung in the void
             // and are never released (this does not seem right).
             try {
