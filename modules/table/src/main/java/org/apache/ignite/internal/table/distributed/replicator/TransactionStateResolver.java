@@ -225,7 +225,7 @@ public class TransactionStateResolver {
                     .whenComplete((response, e) -> {
                         if (e == null && response.txStateMeta() != null) {
                             TransactionMetaMessage transactionMetaMessage = Objects.requireNonNull(response.txStateMeta(),
-                                    "Transaction state meta must not be null after check");
+                                    "Transaction state meta must not be null after check.");
                             txMetaFuture.complete(asTransactionMeta(transactionMetaMessage));
                         } else {
                             if (e != null && e.getCause() instanceof RecipientLeftException) {
