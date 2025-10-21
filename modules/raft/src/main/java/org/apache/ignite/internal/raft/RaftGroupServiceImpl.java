@@ -604,7 +604,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Function<Peer, ? extends NetworkMessage> requestFactory,
             boolean throttleOnOverload
     ) {
-        return sendWithRetry(peer, defaultTimeout(), -1, NO_DESCRIPTION, requestFactory, throttleOnOverload);
+        return sendWithRetry(peer, defaultTimeout(), NO_DESCRIPTION, requestFactory, throttleOnOverload);
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
@@ -618,11 +618,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
-     * Sends a request with retry until success or a timeout.
+     * Sends a request with retry until success or reaches a timeout.
      *
      * @param peer Target peer to which the request will be sent.
-     * @param timeoutMillis Timeout for entire request sending (with retries) in milliseconds, a negative value means no timeout.
-     * @param responseTimeoutMillis Timeout for sending a single request in milliseconds, {@code -1} if there is no timeout.
+     * @param sendWithRetryTimeout Timeout for entire request sending (with retries) in milliseconds, a negative value means no timeout.
+     * @param singleRequestTimeout Timeout for sending a single request in milliseconds, {@code -1} if there is no timeout.
      * @param originDescription Origin request description supplier for logging purposes.
      * @param requestFactory Factory for creating requests to the target peer.
      * @param throttleOnOverload Whether to throttle the request if the target peer is overloaded.
@@ -631,8 +631,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      */
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
             Peer peer,
-            long timeoutMillis,
-            long responseTimeoutMillis,
+            long sendWithRetryTimeout,
+            long singleRequestTimeout,
             Supplier<String> originDescription,
             Function<Peer, ? extends NetworkMessage> requestFactory,
             boolean throttleOnOverload
@@ -658,8 +658,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 return future;
             }
 
-            long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
-            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime, responseTimeoutMillis);
+            long stopTime = sendWithRetryTimeout >= 0 ? currentTimeMillis() + sendWithRetryTimeout : Long.MAX_VALUE;
+            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime, singleRequestTimeout);
 
             sendWithRetry(future, context, peerThrottlingContextHolder);
 
