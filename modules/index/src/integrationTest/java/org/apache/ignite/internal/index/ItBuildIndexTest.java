@@ -85,7 +85,6 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -224,7 +223,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21546")
     void writeIntentFromTxAbandonedBeforeShouldNotBeIndexed() throws Exception {
         createTable(1, 1);
 
@@ -246,7 +244,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21546")
     void writeIntentFromTxAbandonedWhileWaitingForTransactionsToFinishShouldNotBeIndexed() throws Exception {
         createTable(1, 1);
 

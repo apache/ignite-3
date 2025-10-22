@@ -86,6 +86,10 @@ public abstract class BaseCommandsCompatibilityTest extends BaseIgniteAbstractTe
         return new UUID(42, 69);
     }
 
+    protected static UUID anotherUuid() {
+        return new UUID(-42, -69);
+    }
+
     protected static HybridTimestamp initiatorTime() {
         return HybridTimestamp.hybridTimestamp(70);
     }

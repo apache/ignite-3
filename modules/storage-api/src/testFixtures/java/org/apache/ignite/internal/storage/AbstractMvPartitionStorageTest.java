@@ -1520,6 +1520,48 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
+    void testClosestRow() {
+        RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_TABLE_ID, PARTITION_ID);
+
+        addWrite(rowId1, binaryRow, txId);
+        addWrite(rowId2, binaryRow2, txId);
+
+        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0));
+        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0.increment()));
+
+        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId1));
+
+        assertRowMetaEquals(expectedRowMeta2, storage.closestRow(rowId2));
+
+        assertNull(storage.closestRow(rowId2.increment()));
+    }
+
+    private static void assertRowMetaEquals(RowMeta expected, RowMeta actual) {
+        assertNotNull(actual);
+
+        assertEquals(expected.rowId(), actual.rowId());
+        assertEquals(expected.transactionId(), actual.transactionId());
+        assertEquals(expected.commitTableOrZoneId(), actual.commitTableOrZoneId());
+        assertEquals(expected.commitPartitionId(), actual.commitPartitionId());
+    }
+
+    @Test
+    void testClosestRowReconstruction() {
+        RowId rowId = new RowId(PARTITION_ID, 0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
+
+        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_TABLE_ID, PARTITION_ID);
+
+        addWrite(rowId, binaryRow, txId);
+
+        assertRowMetaEquals(expectedRowMeta, storage.closestRow(RowId.lowestRowId(PARTITION_ID)));
+    }
+
+    @Test
     public void addWriteCommittedAddsCommittedVersion() {
         RowId rowId = new RowId(PARTITION_ID);
 
