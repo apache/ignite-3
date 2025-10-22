@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -49,7 +50,8 @@ public class PlacementDriverHelper {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PlacementDriverHelper.class);
 
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+    /** Default timeout in seconds to await primary replica. */
+    public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
@@ -75,16 +77,35 @@ public class PlacementDriverHelper {
      *         appeared during the await timeout.
      */
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(ReplicationGroupId partitionId) {
+        return awaitPrimaryReplicaWithExceptionHandling(partitionId, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+    }
+
+    /**
+     * Wait for primary replica to appear for the provided partition.
+     *
+     * @param partitionId Partition id.
+     * @param timeout Timeout duration.
+     * @param timeUnit Timeout time unit.
+     * @return Future that completes with node id that is a primary for the provided partition, or completes with exception if no primary
+     *         appeared during the await timeout.
+     */
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
+            ReplicationGroupId partitionId,
+            long timeout,
+            TimeUnit timeUnit
+    ) {
         HybridTimestamp timestamp = clockService.now();
 
-        return awaitPrimaryReplicaWithExceptionHandling(partitionId, timestamp);
+        return awaitPrimaryReplicaWithExceptionHandling(partitionId, timestamp, timeout, timeUnit);
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
             ReplicationGroupId partitionId,
-            HybridTimestamp timestamp
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit timeUnit
     ) {
-        return placementDriver.awaitPrimaryReplica(partitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+        return placementDriver.awaitPrimaryReplica(partitionId, timestamp, timeout, timeUnit)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
                         LOG.debug("Failed to retrieve primary replica for partition {}", partitionId, e);
@@ -121,7 +142,9 @@ public class PlacementDriverHelper {
      * @return A future that completes with a map of node to the partitions the node is primary for.
      */
     public CompletableFuture<Map<String, Set<ReplicationGroupId>>> awaitPrimaryReplicas(Collection<ReplicationGroupId> partitions) {
-        return computePrimaryReplicas(partitions, this::awaitPrimaryReplicaWithExceptionHandling)
+        BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> action = (groupId, timestamp)
+                -> awaitPrimaryReplicaWithExceptionHandling(groupId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+        return computePrimaryReplicas(partitions, action)
                 .thenApply(partitionData -> partitionData.partitionsByNode);
     }
 

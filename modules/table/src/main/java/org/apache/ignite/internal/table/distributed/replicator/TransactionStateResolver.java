@@ -18,15 +18,18 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.impl.PlacementDriverHelper.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -139,6 +142,26 @@ public class TransactionStateResolver {
             ReplicationGroupId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
+        return resolveTxState(txId, commitGrpId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+    }
+
+    /**
+     * Resolves transaction state locally, if possible, or distributively, if needed.
+     *
+     * @param txId Transaction id.
+     * @param commitGrpId Commit partition group id.
+     * @param timestamp Timestamp.
+     * @param awaitPrimaryReplicaTimeout Timeout for awaiting primary replica.
+     * @param awaitPrimaryReplicaTimeUnit Time unit for awaiting primary replica timeout.
+     * @return Future with the transaction state meta as a result.
+     */
+    public CompletableFuture<TransactionMeta> resolveTxState(
+            UUID txId,
+            ReplicationGroupId commitGrpId,
+            @Nullable HybridTimestamp timestamp,
+            long awaitPrimaryReplicaTimeout,
+            TimeUnit awaitPrimaryReplicaTimeUnit
+    ) {
         TxStateMeta localMeta = txManager.stateMeta(txId);
 
         if (localMeta != null && isFinalState(localMeta.txState())) {
@@ -149,7 +172,15 @@ public class TransactionStateResolver {
             if (v == null) {
                 v = new CompletableFuture<>();
 
-                resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, v);
+                resolveDistributiveTxState(
+                        txId,
+                        localMeta,
+                        commitGrpId,
+                        timestamp,
+                        awaitPrimaryReplicaTimeout,
+                        awaitPrimaryReplicaTimeUnit,
+                        v
+                );
             }
 
             return v;
@@ -167,6 +198,8 @@ public class TransactionStateResolver {
      * @param localMeta Local tx meta.
      * @param commitGrpId Commit partition group id.
      * @param timestamp Timestamp to pass to target node.
+     * @param awaitPrimaryReplicaTimeout Timeout for awaiting primary replica.
+     * @param awaitPrimaryReplicaTimeUnit Time unit for awaiting primary replica timeout.
      * @param txMetaFuture Tx meta future to complete with the result.
      */
     private void resolveDistributiveTxState(
@@ -174,6 +207,8 @@ public class TransactionStateResolver {
             @Nullable TxStateMeta localMeta,
             ReplicationGroupId commitGrpId,
             @Nullable HybridTimestamp timestamp,
+            long awaitPrimaryReplicaTimeout,
+            TimeUnit awaitPrimaryReplicaTimeUnit,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
         assert localMeta == null || !isFinalState(localMeta.txState()) : "Unexpected tx meta [txId" + txId + ", meta=" + localMeta + ']';
@@ -182,7 +217,7 @@ public class TransactionStateResolver {
 
         if (localMeta == null) {
             // Fallback to commit partition path, because we don't have coordinator id.
-            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
+            resolveTxStateFromCommitPartition(txId, commitGrpId, awaitPrimaryReplicaTimeout, awaitPrimaryReplicaTimeUnit, txMetaFuture);
         } else if (localMeta.txState() == PENDING) {
             resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
         } else if (localMeta.txState() == FINISHING) {
@@ -236,9 +271,19 @@ public class TransactionStateResolver {
             ReplicationGroupId commitGrpId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
+        resolveTxStateFromCommitPartition(txId, commitGrpId, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS, txMetaFuture);
+    }
+
+    private void resolveTxStateFromCommitPartition(
+            UUID txId,
+            ReplicationGroupId commitGrpId,
+            long awaitPrimaryReplicaTimeout,
+            TimeUnit awaitPrimaryReplicaTimeUnit,
+            CompletableFuture<TransactionMeta> txMetaFuture
+    ) {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        sendAndRetry(txMetaFuture, commitGrpId, txId);
+        sendAndRetry(txMetaFuture, commitGrpId, txId, awaitPrimaryReplicaTimeout, awaitPrimaryReplicaTimeUnit);
     }
 
     /**
@@ -265,8 +310,14 @@ public class TransactionStateResolver {
      * @param replicaGrp Replication group id.
      * @param txId Transaction id.
      */
-    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ReplicationGroupId replicaGrp, UUID txId) {
-        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(replicaGrp)
+    private void sendAndRetry(
+            CompletableFuture<TransactionMeta> resFut,
+            ReplicationGroupId replicaGrp,
+            UUID txId,
+            long awaitPrimaryReplicaTimeout,
+            TimeUnit awaitPrimaryReplicaTimeUnit
+    ) {
+        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(replicaGrp, awaitPrimaryReplicaTimeout, awaitPrimaryReplicaTimeUnit)
                 .thenCompose(replicaMeta ->
                         txMessageSender.resolveTxStateFromCommitPartition(
                                 replicaMeta.getLeaseholder(),
@@ -281,7 +332,7 @@ public class TransactionStateResolver {
                         resFut.complete(txMeta);
                     } else {
                         if (e instanceof PrimaryReplicaMissException) {
-                            sendAndRetry(resFut, replicaGrp, txId);
+                            sendAndRetry(resFut, replicaGrp, txId, awaitPrimaryReplicaTimeout, awaitPrimaryReplicaTimeUnit);
                         } else {
                             resFut.completeExceptionally(e);
                         }
