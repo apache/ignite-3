@@ -29,6 +29,9 @@ import org.apache.ignite.lang.IgniteException;
  */
 final class JdbcExceptionMapperUtil {
 
+    private static final String TX_CONTROL_STATEMENT_WHEN_AUTOCOMMIT_MODE_OFF = 
+            "Transaction control statements are not supported when autocommit mode is disabled.";
+
     private JdbcExceptionMapperUtil() {
 
     }
@@ -44,7 +47,7 @@ final class JdbcExceptionMapperUtil {
         if (cause instanceof IgniteException) {
             IgniteException ie = (IgniteException) cause;
             if (ie.code() == Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR) {
-                message = "Transaction control statements are not supported when autocommit mode is disabled.";
+                message = TX_CONTROL_STATEMENT_WHEN_AUTOCOMMIT_MODE_OFF;
             }
         }
 
