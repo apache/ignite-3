@@ -151,16 +151,16 @@ public class TransactionStateResolver {
      * @param txId Transaction id.
      * @param commitGrpId Commit partition group id.
      * @param timestamp Timestamp.
-     * @param awaitPrimaryReplicaTimeout Timeout for awaiting primary replica.
-     * @param awaitPrimaryReplicaTimeUnit Time unit for awaiting primary replica timeout.
+     * @param awaitCommitPartitionAvailabilityTimeout Timeout for awaiting commit partition primary replica.
+     * @param awaitCommitPartitionAvailabilityTimeUnit Time unit for awaiting commit partition primary replica timeout.
      * @return Future with the transaction state meta as a result.
      */
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
             ReplicationGroupId commitGrpId,
             @Nullable HybridTimestamp timestamp,
-            long awaitPrimaryReplicaTimeout,
-            TimeUnit awaitPrimaryReplicaTimeUnit
+            long awaitCommitPartitionAvailabilityTimeout,
+            TimeUnit awaitCommitPartitionAvailabilityTimeUnit
     ) {
         TxStateMeta localMeta = txManager.stateMeta(txId);
 
@@ -177,8 +177,8 @@ public class TransactionStateResolver {
                         localMeta,
                         commitGrpId,
                         timestamp,
-                        awaitPrimaryReplicaTimeout,
-                        awaitPrimaryReplicaTimeUnit,
+                        awaitCommitPartitionAvailabilityTimeout,
+                        awaitCommitPartitionAvailabilityTimeUnit,
                         v
                 );
             }
@@ -198,8 +198,8 @@ public class TransactionStateResolver {
      * @param localMeta Local tx meta.
      * @param commitGrpId Commit partition group id.
      * @param timestamp Timestamp to pass to target node.
-     * @param awaitPrimaryReplicaTimeout Timeout for awaiting primary replica.
-     * @param awaitPrimaryReplicaTimeUnit Time unit for awaiting primary replica timeout.
+     * @param awaitCommitPartitionAvailabilityTimeout Timeout for awaiting commit partition primary replica.
+     * @param awaitCommitPartitionAvailabilityTimeUnit Time unit for awaiting commit partition primary replica timeout.
      * @param txMetaFuture Tx meta future to complete with the result.
      */
     private void resolveDistributiveTxState(
@@ -207,8 +207,8 @@ public class TransactionStateResolver {
             @Nullable TxStateMeta localMeta,
             ReplicationGroupId commitGrpId,
             @Nullable HybridTimestamp timestamp,
-            long awaitPrimaryReplicaTimeout,
-            TimeUnit awaitPrimaryReplicaTimeUnit,
+            long awaitCommitPartitionAvailabilityTimeout,
+            TimeUnit awaitCommitPartitionAvailabilityTimeUnit,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
         assert localMeta == null || !isFinalState(localMeta.txState()) : "Unexpected tx meta [txId" + txId + ", meta=" + localMeta + ']';
@@ -217,7 +217,13 @@ public class TransactionStateResolver {
 
         if (localMeta == null) {
             // Fallback to commit partition path, because we don't have coordinator id.
-            resolveTxStateFromCommitPartition(txId, commitGrpId, awaitPrimaryReplicaTimeout, awaitPrimaryReplicaTimeUnit, txMetaFuture);
+            resolveTxStateFromCommitPartition(
+                    txId,
+                    commitGrpId,
+                    awaitCommitPartitionAvailabilityTimeout,
+                    awaitCommitPartitionAvailabilityTimeUnit,
+                    txMetaFuture
+            );
         } else if (localMeta.txState() == PENDING) {
             resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
         } else if (localMeta.txState() == FINISHING) {
