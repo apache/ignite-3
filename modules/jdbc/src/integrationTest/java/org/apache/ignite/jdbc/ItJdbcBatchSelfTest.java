@@ -774,9 +774,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 + "WHERE id IN "
                 + "(SELECT * FROM TABLE(SYSTEM_RANGE(1, 50)) "
                 + "UNION "
-                + "SELECT * FROM TABLE(SYSTEM_RANGE(50, 100)) "
-                + "UNION "
-                + "SELECT * FROM TABLE(SYSTEM_RANGE(100, 150)))";
+                + "SELECT * FROM TABLE(SYSTEM_RANGE(50, 100)))";
         pstmt = conn.prepareStatement(updateStmt);
 
         JdbcPreparedStatement2 igniteStmt = pstmt.unwrap(JdbcPreparedStatement2.class);
@@ -796,20 +794,21 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
 
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
-        // Retry until timeout exception is thrown.
-        Awaitility.await().untilAsserted(() -> {
-            int timeoutMillis = 1;
-            igniteStmt.timeout(timeoutMillis);
+        {
+            // Retry until timeout exception is thrown.
+            Awaitility.await().untilAsserted(() -> {
+                igniteStmt.timeout(1);
 
-            for (int i = 0; i < 3; i++) {
-                pstmt.setInt(1, 42);
+                for (int i = 0; i < 3; i++) {
+                    pstmt.setInt(1, 42);
 
-                igniteStmt.addBatch();
-            }
+                    igniteStmt.addBatch();
+                }
 
-            assertThrowsSqlException(SQLException.class,
-                    "Query timeout", igniteStmt::executeBatch);
-        });
+                assertThrowsSqlException(SQLException.class,
+                        "Query timeout", igniteStmt::executeBatch);
+            });
+        }
 
         {
             // Disable timeout
