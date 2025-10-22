@@ -156,8 +156,10 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void testSimpleQueryErrorDoNotReleaseResources() throws Exception {
+    public void testSimpleQueryErrorMustReleaseServerResources() throws Exception {
+        // The script fails, the user does not retrieve any result sets.
         stmt.execute("SELECT 1; SELECT 2/0; SELECT 3");
+        // But the resources must be released in after test callbacks.
     }
 
     @Test
