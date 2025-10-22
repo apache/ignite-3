@@ -21,10 +21,13 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.util.GridUnsafe;
 
 /**
- * Class contatining methods for encoding/decoding long values using variable length encoding.
+ * Class containing methods for encoding/decoding long values using variable length encoding.
  */
 // Based on DirectByteBufferStreamImplV1.
 public class VarlenEncoder {
+    /** Mask for clearing 7 least significant bits. */
+    private static final long LEAST_SIGNIFICANT_BITS_MASK = 0xFFFF_FFFF_FFFF_FF80L;
+
     /**
      * Writes the given value to the given buffer.
      *
@@ -33,7 +36,7 @@ public class VarlenEncoder {
     public static int writeLong(long val, ByteBuffer out) {
         int startPos = out.position();
 
-        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
+        while ((val & LEAST_SIGNIFICANT_BITS_MASK) != 0) {
             byte b = (byte) (val | 0x80);
 
             out.put(b);
@@ -55,7 +58,7 @@ public class VarlenEncoder {
     public static int writeLong(long val, long addr) {
         int offset = 0;
 
-        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
+        while ((val & LEAST_SIGNIFICANT_BITS_MASK) != 0) {
             byte b = (byte) (val | 0x80);
 
             GridUnsafe.putByte(addr + offset, b);
