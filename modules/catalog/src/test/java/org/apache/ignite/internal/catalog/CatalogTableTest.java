@@ -518,7 +518,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
         manager.listen(CatalogEvent.SET_DEFAULT_ZONE, eventListener);
 
-
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME_2));
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME_3));

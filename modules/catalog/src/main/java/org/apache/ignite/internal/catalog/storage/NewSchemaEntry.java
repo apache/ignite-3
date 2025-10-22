@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.CollectionUtils;

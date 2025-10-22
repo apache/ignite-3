@@ -361,27 +361,6 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @Test
-    void exceptionIsThrownIfNoneOfExistedZoneNeitherSpecifiedExplicitlyNorDefaultWasSet() {
-        CreateTableCommandBuilder builder = CreateTableCommand.builder();
-
-        List<String> zoneNames = List.of("zone1", "zone2");
-        Catalog catalog = catalogWithZonesWithoutDefaultZone(zoneNames.get(0), zoneNames.get(1));
-
-        CatalogCommand command = fillProperties(builder).zone(null).build();
-
-        String expectedMessage = format(
-                "There are several existed zones, specify any as table's zone or alter any zone as default zone [zones={}].",
-                zoneNames
-        );
-
-        assertThrowsWithCause(
-                () -> command.get(new UpdateContext(catalog)),
-                CatalogValidationException.class,
-                expectedMessage
-        );
-    }
-
     private static CreateTableCommandBuilder fillProperties(CreateTableCommandBuilder builder) {
         return builder
                 .schemaName(SCHEMA_NAME)

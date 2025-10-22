@@ -134,14 +134,6 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    static Catalog catalogWithDefaultZone() {
-        return catalogWithDefaultZone(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
-    }
-
-    static Catalog catalogWithoutDefaultZone() {
-        return catalogWithoutDefaultZone(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
-    }
-
     static Catalog catalogWithTable(String name) {
         return catalogWithDefaultZone(
                 createTableCommand(name)
@@ -242,8 +234,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return applyCommandsToCatalog(catalogWithDefaultZone(), commandsToApply);
     }
 
-    static Catalog catalogWithoutDefaultZone(CatalogCommand... commandsToApply) {
-        return applyCommandsToCatalog(catalogWithoutDefaultZone(), commandsToApply);
+    static Catalog catalogWithDefaultZone() {
+        return catalogWithDefaultZone(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithDefaultZone(
@@ -266,6 +258,19 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         INITIAL_TIMESTAMP
                 )),
                 DEFAULT_ZONE.id()
+        );
+    }
+
+    static Catalog catalogWithoutDefaultZone(CatalogCommand... commandsToApply) {
+        return applyCommandsToCatalog(catalogWithoutDefaultZone(), commandsToApply);
+    }
+
+    static Catalog catalogWithoutDefaultZone() {
+        return catalogWithoutDefaultZone(
+                1,
+                new CatalogTableDescriptor[0],
+                new CatalogIndexDescriptor[0],
+                new CatalogSystemViewDescriptor[0]
         );
     }
 
