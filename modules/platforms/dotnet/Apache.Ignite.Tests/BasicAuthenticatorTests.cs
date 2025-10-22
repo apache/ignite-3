@@ -106,32 +106,25 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             // As a result of this call, the client may be disconnected from the server due to authn config change.
         }
 
-        if (enable)
+        await TestUtils.WaitForConditionAsync(async () =>
         {
-            // Wait for the server to apply the configuration change and drop the client connection.
-            client.WaitForConnections(0, 3000);
-        }
-        else
-        {
-            await TestUtils.WaitForConditionAsync(async () =>
+            try
             {
-                try
+                // Ensure that all servers have applied the configuration change.
+                foreach (var endpoint in GetConfig(enableAuthn: enable).Endpoints)
                 {
-                    // Ensure that all servers have applied the configuration change.
-                    foreach (var endpoint in GetConfig().Endpoints)
-                    {
-                        var cfg = new IgniteClientConfiguration(endpoint);
-                        using var client2 = await IgniteClient.StartAsync(cfg);
-                    }
+                    var cfg = new IgniteClientConfiguration(endpoint);
+                    using var client2 = await IgniteClient.StartAsync(cfg);
+                    await client2.GetClusterNodesAsync();
+                }
 
-                    return true;
-                }
-                catch (Exception)
-                {
-                    return false;
-                }
-            });
-        }
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
 
         _authnEnabled = enable;
     }
