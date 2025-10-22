@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.util.List;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.junit.jupiter.api.Test;
+
 /**
  * Tests for catalog storage objects. Protocol version 2 reads protocol 2.
  */
@@ -40,5 +44,18 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
     @Override
     protected boolean expectExactVersion() {
         return true;
+    }
+
+    @Test
+    public void alterTableProperties() {
+        List<UpdateEntry> entries = List.of(
+                new AlterTablePropertiesEntry(state.id(), null, null),
+                new AlterTablePropertiesEntry(state.id(), 1.0d, null),
+                new AlterTablePropertiesEntry(state.id(), null, 10L),
+                new AlterTablePropertiesEntry(state.id(), 2.0d, 10L)
+        );
+
+        checker.addExpectedVersion(MarshallableEntryType.ALTER_TABLE_PROPERTIES.id(), 1);
+        checker.compareEntries(entries, "AlterTableProperties", 1);
     }
 }
