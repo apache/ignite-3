@@ -541,8 +541,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .localNodes()
                 .stream()
                 .filter(nodeId -> nodeId.groupId().toString().contains("part"))
-                .filter(nodeId -> !isDefaultZoneExists(leaderNode.catalogManager)
-                        || (isDefaultZoneExists(leaderNode.catalogManager)
+                .filter(nodeId -> !hasDefaultZone(leaderNode.catalogManager)
+                        || (hasDefaultZone(leaderNode.catalogManager)
                         && !nodeId.groupId().toString().contains(defaultZoneId(leaderNode.catalogManager) + "_part")))
                 .findFirst()
                 .orElseThrow();
@@ -581,7 +581,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id();
     }
 
-    private static boolean isDefaultZoneExists(CatalogManager catalog) {
+    private static boolean hasDefaultZone(CatalogManager catalog) {
         return catalog.catalog(catalog.latestCatalogVersion()).defaultZone() != null;
     }
 
@@ -2034,8 +2034,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     n.raftManager.forEach((nodeId, raftGroupService) -> {
                         CatalogManager catalogManager = nodes.get(0).catalogManager;
                         // Excluded default zone raft services.
-                        if (!isDefaultZoneExists(catalogManager)
-                                || (isDefaultZoneExists(catalogManager)
+                        if (!hasDefaultZone(catalogManager)
+                                || (hasDefaultZone(catalogManager)
                                 && !raftGroupService.getGroupId().startsWith("" + defaultZoneId(catalogManager)))) {
                             nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
                         }

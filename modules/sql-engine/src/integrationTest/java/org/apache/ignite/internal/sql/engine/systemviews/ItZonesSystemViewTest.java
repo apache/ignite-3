@@ -50,8 +50,12 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     public void systemViewDefaultZone() {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        // Table for default zone creation
+        // Check that there is no default zone yet before test table is created.
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
+        // Table for lazy default zone creation.
         createTableOnly("test_table");
+        // Check that the default zone was created and is presented on zone view.
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
 
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = Objects.requireNonNull(
