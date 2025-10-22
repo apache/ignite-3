@@ -123,7 +123,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     void checkFileNamingAfterRollovers() throws Exception {
         int segmentFilesNum = 10;
 
-        byte[] bytes = new byte[FILE_SIZE - HEADER_RECORD.length - SegmentPayload.overheadSize()];
+        byte[] bytes = new byte[FILE_SIZE - HEADER_RECORD.length - 2 * SegmentPayload.fixedOverheadSize()];
 
         for (int i = 0; i < segmentFilesNum; i++) {
             appendBytes(bytes, i);
@@ -153,9 +153,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> appendBytes(new byte[FILE_SIZE], 0));
 
         String expectedMessage = String.format(
-                "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.",
-                FILE_SIZE,
-                FILE_SIZE - HEADER_RECORD.length - SegmentPayload.overheadSize()
+                "Segment entry is too big (%d bytes), maximum allowed segment entry size: %d bytes.",
+                FILE_SIZE + SegmentPayload.fixedOverheadSize() + 2, // 2 bytes for index and term.
+                FILE_SIZE - HEADER_RECORD.length
         );
 
         assertThat(e.getMessage(), is(expectedMessage));
@@ -243,7 +243,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         assertThat(segmentFiles, hasSize(greaterThan(1)));
 
-        List<byte[]> actualData = readDataFromSegmentFiles(batchSize, batches.size()).stream()
+        List<byte[]> actualData = readDataFromSegmentFiles().stream()
                 .sorted(comparingLong(DeserializedSegmentPayload::groupId))
                 .map(DeserializedSegmentPayload::payload)
                 .collect(toList());
@@ -322,7 +322,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         assertThat(writtenBatches, is(not(empty())));
         assertThat(exceptions, is(not(empty())));
 
-        List<byte[]> actualData = readDataFromSegmentFiles(batchSize, writtenBatches.size()).stream()
+        List<byte[]> actualData = readDataFromSegmentFiles().stream()
                 .sorted(comparingLong(DeserializedSegmentPayload::groupId))
                 .map(DeserializedSegmentPayload::payload)
                 .collect(toList());
@@ -458,10 +458,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 .collect(toList());
     }
 
-    private List<DeserializedSegmentPayload> readDataFromSegmentFiles(int batchLength, int numBatches) throws IOException {
-        var result = new ArrayList<DeserializedSegmentPayload>(numBatches);
-
-        int entrySize = batchLength + SegmentPayload.overheadSize();
+    private List<DeserializedSegmentPayload> readDataFromSegmentFiles() throws IOException {
+        var result = new ArrayList<DeserializedSegmentPayload>();
 
         for (Path segmentFile : segmentFiles()) {
             try (SeekableByteChannel channel = Files.newByteChannel(segmentFile)) {
@@ -469,14 +467,19 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
                 int bytesRead = HEADER_RECORD.length;
 
-                while (bytesRead + entrySize < FILE_SIZE && result.size() < numBatches) {
+                while (bytesRead < FILE_SIZE) {
                     long position = channel.position();
 
-                    result.add(DeserializedSegmentPayload.fromByteChannel(channel));
+                    DeserializedSegmentPayload payload = DeserializedSegmentPayload.fromByteChannel(channel);
 
-                    assertThat(channel.position(), is(position + entrySize));
+                    bytesRead += (int) (channel.position() - position);
 
-                    bytesRead += entrySize;
+                    if (payload == null) {
+                        // EOF reached.
+                        break;
+                    }
+
+                    result.add(payload);
                 }
 
                 if (FILE_SIZE - bytesRead >= SWITCH_SEGMENT_RECORD.length) {
