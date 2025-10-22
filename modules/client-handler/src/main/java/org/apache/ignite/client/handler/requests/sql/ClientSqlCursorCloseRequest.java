@@ -22,8 +22,6 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.util.CompletableFutures;
 
 /**
  * Client SQL cursor close request.
@@ -42,13 +40,8 @@ public class ClientSqlCursorCloseRequest {
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
-        try {
-            ClientSqlResultSet asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
+        ClientSqlResultSet asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
 
-            return asyncResultSet.closeAsync().thenApply(v -> null);
-        } catch (IgniteInternalCheckedException | IgniteInternalException ignored) {
-            // Ignore: either resource already removed, or registry is closing.
-            return CompletableFutures.nullCompletedFuture();
-        }
+        return asyncResultSet.closeAsync().thenApply(v -> null);
     }
 }

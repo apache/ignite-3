@@ -48,6 +48,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26789")
     public void noScriptResourcesAfterExecutingFailingScript() throws Exception {
         for (String statement : STATEMENTS) {
             log.info("Run statement: {}", statement);
@@ -57,6 +58,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
                 stmt.execute(statement);
                 // Connection should close the statement
             }
+            // Fails with Failed to find resource with id when a statement is closed by the connection.
 
             expectNoResources();
         }

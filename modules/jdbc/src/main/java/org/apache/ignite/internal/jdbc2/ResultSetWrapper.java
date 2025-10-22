@@ -47,13 +47,11 @@ final class ResultSetWrapper {
         ClientSyncResultSet clientResultSet = rs.resultSet();
         if (clientResultSet.hasRowSet()) {
             return -1;
-        } else if (clientResultSet.wasApplied() || !clientResultSet.wasApplied() && clientResultSet.affectedRows() == -1) {
+        } else if (clientResultSet.affectedRows() == -1) {
             // DDL or control statements
             return 0;
-        } else if (clientResultSet.affectedRows() >= 0) {
-            return (int) clientResultSet.affectedRows();
         } else {
-            return -1;
+            return (int) clientResultSet.affectedRows();
         }
     }
 
@@ -82,6 +80,8 @@ final class ResultSetWrapper {
         }
         resultSet = null;
 
+        System.err.println("Close rs wrapper" + System.identityHashCode(this) + " " + Thread.currentThread().getName());
+        
         JdbcResultSet rs = current;
 
         do {

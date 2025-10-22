@@ -407,9 +407,7 @@ public class JdbcStatement2 implements Statement {
         ensureNotClosed();
 
         ResultSetWrapper rs = result;
-        if (rs == null) {
-            return null;
-        } else if (rs.isQuery()) {
+        if (rs != null && rs.isQuery()) {
             return rs.current();
         } else {
             return null;
@@ -692,6 +690,8 @@ public class JdbcStatement2 implements Statement {
     }
 
     private void closeResults() throws SQLException {
+        System.err.println("Close statement" + System.identityHashCode(this) + " " + Thread.currentThread().getName());
+        
         ResultSetWrapper rs = result;
         result = null;
         if (rs != null) {

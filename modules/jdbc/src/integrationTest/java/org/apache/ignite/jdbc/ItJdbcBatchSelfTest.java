@@ -117,7 +117,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             statement.executeUpdate(SQL_DELETE);
         }
 
-        resourcesBefore = openResources();
+        resourcesBefore = openResources(CLUSTER);
     }
 
     /** {@inheritDoc} */
@@ -138,7 +138,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0, countOfPendingTransactions);
 
         Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            assertThat(openResources() - resourcesBefore, is(0));
+            assertThat(openResources(CLUSTER) - resourcesBefore, is(0));
         });
     }
 
