@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -135,7 +136,17 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             // As a result of this call, the client may be disconnected from the server due to authn config change.
         }
 
-        await TestUtils.WaitForConditionAsync(async () => await IsAuthnStatusOnAllNodes(GetConfig().Endpoints, enable));
+        await TestUtils.WaitForConditionAsync(async () =>
+        {
+            try
+            {
+                return await IsAuthnStatusOnAllNodes(GetConfig().Endpoints, enable);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
 
         _authnEnabled = enable;
     }
