@@ -67,13 +67,13 @@ class DdlBatchingHelper {
         }
     }
 
-    /** Describes DDL command kind. */
+    /** DDL command kind. */
     private enum DdlCommandType {
         /** Create command. */
         CREATE,
         /** Drop command. */
         DROP,
-        /** Any other DDL command (ALTER command, zone commands, and others) */
+        /** Any other DDL command (ALTER command, zone commands, and others). */
         OTHER
     }
 }
