@@ -58,7 +58,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
                 stmt.execute(statement);
                 // Connection should close the statement
             }
-            // Fails with Failed to find resource with id when a statement is closed by the connection.
+            // Fails with IGN-CMN-65535 Failed to find resource with id: XYZ
 
             expectNoResources();
         }
@@ -74,7 +74,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute(statement);
                 }
-                // Fails with IGN-CMN-65535 Failed to find resource with
+                // Fails with IGN-CMN-65535 Failed to find resource with id: XYZ
 
                 // All resources should be released
                 expectNoResources();
