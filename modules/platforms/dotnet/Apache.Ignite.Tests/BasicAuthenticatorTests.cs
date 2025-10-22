@@ -111,9 +111,15 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             try
             {
                 // Ensure that all servers have applied the configuration change.
-                foreach (var endpoint in GetConfig(enableAuthn: enable).Endpoints)
+                var baseCfg = GetConfig(enableAuthn: enable);
+
+                foreach (var endpoint in baseCfg.Endpoints)
                 {
-                    var cfg = new IgniteClientConfiguration(endpoint);
+                    var cfg = new IgniteClientConfiguration(endpoint)
+                    {
+                        Authenticator = baseCfg.Authenticator
+                    };
+
                     using var client2 = await IgniteClient.StartAsync(cfg);
                     await client2.GetClusterNodesAsync();
                 }
