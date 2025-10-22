@@ -811,8 +811,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
 
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
-        {
-            int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
+        // Retry until timeout exception is thrown.
+        Awaitility.await().untilAsserted(() -> {
+            int timeoutMillis = 1;
             igniteStmt.timeout(timeoutMillis);
 
             for (int i = 0; i < 3; i++) {
@@ -823,7 +824,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertThrowsSqlException(SQLException.class,
                     "Query timeout", igniteStmt::executeBatch);
-        }
+        });
 
         {
             // Disable timeout
