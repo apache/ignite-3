@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.block
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -369,17 +370,21 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26271")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23633")
     void testRestartTablePartitionsWithCleanUpConcurrentRebalance() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
-        unwrapIgniteImpl(cluster.startNode(1));
+        cluster.startNode(1);
+        cluster.startNode(2);
+        cluster.startNode(3);
 
         String testZone = "TEST_ZONE";
 
-        createZone(node.catalogManager(), testZone, 1, 2);
+        createZone(node.catalogManager(), testZone, 1, 4);
 
         Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        assertEquals(4, runningNodes.size(), "Expected 4 running nodes after zone alteration");
 
         String tableName = "TABLE_NAME";
 
@@ -393,17 +398,27 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
-        IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
+        IgniteImpl node4 = unwrapIgniteImpl(cluster.startNode(4));
+
+        runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        assertEquals(5, runningNodes.size(), "Expected 5 running nodes 5th node started");
 
         int catalogVersion = node.catalogManager().latestCatalogVersion();
 
         long timestamp = node.catalogManager().catalog(catalogVersion).time();
 
-        Assignments assignmentPending = Assignments.of(timestamp,
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name())
+        CatalogZoneDescriptor zoneDescriptor = node.catalogManager().catalog(catalogVersion).zone(testZone);
+
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                runningNodes.stream().map(IgniteImpl::name).collect(Collectors.toSet()),
+                0,
+                zoneDescriptor.partitions(),
+                5,
+                zoneDescriptor.consensusGroupSize()
         );
+
+        Assignments assignmentsPending = Assignments.of(calculatedAssignments, timestamp);
 
         TablePartitionId replicationGroupId = new TablePartitionId(tableId(node, tableName), 0);
 
@@ -411,17 +426,16 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         AtomicBoolean reached = new AtomicBoolean(false);
 
-        blockMessage(cluster, (nodeName, msg) -> {
-            reached.set(true);
-            return blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentPending);
-        });
+        blockMessage(cluster, (nodeName, msg) ->
+                blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentsPending, reached)
+        );
 
-        alterZone(node.catalogManager(), testZone, 3);
+        alterZone(node.catalogManager(), testZone, 5);
 
         waitForCondition(reached::get, 10_000L);
 
-        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
-                Set.of(node2.name()),
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node4.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                Set.of(node4.name()),
                 testZone,
                 SqlCommon.DEFAULT_SCHEMA_NAME,
                 tableName,
@@ -436,7 +450,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
 
-        assertEquals(3, runningNodes.size(), "Expected 3 running nodes after zone alteration");
+        assertEquals(5, runningNodes.size(), "Expected 5 running nodes after zone alteration");
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
@@ -1019,19 +1033,23 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26271")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23633")
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     @Test
     void testRestartPartitionsWithCleanUpConcurrentRebalance() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
-        unwrapIgniteImpl(cluster.startNode(1));
+        cluster.startNode(1);
+        cluster.startNode(2);
+        cluster.startNode(3);
 
         String testZone = "TEST_ZONE";
 
-        createZone(node.catalogManager(), testZone, 1, 2);
+        createZone(node.catalogManager(), testZone, 1, 4);
 
         Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        assertEquals(4, runningNodes.size(), "Expected 4 running nodes after zone alteration");
 
         String tableName = "TABLE_NAME";
 
@@ -1045,17 +1063,27 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
-        IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
+        IgniteImpl node4 = unwrapIgniteImpl(cluster.startNode(4));
+
+        runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        assertEquals(5, runningNodes.size(), "Expected 5 running nodes 5th node started");
 
         int catalogVersion = node.catalogManager().latestCatalogVersion();
 
         long timestamp = node.catalogManager().catalog(catalogVersion).time();
 
-        Assignments assignmentPending = Assignments.of(timestamp,
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name())
+        CatalogZoneDescriptor zoneDescriptor = node.catalogManager().catalog(catalogVersion).zone(testZone);
+
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                runningNodes.stream().map(IgniteImpl::name).collect(Collectors.toSet()),
+                0,
+                zoneDescriptor.partitions(),
+                5,
+                zoneDescriptor.consensusGroupSize()
         );
+
+        Assignments assignmentsPending = Assignments.of(calculatedAssignments, timestamp);
 
         ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(node.catalogManager(), testZone), 0);
 
@@ -1063,41 +1091,32 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         AtomicBoolean reached = new AtomicBoolean(false);
 
-        blockMessage(cluster, (nodeName, msg) -> {
-            reached.set(true);
-            return blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentPending);
-        });
+        blockMessage(cluster, (nodeName, msg) ->
+                blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentsPending, reached)
+        );
 
-        alterZone(node.catalogManager(), testZone, 3);
+        alterZone(node.catalogManager(), testZone, 5);
 
         waitForCondition(reached::get, 10_000L);
 
-        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartPartitionsWithCleanup(
-                Set.of(node2.name()),
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node4.disasterRecoveryManager().restartPartitionsWithCleanup(
+                Set.of(node4.name()),
                 testZone,
                 Set.of(0)
         );
 
         assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
 
-        blocked.set(false);
-
-        waitForCondition(() -> {
-            Set<IgniteImpl> newRunningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
-
-            try {
-                assertValueOnSpecificNodes(tableName, newRunningNodes, 0, 0);
-
-                return true;
-            } catch (AssertionError | Exception e) {
-                return false;
-            }
-        }, 10_000L);
-
         insert(1, 1, tableName);
 
-        Set<IgniteImpl> finalNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+        blocked.set(false);
 
-        assertValueOnSpecificNodes(tableName, finalNodes, 1, 1);
+        runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        assertEquals(5, runningNodes.size(), "Expected 5 running nodes after zone alteration");
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
     }
 }

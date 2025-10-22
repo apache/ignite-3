@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -213,18 +215,22 @@ public class TransactionStateResolver {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
         InternalClusterNode coordinator = coordinatorId == null ? null : clusterNodeResolver.getById(coordinatorId);
-
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
             markAbandoned(txId);
 
             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         } else {
-            txMessageSender.resolveTxStateFromCoordinator(coordinator.name(), txId, timestamp)
+            txMessageSender.resolveTxStateFromCoordinator(coordinator, txId, timestamp)
                     .whenComplete((response, e) -> {
-                        if (e == null) {
-                            txMetaFuture.complete(asTransactionMeta(response.txStateMeta()));
+                        if (e == null && response.txStateMeta() != null) {
+                            TransactionMetaMessage transactionMetaMessage = Objects.requireNonNull(response.txStateMeta(),
+                                    "Transaction state meta must not be null after check.");
+                            txMetaFuture.complete(asTransactionMeta(transactionMetaMessage));
                         } else {
+                            if (e != null && e.getCause() instanceof RecipientLeftException) {
+                                markAbandoned(txId);
+                            }
                             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
                         }
                     });
@@ -318,7 +324,7 @@ public class TransactionStateResolver {
         return transactionMeta == null ? null : transactionMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY);
     }
 
-    private static @Nullable TransactionMeta asTransactionMeta(@Nullable TransactionMetaMessage transactionMetaMessage) {
-        return transactionMetaMessage == null ? null : transactionMetaMessage.asTransactionMeta();
+    private static TransactionMeta asTransactionMeta(TransactionMetaMessage transactionMetaMessage) {
+        return transactionMetaMessage.asTransactionMeta();
     }
 }

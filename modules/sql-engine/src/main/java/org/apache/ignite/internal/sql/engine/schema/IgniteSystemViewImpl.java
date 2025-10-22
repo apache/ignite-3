@@ -37,7 +37,7 @@ public class IgniteSystemViewImpl extends AbstractIgniteDataSource implements Ig
 
     /** Constructor. */
     public IgniteSystemViewImpl(String name, int id, TableDescriptor desc) {
-        super(name, id, CatalogTableDescriptor.INITIAL_TABLE_VERSION, desc, new SystemViewStatistic(desc.distribution()));
+        super(name, id, CatalogTableDescriptor.INITIAL_TABLE_VERSION, 0L, desc, new SystemViewStatistic(desc.distribution()));
     }
 
     /** {@inheritDoc} */
