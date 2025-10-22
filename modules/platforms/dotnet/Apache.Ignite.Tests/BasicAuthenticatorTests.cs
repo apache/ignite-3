@@ -17,7 +17,7 @@
 
 namespace Apache.Ignite.Tests;
 
-using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using NUnit.Framework;
@@ -86,6 +86,35 @@ public class BasicAuthenticatorTests : IgniteTestsBase
                 : null
         };
 
+    private static async Task<bool> IsAuthnStatusOnAllNodes(IEnumerable<string> endpoints, bool expected)
+    {
+        foreach (var endpoint in endpoints)
+        {
+            var isAuthnEnabled = await IsAuthnEnabled(endpoint);
+
+            if (expected != isAuthnEnabled)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static async Task<bool> IsAuthnEnabled(string endpoint)
+    {
+        try
+        {
+            var cfg = new IgniteClientConfiguration(endpoint);
+            using var client2 = await IgniteClient.StartAsync(cfg);
+            return false;
+        }
+        catch (IgniteClientConnectionException e)
+        {
+            return e.Code == ErrorGroups.Authentication.InvalidCredentials;
+        }
+    }
+
     private async Task EnableAuthn(bool enable)
     {
         if (enable == _authnEnabled)
@@ -106,37 +135,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             // As a result of this call, the client may be disconnected from the server due to authn config change.
         }
 
-        if (enable)
-        {
-            // Wait for the server to apply the configuration change and drop the client connection.
-            client.WaitForConnections(0, 3000);
-        }
-
-        await TestUtils.WaitForConditionAsync(async () =>
-        {
-            try
-            {
-                // Ensure that all servers have applied the configuration change.
-                var baseCfg = GetConfig(enableAuthn: enable);
-
-                foreach (var endpoint in baseCfg.Endpoints)
-                {
-                    var cfg = new IgniteClientConfiguration(endpoint)
-                    {
-                        Authenticator = baseCfg.Authenticator
-                    };
-
-                    using var client2 = await IgniteClient.StartAsync(cfg);
-                    await client2.GetClusterNodesAsync();
-                }
-
-                return true;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        });
+        await TestUtils.WaitForConditionAsync(async () => await IsAuthnStatusOnAllNodes(GetConfig().Endpoints, enable));
 
         _authnEnabled = enable;
     }
