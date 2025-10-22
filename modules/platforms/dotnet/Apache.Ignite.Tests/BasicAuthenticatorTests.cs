@@ -106,6 +106,12 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             // As a result of this call, the client may be disconnected from the server due to authn config change.
         }
 
+        if (enable)
+        {
+            // Wait for the server to apply the configuration change and drop the client connection.
+            client.WaitForConnections(0, 3000);
+        }
+
         await TestUtils.WaitForConditionAsync(async () =>
         {
             try
