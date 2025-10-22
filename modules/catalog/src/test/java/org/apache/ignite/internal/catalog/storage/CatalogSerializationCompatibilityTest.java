@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -28,7 +30,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.CatalogSerializationChecker.SerializerClass;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +81,8 @@ public abstract class CatalogSerializationCompatibilityTest extends BaseIgniteAb
                 dirName(),
                 entryVersion(),
                 expectExactVersion(),
-                protocolVersion()
+                protocolVersion(),
+                this::recordClass
         );
         checker.writeSnapshot(WRITE_SNAPSHOT);
     }
@@ -387,5 +392,25 @@ public abstract class CatalogSerializationCompatibilityTest extends BaseIgniteAb
 
     protected boolean expectExactVersion() {
         return false;
+    }
+
+    protected void recordClass(SerializerClass clazz) {
+        // does nothing
+    }
+
+    static void compareSerializers(Set<SerializerClass> expected, Set<SerializerClass> actual) {
+        if (actual.equals(expected)) {
+            return;
+        }
+
+        Set<SerializerClass> serializersWithoutTests = CollectionUtils.difference(expected, actual);
+        if (!serializersWithoutTests.isEmpty()) {
+            fail("There no tests for the following serializers: " + serializersWithoutTests);
+        }
+
+        Set<SerializerClass> testsWithoutSerializers = CollectionUtils.difference(actual, expected);
+        if (!testsWithoutSerializers.isEmpty()) {
+            fail("There are tests for these classes but their serializers are missing: " + testsWithoutSerializers);
+        }
     }
 }

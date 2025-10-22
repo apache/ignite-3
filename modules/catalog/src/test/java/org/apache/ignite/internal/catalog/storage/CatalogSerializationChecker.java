@@ -29,10 +29,15 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
@@ -43,6 +48,8 @@ import org.assertj.core.api.BDDAssertions;
 final class CatalogSerializationChecker {
 
     private static final String UPDATE_TIMESTAMP_FIELD_REGEX = ".*updateTimestamp";
+
+    private static final String PACKAGE_NAME = "org.apache.ignite.internal.catalog.storage";
 
     private final Map<Integer, Integer> expectedEntryVersions = new HashMap<>();
 
@@ -58,18 +65,22 @@ final class CatalogSerializationChecker {
 
     private final int protocolVersion;
 
+    private final Consumer<SerializerClass> recordSerializer;
+
     CatalogSerializationChecker(
             IgniteLogger log,
             String directory,
             int entryVersion,
             boolean expectExactProtocolVersion,
-            int protocolVersion
+            int protocolVersion,
+            Consumer<SerializerClass> recordSerializer
     ) {
         this.log = log;
         this.directory = directory;
         this.entryVersion = entryVersion;
         this.expectExactProtocolVersion = expectExactProtocolVersion;
         this.protocolVersion = protocolVersion;
+        this.recordSerializer = recordSerializer;
     }
 
     void writeSnapshot(boolean value) {
@@ -101,6 +112,7 @@ final class CatalogSerializationChecker {
             assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
         }
 
+        recordSerializer.accept(new SerializerClass(actualEntry.typeId(), version));
         assertion.isEqualTo(actualEntry.snapshot());
     }
 
@@ -112,14 +124,15 @@ final class CatalogSerializationChecker {
             UpdateEntry expectedEntry = entries.get(i);
             UpdateEntry actualEntry = actual.get(i);
 
-            var assertion = BDDAssertions.assertThat(actualEntry).as("entry#" + i)
-                    .usingRecursiveComparison();
+            var assertion = BDDAssertions.assertThat(actualEntry)
+                    .as("entry#" + i).usingRecursiveComparison();
 
             if (entryVersion == 1) {
                 // Ignoring update timestamp for version 1.
                 assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
             }
 
+            recordSerializer.accept(new SerializerClass(expectedEntry.typeId(), version));
             assertion.isEqualTo(expectedEntry);
         }
     }
@@ -133,11 +146,14 @@ final class CatalogSerializationChecker {
         assertEquals(update.typeId(), deserializedUpdate.typeId());
         assertEquals(update.delayDurationMs(), deserializedUpdate.delayDurationMs());
 
+        // Use protocol version for VersionedUpdate container for simplicity.
+        recordSerializer.accept(new SerializerClass(MarshallableEntryType.VERSIONED_UPDATE.id(), protocolVersion));
+
         return (List) deserializedUpdate.entries();
     }
 
     private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String entryFileName, int entryVersion, UpdateLogEvent entry) {
-        String fileName = format("{}_{}.bin", entryFileName, entryVersion);
+        String fileName = binFileName(entryFileName, entryVersion);
         String resourceName = directory + "/" + fileName;
 
         CatalogEntrySerializerProvider defaultProvider = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
@@ -151,7 +167,8 @@ final class CatalogSerializationChecker {
 
         log.info("Read fileName: {}, class: {}, entryVersion: {}", fileName, entryClass.getSimpleName(), entryVersion);
 
-        UpdateLogMarshaller marshaller = new UpdateLogMarshallerImpl(provider, protocolVersion);
+        SerializerVersionCollectingProvider versionCollectingProvider = new SerializerVersionCollectingProvider(provider);
+        UpdateLogMarshaller marshaller = new UpdateLogMarshallerImpl(versionCollectingProvider, protocolVersion);
 
         if (writeSnapshot) {
             writeEntry(entry, Path.of("src", "test", "resources", directory, fileName), marshaller);
@@ -183,11 +200,42 @@ final class CatalogSerializationChecker {
         }
     }
 
-    private static class VersionCheckingProvider implements CatalogEntrySerializerProvider {
+    private final class SerializerVersionCollectingProvider implements CatalogEntrySerializerProvider {
+
+        private final CatalogEntrySerializerProvider delegate;
+
+        private SerializerVersionCollectingProvider(CatalogEntrySerializerProvider delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public <T extends MarshallableEntry> CatalogObjectSerializer<T> get(int version, int typeId) {
+            recordSerializer.accept(new SerializerClass(typeId, version));
+
+            MarshallableEntryType entryType = getMarshallableEntryType(typeId);
+            log.info("{} uses version: {}", entryType, version);
+
+            return delegate.get(version, typeId);
+        }
+
+        @Override
+        public int latestSerializerVersion(int typeId) {
+            int version = delegate.latestSerializerVersion(typeId);
+
+            MarshallableEntryType entryType = getMarshallableEntryType(typeId);
+            log.info("{} uses latest version: {}", entryType, version);
+
+            recordSerializer.accept(new SerializerClass(typeId, version));
+
+            return version;
+        }
+    }
+
+    private static final class VersionCheckingProvider implements CatalogEntrySerializerProvider {
 
         private final CatalogEntrySerializerProvider provider;
 
-        private final int protocolVersion;
+        private final int expectedProtocolVersion;
 
         private final Map<Integer, Integer> entryVersions = new HashMap<>();
 
@@ -197,7 +245,7 @@ final class CatalogSerializationChecker {
                 Map<Integer, Integer> entryVersions
         ) {
             this.provider = provider;
-            this.protocolVersion = expectedProtocolVersion;
+            this.expectedProtocolVersion = expectedProtocolVersion;
             this.entryVersions.putAll(entryVersions);
         }
 
@@ -219,7 +267,7 @@ final class CatalogSerializationChecker {
         }
 
         private void checkVersion(int typeId, int entryVersion) {
-            int expectedEntryVersion = entryVersions.getOrDefault(typeId, protocolVersion);
+            int expectedEntryVersion = entryVersions.getOrDefault(typeId, expectedProtocolVersion);
             if (entryVersion != expectedEntryVersion) {
                 MarshallableEntryType type = null;
 
@@ -237,5 +285,75 @@ final class CatalogSerializationChecker {
                 fail(message);
             }
         }
+    }
+
+    private static String binFileName(String entryFileName, int entryVersion) {
+        return format("{}_{}.bin", entryFileName, entryVersion);
+    }
+
+    static Set<SerializerClass> findEntrySerializers() {
+        Set<SerializerClass> classes = new HashSet<>();
+
+        for (var entryType : MarshallableEntryType.values()) {
+            for (Class<?> declaredClass : entryType.container().getDeclaredClasses()) {
+                if (CatalogObjectSerializer.class.isAssignableFrom(declaredClass)) {
+                    CatalogSerializer catalogSerializer = declaredClass.getAnnotation(CatalogSerializer.class);
+
+                    classes.add(new SerializerClass(entryType.id(), catalogSerializer.version()));
+                }
+            }
+        }
+
+        return classes;
+    }
+
+    protected static final class SerializerClass implements Comparable<SerializerClass> {
+        final int entryTypeId;
+        final int serializerVersion;
+
+        SerializerClass(int entryTypeId, int serializerVersion) {
+            this.entryTypeId = entryTypeId;
+            this.serializerVersion = serializerVersion;
+        }
+
+        @Override
+        public String toString() {
+            MarshallableEntryType entryType = getMarshallableEntryType(entryTypeId);
+            return "SerializerClass{" + entryType + "#" + serializerVersion + "}";
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            SerializerClass that = (SerializerClass) o;
+            return serializerVersion == that.serializerVersion && entryTypeId == that.entryTypeId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(entryTypeId, serializerVersion);
+        }
+
+        @Override
+        public int compareTo(CatalogSerializationChecker.SerializerClass o) {
+            int c1 = Integer.compare(entryTypeId, o.entryTypeId);
+            if (c1 < 0) {
+                return c1;
+            } else {
+                return Integer.compare(serializerVersion, o.serializerVersion);
+            }
+        }
+    }
+
+    private static MarshallableEntryType getMarshallableEntryType(int typeId) {
+        for (MarshallableEntryType t : MarshallableEntryType.values()) {
+            if (t.id() == typeId) {
+                return t;
+            }
+        }
+
+        throw new IllegalArgumentException("Unexpected type: " + typeId);
     }
 }

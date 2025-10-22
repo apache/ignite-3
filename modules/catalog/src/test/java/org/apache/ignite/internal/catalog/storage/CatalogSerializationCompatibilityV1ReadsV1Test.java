@@ -17,10 +17,18 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.storage.CatalogSerializationChecker.SerializerClass;
+import org.junit.jupiter.api.AfterAll;
+
 /**
  * Tests for catalog storage objects. Protocol version 1 read v1.
  */
 public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSerializationCompatibilityTest {
+
+    private static final Set<SerializerClass> collected = new HashSet<>();
 
     @Override
     protected int protocolVersion() {
@@ -40,5 +48,23 @@ public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSeria
     @Override
     protected boolean expectExactVersion() {
         return true;
+    }
+
+    @AfterAll
+    public static void allSerializersHaveTests() {
+        // 1. Collect serializers (entry class + version)x
+        Set<SerializerClass> serializers = CatalogSerializationChecker.findEntrySerializers()
+                .stream()
+                // Serializers for protocol version 1.
+                .filter(SerializationV1Classes::includes)
+                .collect(Collectors.toSet());
+
+        // 2. Compare entry class + version with existing serializers
+        compareSerializers(serializers, collected);
+    }
+
+    @Override
+    protected void recordClass(SerializerClass clazz) {
+        collected.add(clazz);
     }
 }

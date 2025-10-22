@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.storage.CatalogSerializationChecker.SerializerClass;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for catalog storage objects. Protocol version 2 reads protocol 2.
  */
 public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSerializationCompatibilityTest {
+
+    private static final Set<SerializerClass> collected = new HashSet<>();
 
     @Override
     protected int protocolVersion() {
@@ -57,5 +64,25 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
         checker.addExpectedVersion(MarshallableEntryType.ALTER_TABLE_PROPERTIES.id(), 1);
         checker.compareEntries(entries, "AlterTableProperties", 1);
+    }
+
+    @AfterAll
+    public static void allSerializersHaveTests() {
+        // 1. Collect serializers (entry class + version)
+        Set<SerializerClass> serializers = CatalogSerializationChecker.findEntrySerializers()
+                .stream()
+                .filter(sc -> {
+                    // Exclude serializers for protocol version 1
+                    return !SerializationV1Classes.includes(sc);
+                })
+                .collect(Collectors.toSet());
+
+        // 2. Compare entry class + version with existing serializers
+        compareSerializers(serializers, collected);
+    }
+
+    @Override
+    protected void recordClass(SerializerClass clazz) {
+        collected.add(clazz);
     }
 }
