@@ -111,7 +111,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         }
         catch (IgniteClientConnectionException e)
         {
-            return e.Code == ErrorGroups.Authentication.InvalidCredentials;
+            return e.InnerException is InvalidCredentialsException;
         }
     }
 
