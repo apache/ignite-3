@@ -868,6 +868,18 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
+    @Test
+    public void testMoreResults() throws Exception {
+        stmt.addBatch("INSERT INTO person (id, firstName, lastName, age) VALUES (0, 'Name0', 'Lastname0', 10)");
+        stmt.addBatch("INSERT INTO person (id, firstName, lastName, age) VALUES (1, 'Name1', 'Lastname1', 20)");
+        int[] arr = stmt.executeBatch();
+
+        assertEquals(2, arr.length);
+        assertArrayEquals(new int[]{1, 1}, arr);
+        assertEquals(-1, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+    }
+
     /**
      * Generate values for insert query.
      *
