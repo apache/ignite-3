@@ -614,9 +614,10 @@ public class JdbcStatement2 implements Statement {
 
                 results.add(affRows);
 
-                // DML/DDL-like cursors are immediately closed on the server side after executing
-                // a batch statement and are not stored in client resources, so there is no point
-                // in explicitly closing the current result set.
+                // DML/DDL-like cursors are immediately closed on the server side after the batch statement
+                // is executed and are not stored in client resources, so calling close should do nothing.
+                asyncRs.closeAsync();
+
                 if (!asyncRs.hasNextResultSet()) {
                     break;
                 }
@@ -626,6 +627,7 @@ public class JdbcStatement2 implements Statement {
 
             return results.stream().mapToInt(Integer::intValue).toArray();
         } catch (Exception e) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-15247 Map Ignite errors to specific JDBC SQL state codes
             throw new BatchUpdateException(e.getMessage(),
                     SqlStateCode.INTERNAL_ERROR,
                     IgniteQueryErrorCode.UNKNOWN,

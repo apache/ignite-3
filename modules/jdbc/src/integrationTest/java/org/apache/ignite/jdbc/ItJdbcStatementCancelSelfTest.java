@@ -32,7 +32,6 @@ import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
