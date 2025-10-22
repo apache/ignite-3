@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,11 +40,12 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.PartitionModificationInfo;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
 /** Statistic aggregator. */
 public class StatisticAggregatorImpl implements
-        StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> {
+        StatisticAggregator<InternalTable, CompletableFuture<PartitionModificationInfo>> {
     private final PlacementDriver placementDriver;
     private final Supplier<HybridTimestamp> currentClock;
     private final MessagingService messagingService;
@@ -71,7 +71,7 @@ public class StatisticAggregatorImpl implements
      * @return Estimated size of this table with last modification timestamp.
      */
     @Override
-    public CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> estimatedSizeWithLastUpdate(InternalTable table) {
+    public CompletableFuture<PartitionModificationInfo> estimatedSizeWithLastUpdate(InternalTable table) {
         int partitions = table.partitions();
 
         Map<String, List<ReplicationGroupIdMessage>> peersWithGroups = new HashMap<>();
@@ -98,7 +98,7 @@ public class StatisticAggregatorImpl implements
                     + " [tableId=" + table.tableId() + ']'));
         }
 
-        CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>[] invokeFutures = peersWithGroups.entrySet().stream()
+        CompletableFuture<PartitionModificationInfo>[] invokeFutures = peersWithGroups.entrySet().stream()
                 .map(ent -> {
                     GetEstimatedSizeWithLastModifiedTsRequest request =
                             PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
@@ -111,26 +111,24 @@ public class StatisticAggregatorImpl implements
                                 GetEstimatedSizeWithLastModifiedTsResponse response
                                         = (GetEstimatedSizeWithLastModifiedTsResponse) networkMessage;
 
-                                return LongObjectImmutablePair.of(response.estimatedSize(), response.lastModified());
+                                return new PartitionModificationInfo(response.estimatedSize(), response.lastModified());
                             });
                 })
                 .toArray(CompletableFuture[]::new);
 
         return allOf(invokeFutures).thenApply(unused -> {
-            HybridTimestamp last = HybridTimestamp.MIN_VALUE;
+            long lastModification = Long.MIN_VALUE;
             long count = 0L;
 
-            for (CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> requestFut : invokeFutures) {
-                LongObjectImmutablePair<HybridTimestamp> partitionState = requestFut.join();
+            for (CompletableFuture<PartitionModificationInfo> requestFut : invokeFutures) {
+                PartitionModificationInfo partitionState = requestFut.join();
 
-                if (partitionState.value().compareTo(last) > 0) {
-                    last = partitionState.value();
-                }
+                lastModification = Math.max(lastModification, partitionState.lastModificationCounter());
 
-                count += partitionState.keyLong();
+                count += partitionState.getEstimatedSize();
             }
 
-            return LongObjectImmutablePair.of(count, last);
+            return new PartitionModificationInfo(count, lastModification);
         });
     }
 }

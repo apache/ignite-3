@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.network.message;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -25,7 +24,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 /** A response to the {@link GetEstimatedSizeWithLastModifiedTsRequest}. */
 @Transferable(PartitionReplicationMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_RESPONSE)
 public interface GetEstimatedSizeWithLastModifiedTsResponse extends NetworkMessage {
-    HybridTimestamp lastModified();
+    long lastModified();
 
     long estimatedSize();
 }

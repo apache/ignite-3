@@ -58,7 +58,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -192,6 +191,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.table.RowIdGenerator;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.PartitionModificationInfo;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -621,9 +621,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         return completedFuture(mvDataStorage.estimatedSize());
     }
 
-    private CompletableFuture<LongObjectImmutablePair<HybridTimestamp>> processGetEstimatedSizeWithTsRequest() {
-        return completedFuture(LongObjectImmutablePair.of(mvDataStorage.estimatedSize(),
-                storageUpdateHandler.lastModificationCounterMilestone()));
+    private CompletableFuture<PartitionModificationInfo> processGetEstimatedSizeWithTsRequest() {
+        return completedFuture(new PartitionModificationInfo(mvDataStorage.estimatedSize(),
+                storageUpdateHandler.lastModificationCounterMilestone().longValue()));
     }
 
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {

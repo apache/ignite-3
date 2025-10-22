@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationInfo.DEFAULT_INFO;
 
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -100,28 +99,26 @@ class PartitionModificationHandler {
                                     .build();
 
                             return r.processRequest(req, localNode.get());
-                        }).exceptionally(e -> null)
-                );
+                        }).exceptionally(e -> new ReplicaResult(DEFAULT_INFO, null)));
             }
         }
 
         var replicaRequests = replicaReqFutures.toArray(new CompletableFuture[0]);
 
         allOf(replicaRequests).thenAccept(unused -> {
-            HybridTimestamp last = HybridTimestamp.MIN_VALUE;
+            long lastModification = Long.MIN_VALUE;
             long count = 0L;
 
             for (CompletableFuture<ReplicaResult> requestFut : replicaReqFutures) {
                 ReplicaResult replResult = requestFut.join();
 
-                if (replResult != null) {
-                    LongObjectImmutablePair<HybridTimestamp> result = (LongObjectImmutablePair<HybridTimestamp>) replResult.result();
+                PartitionModificationInfo result = (PartitionModificationInfo) replResult.result();
 
-                    if (result.value().compareTo(last) > 0) {
-                        last = result.value();
+                if (result != null) {
+                    if (result.lastModificationCounter() > lastModification) {
+                        lastModification = Math.max(result.lastModificationCounter(), lastModification);
                     }
-
-                    count += result.keyLong();
+                    count += result.getEstimatedSize();
                 }
             }
 
@@ -129,7 +126,7 @@ class PartitionModificationHandler {
                     sender,
                     PARTITION_REPLICATION_MESSAGES_FACTORY
                             .getEstimatedSizeWithLastModifiedTsResponse().estimatedSize(count)
-                            .lastModified(last).build(),
+                            .lastModified(lastModification).build(),
                     correlationId
             );
         });

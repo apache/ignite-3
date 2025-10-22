@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import it.unimi.dsi.fastutil.longs.LongObjectImmutablePair;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -47,6 +45,7 @@ import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.PartitionModificationInfo;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.jetbrains.annotations.TestOnly;
 
@@ -55,8 +54,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
-    static final long DEFAULT_TABLE_SIZE = 1L;
-    private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, HybridTimestamp.MIN_VALUE);
+    public static final long DEFAULT_TABLE_SIZE = 1L;
+    private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, Long.MIN_VALUE);
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
@@ -80,7 +79,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;
-    private final StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> statSupplier;
+    private final StatisticAggregator<InternalTable, CompletableFuture<PartitionModificationInfo>> statSupplier;
 
     static final long INITIAL_DELAY = 5_000;
     static final long REFRESH_PERIOD = 20_000;
@@ -91,7 +90,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
             CatalogService catalogService,
             LowWatermark lowWatermark,
             ScheduledExecutorService scheduler,
-            StatisticAggregator<InternalTable, CompletableFuture<LongObjectImmutablePair<HybridTimestamp>>> statSupplier
+            StatisticAggregator<InternalTable, CompletableFuture<PartitionModificationInfo>> statSupplier
     ) {
         this.tableManager = tableManager;
         this.catalogService = catalogService;
@@ -165,7 +164,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
                                 return null;
                             } else {
-                                ActualSize estimatedTableSize = new ActualSize(Math.max(res.keyLong(), DEFAULT_TABLE_SIZE), res.value());
+                                ActualSize estimatedTableSize = new ActualSize(Math.max(res.getEstimatedSize(), DEFAULT_TABLE_SIZE),
+                                        res.lastModificationCounter());
                                 ActualSize prevSize = tableSizeMap.get(tableId);
                                 // the table can be concurrently dropped and we shouldn't put new value in this case.
                                 tableSizeMap.compute(tableId, (k, v) -> {
@@ -174,7 +174,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                                     }
 
                                     // check for stale update
-                                    if (v.timestamp.compareTo(res.value()) > 0) {
+                                    if (v.modificationCounter() > res.lastModificationCounter()) {
                                         return v;
                                     }
 
@@ -226,16 +226,16 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
     /** Timestamped size. */
     static class ActualSize {
-        HybridTimestamp timestamp;
+        long modificationCounter;
         long size;
 
-        ActualSize(long size, HybridTimestamp timestamp) {
-            this.timestamp = timestamp;
+        ActualSize(long size, long modificationCounter) {
+            this.modificationCounter = modificationCounter;
             this.size = size;
         }
 
-        public HybridTimestamp getTimestamp() {
-            return timestamp;
+        public long modificationCounter() {
+            return modificationCounter;
         }
 
         long getSize() {
@@ -254,13 +254,13 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
             ActualSize that = ((ActualSize) o);
 
-            return timestamp.equals(that.timestamp) && size == that.size;
+            return modificationCounter == that.modificationCounter && size == that.size;
         }
 
         @Override
         public int hashCode() {
             int result = (int) size;
-            result = 31 * result + timestamp.hashCode();
+            result = 31 * result + (int) modificationCounter;
             return result;
         }
     }
