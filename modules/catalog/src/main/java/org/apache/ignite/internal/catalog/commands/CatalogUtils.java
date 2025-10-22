@@ -557,6 +557,16 @@ public class CatalogUtils {
     }
 
     /**
+     * Creates common exception for cases when validated distribution zone has already existed name.
+     *
+     * @param duplicatedZoneName Conflicting zone name.
+     * @return Catalog validation exception instance with proper and common for such cases message.
+     */
+    public static CatalogValidationException duplicateDistributionZoneNameCatalogValidationException(String duplicatedZoneName) {
+        throw new CatalogValidationException("Distribution zone with name '{}' already exists.", duplicatedZoneName);
+    }
+
+    /**
      * Returns zone with given name.
      *
      * @param catalog Catalog to look up zone in.
