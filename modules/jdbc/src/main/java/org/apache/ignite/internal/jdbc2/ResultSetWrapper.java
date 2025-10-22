@@ -79,8 +79,6 @@ final class ResultSetWrapper {
             return;
         }
         resultSet = null;
-
-        System.err.println("Close rs wrapper" + System.identityHashCode(this) + " " + Thread.currentThread().getName());
         
         JdbcResultSet rs = current;
 

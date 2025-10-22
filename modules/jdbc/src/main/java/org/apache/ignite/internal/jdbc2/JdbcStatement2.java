@@ -690,8 +690,6 @@ public class JdbcStatement2 implements Statement {
     }
 
     private void closeResults() throws SQLException {
-        System.err.println("Close statement" + System.identityHashCode(this) + " " + Thread.currentThread().getName());
-        
         ResultSetWrapper rs = result;
         result = null;
         if (rs != null) {

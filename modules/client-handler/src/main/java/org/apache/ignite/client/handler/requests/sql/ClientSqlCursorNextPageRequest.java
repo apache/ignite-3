@@ -52,7 +52,7 @@ public class ClientSqlCursorNextPageRequest {
                     if (!r.hasMorePages()) {
                         try {
                             resources.remove(resourceId);
-                        } catch (IgniteInternalCheckedException | IgniteInternalException ignored) {
+                        } catch (IgniteInternalCheckedException ignored) {
                             // Ignore: either resource already removed, or registry is closing.
                         }
 

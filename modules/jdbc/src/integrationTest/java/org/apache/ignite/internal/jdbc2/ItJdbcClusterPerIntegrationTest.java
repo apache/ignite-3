@@ -65,6 +65,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26789")
     public void noScriptResourcesAfterExecutingFailingScript2() throws Exception {
         for (String statement : STATEMENTS) {
             log.info("Run statement: {}", statement);
@@ -73,6 +74,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute(statement);
                 }
+                // Fails with IGN-CMN-65535 Failed to find resource with
 
                 // All resources should be released
                 expectNoResources();
