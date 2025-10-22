@@ -21,7 +21,6 @@ import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -52,7 +51,6 @@ import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.Transaction;
@@ -284,7 +282,7 @@ public class JdbcConnection2 implements Connection {
         try {
             tx.commit();
         } catch (Exception e) {
-            throw new SQLException(COMMIT_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e)));
+            throw JdbcExceptionMapperUtil.mapToJdbcException(COMMIT_REQUEST_FAILED, e);
         }
     }
 
@@ -300,7 +298,7 @@ public class JdbcConnection2 implements Connection {
         try {
             tx.rollback();
         } catch (Exception e) {
-            throw new SQLException(ROLLBACK_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e)));
+            throw JdbcExceptionMapperUtil.mapToJdbcException(ROLLBACK_REQUEST_FAILED, e);
         }
     }
 

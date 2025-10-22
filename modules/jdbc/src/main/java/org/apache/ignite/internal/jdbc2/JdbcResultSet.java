@@ -19,7 +19,6 @@ package org.apache.ignite.internal.jdbc2;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -57,7 +56,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -142,8 +140,7 @@ public class JdbcResultSet implements ResultSet {
         try {
             clientResultSet = rs.nextResultSet();
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e));
-            throw new SQLException(cause.getMessage(), cause);
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         }
 
         JdbcStatement2 jdbcStatement = statement.unwrap(JdbcStatement2.class);
@@ -178,8 +175,7 @@ public class JdbcResultSet implements ResultSet {
             currentPosition += 1;
             return true;
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e));
-            throw new SQLException(cause.getMessage(), cause);
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         }
     }
 
@@ -195,8 +191,7 @@ public class JdbcResultSet implements ResultSet {
         try {
             rs.close();
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
-            throw new SQLException(cause.getMessage(), cause);
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         } finally {
             // Close the statement if this result set is the last one.
             if (closeOnCompletion && !moreResultSets) {
@@ -2116,8 +2111,7 @@ public class JdbcResultSet implements ResultSet {
 
             return val;
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
-            throw new SQLException("Unable to value for column: " + colIdx, cause);
+            throw JdbcExceptionMapperUtil.mapToJdbcException("Unable to value for column: " + colIdx, e);
         }
     }
 

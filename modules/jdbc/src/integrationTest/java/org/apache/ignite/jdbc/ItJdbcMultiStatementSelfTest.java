@@ -430,7 +430,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testAutoCommitFalseTxControlStatementsNotSupported() throws Exception {
-        String txErrMsg = "Transaction control statement cannot be executed within an external transaction.";
+        String txErrMsg = "Transaction control statements are not supported when autocommit mode is disabled.";
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));

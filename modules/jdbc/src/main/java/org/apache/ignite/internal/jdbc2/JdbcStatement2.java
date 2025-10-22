@@ -20,7 +20,6 @@ package org.apache.ignite.internal.jdbc2;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.FETCH_FORWARD;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.IgniteSql;
@@ -179,8 +177,7 @@ public class JdbcStatement2 implements Statement {
 
             result = new ResultSetWrapper(createResultSet(new ClientSyncResultSetImpl(clientRs)));
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(e));
-            throw new SQLException(cause.getMessage(), cause);
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         }
     }
 
