@@ -623,6 +623,10 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             this.parsedQuery = parsedQuery;
             this.nextCursorFuture = nextCursorFuture;
         }
+
+        public ParsedResult parsedQuery() {
+            return parsedQuery;
+        }
     }
 
     @Override
