@@ -545,15 +545,15 @@ public class CatalogUtils {
      */
     public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
             throws CatalogValidationException {
-        try {
-            return zone(catalog, name);
-        } catch (CatalogValidationException e) {
-            if (shouldThrowIfNotExists) {
-                throw e;
-            }
+        name = Objects.requireNonNull(name, "zoneName");
 
-            return null;
+        CatalogZoneDescriptor zone = catalog.zone(name);
+
+        if (zone == null && shouldThrowIfNotExists) {
+            throw new CatalogValidationException("Distribution zone with name '{}' not found.", name);
         }
+
+        return zone;
     }
 
     /**
@@ -562,20 +562,11 @@ public class CatalogUtils {
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
      * @return Zone descriptor for given name.
-     * @throws CatalogValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
-     *         set to {@code true}.
+     * @throws CatalogValidationException If zone with given name is not exists.
      */
-    public static CatalogZoneDescriptor zone(Catalog catalog, String name)
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name)
             throws CatalogValidationException {
-        name = Objects.requireNonNull(name, "zoneName");
-
-        CatalogZoneDescriptor zone = catalog.zone(name);
-
-        if (zone == null) {
-            throw new CatalogValidationException("Distribution zone with name '{}' not found.", name);
-        }
-
-        return zone;
+        return zone(catalog, name, true);
     }
 
     /**

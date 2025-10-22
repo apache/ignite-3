@@ -110,7 +110,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
     @Test
     void exceptionIsThrownIfIndexIsPrimaryKey() {
         ColumnParams columnParams = ColumnParams.builder().name("C").type(ColumnType.INT32).build();
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 CreateTableCommand.builder()
                         .schemaName(SCHEMA_NAME)
                         .tableName(TABLE_NAME)

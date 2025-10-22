@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -149,6 +151,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         CatalogZoneDescriptor zone;
         if (zoneName == null) {
             if (catalog.defaultZone() == null) {
+                checkThatThereNoExistedZonesOrThrow(catalog);
+
                 int zoneId = id++;
 
                 zone = new CatalogZoneDescriptor(
@@ -209,6 +213,19 @@ public class CreateTableCommand extends AbstractTableCommand {
         updateEntries.add(new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState()));
 
         return updateEntries;
+    }
+
+    private static void checkThatThereNoExistedZonesOrThrow(Catalog catalog) {
+        Collection<CatalogZoneDescriptor> zones = catalog.zones();
+
+        if (zones.isEmpty()) {
+            return;
+        }
+
+        throw new CatalogValidationException(
+                "There are several existed zones, specify any as table's zone or alter any zone as default zone [zones={}].",
+                zones.stream().map(CatalogObjectDescriptor::name).collect(toList())
+        );
     }
 
     private void validate() {

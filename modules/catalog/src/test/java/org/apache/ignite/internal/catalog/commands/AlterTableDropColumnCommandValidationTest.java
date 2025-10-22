@@ -220,7 +220,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
     @Test
     void rightExceptionIsThrownIfSameColumnNameBelongsToIndexesForDifferentTables() {
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 createTableCommand(TABLE_NAME),
                 createIndexCommand(TABLE_NAME, "TEST_IDX"),
                 createTableCommand(TABLE_NAME + "_1"),

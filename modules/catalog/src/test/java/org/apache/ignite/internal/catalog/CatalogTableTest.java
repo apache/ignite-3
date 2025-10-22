@@ -99,8 +99,10 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -513,11 +515,18 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
+        manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
+        manager.listen(CatalogEvent.SET_DEFAULT_ZONE, eventListener);
+
 
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME_2));
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME_3));
         verify(eventListener, times(3)).notify(any(CreateTableEventParameters.class));
+        // Check lazy default zone creation event is triggered.
+        verify(eventListener, times(1)).notify(any(CreateZoneEventParameters.class));
+        // Check that the newly created default zone set default event is triggered.
+        verify(eventListener, times(1)).notify(any(DropZoneEventParameters.class));
 
         tryApplyAndExpectApplied(dropTableCommand(TABLE_NAME));
         tryApplyAndExpectApplied(dropTableCommand(TABLE_NAME_2));
@@ -538,10 +547,25 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME + 1));
 
         assertThat(manager.catalog(initialVersion).tables(), empty());
+        assertThat(manager.catalog(initialVersion).zones(), empty());
+        assertThat(manager.catalog(initialVersion).defaultZone(), nullValue());
+
+        // Check a catalog at first table creation version.
         assertThat(
                 manager.catalog(afterFirstTableCreated).tables(),
                 hasItems(table(afterFirstTableCreated, TABLE_NAME + 0))
         );
+        // Check that a new default zone was created lazily.
+        assertThat(
+                manager.catalog(afterFirstTableCreated).zones(),
+                hasItems(zone(afterFirstTableCreated, DEFAULT_ZONE_NAME))
+        );
+        // Check that the new default zone was set as default.
+        assertThat(
+                manager.catalog(afterFirstTableCreated).defaultZone(),
+                is(zone(afterFirstTableCreated, DEFAULT_ZONE_NAME))
+        );
+        // Check the latest catalog that is after the second table creation.
         assertThat(
                 manager.activeCatalog(clock.nowLong()).tables(),
                 hasItems(table(manager.latestCatalogVersion(), TABLE_NAME + 0), table(manager.latestCatalogVersion(), TABLE_NAME + 1))
@@ -1457,5 +1481,9 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogTableDescriptor table(int catalogVersion, String tableName) {
         return manager.catalog(catalogVersion).table(SCHEMA_NAME, tableName);
+    }
+
+    private @Nullable CatalogZoneDescriptor zone(int catalogVersion, String zoneName) {
+        return manager.catalog(catalogVersion).zone(zoneName);
     }
 }
