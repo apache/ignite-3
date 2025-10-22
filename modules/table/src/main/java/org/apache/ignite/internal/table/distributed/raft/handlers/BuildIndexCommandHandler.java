@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV3;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -110,7 +112,10 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
             return EMPTY_APPLIED_RESULT;
         }
 
-        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(indexMeta);
+        Set<UUID> abortedTransactionIds = command instanceof BuildIndexCommandV3
+                ? ((BuildIndexCommandV3) command).abortedTransactionIds()
+                : Set.of();
+        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(indexMeta, abortedTransactionIds);
 
         BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(indexMeta);
 
@@ -146,14 +151,15 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
         return EMPTY_APPLIED_RESULT;
     }
 
-    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta) {
+    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta, Set<UUID> abortedTransactionIds) {
         MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
         MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
 
         return new BuildIndexRowVersionChooser(
                 storage,
                 registeredChangeInfo.activationTimestamp(),
-                buildingChangeInfo.activationTimestamp()
+                buildingChangeInfo.activationTimestamp(),
+                abortedTransactionIds
         );
     }
 

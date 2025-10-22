@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.partition.replicator.network.PartitionR
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV3;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV1;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
@@ -276,6 +277,9 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link FinishTxCommandV2}. */
         short FINISH_TX_V2 = 50;
+
+        /** Message type for {@link BuildIndexCommandV3}. */
+        short BUILD_INDEX_V3 = 51;
     }
 
     /**

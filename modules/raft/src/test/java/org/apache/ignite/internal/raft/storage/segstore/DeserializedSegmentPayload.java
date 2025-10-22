@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.GROUP_ID_SIZE_BYTES;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.HASH_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.LENGTH_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.util.VarlenEncoder.readLong;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -89,7 +90,14 @@ class DeserializedSegmentPayload {
 
         int payloadLength = entryBuf.getInt();
 
-        byte[] payload = new byte[payloadLength];
+        int pos = entryBuf.position();
+
+        readLong(entryBuf); // Skip log entry index.
+        readLong(entryBuf); // Skip log entry term.
+
+        int indexAndTermSize = entryBuf.position() - pos;
+
+        byte[] payload = new byte[payloadLength - indexAndTermSize];
 
         entryBuf.get(payload);
 

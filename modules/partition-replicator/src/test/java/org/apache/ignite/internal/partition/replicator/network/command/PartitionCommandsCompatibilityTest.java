@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -66,6 +68,7 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
         return List.of(
                 createBuildIndexCommand(),
                 createBuildIndexCommandV2(),
+                createBuildIndexCommandV3(),
                 createFinishTxCommandV1(),
                 createFinishTxCommandV2(),
                 createUpdateAllCommand(),
@@ -97,6 +100,18 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
         assertEquals(List.of(uuid()), command.rowIds());
         assertTrue(command.finish());
         assertEquals(7, command.tableId());
+    }
+
+    @Test
+    @TestForCommand(BuildIndexCommandV3.class)
+    void testBuildIndexCommandV3() {
+        BuildIndexCommandV3 command = decodeCommand("CjQDAP/////////W/////////7sAAAAAAAAAACoAAAAAAAAARQFGAgAAAAAAAAAAKgAAAAAAAABFCA==");
+
+        assertEquals(69, command.indexId());
+        assertEquals(List.of(uuid()), command.rowIds());
+        assertTrue(command.finish());
+        assertEquals(7, command.tableId());
+        assertThat(command.abortedTransactionIds(), containsInAnyOrder(uuid(), anotherUuid()));
     }
 
     @Test
@@ -387,6 +402,16 @@ public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilit
                 .rowIds(List.of(uuid()))
                 .finish(true)
                 .tableId(7)
+                .build();
+    }
+
+    private BuildIndexCommandV2 createBuildIndexCommandV3() {
+        return commandFactory.buildIndexCommandV3()
+                .indexId(69)
+                .rowIds(List.of(uuid()))
+                .finish(true)
+                .tableId(7)
+                .abortedTransactionIds(Set.of(uuid(), anotherUuid()))
                 .build();
     }
 

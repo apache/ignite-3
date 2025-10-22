@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.storage;
+package org.apache.ignite.internal.index;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.tx.TxState;
 
 /**
- * Tests for catalog storage objects. Protocol version 2 reads protocol 1.
+ * Resolves the final state of a transaction.
  */
-public class CatalogSerializationCompatibilityV2ReadsV1Test extends CatalogSerializationCompatibilityTest {
-
-    @Override
-    protected int protocolVersion() {
-        return 2;
-    }
-
-    @Override
-    protected int entryVersion() {
-        return 1;
-    }
-
-    @Override
-    protected String dirName() {
-        return "serialization_v1";
-    }
-
-    @Override
-    protected boolean expectExactVersion() {
-        return false;
-    }
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface FinalTransactionStateResolver {
+    /**
+     * Resolves the final state of a transaction. Cannot return a non-final state.
+     *
+     * @param transactionId Transaction ID.
+     * @param commitGroupId Commit partition ID.
+     */
+    CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ReplicationGroupId commitGroupId);
 }
