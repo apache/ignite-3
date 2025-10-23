@@ -20,7 +20,9 @@ package org.apache.ignite.internal.jdbc2;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.FETCH_FORWARD;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
+import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
+import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -28,13 +30,16 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.QueryModifier;
+import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -103,6 +108,8 @@ public class JdbcStatement2 implements Statement {
     boolean closeOnCompletion;
 
     volatile @Nullable CancelHandle cancelHandle;
+
+    private @Nullable List<String> batch;
 
     JdbcStatement2(
             Connection connection,
@@ -546,8 +553,15 @@ public class JdbcStatement2 implements Statement {
 
         Objects.requireNonNull(sql);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26143 batch operations
-        throw new UnsupportedOperationException("Batch operation");
+        if (sql.isBlank()) {
+            return;
+        }
+
+        if (batch == null) {
+            batch = new ArrayList<>(2);
+        }
+
+        batch.add(sql);
     }
 
     /** {@inheritDoc} */
@@ -555,8 +569,7 @@ public class JdbcStatement2 implements Statement {
     public void clearBatch() throws SQLException {
         ensureNotClosed();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26143 batch operations
-        throw new UnsupportedOperationException("Batch operation");
+        batch = null;
     }
 
     /** {@inheritDoc} */
@@ -566,8 +579,62 @@ public class JdbcStatement2 implements Statement {
 
         closeResults();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26143 batch operations
-        throw new UnsupportedOperationException("Batch operation");
+        if (batch == null) {
+            return INT_EMPTY_ARRAY;
+        }
+
+        assert !batch.isEmpty();
+
+        String script = String.join(";", batch);
+
+        org.apache.ignite.sql.Statement igniteStmt = createIgniteStatement(script);
+
+        JdbcConnection2 conn = connection.unwrap(JdbcConnection2.class);
+        Transaction tx = conn.startTransactionIfNoAutoCommit();
+
+        ClientSql clientSql = (ClientSql) igniteSql;
+
+        // Cancel handle is not reusable, we should create a new one for each execution.
+        CancelHandle handle = CancelHandle.create();
+        cancelHandle = handle;
+
+        List<Integer> results = new ArrayList<>(batch.size());
+
+        try {
+            ClientAsyncResultSet<SqlRow> asyncRs = (ClientAsyncResultSet<SqlRow>) clientSql.executeAsyncInternal(tx,
+                    (Mapper<SqlRow>) null,
+                    handle.token(),
+                    EnumSet.of(QueryModifier.ALLOW_MULTISTATEMENT, QueryModifier.ALLOW_APPLIED_RESULT,
+                            QueryModifier.ALLOW_AFFECTED_ROWS_RESULT),
+                    igniteStmt
+            ).get();
+
+            while (true) {
+                int affRows = asyncRs.affectedRows() == -1L ? SUCCESS_NO_INFO : (int) asyncRs.affectedRows();
+
+                results.add(affRows);
+
+                // DML/DDL-like cursors are immediately closed on the server side after the batch statement
+                // is executed and are not stored in client resources, so calling close should do nothing.
+                asyncRs.closeAsync();
+
+                if (!asyncRs.hasNextResultSet()) {
+                    break;
+                }
+
+                asyncRs = asyncRs.nextResultSet().get();
+            }
+
+            return results.stream().mapToInt(Integer::intValue).toArray();
+        } catch (Exception e) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-15247 Map Ignite errors to specific JDBC SQL state codes
+            throw new BatchUpdateException(e.getMessage(),
+                    SqlStateCode.INTERNAL_ERROR,
+                    IgniteQueryErrorCode.UNKNOWN,
+                    results.stream().mapToInt(Integer::intValue).toArray());
+        } finally {
+            batch = null;
+        }
     }
 
     /** {@inheritDoc} */
@@ -655,10 +722,10 @@ public class JdbcStatement2 implements Statement {
         return iface != null && iface.isAssignableFrom(JdbcStatement2.class);
     }
 
-    /** Sets timeout in milliseconds. */
+    /** Sets query timeout in milliseconds. */
     @TestOnly
-    public void timeout(long timeoutMillis) {
-        this.queryTimeoutMillis = timeoutMillis;
+    public void timeout(long queryTimeoutMillis) {
+        this.queryTimeoutMillis = queryTimeoutMillis;
     }
 
     org.apache.ignite.sql.Statement createIgniteStatement(String sql) throws SQLException {

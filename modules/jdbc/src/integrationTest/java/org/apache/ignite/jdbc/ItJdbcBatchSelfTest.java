@@ -47,10 +47,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc2.JdbcPreparedStatement2;
+import org.apache.ignite.internal.jdbc2.JdbcStatement2;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -61,7 +61,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -138,11 +137,11 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
             assertThat(openResources(CLUSTER) - resourcesBefore, is(0));
+            assertThat(openCursors(CLUSTER), is(0));
         });
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatch() throws SQLException {
         final int batchSize = 10;
 
@@ -161,7 +160,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchWithDdl() throws SQLException {
         stmt.addBatch("CREATE TABLE t1(ID INT PRIMARY KEY)");
         stmt.addBatch("CREATE TABLE t2(ID INT PRIMARY KEY)");
@@ -178,7 +176,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchWithKill() throws SQLException {
         try (Statement targetQueryStatement = conn.createStatement()) {
             try (ResultSet rs = targetQueryStatement.executeQuery("SELECT x FROM system_range(0, 100000);")) {
@@ -208,22 +205,17 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
-    public void testMultipleStatementForBatchIsNotAllowed() throws SQLException {
+    public void testMultipleStatementInBatchAreAllowed() throws SQLException {
         String insertStmt = "insert into Person (id, firstName, lastName, age) values";
         String ins1 = insertStmt + valuesRow(1);
         String ins2 = insertStmt + valuesRow(2);
 
         stmt.addBatch(ins1 + ";" + ins2);
 
-        assertThrowsSqlException(
-                BatchUpdateException.class,
-                "Multiple statements are not allowed.",
-                () -> stmt.executeBatch());
+        assertArrayEquals(stmt.executeBatch(), new int[]{1, 1});
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchOnClosedStatement() throws SQLException {
         Statement stmt2 = conn.createStatement();
         PreparedStatement pstmt2 = conn.prepareStatement("");
@@ -293,7 +285,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("forbiddenStatements")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testForbiddenQueryTypes(String sql, String expectedError) throws SQLException {
         stmt.addBatch(sql);
 
@@ -305,7 +296,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchException() throws Exception {
         final int successUpdates = 5;
 
@@ -337,7 +327,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchParseException() throws Exception {
         final int successUpdates = 5;
 
@@ -370,7 +359,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchMerge() throws SQLException {
         final int batchSize = 5;
 
@@ -414,7 +402,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchKeyDuplicatesException() throws Exception {
         final int successUpdates = 5;
 
@@ -451,7 +438,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testHeterogeneousBatch() throws SQLException {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values (0, 'Name0', 'Lastname0', 10)");
         stmt.addBatch("insert into Person (id, firstName, lastName, age) "
@@ -466,7 +452,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testHeterogeneousBatchException() throws Exception {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values (0, 'Name0', 'Lastname0', 10)");
         stmt.addBatch("insert into Person (id, firstName, lastName, age) "
@@ -487,7 +472,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchClear() throws SQLException {
         final int batchSize = 7;
 
@@ -812,8 +796,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
         // Retry until timeout exception is thrown.
         Awaitility.await().untilAsserted(() -> {
-            int timeoutMillis = 1;
-            igniteStmt.timeout(timeoutMillis);
+            igniteStmt.timeout(1);
 
             for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
@@ -841,9 +824,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testBatchTimeout() throws SQLException {
-        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
 
         {
             // Disable timeout
@@ -881,6 +863,18 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             int[] updated = igniteStmt.executeBatch();
             assertEquals(3, updated.length);
         }
+    }
+
+    @Test
+    public void testMoreResults() throws Exception {
+        stmt.addBatch("INSERT INTO person (id, firstName, lastName, age) VALUES (0, 'Name0', 'Lastname0', 10)");
+        stmt.addBatch("INSERT INTO person (id, firstName, lastName, age) VALUES (1, 'Name1', 'Lastname1', 20)");
+        int[] arr = stmt.executeBatch();
+
+        assertEquals(2, arr.length);
+        assertArrayEquals(new int[]{1, 1}, arr);
+        assertEquals(-1, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
     }
 
     /**
@@ -953,13 +947,13 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                         "Invalid SQL statement type."),
 
                 Arguments.of("START TRANSACTION",
-                        "Transaction control statement can not be executed as an independent statement."),
+                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL."),
 
                 Arguments.of("COMMIT",
-                        "Transaction control statement can not be executed as an independent statement."),
+                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL."),
 
                 Arguments.of("START TRANSACTION; COMMIT",
-                        "Multiple statements are not allowed.")
+                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL.")
         );
     }
 }

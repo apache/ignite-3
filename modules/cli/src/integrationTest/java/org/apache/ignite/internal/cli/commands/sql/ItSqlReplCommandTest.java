@@ -67,7 +67,6 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
         execute("CREATE TABLE MULTILINE_TABLE(K INT PRIMARY KEY); \n INSERT INTO MULTILINE_TABLE VALUES(1);", "--jdbc-url", JDBC_URL);
 
         assertAll(
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26790
                 // The output from CREATE TABLE is: Updated 0 rows.
                 () -> assertOutputContains("Updated 0 rows."),
                 this::assertErrOutputIsEmpty
