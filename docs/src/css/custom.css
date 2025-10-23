@@ -108,9 +108,9 @@
   --ifm-color-primary-lighter: #f68388;
   --ifm-color-primary-lightest: #f9a1a4;
 
-  /* Dark mode links - lighter red for contrast */
-  --ifm-link-color: #f35b60;
-  --ifm-link-hover-color: #f57477;
+  /* Dark mode links - match left nav red */
+  --ifm-link-color: #ec1c24;
+  --ifm-link-hover-color: #f03d43;
 
   /* Dark mode text */
   --ifm-color-content: #e3e3e3;

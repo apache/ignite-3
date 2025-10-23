@@ -191,7 +191,7 @@ const config: Config = {
     },
     prism: {
       theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      darkTheme: prismThemes.oneDark, // Similar to Tokyo Night color scheme
       additionalLanguages: [
         'java',
         'csharp',
