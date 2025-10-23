@@ -24,7 +24,7 @@ namespace ignite
 /**
  * @brief Implementation for cancellation handle.
  *
- * Implementation of \ref ignite::cancel_handle.
+ * Implementation of @ref ignite::cancel_handle.
  */
 class cancel_handle_impl : public cancel_handle
 {

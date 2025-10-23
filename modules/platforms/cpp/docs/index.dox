@@ -1,4 +1,4 @@
-/** \mainpage Apache Ignite C++ client
+/** @mainpage Apache Ignite C++ client
 Apache Ignite is a distributed database and computing platform designed for high-performance, in-memory data processing.<br>
 It combines in-memory data storage with powerful computing capabilities, enabling real-time analytics and transactional processing.<br>
 Apache Ignite supports SQL, key-value, and ACID-compliant transactions, and can be used as a caching layer, a persistent database, or a compute grid across clusters.<br>
