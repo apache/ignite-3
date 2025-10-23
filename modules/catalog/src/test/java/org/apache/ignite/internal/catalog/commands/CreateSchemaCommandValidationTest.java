@@ -62,6 +62,6 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
     }
 
     private static Catalog catalogWithSchema(String schemaName) {
-        return catalog(CreateSchemaCommand.builder().name(schemaName).build());
+        return catalogWithDefaultZone(CreateSchemaCommand.builder().name(schemaName).build());
     }
 }

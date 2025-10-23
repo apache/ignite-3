@@ -113,7 +113,7 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfIndexWithNewNameExists() {
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 createTableCommand("TABLE1"),
                 createTableCommand("TABLE2"),
                 createIndexCommand("TABLE1", "TEST1"),
@@ -135,7 +135,7 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfTableWithNewNameExists() {
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 createTableCommand("TABLE1"),
                 createIndexCommand("TABLE1", "TEST")
         );

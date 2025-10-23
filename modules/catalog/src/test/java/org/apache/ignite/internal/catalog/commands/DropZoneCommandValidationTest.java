@@ -64,7 +64,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
     void rejectToDropZoneWithTable() {
         String tableName = "table1";
 
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 createZoneCommand(ZONE_NAME),
                 createTableCommand(ZONE_NAME, tableName)
         );
