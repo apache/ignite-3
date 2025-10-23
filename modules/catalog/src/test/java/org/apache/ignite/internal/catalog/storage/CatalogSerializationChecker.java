@@ -44,10 +44,13 @@ import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshal
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.assertj.core.api.BDDAssertions;
+import org.jetbrains.annotations.Nullable;
 
 final class CatalogSerializationChecker {
 
     private static final String UPDATE_TIMESTAMP_FIELD_REGEX = ".*updateTimestamp";
+    
+    private static final String V1_SERDE_NOTE = "MANUAL CALL TO SUPPORT V1 SERIALIZATION";
 
     private final Map<Integer, Integer> expectedEntryVersions = new HashMap<>();
 
@@ -62,6 +65,8 @@ final class CatalogSerializationChecker {
     private final boolean expectExactProtocolVersion;
 
     private final int protocolVersion;
+
+    private final Set<SerializerClass> collectedSerializers = new HashSet<>();
 
     private final Consumer<SerializerClass> recordSerializer;
 
@@ -130,9 +135,25 @@ final class CatalogSerializationChecker {
             }
 
             // Record entry version to support v1 serialization.
-            recordSerializer.accept(new SerializerClass(expectedEntry.typeId(), version));
+            // This is not needed by v2 serialization.
+            recordSerializer(expectedEntry.typeId(), version, V1_SERDE_NOTE);
 
             assertion.isEqualTo(expectedEntry);
+        }
+    }
+
+    private void recordSerializer(int typeId, int version, @Nullable String note) {
+        SerializerClass sc = new SerializerClass(typeId, version);
+        if (!collectedSerializers.add(sc)) {
+            return;
+        }
+        recordSerializer.accept(sc);
+
+        MarshallableEntryType entryType = getMarshallableEntryType(typeId);
+        if (note != null) {
+            log.info("{} uses version: {}, NOTE: {}", entryType, version, note);
+        } else {
+            log.info("{} uses version: {}", entryType, version);
         }
     }
 
@@ -146,8 +167,9 @@ final class CatalogSerializationChecker {
         assertEquals(update.typeId(), deserializedUpdate.typeId());
         assertEquals(update.delayDurationMs(), deserializedUpdate.delayDurationMs());
 
-        // Use protocol version for VersionedUpdate container for simplicity.
-        recordSerializer.accept(new SerializerClass(MarshallableEntryType.VERSIONED_UPDATE.id(), protocolVersion));
+        // Record VersionedUpdate's serializer with the version that matches the protocol version.
+        // This is not needed by v2 serialization.
+        recordSerializer(MarshallableEntryType.VERSIONED_UPDATE.id(), protocolVersion, V1_SERDE_NOTE);
 
         return (List) deserializedUpdate.entries();
     }
@@ -210,10 +232,7 @@ final class CatalogSerializationChecker {
 
         @Override
         public <T extends MarshallableEntry> CatalogObjectSerializer<T> get(int version, int typeId) {
-            recordSerializer.accept(new SerializerClass(typeId, version));
-
-            MarshallableEntryType entryType = getMarshallableEntryType(typeId);
-            log.info("{} uses version: {}", entryType, version);
+            recordSerializer(typeId, version, null);
 
             return delegate.get(version, typeId);
         }
@@ -222,10 +241,7 @@ final class CatalogSerializationChecker {
         public int latestSerializerVersion(int typeId) {
             int version = delegate.latestSerializerVersion(typeId);
 
-            MarshallableEntryType entryType = getMarshallableEntryType(typeId);
-            log.info("{} uses latest version: {}", entryType, version);
-
-            recordSerializer.accept(new SerializerClass(typeId, version));
+            recordSerializer(typeId, version, null);
 
             return version;
         }
