@@ -37,7 +37,6 @@ import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
@@ -379,8 +378,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
         try (Statement stmt = createStatement()) {
             JdbcStatement2 jdbc = stmt.unwrap(JdbcStatement2.class);
 
-            @SuppressWarnings("unchecked")
-            org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+            ClientSyncResultSet igniteRs = Mockito.mock(ClientSyncResultSet.class);
             when(igniteRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of()));
 
             {

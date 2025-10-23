@@ -25,6 +25,7 @@ import java.sql.DriverManager;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.Map;
+import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -138,8 +139,8 @@ public class AbstractJdbcSelfTest extends ClusterPerClassIntegrationTest {
     }
 
     /** Return a size of stored resources. Reflection based implementation, need to be refactored. */
-    int openResources() {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
+    public static int openResources(Cluster cluster) {
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.node(0));
         IgniteComponent cliHnd = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         Object clientInboundHandler = IgniteTestUtils.getFieldValue(cliHnd, "handler");
         Object rsrc = IgniteTestUtils.getFieldValue(clientInboundHandler, "resources");
@@ -148,8 +149,8 @@ public class AbstractJdbcSelfTest extends ClusterPerClassIntegrationTest {
     }
 
     /** Returns a size of opened cursors. */
-    int openCursors() {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
+    public static int openCursors(Cluster cluster) {
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.node(0));
         SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
         return queryProcessor.openedCursors();
     }
