@@ -40,7 +40,6 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -58,7 +57,6 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testScriptErrors() throws SQLException {
         try (var stmt = conn.prepareStatement("SELECT 1; SELECT 1/?;")) {
             stmt.setInt(1, 0);
@@ -93,7 +91,6 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testScriptCancellation() throws SQLException {
         try (var stmt = conn.prepareStatement("SELECT 1; SELECT 1/?;")) {
             stmt.setInt(1, 0);
@@ -126,7 +123,6 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testScriptTimeout() {
         Callable<Map<String, Long>> runScript = () -> {
 

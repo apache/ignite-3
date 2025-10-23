@@ -32,17 +32,15 @@ import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -92,7 +90,7 @@ public class JdbcStatement2 implements Statement {
 
     private final int rsHoldability;
 
-    private volatile @Nullable JdbcResultSet resultSet;
+    protected volatile @Nullable ResultSetWrapper result;
 
     private long queryTimeoutMillis;
 
@@ -102,7 +100,7 @@ public class JdbcStatement2 implements Statement {
 
     private volatile boolean closed;
 
-    private boolean closeOnCompletion;
+    boolean closeOnCompletion;
 
     volatile @Nullable CancelHandle cancelHandle;
 
@@ -123,7 +121,10 @@ public class JdbcStatement2 implements Statement {
     public ResultSet executeQuery(String sql) throws SQLException {
         execute0(QUERY, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-        ResultSet rs = getResultSet();
+        ResultSetWrapper currentRs = result;
+        assert currentRs != null;
+
+        ResultSet rs = currentRs.current();
 
         if (rs == null) {
             throw new SQLException("The query isn't SELECT query: " + sql, SqlStateCode.PARSING_EXCEPTION);
@@ -132,9 +133,9 @@ public class JdbcStatement2 implements Statement {
         return rs;
     }
 
-    JdbcResultSet createResultSet(org.apache.ignite.sql.ResultSet<SqlRow> resultSet) throws SQLException {
-        JdbcConnection2 connection2 = connection.unwrap(JdbcConnection2.class);
-        ZoneId zoneId = connection2.properties().getConnectionTimeZone();
+    JdbcResultSet createResultSet(ClientSyncResultSet resultSet) throws SQLException {
+        JdbcConnection2 jdbcConnection = connection.unwrap(JdbcConnection2.class);
+        ZoneId zoneId = jdbcConnection.properties().getConnectionTimeZone();
         return new JdbcResultSet(resultSet, this, () -> zoneId, closeOnCompletion, maxRows);
     }
 
@@ -157,16 +158,6 @@ public class JdbcStatement2 implements Statement {
         JdbcConnection2 connection2 = connection.unwrap(JdbcConnection2.class);
         Transaction tx = connection2.startTransactionIfNoAutoCommit();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26142 multistatement.
-        if (sql.indexOf(';') == -1 || sql.indexOf(';') == sql.length() - 1) {
-            queryModifiers.remove(QueryModifier.ALLOW_MULTISTATEMENT);
-        }
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-26142 multistatement.
-        if (queryModifiers.contains(QueryModifier.ALLOW_MULTISTATEMENT)) {
-            throw new UnsupportedOperationException("Multi-statements are not supported yet.");
-        }
-
         org.apache.ignite.sql.Statement igniteStmt = createIgniteStatement(sql);
         ClientSql clientSql = (ClientSql) igniteSql;
 
@@ -174,9 +165,9 @@ public class JdbcStatement2 implements Statement {
         CancelHandle handle = CancelHandle.create();
         cancelHandle = handle;
 
-        AsyncResultSet<SqlRow> clientRs;
+        ClientAsyncResultSet<SqlRow> clientRs;
         try {
-            clientRs = clientSql.executeAsyncInternal(tx,
+            clientRs = (ClientAsyncResultSet<SqlRow>) clientSql.executeAsyncInternal(tx,
                     (Mapper<SqlRow>) null,
                     handle.token(),
                     queryModifiers,
@@ -184,12 +175,9 @@ public class JdbcStatement2 implements Statement {
                     args
             ).join();
 
-            SyncResultSetAdapter<SqlRow> syncRs = new SyncResultSetAdapter<>(clientRs);
-
-            resultSet = createResultSet(syncRs);
+            result = new ResultSetWrapper(createResultSet(new ClientSyncResultSetImpl(clientRs)));
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
-            throw new SQLException(cause.getMessage(), cause);
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         }
     }
 
@@ -200,14 +188,15 @@ public class JdbcStatement2 implements Statement {
 
         execute0(DML_OR_DDL, sql, ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-        int rowCount = getUpdateCount();
+        ResultSetWrapper rs = result;
+        assert rs != null;
 
-        if (isQuery()) {
+        if (rs.isQuery()) {
             closeResults();
             throw new SQLException("The query is not DML statement: " + sql);
         }
 
-        return Math.max(rowCount, 0);
+        return rs.updateCount();
     }
 
     /** {@inheritDoc} */
@@ -362,7 +351,10 @@ public class JdbcStatement2 implements Statement {
 
         execute0(QueryModifier.ALL, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-        return isQuery();
+        ResultSetWrapper rs = result;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
     /** {@inheritDoc} */
@@ -411,7 +403,12 @@ public class JdbcStatement2 implements Statement {
     public @Nullable ResultSet getResultSet() throws SQLException {
         ensureNotClosed();
 
-        return isQuery() ? resultSet : null;
+        ResultSetWrapper rs = result;
+        if (rs != null && rs.isQuery()) {
+            return rs.current();
+        } else {
+            return null;
+        }
     }
 
     /** {@inheritDoc} */
@@ -419,8 +416,8 @@ public class JdbcStatement2 implements Statement {
     public int getUpdateCount() throws SQLException {
         ensureNotClosed();
 
-        JdbcResultSet rs = resultSet;
-        if (rs == null || rs.isQuery()) {
+        ResultSetWrapper rs = result;
+        if (rs == null) {
             return -1;
         } else {
             return rs.updateCount();
@@ -440,15 +437,20 @@ public class JdbcStatement2 implements Statement {
 
         switch (current) {
             case CLOSE_CURRENT_RESULT:
-
-                JdbcResultSet currentRs = resultSet;
-                if (currentRs == null) {
+                ResultSetWrapper currentResult = result;
+                if (currentResult == null) {
                     return false;
                 }
 
-                resultSet = null;
-                currentRs.close();
-                return false;
+                boolean moreResults = currentResult.nextResultSet();
+                if (!moreResults) {
+                    // next() closes the remaining result set if necessary
+                    result = null;
+
+                    return false;
+                } else {
+                    return currentResult.isQuery();
+                }
 
             case CLOSE_ALL_RESULTS:
             case KEEP_CURRENT_RESULT:
@@ -623,9 +625,9 @@ public class JdbcStatement2 implements Statement {
 
         closeOnCompletion = true;
 
-        JdbcResultSet rs = resultSet;
+        ResultSetWrapper rs = result;
         if (rs != null) {
-            rs.closeStatement(true);
+            rs.setCloseStatement(true);
         }
     }
 
@@ -659,16 +661,6 @@ public class JdbcStatement2 implements Statement {
         this.queryTimeoutMillis = timeoutMillis;
     }
 
-    protected boolean isQuery() {
-        // This method is called after statement is executed, so the reference points to a correct result set.
-        // The statement is not expected to be used from multiple threads, so this reference points to a correct result set.
-        // getResultSet() performs its own result set checks.
-        JdbcResultSet rs = resultSet;
-        assert rs != null;
-
-        return rs.isQuery();
-    }
-
     org.apache.ignite.sql.Statement createIgniteStatement(String sql) throws SQLException {
         StatementBuilder builder = igniteSql.statementBuilder()
                 .query(sql)
@@ -695,11 +687,11 @@ public class JdbcStatement2 implements Statement {
     }
 
     private void closeResults() throws SQLException {
-        JdbcResultSet rs = resultSet;
+        ResultSetWrapper rs = result;
+        result = null;
         if (rs != null) {
             rs.close();
         }
-        resultSet = null;
     }
 
     /**

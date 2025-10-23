@@ -380,7 +380,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 
@@ -414,7 +413,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         Statement stmt0 = conn.createStatement();
 
@@ -449,7 +447,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testExecuteQueryMultipleMixed() throws Exception {
         int stmtCnt = 10;
 
@@ -677,7 +674,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testGetMoreResults() throws Exception {
         assertFalse(stmt.getMoreResults());
 
@@ -787,7 +783,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testStatementTypeMismatchSelectForCachedQuery() throws Exception {
         // Put query to cache.
         stmt.executeQuery("select 1;");
@@ -820,7 +815,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     public void testOpenCursorsPureQuery() throws Exception {
         stmt.execute("SELECT 1; SELECT 2;");
         ResultSet rs = stmt.getResultSet();
@@ -834,7 +828,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         }
 
         stmt.close();
-        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
+        assertTrue(waitForCondition(() -> openCursors(CLUSTER) == 0, 5_000));
     }
 
     @Test
@@ -845,7 +839,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         stmt.execute("DROP TABLE T1");
         stmt.getResultSet();
 
-        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
+        assertTrue(waitForCondition(() -> openCursors(CLUSTER) == 0, 5_000));
     }
 
     @Test

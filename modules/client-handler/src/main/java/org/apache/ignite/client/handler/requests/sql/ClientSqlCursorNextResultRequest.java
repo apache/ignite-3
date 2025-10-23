@@ -27,6 +27,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.CursorWithP
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.sql.SqlRow;
 
 /**
@@ -50,7 +51,7 @@ public class ClientSqlCursorNextResultRequest {
         CursorWithPageSize cursorWithPageSize = resource.get(CursorWithPageSize.class);
         int pageSize = cursorWithPageSize.pageSize();
 
-        return cursorWithPageSize.cursorFuture()
+        CompletableFuture<ResponseWriter> f = cursorWithPageSize.cursorFuture()
                 .thenComposeAsync(cur -> cur.requestNextAsync(pageSize)
                         .thenApply(batchRes -> new AsyncResultSetImpl<SqlRow>(
                                         cur,
@@ -60,5 +61,26 @@ public class ClientSqlCursorNextResultRequest {
                         ).thenCompose(asyncResultSet ->
                                 ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, pageSize, false, false, true)
                         ).thenApply(rsWriter -> rsWriter), operationExecutor);
+
+        f.whenCompleteAsync((r, t) -> {
+            if (t != null) {
+                cursorWithPageSize.cursorFuture().thenAccept(cur -> closeRemainingCursors(cur, false, operationExecutor));
+            }
+        }, operationExecutor);
+
+        return f;
+    }
+
+    private static void closeRemainingCursors(AsyncSqlCursor<?> cursor, boolean closeCursor, Executor operationExecutor) {
+        if (cursor.hasNextResult()) {
+            cursor.nextResult().whenCompleteAsync((c, err) -> {
+                if (c != null) {
+                    cursor.closeAsync();
+                    closeRemainingCursors(c, true, operationExecutor);
+                }
+            }, operationExecutor);
+        } else if (closeCursor) {
+            cursor.closeAsync();
+        }
     }
 }
