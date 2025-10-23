@@ -3540,9 +3540,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision,
             long assignmentsTimestamp
     ) {
-        return inBusyLockAsync(busyLock, () -> {
-            TableViewInternal table = tables.get(tablePartitionId.tableId());
-
+        return tableAsync(tablePartitionId.tableId()).thenComposeAsync(table -> inBusyLockAsync(busyLock, () -> {
             assert table != null : tablePartitionId;
 
             Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, tablePartitionId, revision);
@@ -3560,7 +3558,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             ),
                     ioExecutor
             );
-        });
+        }), ioExecutor);
     }
 
     @Override
