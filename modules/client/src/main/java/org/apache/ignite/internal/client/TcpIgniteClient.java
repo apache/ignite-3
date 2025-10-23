@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -96,9 +97,12 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param cfg Config.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
-        this(TcpClientChannel::createAsync, cfg, observableTimeTracker);
+    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable Consumer<ProtocolContext> channelValidator) {
+        this(TcpClientChannel::createAsync, cfg, observableTimeTracker, channelValidator);
     }
 
     /**
@@ -107,15 +111,18 @@ public class TcpIgniteClient implements IgniteClient {
      * @param chFactory Channel factory.
      * @param cfg Config.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable Consumer<ProtocolContext> channelValidator) {
         assert chFactory != null;
         assert cfg != null;
 
         this.cfg = cfg;
 
         metrics = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
+        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker, channelValidator);
         tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -159,7 +166,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
-        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null));
+        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null), null);
     }
 
     /**
@@ -167,14 +174,17 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param cfg Thin client configuration.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable Consumer<ProtocolContext> channelValidator) {
         ErrorGroups.initialize();
 
         try {
             //noinspection resource: returned from method
-            var client = new TcpIgniteClient(cfg, observableTimeTracker);
+            var client = new TcpIgniteClient(cfg, observableTimeTracker, channelValidator);
 
             return client.initAsync().thenApply(x -> client);
         } catch (IgniteException e) {

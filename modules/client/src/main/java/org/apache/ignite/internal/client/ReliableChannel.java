@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
@@ -134,23 +135,34 @@ public final class ReliableChannel implements AutoCloseable {
     private final ClientTransactionInflights inflights;
 
     /**
+     * A validator that is called when a connection to a node is established,
+     * if it throws an exception, the network channel to that node will be closed.
+     */
+    private final @Nullable Consumer<ProtocolContext> channelValidator;
+
+    /**
      * Constructor.
      *
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
      * @param metrics Client metrics.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
             ClientMetricSource metrics,
-            HybridTimestampTracker observableTimeTracker) {
+            HybridTimestampTracker observableTimeTracker,
+            @Nullable Consumer<ProtocolContext> channelValidator
+    ) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
         this.observableTimeTracker = Objects.requireNonNull(observableTimeTracker, "observableTime");
+        this.channelValidator = channelValidator;
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
@@ -916,6 +928,10 @@ public final class ReliableChannel implements AutoCloseable {
                     if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
                         // New node on the old address.
                         nodeChannelsByName.remove(oldServerNode.name(), this);
+                    }
+
+                    if (channelValidator != null) {
+                        channelValidator.accept(ch.protocolContext());
                     }
 
                     serverNode = newNode;
