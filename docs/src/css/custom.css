@@ -168,49 +168,53 @@ h1 {
    Navbar Styling
    ============================================ */
 
+/*
+ * Navbar colors: White background with dark text (Jekyll style)
+ * Note: Some !important needed due to Docusaurus inline styles
+ */
+
+/* Navbar background - must override Docusaurus theme inline styles */
 .navbar {
-  background-color: #ffffff !important; /* Force white background */
+  background-color: #ffffff !important; /* Required: overrides inline style */
   box-shadow: var(--ifm-navbar-shadow);
 }
 
-/* Navbar text - BLACK/dark gray on white background */
+/* Navbar text colors */
 .navbar__title {
   font-weight: normal;
-  color: #333333 !important; /* Dark gray text */
+  color: var(--ignite-dark-gray);
 }
 
 .navbar__link {
-  color: #333333 !important; /* Dark gray text */
+  color: var(--ignite-dark-gray);
   font-weight: normal;
 }
 
 .navbar__item {
   font-weight: normal;
-  color: #333333 !important; /* Dark gray text */
+  color: var(--ignite-dark-gray);
 }
 
-/* Dark mode: dark navbar with light text */
+/* Dark mode navbar */
 [data-theme='dark'] .navbar {
-  background-color: #1b1b1d !important;
+  background-color: #1b1b1d !important; /* Required: overrides inline style */
 }
 
 [data-theme='dark'] .navbar__title,
 [data-theme='dark'] .navbar__link,
 [data-theme='dark'] .navbar__item {
-  color: #e3e3e3 !important;
+  color: #e3e3e3;
 }
 
-/* Color mode toggle button - make it visible on white navbar */
-button[class*='colorModeToggle'],
-button[class*='toggleButton'],
-.navbar button {
-  color: #333333 !important; /* Dark icon on white background */
+/* Color mode toggle button visibility */
+.navbar button[class*='colorModeToggle'],
+.navbar button[class*='toggleButton'] {
+  color: var(--ignite-dark-gray);
 }
 
-[data-theme='dark'] button[class*='colorModeToggle'],
-[data-theme='dark'] button[class*='toggleButton'],
-[data-theme='dark'] .navbar button {
-  color: #e3e3e3 !important; /* Light icon on dark background */
+[data-theme='dark'] .navbar button[class*='colorModeToggle'],
+[data-theme='dark'] .navbar button[class*='toggleButton'] {
+  color: #e3e3e3;
 }
 
 /* ============================================
@@ -252,112 +256,195 @@ button[class*='toggleButton'],
   --search-local-muted-color: #a0a0a0;
 }
 
-/* Search input field styling */
+/*
+ * Search input customization
+ * Note: !important required to override @easyops-cn/docusaurus-search-local inline styles
+ */
+
 .navbar__search-input {
-  background-color: var(--ifm-navbar-search-input-background-color) !important;
-  color: #000000 !important; /* Black text for maximum readability */
-  border: 1px solid #d0d0d0 !important;
+  background-color: var(--ifm-navbar-search-input-background-color) !important; /* Required */
+  color: #000000 !important; /* Required */
+  border: 1px solid #d0d0d0 !important; /* Required */
   border-radius: 4px;
-  padding: 0.375rem 2.5rem 0.375rem 0.75rem !important;
+  padding: 0.375rem 2.5rem 0.375rem 0.75rem !important; /* Required */
   font-size: 14px;
-  background-image: none !important; /* Remove any default search icon */
+  background-image: none !important; /* Required - removes default icon */
 }
 
 [data-theme='dark'] .navbar__search-input {
-  border-color: #404040 !important;
-  color: #e3e3e3 !important; /* Light text for dark mode */
+  border-color: #404040 !important; /* Required */
+  color: #e3e3e3 !important; /* Required */
 }
 
 .navbar__search-input::placeholder {
-  color: var(--ifm-navbar-search-input-placeholder-color) !important;
+  color: var(--ifm-navbar-search-input-placeholder-color) !important; /* Required */
   opacity: 1;
 }
 
-/* Hide the magnifying glass / loading ring icon */
+/* Hide loading ring icon from search plugin */
 .navbar__search div[class*='searchBarLoadingRing'],
 .navbar__search span[class*='searchBarLoadingRing'] {
-  display: none !important;
+  display: none !important; /* Required - plugin applies inline display */
 }
 
-/* Search bar positioning */
+/* Search bar layout */
 .navbar__search {
   margin-right: 1rem;
 }
 
-/* Search icon and keyboard shortcut visibility - light theme */
+/* Search button and icon colors */
 .navbar__search button {
-  color: #757575 !important; /* Gray icons for clear button */
+  color: #757575 !important; /* Required - overrides plugin inline color */
 }
 
 .navbar__search button svg {
-  color: #757575 !important; /* Gray color for button icons */
+  color: #757575 !important; /* Required - overrides plugin inline color */
 }
 
-/* Keyboard shortcut hint styling - light theme */
 .navbar__search kbd,
 .navbar__search span[class*='searchHint'] {
-  color: #757575 !important;
-  background-color: #ffffff !important;
-  border-color: #d0d0d0 !important;
+  color: #757575 !important; /* Required */
+  background-color: #ffffff !important; /* Required */
+  border-color: #d0d0d0 !important; /* Required */
 }
 
-/* Dark theme - maintain current styling */
+/* Dark mode search colors */
 [data-theme='dark'] .navbar__search button {
-  color: #a0a0a0 !important;
+  color: #a0a0a0 !important; /* Required */
 }
 
 [data-theme='dark'] .navbar__search button svg {
-  color: #a0a0a0 !important;
+  color: #a0a0a0 !important; /* Required */
 }
 
 [data-theme='dark'] .navbar__search kbd,
 [data-theme='dark'] .navbar__search span[class*='searchHint'] {
-  color: #a0a0a0 !important;
-  background-color: #2a2a2a !important;
-  border-color: #404040 !important;
+  color: #a0a0a0 !important; /* Required */
+  background-color: #2a2a2a !important; /* Required */
+  border-color: #404040 !important; /* Required */
 }
 
 /* ============================================
-   Layout - Max Width Container
+   Layout - Optimal Reading Width Configuration
    ============================================ */
 
-.main-wrapper {
-  max-width: 1440px;
-  margin: 0 auto;
+/*
+ * Strategy: Use Docusaurus CSS variables and work WITH the grid system.
+ * Goals:
+ *   - 60-75 characters per line for optimal readability
+ *   - Consistent content width across all pages
+ *   - Fixed sidebar widths to prevent layout shift
+ *   - Respect Docusaurus's responsive breakpoints
+ */
+
+:root {
+  /* Layout Width Variables */
+  --doc-sidebar-width: 300px;
+  --ifm-container-width: 1320px; /* Total width for sidebar + content + TOC */
+  --ifm-container-width-xl: 1440px; /* Large screens */
+
+  /* Content area optimal reading width */
+  --content-max-width: 750px; /* Achieves 65-75 characters per line at 16px */
+  --content-max-width-xl: 800px; /* Slightly wider for large screens */
+
+  /* TOC width */
+  --toc-width: 240px;
+}
+
+/* Desktop: Constrain main content container for optimal reading */
+@media (min-width: 997px) {
+  /* Main content area wrapper */
+  .container {
+    max-width: var(--ifm-container-width);
+  }
+
+  /* Content column in 9/3 layout (article with TOC) */
+  .col--9 {
+    max-width: var(--content-max-width);
+  }
+
+  /* TOC column width */
+  .col--3 {
+    flex: 0 0 var(--toc-width);
+    max-width: var(--toc-width);
+  }
+}
+
+/* Large Desktop: Slightly wider content for better use of space */
+@media (min-width: 1441px) {
+  .container {
+    max-width: var(--ifm-container-width-xl);
+  }
+
+  .col--9 {
+    max-width: var(--content-max-width-xl);
+  }
+}
+
+/* Tablet: Reduce widths proportionally */
+@media (min-width: 768px) and (max-width: 996px) {
+  :root {
+    --doc-sidebar-width: 260px;
+    --content-max-width: 650px; /* 60-70 characters per line */
+  }
+}
+
+/* Mobile: Full width with padding */
+@media (max-width: 767px) {
+  .container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
 }
 
 /* ============================================
    Sidebar Navigation (Left)
    ============================================ */
 
-aside.theme-doc-sidebar-container {
-  background-color: var(--ifm-background-color) !important; /* Gray background like Jekyll */
-}
+/*
+ * Sidebar styling goals:
+ *   - Gray background (like Jekyll)
+ *   - "Apache Ignite 3 Documentation" always bold
+ *   - Active items red, inactive items gray
+ *   - No background color changes on hover/active
+ */
 
+/* Sidebar container background */
 .theme-doc-sidebar-container {
-  border-right: none !important;
+  background-color: var(--ifm-background-color);
+  border-right: none;
 }
 
+/* Menu base styles */
 .menu {
   font-family: var(--ifm-font-family-base);
   padding: 10px 20px;
 }
 
+/* All menu links */
 .menu__link {
   color: var(--ifm-menu-color);
   font-size: 16px;
   font-weight: normal;
   padding: 0.25rem 0.375rem;
+  white-space: normal;
+  word-wrap: break-word;
 }
 
-/* Active sidebar item - red AND bold text */
+/* First item (Apache Ignite 3 Documentation) - always bold */
+.menu > .theme-doc-sidebar-item-link:first-child .menu__link {
+  font-weight: bold;
+  line-height: 1.4;
+}
+
+/* Active menu link styling */
 .menu__link--active {
-  color: var(--ignite-red) !important; /* Red text for active page */
-  background-color: transparent !important;
+  color: var(--ignite-red);
+  background-color: transparent;
   border-left: none;
-  font-weight: bold !important; /* Bold to emphasize current page */
 }
 
+/* Hover states */
 .menu__link:hover {
   color: var(--ignite-red);
   background-color: transparent;
@@ -529,54 +616,54 @@ table tbody tr:nth-of-type(even) {
    Admonitions (Note, Tip, Caution, Warning)
    ============================================ */
 
-/* Admonition styling - override Docusaurus defaults
-   Using !important until we create a formal theme */
+/*
+ * Admonition styling
+ * Note: CSS variable overrides use !important for proper cascade
+ * border-left-color uses !important to override Docusaurus default
+ */
+
 .admonition {
-  border-left-width: 6px !important;
+  border-left-width: 6px;
   margin-bottom: 16px;
 }
 
 /* Note admonitions - Blue */
 .theme-admonition.theme-admonition-note.alert.alert--secondary {
-  --ifm-alert-background-color: rgba(0, 136, 204, 0.1) !important;
-  --ifm-alert-background-color-highlight: rgba(0, 136, 204, 0.15) !important;
-  --ifm-alert-foreground-color: #004085 !important;
-  --ifm-alert-border-color: #0088cc !important;
-  border-left-color: #0088cc !important;
-  background-color: rgba(0, 136, 204, 0.1) !important;
+  --ifm-alert-background-color: rgba(0, 136, 204, 0.1) !important; /* Required - CSS var */
+  --ifm-alert-background-color-highlight: rgba(0, 136, 204, 0.15) !important; /* Required - CSS var */
+  --ifm-alert-foreground-color: #004085 !important; /* Required - CSS var */
+  --ifm-alert-border-color: #0088cc !important; /* Required - CSS var */
+  border-left-color: #0088cc !important; /* Required - overrides default */
 }
 
 /* Tip admonitions - Green */
 .theme-admonition.theme-admonition-tip.alert.alert--success {
-  --ifm-alert-background-color: rgba(0, 168, 84, 0.1) !important;
-  --ifm-alert-background-color-highlight: rgba(0, 168, 84, 0.15) !important;
-  --ifm-alert-foreground-color: #155724 !important;
-  --ifm-alert-border-color: #00a854 !important;
-  border-left-color: #00a854 !important;
-  background-color: rgba(0, 168, 84, 0.1) !important;
+  --ifm-alert-background-color: rgba(0, 168, 84, 0.1) !important; /* Required - CSS var */
+  --ifm-alert-background-color-highlight: rgba(0, 168, 84, 0.15) !important; /* Required - CSS var */
+  --ifm-alert-foreground-color: #155724 !important; /* Required - CSS var */
+  --ifm-alert-border-color: #00a854 !important; /* Required - CSS var */
+  border-left-color: #00a854 !important; /* Required - overrides default */
 }
 
 /* Caution/Important admonitions - Yellow */
 .theme-admonition.theme-admonition-caution.alert.alert--warning,
 .theme-admonition.theme-admonition-important.alert.alert--info {
-  --ifm-alert-background-color: rgba(250, 173, 20, 0.1) !important;
-  --ifm-alert-background-color-highlight: rgba(250, 173, 20, 0.15) !important;
-  --ifm-alert-foreground-color: #856404 !important;
-  --ifm-alert-border-color: #faad14 !important;
-  border-left-color: #faad14 !important;
-  background-color: rgba(250, 173, 20, 0.1) !important;
+  --ifm-alert-background-color: rgba(250, 173, 20, 0.1) !important; /* Required - CSS var */
+  --ifm-alert-background-color-highlight: rgba(250, 173, 20, 0.15) !important; /* Required - CSS var */
+  --ifm-alert-foreground-color: #856404 !important; /* Required - CSS var */
+  --ifm-alert-border-color: #faad14 !important; /* Required - CSS var */
+  border-left-color: #faad14 !important; /* Required - overrides default */
 }
 
 /* Warning/Danger admonitions - Red */
 .theme-admonition.theme-admonition-warning.alert.alert--danger,
 .theme-admonition.theme-admonition-danger.alert.alert--danger,
 .theme-admonition.theme-admonition-warning.alert.alert--warning {
-  --ifm-alert-background-color: rgba(245, 34, 45, 0.1) !important;
-  --ifm-alert-background-color-highlight: rgba(245, 34, 45, 0.15) !important;
-  --ifm-alert-foreground-color: #721c24 !important;
-  --ifm-alert-border-color: #f5222d !important;
-  border-left-color: #f5222d !important;
-  background-color: rgba(245, 34, 45, 0.1) !important;
+  --ifm-alert-background-color: rgba(245, 34, 45, 0.1) !important; /* Required - CSS var */
+  --ifm-alert-background-color-highlight: rgba(245, 34, 45, 0.15) !important; /* Required - CSS var */
+  --ifm-alert-foreground-color: #721c24 !important; /* Required - CSS var */
+  --ifm-alert-border-color: #f5222d !important; /* Required - CSS var */
+  border-left-color: #f5222d !important; /* Required - overrides default */
 }
 
 /* ============================================
@@ -609,32 +696,32 @@ article.markdown img {
   font-size: 14px;
 }
 
-/* Minimize footer prominence */
+/* Footer dark mode - match page background */
 .footer--dark {
-  background-color: var(--ifm-background-color) !important;
+  background-color: var(--ifm-background-color) !important; /* Required - overrides theme inline */
   color: #393939;
 }
 
 [data-theme='dark'] .footer--dark {
-  background-color: var(--ifm-background-color) !important;
+  background-color: var(--ifm-background-color) !important; /* Required - overrides theme inline */
   color: #a0a0a0;
 }
 
 /* ============================================
-   Responsive Design
+   Responsive Design (Legacy - kept for compatibility)
    ============================================ */
 
 @media (max-width: 996px) {
   .theme-doc-markdown {
-    padding-left: 15px;
-    padding-right: 15px;
+    padding-left: 20px;
+    padding-right: 20px;
   }
 }
 
-@media (max-width: 1200px) {
-  .theme-doc-toc-desktop {
-    width: 230px;
-  }
+/* Content area padding adjustment for optimal readability */
+.theme-doc-markdown {
+  padding-left: 40px;
+  padding-right: 40px;
 }
 
 /* ============================================
