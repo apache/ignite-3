@@ -316,68 +316,6 @@ public class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         rows = Collections.unmodifiableList(res);
     }
 
-    private static Object readValue(BinaryTupleReader in, int idx, ColumnMetadata col) {
-        if (in.hasNullValue(idx)) {
-            return null;
-        }
-
-        switch (col.type()) {
-            case BOOLEAN:
-                return in.byteValue(idx) != 0;
-
-            case INT8:
-                return in.byteValue(idx);
-
-            case INT16:
-                return in.shortValue(idx);
-
-            case INT32:
-                return in.intValue(idx);
-
-            case INT64:
-                return in.longValue(idx);
-
-            case FLOAT:
-                return in.floatValue(idx);
-
-            case DOUBLE:
-                return in.doubleValue(idx);
-
-            case DECIMAL:
-                return in.decimalValue(idx, col.scale());
-
-            case DATE:
-                return in.dateValue(idx);
-
-            case TIME:
-                return in.timeValue(idx);
-
-            case DATETIME:
-                return in.dateTimeValue(idx);
-
-            case TIMESTAMP:
-                return in.timestampValue(idx);
-
-            case UUID:
-                return in.uuidValue(idx);
-
-            case STRING:
-                return in.stringValue(idx);
-
-            case BYTE_ARRAY:
-                return in.bytesValue(idx);
-
-            case PERIOD:
-                return in.periodValue(idx);
-
-            case DURATION:
-                return in.durationValue(idx);
-
-            default:
-                throw new UnsupportedOperationException("Unsupported column type: " + col.type());
-        }
-    }
-
     private static <T> Marshaller marshaller(ResultSetMetadata metadata, MarshallersProvider marshallers, Mapper<T> mapper) {
         var schemaColumns = new ClientColumn[metadata.columns().size()];
         List<ColumnMetadata> columns = metadata.columns();
