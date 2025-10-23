@@ -62,7 +62,7 @@ Before data is streamed to the cluster, each entry must be wrapped in an instanc
 
 Wrapped data then can be passed to a publisher and streamed to the table.
 
-The example below demonstrates how to use [`RecordView`](/docs/develop/work-with-data/table-api#record-view), create a publisher, configure the data streamer, insert account records into the existing `accounts` table and then delete them:
+The example below demonstrates how to use [`RecordView`](/docs/3.1.0/develop/work-with-data/table-api#record-view), create a publisher, configure the data streamer, insert account records into the existing `accounts` table and then delete them:
 
 <Tabs>
 <TabItem value="java" label="Java">
@@ -324,7 +324,7 @@ ReceiverDescriptor<IIgniteTuple, object?, object> desc = ReceiverDescriptor.Of(n
 </TabItem>
 </Tabs>
 
-3. Next, obtain the target table to partition the data for streaming. In this example we partition by `customerId` to ensure the receiver is [colocated](/docs/administrators-guide/colocation) with the customer data, enabling local upserts. Then define how to extract keys and payloads from the source, and stream the data using a `SubmissionPublisher`.
+3. Next, obtain the target table to partition the data for streaming. In this example we partition by `customerId` to ensure the receiver is [colocated](/docs/3.1.0/administrators-guide/colocation) with the customer data, enabling local upserts. Then define how to extract keys and payloads from the source, and stream the data using a `SubmissionPublisher`.
 
 <Tabs>
 <TabItem value="java" label="Java">
@@ -415,7 +415,7 @@ await Task.Yield(); // Simulate async enumeration.
 
 #### Distributed Computations
 
-You can also use a streamer with a receiver to perform distributed computations, such as per-item calculations and [map-reduce](/docs/develop/work-with-data/compute#mapreduce-tasks) tasks on the returned results.
+You can also use a streamer with a receiver to perform distributed computations, such as per-item calculations and [map-reduce](/docs/3.1.0/develop/work-with-data/compute#mapreduce-tasks) tasks on the returned results.
 
 This example demonstrates a simulated fraud detection process, which typically involves intensive processing of each transaction using ML models.
 

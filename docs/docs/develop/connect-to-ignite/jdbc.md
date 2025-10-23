@@ -19,7 +19,7 @@ See also:
 
 ## Setting Up
 
-JDBC driver uses the client connector to work with the cluster. For more information on configuring client connector, see [Client Connector Configuration](/docs/developers-guide/clients/overview#client-connector-configuration).
+JDBC driver uses the client connector to work with the cluster. For more information on configuring client connector, see [Client Connector Configuration](/docs/3.1.0/developers-guide/clients/overview#client-connector-configuration).
 
 The JDBC connector needs to be included from Maven:
 
@@ -75,7 +75,7 @@ If the same parameters are passed by using different means, the JDBC driver prio
 
 ## Performing Transactions
 
-With the JDBC driver, you can perform `commit` and `rollback` transactions. For more information about transactions, see [Performing Transactions](/docs/developers-guide/transactions).
+With the JDBC driver, you can perform `commit` and `rollback` transactions. For more information about transactions, see [Performing Transactions](/docs/3.1.0/developers-guide/transactions).
 
 Here is how you can commit a transaction:
 

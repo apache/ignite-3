@@ -18,9 +18,9 @@ FROM table_expression
 
 ### Parameters
 
-- `hint_comment` - an sql [optimizer hint](/sql/advanced/sql-tuning#optimizer-hints).
+- `hint_comment` - an sql [optimizer hint](/docs/3.1.0/sql/advanced/sql-tuning#optimizer-hints).
 - `where_boolean_expression` - an SQL expression that is run against table records and returns a boolean value. Only the records for which `TRUE` was returned will be returned. If not specified, all matching records are returned.
-- `having_boolean_expression` - an SQL expression that is run against groups and returns a boolean value. Can use [aggregate functions](/sql/reference/operators-and-functions#aggregate-functions). Only the groups for which `TRUE` was returned will be returned. If not specified, all matching groups are returned.
+- `having_boolean_expression` - an SQL expression that is run against groups and returns a boolean value. Can use [aggregate functions](/docs/3.1.0/sql/reference/operators-and-functions#aggregate-functions). Only the groups for which `TRUE` was returned will be returned. If not specified, all matching groups are returned.
 
 ### JOINs
 
@@ -189,8 +189,8 @@ KILL QUERY query_id [NO WAIT]
 
 ### Parameters
 
-* `query_id` - query identifier that can be retrieved via the `SQL_QUERIES` [system view](/administrators-guide/metrics/system-views).
-* `NO WAIT` - if specified, the command will return control immediately, without waiting for the query to be cancelled. You can monitor query status through the `SQL_QUERIES` [system view](/administrators-guide/metrics/system-views) to make sure it was cancelled.
+* `query_id` - query identifier that can be retrieved via the `SQL_QUERIES` [system view](/docs/3.1.0/administrators-guide/metrics/system-views).
+* `NO WAIT` - if specified, the command will return control immediately, without waiting for the query to be cancelled. You can monitor query status through the `SQL_QUERIES` [system view](/docs/3.1.0/administrators-guide/metrics/system-views) to make sure it was cancelled.
 
 ## KILL TRANSACTION
 
@@ -202,8 +202,8 @@ KILL TRANSACTION transaction_id [NO WAIT]
 
 ### Parameters
 
-* `transaction_id` - transaction identifier that can be retrieved via the `TRANSACTIONS` [system view](/administrators-guide/metrics/system-views).
-* `NO WAIT` - if specified, the command will return control immediately, without waiting for the transaction to be cancelled. You can monitor transaction status through the `TRANSACTIONS` [system view](/administrators-guide/metrics/system-views) to make sure it was cancelled.
+* `transaction_id` - transaction identifier that can be retrieved via the `TRANSACTIONS` [system view](/docs/3.1.0/administrators-guide/metrics/system-views).
+* `NO WAIT` - if specified, the command will return control immediately, without waiting for the transaction to be cancelled. You can monitor transaction status through the `TRANSACTIONS` [system view](/docs/3.1.0/administrators-guide/metrics/system-views) to make sure it was cancelled.
 
 ## KILL COMPUTE
 
@@ -215,5 +215,5 @@ KILL COMPUTE job_id [NO WAIT]
 
 ### Parameters
 
-* `job_id` - job identifier that can be retrieved via the `COMPUTE_JOBS` [system view](/administrators-guide/metrics/system-views).
-* `NO WAIT` - if specified, the command will return control immediately, without waiting for the job to be cancelled. You can monitor job status through the `COMPUTE_JOBS` [system view](/administrators-guide/metrics/system-views) to make sure it was cancelled.
+* `job_id` - job identifier that can be retrieved via the `COMPUTE_JOBS` [system view](/docs/3.1.0/administrators-guide/metrics/system-views).
+* `NO WAIT` - if specified, the command will return control immediately, without waiting for the job to be cancelled. You can monitor job status through the `COMPUTE_JOBS` [system view](/docs/3.1.0/administrators-guide/metrics/system-views) to make sure it was cancelled.

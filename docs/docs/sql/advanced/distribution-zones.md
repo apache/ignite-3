@@ -12,7 +12,7 @@ This section describes Apache Ignite 3 distribution zones. In Apache Ignite 3, y
 Creates a new distribution zone.
 
 :::note
-This can also be done via the [Java API](/docs/developers-guide/java-to-tables).
+This can also be done via the [Java API](/docs/3.1.0/developers-guide/java-to-tables).
 :::
 
 ### Keywords and parameters
@@ -70,7 +70,7 @@ CREATE ZONE IF NOT EXISTS exampleZone (NODES FILTER '$[?(@.storage == "SSD")]') 
 ```
 
 :::note
-The example above assumes that there are nodes that have the attribute set as shown in the [node filtering](/docs/administrators-guide/storage/distribution-zones#node-filtering) example.
+The example above assumes that there are nodes that have the attribute set as shown in the [node filtering](/docs/3.1.0/administrators-guide/storage/distribution-zones#node-filtering) example.
 :::
 
 Creates an `exampleZone` distribution zone with consistency mode set to `HIGH_AVAILABILITY`:
@@ -144,7 +144,7 @@ ALTER ZONE IF EXISTS exampleZone SET (REPLICAS 5, QUORUM SIZE 3, NODES FILTER '$
 Drops an existing distribution zone.
 
 :::note
-This can also be done via the [Java API](/docs/developers-guide/java-to-tables).
+This can also be done via the [Java API](/docs/3.1.0/developers-guide/java-to-tables).
 :::
 
 ### Keywords and parameters

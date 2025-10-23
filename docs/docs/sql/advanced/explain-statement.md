@@ -35,7 +35,7 @@ EXPLAIN MAPPING FOR SELECT * FROM lineitem;
 
 ## Understanding The Output
 
-Each query plan is represented as a tree-like structure composed of [**relational operators**](/docs/sql-reference/explain-operators-list).
+Each query plan is represented as a tree-like structure composed of [**relational operators**](/docs/3.1.0/sql-reference/explain-operators-list).
 
 A node in the plan includes:
 

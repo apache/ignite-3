@@ -12,10 +12,10 @@ Ignite 3 supports distributed compute jobs and event notifications.
 
 The compute API allows you to execute jobs across the cluster, with features for job tracking and failover management.
 
-For details on using compute, see the [Compute API documentation](/developers-guide/compute).
+For details on using compute, see the [Compute API documentation](/docs/3.1.0/developers-guide/compute).
 
 ## Event Notifications
 
 Ignite 3 provides event notifications for monitoring cluster state and data changes.
 
-For details on events, see the [Events documentation](/developers-guide/events).
+For details on events, see the [Events documentation](/docs/3.1.0/developers-guide/events).

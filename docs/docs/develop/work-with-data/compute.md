@@ -23,7 +23,7 @@ When sending code and data between nodes, objects are converted into a transfera
 
 Before submitting your compute job, ensure that the required code is [deployed](./code-deployment) to the nodes where it will execute.
 
-If you are using [embedded nodes](/docs/quick-start/embedded-mode), any code that is included in the project classpath will also be available to your compute jobs.
+If you are using [embedded nodes](/docs/3.1.0/quick-start/embedded-mode), any code that is included in the project classpath will also be available to your compute jobs.
 
 ## Configuring Jobs
 
@@ -523,7 +523,7 @@ You can execute .NET compute jobs from any client (.NET, Java, C++, etc) as long
 
 ## Job Ownership
 
-If the cluster has [Authentication](/docs/administrators-guide/security/authentication) enabled, compute jobs are executed by a specific user. If user permissions are configured on the cluster, the user needs the appropriate [distributed computing permissions](/docs/administrators-guide/security/permissions#distributed-computing) to work with distributed computing jobs. Only users with `JOBS_ADMIN` action can interact with jobs of other users.
+If the cluster has [Authentication](/docs/3.1.0/administrators-guide/security/authentication) enabled, compute jobs are executed by a specific user. If user permissions are configured on the cluster, the user needs the appropriate [distributed computing permissions](/docs/3.1.0/administrators-guide/security/permissions#distributed-computing) to work with distributed computing jobs. Only users with `JOBS_ADMIN` action can interact with jobs of other users.
 
 ## Job Execution States
 
@@ -651,7 +651,7 @@ cts.Cancel();
 </TabItem>
 </Tabs>
 
-Another way to cancel jobs is by using the SQL [KILL COMPUTE](/docs/sql-reference/operational-commands#kill-compute) command. The job id can be retrieved via the `COMPUTE_JOBS` [system view](/docs/administrators-guide/metrics/system-views).
+Another way to cancel jobs is by using the SQL [KILL COMPUTE](/docs/3.1.0/sql-reference/operational-commands#kill-compute) command. The job id can be retrieved via the `COMPUTE_JOBS` [system view](/docs/3.1.0/administrators-guide/metrics/system-views).
 
 ### Job Priority
 

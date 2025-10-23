@@ -18,8 +18,8 @@ This guide walks you through using Apache Ignite 3 SQL capabilities via the comm
 
 This tutorial uses prepared files to streamline deployment. Make sure you have downloaded the required files:
 
-* [docker-compose.yml](/docs/getting-started/sql-files/docker-compose.yml)
-* [sql archive](/docs/getting-started/sql-files/sql.zip)
+* [docker-compose.yml](/docs/3.1.0/getting-started/sql-files/docker-compose.yml)
+* [sql archive](/docs/3.1.0/getting-started/sql-files/sql.zip)
 
 Unpack the archive into a new folder, and place it and the docker compose file in the same directory where you will be running the Docker CLI commands. The tutorial expects these SQL files to be available and mounted to the container.
 

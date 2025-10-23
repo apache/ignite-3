@@ -38,7 +38,7 @@ This command launches a single Apache Ignite node. After you run the command, yo
 
 You can use the docker-compose file to start an entire cluster in docker. You can download a sample docker-compose file and run a 3-node cluster:
 
-- Download the [docker-compose](/docs/quick-start/docker-compose.yml) file.
+- Download the [docker-compose](/docs/3.1.0/quick-start/docker-compose.yml) file.
 
 :::note
 Docker compose version 2.23.1 or later is required to use the provided compose file.
@@ -61,7 +61,7 @@ docker compose -f docker-compose.yml up -d
 ## Running CLI Tool in Docker
 
 :::note
-It is not recommended to run the CLI tool in docker. Instead, we recommend to [download and install](/docs/configure-and-operate/installation/zip) CLI tool locally.
+It is not recommended to run the CLI tool in docker. Instead, we recommend to [download and install](/docs/3.1.0/configure-and-operate/installation/zip) CLI tool locally.
 :::
 
 CLI tool is used to manage Apache Ignite nodes. By default, docker nodes are isolated and run on different networks, so CLI tool will not be able to connect to the target container from another container. To fix that, you need to create a network and add all containers running the nodes to it.

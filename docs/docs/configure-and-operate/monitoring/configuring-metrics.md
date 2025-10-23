@@ -4,7 +4,7 @@ title: Configuring Metrics
 sidebar_label: Metrics
 ---
 
-Metric management is performed through the [Ignite CLI tool](/docs/developers-guide/ignite-cli-tool).
+Metric management is performed through the [Ignite CLI tool](/docs/3.1.0/developers-guide/ignite-cli-tool).
 
 ## Listing Metric Sources
 

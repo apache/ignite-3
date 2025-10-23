@@ -26,7 +26,7 @@ Checkpointing is designed to ensure durability of data and recovery in case of a
 
 This process helps you utilize disk space frugally by keeping pages in the most up-to-date state on disk.
 
-You can fine-tune checkpoint settings in the [aipersist](/administrators-guide/config/node-config#storage-configuration) storage engine configuration.
+You can fine-tune checkpoint settings in the [aipersist](/docs/3.1.0/administrators-guide/config/node-config#storage-configuration) storage engine configuration.
 
 ## Write Throttling
 
@@ -34,8 +34,8 @@ If a dirty page, scheduled for checkpointing, is updated before being written to
 
 To avoid the scenario where all updates are stopped, Apache Ignite always performs write throttling once the checkpoint buffer is two thirds full. Once the threshold is reached, checkpoint writer priority is increased, and more priority is given to checkpointing over new updates as the buffer fills more. This prevents buffer overflow while also slowing down update rate.
 
-In most cases, write throttling is caused by a slow drive, or a high update rate, and should not be a part of normal node operation. You can track write throttling by using [throttling metrics](/administrators-guide/metrics/metrics-list#storage.aipersist.profile).
+In most cases, write throttling is caused by a slow drive, or a high update rate, and should not be a part of normal node operation. You can track write throttling by using [throttling metrics](/docs/3.1.0/administrators-guide/metrics/metrics-list#storage.aipersist.profile).
 
 ## Storage Configuration
 
-In Apache Ignite 3, all storage configuration is consolidated under `ignite.storage` [node configuration](/administrators-guide/config/node-config#storage-configuration). For more information on how storage is configured, see [Storage Profiles and Engines](/understand/architecture/storage-architecture) documentation.
+In Apache Ignite 3, all storage configuration is consolidated under `ignite.storage` [node configuration](/docs/3.1.0/administrators-guide/config/node-config#storage-configuration). For more information on how storage is configured, see [Storage Profiles and Engines](/docs/3.1.0/understand/architecture/storage-architecture) documentation.
