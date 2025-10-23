@@ -27,13 +27,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.lang.ErrorGroups.Client;
-import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -43,9 +39,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ParameterizedClass
 @MethodSource("serverVersions")
-public class CurrentJdbcDriverWithOldServerCompatibilityTest extends CompatibilityTestBase { // implements ClientCompatibilityTests
-    private @Nullable IgniteClient client;
-
+public class JdbcOverThinSqlWithOldServerCompatibilityTest extends CompatibilityTestBase { // implements ClientCompatibilityTests
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         // No-op.
@@ -62,19 +56,6 @@ public class CurrentJdbcDriverWithOldServerCompatibilityTest extends Compatibili
         return false;
     }
 
-    @BeforeEach
-    public void createClient() {
-        client = cluster.createClient();
-    }
-
-    @AfterEach
-    public void closeClient() {
-        if (client != null) {
-            client.close();
-            client = null;
-        }
-    }
-
     private static List<String> serverVersions() {
         return List.of("3.0.0");
     }
@@ -82,7 +63,7 @@ public class CurrentJdbcDriverWithOldServerCompatibilityTest extends Compatibili
     @Test
     void jdbcConnectionToTheOldServerIsRejected() {
         Throwable ex = assertThrows(SQLException.class,
-                () -> DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800"),
+                () -> DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:" + cluster.clientPort()),
                 "Failed to connect to server"
         );
 
@@ -92,7 +73,8 @@ public class CurrentJdbcDriverWithOldServerCompatibilityTest extends Compatibili
 
         IgniteClientConnectionException connectEx = (IgniteClientConnectionException) cause;
 
-        assertThat(connectEx.getMessage(), containsString("Server is missing a required feature"));
+        assertThat(connectEx.getMessage(),
+                containsString("Connection to node aborted, because node doesn't support new JDBC driver"));
         assertThat(connectEx.code(), is(Client.CONNECTION_ERR));
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import com.google.auto.service.AutoService;
 import java.sql.Connection;
@@ -30,13 +31,17 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
+import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import org.apache.ignite.internal.client.ProtocolContext;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
@@ -46,6 +51,8 @@ import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.JdbcClientQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc2.JdbcConnection2;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -294,7 +301,7 @@ public class IgniteJdbcDriver implements Driver {
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                null,
+                new RetryLimitPolicy(),
                 null,
                 extractSslConfiguration(connectionProperties),
                 false,
@@ -303,8 +310,21 @@ public class IgniteJdbcDriver implements Driver {
                 IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
         );
 
+        Consumer<ProtocolContext> channelValidator = ctx -> {
+            if (!ctx.isFeatureSupported(ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT)) {
+                ClusterNode node = ctx.clusterNode();
+
+                throw new IgniteClientConnectionException(
+                        CONNECTION_ERR,
+                        IgniteStringFormatter.format("Connection to node aborted, "
+                                + "because node doesn't support new JDBC driver [name={}, address={}]", node.name(), node.address()),
+                        null
+                );
+            }
+        };
+
         return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(
-                cfg, observableTimeTracker, ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT));
+                cfg, observableTimeTracker, channelValidator));
     }
 
     private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {

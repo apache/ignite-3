@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
@@ -62,7 +63,6 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
-import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -134,8 +134,11 @@ public final class ReliableChannel implements AutoCloseable {
     /** Inflights. */
     private final ClientTransactionInflights inflights;
 
-    /** The feature that the node must support in order to connect to it. */
-    private final @Nullable ProtocolBitmaskFeature requiredFeature;
+    /**
+     * A validator that is called when a connection to a node is established,
+     * if it throws an exception, the network channel to that node will be closed.
+     */
+    private final @Nullable Consumer<ProtocolContext> channelValidator;
 
     /**
      * Constructor.
@@ -144,21 +147,22 @@ public final class ReliableChannel implements AutoCloseable {
      * @param clientCfg Client config.
      * @param metrics Client metrics.
      * @param observableTimeTracker Tracker of the latest time observed by client.
-     * @param requiredFeature The feature that the node must support in order to connect to it.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
             ClientMetricSource metrics,
             HybridTimestampTracker observableTimeTracker,
-            @Nullable ProtocolBitmaskFeature requiredFeature
+            @Nullable Consumer<ProtocolContext> channelValidator
     ) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
         this.observableTimeTracker = Objects.requireNonNull(observableTimeTracker, "observableTime");
-        this.requiredFeature = requiredFeature;
+        this.channelValidator = channelValidator;
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
@@ -576,7 +580,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             // Create new holders for new addrs.
             if (!curAddrs.containsKey(addr)) {
-                ClientChannelHolder hld = new ClientChannelHolder(new ClientChannelConfiguration(clientCfg, addr), requiredFeature);
+                ClientChannelHolder hld = new ClientChannelHolder(new ClientChannelConfiguration(clientCfg, addr));
 
                 for (int i = 0; i < newAddrs.get(addr); i++) {
                     reinitHolders.add(hld);
@@ -841,8 +845,6 @@ public final class ReliableChannel implements AutoCloseable {
         /** Channel configuration. */
         private final ClientChannelConfiguration chCfg;
 
-        private final @Nullable ProtocolBitmaskFeature requiredFeature;
-
         /** Channel. */
         private volatile @Nullable CompletableFuture<ClientChannel> chFut;
 
@@ -856,17 +858,17 @@ public final class ReliableChannel implements AutoCloseable {
          * Constructor.
          *
          * @param chCfg Channel config.
-         * @param requiredFeature The feature that the node must support in order to connect to it.
          */
-        private ClientChannelHolder(ClientChannelConfiguration chCfg, @Nullable ProtocolBitmaskFeature requiredFeature) {
+        private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
-            this.requiredFeature = requiredFeature;
         }
 
         /**
          * Get or create channel.
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
+            // ThreadUtils.dumpStack(null, ">xxx> getOrCreateChannelAsync " + chCfg.getAddress());
+
             if (close) {
                 return nullCompletedFuture();
             }
@@ -930,12 +932,8 @@ public final class ReliableChannel implements AutoCloseable {
                         nodeChannelsByName.remove(oldServerNode.name(), this);
                     }
 
-                    if (requiredFeature != null && !ch.protocolContext().isFeatureSupported(requiredFeature)) {
-                        throw new IgniteClientConnectionException(
-                                CONNECTION_ERR,
-                                "Server is missing a required feature " + requiredFeature,
-                                ch.endpoint()
-                        );
+                    if (channelValidator != null) {
+                        channelValidator.accept(ch.protocolContext());
                     }
 
                     serverNode = newNode;
