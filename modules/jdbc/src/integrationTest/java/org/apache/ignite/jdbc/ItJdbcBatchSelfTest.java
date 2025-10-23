@@ -43,7 +43,6 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestWrappers;
@@ -117,7 +116,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             statement.executeUpdate(SQL_DELETE);
         }
 
-        resourcesBefore = openResources();
+        resourcesBefore = openResources(CLUSTER);
     }
 
     /** {@inheritDoc} */
@@ -138,7 +137,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0, countOfPendingTransactions);
 
         Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            assertThat(openResources() - resourcesBefore, is(0));
+            assertThat(openResources(CLUSTER) - resourcesBefore, is(0));
         });
     }
 
@@ -811,8 +810,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
 
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
-        {
-            int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
+        // Retry until timeout exception is thrown.
+        Awaitility.await().untilAsserted(() -> {
+            int timeoutMillis = 1;
             igniteStmt.timeout(timeoutMillis);
 
             for (int i = 0; i < 3; i++) {
@@ -823,7 +823,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertThrowsSqlException(SQLException.class,
                     "Query timeout", igniteStmt::executeBatch);
-        }
+        });
 
         {
             // Disable timeout

@@ -51,12 +51,12 @@ import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * {@link Connection} implementation backed by the thin client.
@@ -282,7 +282,7 @@ public class JdbcConnection2 implements Connection {
         try {
             tx.commit();
         } catch (Exception e) {
-            throw new SQLException(COMMIT_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(e));
+            throw JdbcExceptionMapperUtil.mapToJdbcException(COMMIT_REQUEST_FAILED, e);
         }
     }
 
@@ -298,7 +298,7 @@ public class JdbcConnection2 implements Connection {
         try {
             tx.rollback();
         } catch (Exception e) {
-            throw new SQLException(ROLLBACK_REQUEST_FAILED, IgniteExceptionMapperUtil.mapToPublicException(e));
+            throw JdbcExceptionMapperUtil.mapToJdbcException(ROLLBACK_REQUEST_FAILED, e);
         }
     }
 
@@ -829,6 +829,11 @@ public class JdbcConnection2 implements Connection {
 
     ConnectionProperties properties() {
         return properties;
+    }
+
+    @TestOnly
+    void closeClient() {
+        igniteClient.close();
     }
 
     private static void checkCursorOptions(
