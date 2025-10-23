@@ -666,6 +666,30 @@ table tbody tr:nth-of-type(even) {
   border-left-color: #f5222d !important; /* Required - overrides default */
 }
 
+/* Dark mode admonitions - improved contrast */
+[data-theme='dark'] .theme-admonition.theme-admonition-note.alert.alert--secondary {
+  --ifm-alert-background-color: rgba(0, 136, 204, 0.2) !important; /* Increased opacity */
+  --ifm-alert-foreground-color: #64b5f6 !important; /* Blue 400 - softer than 300 */
+}
+
+[data-theme='dark'] .theme-admonition.theme-admonition-tip.alert.alert--success {
+  --ifm-alert-background-color: rgba(0, 168, 84, 0.2) !important; /* Increased opacity */
+  --ifm-alert-foreground-color: #66bb6a !important; /* Green 400 - softer than 300 */
+}
+
+[data-theme='dark'] .theme-admonition.theme-admonition-caution.alert.alert--warning,
+[data-theme='dark'] .theme-admonition.theme-admonition-important.alert.alert--info {
+  --ifm-alert-background-color: rgba(250, 173, 20, 0.2) !important; /* Increased opacity */
+  --ifm-alert-foreground-color: #ffa726 !important; /* Orange 400 - softer than 300 */
+}
+
+[data-theme='dark'] .theme-admonition.theme-admonition-warning.alert.alert--danger,
+[data-theme='dark'] .theme-admonition.theme-admonition-danger.alert.alert--danger,
+[data-theme='dark'] .theme-admonition.theme-admonition-warning.alert.alert--warning {
+  --ifm-alert-background-color: rgba(245, 34, 45, 0.2) !important; /* Increased opacity */
+  --ifm-alert-foreground-color: #e57373 !important; /* Red 300 - softer than 400 */
+}
+
 /* ============================================
    Images
    ============================================ */
