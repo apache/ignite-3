@@ -867,8 +867,6 @@ public final class ReliableChannel implements AutoCloseable {
          * Get or create channel.
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
-            // ThreadUtils.dumpStack(null, ">xxx> getOrCreateChannelAsync " + chCfg.getAddress());
-
             if (close) {
                 return nullCompletedFuture();
             }
