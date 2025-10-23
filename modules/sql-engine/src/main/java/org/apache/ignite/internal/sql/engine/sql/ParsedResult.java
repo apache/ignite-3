@@ -43,6 +43,19 @@ public interface ParsedResult {
     /** Returns the count of the dynamic params (specified by question marks in the query text) used in the query. */
     int dynamicParamsCount();
 
-    /** Returns the syntax tree of the query according to the grammar rules. */
+    /**
+     * Returns the syntax tree of the query according to the grammar rules for planning purposes.
+     *
+     * <p>Note: Each call should return new tree instance.
+     */
     SqlNode parsedTree();
+
+    /**
+     * Returns the syntax tree of the query for read-only purposes.
+     *
+     * @see #parsedTree()
+     */
+    default SqlNode parsedTreeSafe() {
+        return parsedTree();
+    }
 }

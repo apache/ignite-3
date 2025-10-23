@@ -108,7 +108,7 @@ class MultiStatementHandler {
             boolean unfinishedTxBlock = false;
 
             if (!txControlStatementFound && result.queryType() == SqlQueryType.TX_CONTROL) {
-                unfinishedTxBlock = result.parsedTree() instanceof IgniteSqlStartTransaction;
+                unfinishedTxBlock = result.parsedTreeSafe() instanceof IgniteSqlStartTransaction;
 
                 txControlStatementFound = true;
             }
@@ -179,8 +179,8 @@ class MultiStatementHandler {
                         break;
                     }
 
-                    List<SqlNode> batch = CollectionUtils.view(ddlBatch, s -> s.parsedQuery().parsedTree());
-                    if (!DdlBatchingHelper.canBeBatched(batch, statement.parsedResult.parsedTree())) {
+                    List<SqlNode> batch = CollectionUtils.view(ddlBatch, s -> s.parsedQuery().parsedTreeSafe());
+                    if (!DdlBatchingHelper.canBeBatched(batch, statement.parsedResult.parsedTreeSafe())) {
                         break;
                     }
 

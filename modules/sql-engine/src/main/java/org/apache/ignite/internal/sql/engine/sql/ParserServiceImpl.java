@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -78,21 +77,14 @@ public class ParserServiceImpl implements ParserService {
 
             assert queryType != null : normalizedQuery;
 
-            AtomicBoolean used = new AtomicBoolean();
-
             results.add(new ParsedResultImpl(
                     queryType,
                     originalQuery,
                     normalizedQuery,
                     result.dynamicParamsCount(),
+                    parsedTree,
                     () -> {
-                        if (queryType != SqlQueryType.TX_CONTROL && queryType != SqlQueryType.DDL
-                                && !used.compareAndSet(false, true)
-                        ) {
-                            throw new IllegalStateException("Parsed result of script is not reusable.");
-                        }
-
-                        return parsedTree;
+                        throw new IllegalStateException("Parsed result of script is not reusable.");
                     }
             ));
         }
@@ -136,27 +128,13 @@ public class ParserServiceImpl implements ParserService {
 
         assert queryType != null : normalizedQuery;
 
-        AtomicReference<SqlNode> holder = new AtomicReference<>(parsedTree);
-
         return new ParsedResultImpl(
                 queryType,
                 originalQuery,
                 normalizedQuery,
                 dynamicParamsCount,
-                () -> {
-                    // Descendants of SqlNode class are mutable, thus we must use every
-                    // syntax node only once to avoid problem. But we already parsed the
-                    // query once to get normalized result. An `unparse` operation is known
-                    // to be safe, so let's reuse result of parsing for the first invocation
-                    // of `parsedTree` method to avoid double-parsing for one time queries.
-                    SqlNode ast = holder.getAndSet(null);
-
-                    if (ast != null) {
-                        return ast;
-                    }
-
-                    return IgniteSqlParser.parse(originalQuery, StatementParseResult.MODE).statement();
-                }
+                parsedTree,
+                () -> IgniteSqlParser.parse(originalQuery, StatementParseResult.MODE).statement()
         );
     }
 
@@ -166,12 +144,14 @@ public class ParserServiceImpl implements ParserService {
         private final String normalizedQuery;
         private final int dynamicParamCount;
         private final Supplier<SqlNode> parsedTreeSupplier;
+        private final AtomicReference<SqlNode> cachedParsedTree;
 
         private ParsedResultImpl(
                 SqlQueryType queryType,
                 String originalQuery,
                 String normalizedQuery,
                 int dynamicParamCount,
+                SqlNode cachedParsedTree,
                 Supplier<SqlNode> parsedTreeSupplier
         ) {
             this.queryType = queryType;
@@ -179,6 +159,7 @@ public class ParserServiceImpl implements ParserService {
             this.normalizedQuery = normalizedQuery;
             this.dynamicParamCount = dynamicParamCount;
             this.parsedTreeSupplier = parsedTreeSupplier;
+            this.cachedParsedTree = new AtomicReference<>(cachedParsedTree);
         }
 
         /** {@inheritDoc} */
@@ -207,8 +188,25 @@ public class ParserServiceImpl implements ParserService {
 
         /** {@inheritDoc} */
         @Override
+        public SqlNode parsedTreeSafe() {
+            SqlNode tree = cachedParsedTree.get();
+
+            if (tree != null) {
+                return tree;
+            }
+
+            tree = parsedTreeSupplier.get();
+            cachedParsedTree.set(tree);
+
+            return tree;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public SqlNode parsedTree() {
-            return parsedTreeSupplier.get();
+            SqlNode tree = cachedParsedTree.getAndSet(null);
+
+            return tree != null ? tree : parsedTreeSupplier.get();
         }
     }
 }
