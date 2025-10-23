@@ -58,7 +58,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.BatchedArguments;
@@ -179,8 +178,7 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
                     IgniteQueryErrorCode.UNKNOWN,
                     longsArrayToIntsArrayUnsafe(e.updateCounters()));
         } catch (Exception e) {
-            Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
-            throw new SQLException(cause.getMessage(), cause);
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         } finally {
             batchedArgs = null;
         }
@@ -233,7 +231,10 @@ public class JdbcPreparedStatement2 extends JdbcStatement2 implements PreparedSt
     public boolean execute() throws SQLException {
         execute0(ALL, sql, currentArguments.toArray());
 
-        return isQuery();
+        ResultSetWrapper rs = result;
+        assert rs != null;
+
+        return rs.isQuery();
     }
 
     /** {@inheritDoc} */

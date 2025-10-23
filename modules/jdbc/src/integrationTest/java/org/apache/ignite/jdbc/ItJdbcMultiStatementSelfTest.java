@@ -47,7 +47,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests for queries containing multiple sql statements, separated by ";".
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
 public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Setup tables.
@@ -70,17 +69,17 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        int openCursorResources = openResources();
+        int openCursorResources = openResources(CLUSTER);
         // connection + not closed result set
-        assertTrue(openResources() <= 2, "Open cursors: " + openCursorResources);
+        assertTrue(openResources(CLUSTER) <= 2, "Open cursors: " + openCursorResources);
 
         stmt.close();
 
-        openCursorResources = openResources();
+        openCursorResources = openResources(CLUSTER);
 
         // only connection context or 0 if already closed.
-        assertTrue(openResources() <= 1, "Open cursors: " + openCursorResources);
-        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
+        assertTrue(openResources(CLUSTER) <= 1, "Open cursors: " + openCursorResources);
+        assertTrue(waitForCondition(() -> openCursors(CLUSTER) == 0, 5_000));
     }
 
     @Test
@@ -94,7 +93,9 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         // pk violation exception
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
         stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (1, 1, '1'); COMMIT");
-        assertThrowsSqlException("Failed to fetch query results", () -> stmt.execute("SELECT COUNT(*) FROM TEST_TX"));
+        assertEquals(0, stmt.getUpdateCount());
+        assertThrowsSqlException("PK unique constraint is violated", () -> stmt.getMoreResults());
+
         stmt.execute("SELECT COUNT(*) FROM TEST_TX");
         try (ResultSet rs = stmt.getResultSet()) {
             assertTrue(rs.next());
@@ -145,18 +146,27 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     public void testSimpleQueryError() throws Exception {
         boolean res = stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
         assertTrue(res);
-        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
+        assertThrowsSqlException("Division by zero", () -> stmt.getMoreResults());
         // Next after exception.
-        assertFalse(stmt.getMoreResults());
+        // assertFalse(stmt.getMoreResults());
+        // Do not move past the first result.
+        assertThrowsSqlException("Division by zero", () -> stmt.getMoreResults());
 
         stmt.closeOnCompletion();
     }
 
     @Test
+    public void testSimpleQueryErrorMustReleaseServerResources() throws Exception {
+        // The script fails, the user does not retrieve any result sets.
+        stmt.execute("SELECT 1; SELECT 2/0; SELECT 3");
+        // But the resources must be released in after test callbacks.
+    }
+
+    @Test
     public void testSimpleQueryErrorCloseRs() throws Exception {
-        stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
+        stmt.execute("SELECT 1; SELECT 2/0; SELECT 2");
         ResultSet rs = stmt.getResultSet();
-        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
+        assertThrowsSqlException("Division by zero", () -> stmt.getMoreResults());
         stmt.closeOnCompletion();
 
         rs.close();
@@ -214,13 +224,18 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void noMoreResultsArePossibleAfterCloseOnCompletion() throws Exception {
         stmt.execute("SELECT 1; SELECT 2; SELECT 3");
+
+        ResultSet rs1 = stmt.getResultSet();
         // SELECT 2;
         assertTrue(stmt.getMoreResults());
+        assertTrue(rs1.isClosed());
 
+        ResultSet rs2 = stmt.getResultSet();
         stmt.closeOnCompletion();
 
         // SELECT 3;
         assertTrue(stmt.getMoreResults());
+        assertTrue(rs2.isClosed());
         assertFalse(stmt.isClosed());
 
         // no more results, auto close statement
@@ -417,7 +432,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testAutoCommitFalseTxControlStatementsNotSupported() throws Exception {
-        String txErrMsg = "Transaction control statements are not supported when autocommit mode is disabled";
+        String txErrMsg = "Transaction control statements are not supported when autocommit mode is disabled.";
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
@@ -583,6 +598,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     public void testResultsFromExecuteBatch() throws Exception {
         stmt.addBatch("INSERT INTO TEST_TX VALUES (7, 25, 'Michel');");
         stmt.addBatch("INSERT INTO TEST_TX VALUES (8, 25, 'Michel');");

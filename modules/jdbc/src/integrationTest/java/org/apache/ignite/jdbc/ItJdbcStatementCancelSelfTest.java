@@ -77,7 +77,6 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26142")
     void cancellationOfMultiStatementQuery() throws Exception {
         stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
         stmt.setFetchSize(1);
