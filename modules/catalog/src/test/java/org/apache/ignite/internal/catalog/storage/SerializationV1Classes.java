@@ -26,8 +26,8 @@ import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntr
  */
 final class SerializationV1Classes {
 
-    private static final Set<SerializerClass> CLASSES = Set.of(
-            // Descriptors
+    // V1 in nested object serializers are called manually. 
+    private static final Set<SerializerClass> DESCRIPTORS = Set.of(
             new SerializerClass(MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id(), 1),
             new SerializerClass(MarshallableEntryType.DESCRIPTOR_SORTED_INDEX.id(), 1),
             new SerializerClass(MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILE.id(), 1),
@@ -38,9 +38,10 @@ final class SerializationV1Classes {
             new SerializerClass(MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id(), 1),
             new SerializerClass(MarshallableEntryType.DESCRIPTOR_TABLE_VERSION.id(), 1),
             new SerializerClass(MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS.id(), 1),
-            new SerializerClass(MarshallableEntryType.DESCRIPTOR_ZONE.id(), 1),
+            new SerializerClass(MarshallableEntryType.DESCRIPTOR_ZONE.id(), 1)
+    );
 
-            // Entries
+    private static final Set<SerializerClass> ENTRIES = Set.of(
             new SerializerClass(MarshallableEntryType.ALTER_COLUMN.id(), 1),
             new SerializerClass(MarshallableEntryType.ALTER_ZONE.id(), 1),
             new SerializerClass(MarshallableEntryType.DROP_COLUMN.id(), 1),
@@ -69,7 +70,11 @@ final class SerializationV1Classes {
 
     }
 
+    static boolean includesDescriptor(SerializerClass serializerClass) {
+        return DESCRIPTORS.contains(serializerClass);
+    }
+
     static boolean includes(SerializerClass serializerClass) {
-        return CLASSES.contains(serializerClass);
+        return ENTRIES.contains(serializerClass) || DESCRIPTORS.contains(serializerClass);
     }
 }

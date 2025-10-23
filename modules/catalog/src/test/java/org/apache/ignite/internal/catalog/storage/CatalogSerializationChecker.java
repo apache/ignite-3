@@ -110,7 +110,6 @@ final class CatalogSerializationChecker {
             assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
         }
 
-        recordSerializer.accept(new SerializerClass(actualEntry.typeId(), version));
         assertion.isEqualTo(actualEntry.snapshot());
     }
 
@@ -130,13 +129,16 @@ final class CatalogSerializationChecker {
                 assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
             }
 
+            // Record entry version to support v1 serialization.
             recordSerializer.accept(new SerializerClass(expectedEntry.typeId(), version));
+
             assertion.isEqualTo(expectedEntry);
         }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T extends UpdateEntry> List<T> checkEntries(List<? extends T> entries, String fileName, int version) {
+        // The version number is ignored, checkEntry uses the concrete serializer version. 
         VersionedUpdate update = new VersionedUpdate(1, 100L, (List<UpdateEntry>) entries);
         VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName, version, update);
 

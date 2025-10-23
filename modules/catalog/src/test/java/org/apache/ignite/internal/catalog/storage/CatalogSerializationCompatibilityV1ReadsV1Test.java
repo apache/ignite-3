@@ -55,7 +55,8 @@ public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSeria
         // 1. Collect serializers (entry class + version)x
         Set<SerializerClass> serializers = CatalogSerializationChecker.findEntrySerializers()
                 .stream()
-                // Serializers for protocol version 1.
+                // Exclude descriptors - their serializers are called manually.
+                .filter(c -> !SerializationV1Classes.includesDescriptor(c))
                 .filter(SerializationV1Classes::includes)
                 .collect(Collectors.toSet());
 
