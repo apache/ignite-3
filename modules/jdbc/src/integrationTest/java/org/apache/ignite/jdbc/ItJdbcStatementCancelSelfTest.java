@@ -32,7 +32,6 @@ import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -188,7 +187,6 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
     void cancellationOfBatch() throws Exception {
         stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
         stmt.addBatch("INSERT INTO dummy SELECT x, x FROM system_range(1, 1)");

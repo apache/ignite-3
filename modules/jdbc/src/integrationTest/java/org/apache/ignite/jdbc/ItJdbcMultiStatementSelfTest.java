@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -595,19 +594,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         ResultSet rs = stmt.getResultSet();
         assertNull(rs);
         assertEquals(-1, stmt.getUpdateCount());
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26143")
-    public void testResultsFromExecuteBatch() throws Exception {
-        stmt.addBatch("INSERT INTO TEST_TX VALUES (7, 25, 'Michel');");
-        stmt.addBatch("INSERT INTO TEST_TX VALUES (8, 25, 'Michel');");
-        int[] arr = stmt.executeBatch();
-
-        assertEquals(2, arr.length);
-        assertArrayEquals(new int[]{1, 1}, arr);
-        assertEquals(-1, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
     }
 
     /**
