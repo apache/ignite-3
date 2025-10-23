@@ -563,7 +563,7 @@ public class CatalogUtils {
      * @return Catalog validation exception instance with proper and common for such cases message.
      */
     public static CatalogValidationException duplicateDistributionZoneNameCatalogValidationException(String duplicatedZoneName) {
-        throw new CatalogValidationException("Distribution zone with name '{}' already exists.", duplicatedZoneName);
+        return new CatalogValidationException("Distribution zone with name '{}' already exists.", duplicatedZoneName);
     }
 
     /**

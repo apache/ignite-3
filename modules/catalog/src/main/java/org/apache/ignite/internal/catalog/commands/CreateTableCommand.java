@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_Z
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.duplicateDistributionZoneNameCatalogValidationException;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
@@ -153,7 +152,11 @@ public class CreateTableCommand extends AbstractTableCommand {
                 int zoneId = id++;
 
                 if (catalog.zone(DEFAULT_ZONE_NAME) != null) {
-                    throw duplicateDistributionZoneNameCatalogValidationException(DEFAULT_ZONE_NAME);
+                    throw new CatalogValidationException(
+                            "Distribution zone with name '{}' already exists. "
+                                    + "Please specify zone name for the new table or set the zone as default",
+                            DEFAULT_ZONE_NAME
+                    );
                 }
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-26798
