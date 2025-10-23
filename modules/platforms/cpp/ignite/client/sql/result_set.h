@@ -32,7 +32,7 @@ class result_set_impl;
 }
 
 /**
- * Query result set.
+ * @brief SQL query result set.
  */
 class result_set {
 public:

@@ -26,7 +26,7 @@
 namespace ignite {
 
 /**
- * Compute job state.
+ * @brief Compute job state.
  */
 struct job_state {
     /// Job ID.
