@@ -49,8 +49,6 @@ final class CatalogSerializationChecker {
 
     private static final String UPDATE_TIMESTAMP_FIELD_REGEX = ".*updateTimestamp";
 
-    private static final String PACKAGE_NAME = "org.apache.ignite.internal.catalog.storage";
-
     private final Map<Integer, Integer> expectedEntryVersions = new HashMap<>();
 
     private boolean writeSnapshot;
