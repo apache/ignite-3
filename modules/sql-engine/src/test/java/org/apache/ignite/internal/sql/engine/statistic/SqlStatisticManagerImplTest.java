@@ -172,7 +172,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         sqlStatisticManager.forceUpdateAll();
         // Now we need obtain a fresh value of table size.
         assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
-        assertEquals(time2.longValue(), sqlStatisticManager.tableSizeMap.get(tableId).getTimestamp());
+        assertEquals(time2.longValue(), sqlStatisticManager.tableSizeMap.get(tableId).modificationCounter());
 
         verify(statAggregator, times(2)).estimatedSizeWithLastUpdate(internalTable);
     }
