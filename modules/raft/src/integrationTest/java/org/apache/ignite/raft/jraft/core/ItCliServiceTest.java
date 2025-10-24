@@ -253,7 +253,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         assertEquals(oldLearners, cliService.getAliveLearners(groupId, conf));
 
         // Set learners into [learner3]
-        cliService.resetLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()), conf.getSequenceToken() + 1);
+        cliService.resetLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()), conf.getSequenceToken() + 3);
 
         assertTrue(waitForCondition(() -> cluster.getFsmByPeer(learner3.getPeerId()).getLogs().size() == 30, 5_000));
 
@@ -282,10 +282,10 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         TestPeer learner4 = new TestPeer(testInfo, TestUtils.INIT_PORT + LEARNER_PORT_STEP + 4);
         assertTrue(cluster.startLearner(learner4));
 
-        cliService.addLearners(groupId, conf, Collections.singletonList(learner4.getPeerId()), conf.getSequenceToken() + 3);
+        cliService.addLearners(groupId, conf, Collections.singletonList(learner4.getPeerId()), conf.getSequenceToken() + 4);
         sleep(1000);
         assertEquals(1, cliService.getAliveLearners(groupId, conf).size());
-        assertTrue(cliService.learner2Follower(groupId, conf, learner4.getPeerId(), conf.getSequenceToken() + 4).isOk());
+        assertTrue(cliService.learner2Follower(groupId, conf, learner4.getPeerId(), conf.getSequenceToken() + 5).isOk());
 
         sleep(1000);
         List<PeerId> currentLearners = cliService.getAliveLearners(groupId, conf);
