@@ -30,7 +30,6 @@ import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -179,8 +177,10 @@ class MultiStatementHandler {
                         break;
                     }
 
-                    List<SqlNode> batch = CollectionUtils.view(ddlBatch, s -> s.parsedQuery().parsedTreeSafe());
-                    if (!DdlBatchingHelper.canBeBatched(batch, statement.parsedResult.parsedTreeSafe())) {
+                    if (!DdlBatchingHelper.isCompatible(
+                            scriptStatement.parsedResult.parsedTreeSafe(),
+                            statement.parsedResult.parsedTreeSafe())
+                    ) {
                         break;
                     }
 
@@ -306,7 +306,7 @@ class MultiStatementHandler {
                 .whenComplete((ignored, ex) -> query.moveTo(ExecutionPhase.TERMINATED));
     }
 
-    static class ScriptStatement {
+    private static class ScriptStatement {
         private final CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = new CompletableFuture<>();
         private final CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatementFuture;
         private final ParsedResult parsedResult;

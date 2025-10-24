@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import java.util.List;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 
@@ -25,19 +24,8 @@ import org.apache.calcite.sql.SqlNode;
  *  Provide helper methods for batched DDL commands.
  */
 class DdlBatchingHelper {
-    /**
-     * Return {@code true} if a DDL command is compatible with batched DDL commands and can be added to the batch.
-     *
-     * @param batch DDL commands represented by AST trees.
-     * @param statement A DDL statement represented by AST tree
-     * @return {@code true} if statement can be added to the batch, {@code false} otherwise.
-     */
-    static boolean canBeBatched(List<SqlNode> batch, SqlNode statement) {
-        return batch.stream().allMatch(s -> isCompatible(s, statement));
-    }
-
     /** Returns {@code true} if commands (represented by AST trees) can be executed together, {@code false} otherwise. */
-    private static boolean isCompatible(SqlNode node1, SqlNode node2) {
+    static boolean isCompatible(SqlNode node1, SqlNode node2) {
         DdlCommandType kind1 = getCommandType(node1);
         DdlCommandType kind2 = getCommandType(node2);
 
