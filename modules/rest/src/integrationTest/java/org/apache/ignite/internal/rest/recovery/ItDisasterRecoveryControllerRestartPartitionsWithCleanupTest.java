@@ -167,7 +167,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     public void testRestartSpecifiedPartitionsWithCleanup() {
-        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 
@@ -203,7 +203,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     public void testRestartPartitionsWithCleanupAllPartitions() {
-        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
@@ -214,7 +214,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     public void testRestartTablePartitionsWithCleanupAllPartitions() {
-        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
         MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
                 new RestartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
