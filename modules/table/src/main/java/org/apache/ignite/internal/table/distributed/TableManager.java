@@ -1249,8 +1249,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     TableViewInternal table = tables.get(parameters.tableId());
 
+                    unregisterMetricsSource(table);
+
                     // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
                     ((TableImpl) table).name(parameters.newTableName());
+
+                    createAndRegisterMetricsSource(table.internalTable().storage().getTableDescriptor(), table.qualifiedName());
 
                     return nullCompletedFuture();
                 })

@@ -19,23 +19,41 @@ package org.apache.ignite.internal.table.metrics;
 
 import static java.util.List.of;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RO_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RW_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.WRITES;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.table.QualifiedName.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.MetricSource;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
@@ -62,7 +80,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     @BeforeAll
-    void createTable() throws Exception {
+    void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON PUBLIC." + TABLE_NAME + " USING SORTED (id)");
@@ -500,6 +518,55 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
             tx.commit();
         });
+    }
+
+    @Test
+    void renameTable() {
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
+        CatalogManager catalogManager = ignite.catalogManager();
+
+        String initialName = "TABLE1";
+        String renamedName = "TABLE1_TMP";
+
+        CatalogCommand createTableCommand = CreateTableCommand.builder()
+                .tableName(initialName)
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .zone("Default")
+                .columns(List.of(ColumnParams.builder().name("id").type(ColumnType.INT32).build()))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("id")).build())
+                .build();
+
+        CatalogCommand renameCmd = RenameTableCommand.builder()
+                .tableName(initialName)
+                .newTableName(renamedName)
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .build();
+
+        assertThat(catalogManager.execute(createTableCommand), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(renameCmd), willCompleteSuccessfully());
+
+        String initialTableMetricSourceName = TableMetricSource.sourceName(QualifiedName.fromSimple(initialName));
+        String renamedTableMetricSourceName = TableMetricSource.sourceName(QualifiedName.fromSimple(renamedName));
+        String initialEngineMetricSourceName = StorageEngineTablesMetricSource.sourceName("aipersist", QualifiedName.fromSimple(initialName));
+        String renamedEngineMetricSourceName = StorageEngineTablesMetricSource.sourceName("aipersist", QualifiedName.fromSimple(renamedName));
+
+        Set<String> metricSources = ignite.metricManager().metricSources().stream()
+                .map(MetricSource::name)
+                .collect(toSet());
+
+        assertThat(metricSources, allOf(
+                hasItem(renamedTableMetricSourceName),
+                hasItem(renamedEngineMetricSourceName),
+                not(hasItem(initialTableMetricSourceName)),
+                not(hasItem(initialEngineMetricSourceName))
+        ));
+
+        CatalogCommand dropTableCommand = DropTableCommand.builder()
+                .tableName(renamedName)
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .build();
+
+        assertThat(catalogManager.execute(dropTableCommand), willCompleteSuccessfully());
     }
 
     /**
