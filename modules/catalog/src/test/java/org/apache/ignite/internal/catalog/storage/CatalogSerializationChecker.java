@@ -175,7 +175,7 @@ final class CatalogSerializationChecker {
     }
 
     private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String entryFileName, int entryVersion, UpdateLogEvent entry) {
-        String fileName = binFileName(entryFileName, entryVersion);
+        String fileName = format("{}_{}.bin", entryFileName, entryVersion);
         String resourceName = directory + "/" + fileName;
 
         CatalogEntrySerializerProvider defaultProvider = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
@@ -301,10 +301,6 @@ final class CatalogSerializationChecker {
                 fail(message);
             }
         }
-    }
-
-    private static String binFileName(String entryFileName, int entryVersion) {
-        return format("{}_{}.bin", entryFileName, entryVersion);
     }
 
     static Set<SerializerClass> findEntrySerializers() {
