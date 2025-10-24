@@ -77,12 +77,12 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
 
     @Test
     public void snapshotEntry() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, 1);
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
 
         EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
-        objectVersions.put(Type.TABLE, 1);
-        objectVersions.put(Type.INDEX, 1);
-        objectVersions.put(Type.SYSTEM_VIEW, 1);
+        objectVersions.put(Type.TABLE, entryVersion());
+        objectVersions.put(Type.INDEX, entryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
 
         Catalog catalog1 = new Catalog(
                 2367,
@@ -95,17 +95,17 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntry", 1);
+        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntry", entryVersion());
     }
 
     @Test
     public void snapshotEntryNoDefaultZone() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, 1);
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
 
         EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
-        objectVersions.put(Type.TABLE, 1);
-        objectVersions.put(Type.INDEX, 1);
-        objectVersions.put(Type.SYSTEM_VIEW, 1);
+        objectVersions.put(Type.TABLE, entryVersion());
+        objectVersions.put(Type.INDEX, entryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
 
         Catalog catalog1 = new Catalog(
                 789879,
@@ -118,36 +118,36 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", 1);
+        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", entryVersion());
     }
 
     @Test
     public void objectIdUpdate() {
         List<UpdateEntry> entries = List.of(new ObjectIdGenUpdateEntry(23431), new ObjectIdGenUpdateEntry(1204));
 
-        checker.compareEntries(entries, "ObjectIdGenUpdateEntry", 1);
+        checker.compareEntries(entries, "ObjectIdGenUpdateEntry", entryVersion());
     }
 
     // Zones
 
     @Test
     public void newZone() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, 1);
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
         List<UpdateEntry> entries = zones.stream().map(NewZoneEntry::new).collect(Collectors.toList());
 
-        checker.compareEntries(entries, "NewZoneEntry", 1);
+        checker.compareEntries(entries, "NewZoneEntry", entryVersion());
     }
 
     @Test
     public void alterZone() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, 1);
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
 
         List<UpdateEntry> entries = List.of(
                 new AlterZoneEntry(zones.get(1)),
                 new AlterZoneEntry(zones.get(2))
         );
 
-        checker.compareEntries(entries, "AlterZoneEntry", 1);
+        checker.compareEntries(entries, "AlterZoneEntry", entryVersion());
     }
 
     @Test
@@ -157,7 +157,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new SetDefaultZoneEntry(state.id())
         );
 
-        checker.compareEntries(entries, "SetDefaultZoneEntry", 1);
+        checker.compareEntries(entries, "SetDefaultZoneEntry", entryVersion());
     }
 
     @Test
@@ -167,7 +167,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new DropZoneEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropZoneEntry", 1);
+        checker.compareEntries(entries, "DropZoneEntry", entryVersion());
     }
 
     // Schemas
@@ -175,16 +175,16 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
     @Test
     public void newSchema() {
         EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
-        objectVersions.put(Type.TABLE, 1);
-        objectVersions.put(Type.INDEX, 1);
-        objectVersions.put(Type.SYSTEM_VIEW, 1);
+        objectVersions.put(Type.TABLE, entryVersion());
+        objectVersions.put(Type.INDEX, entryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
 
         List<UpdateEntry> entries = TestSchemaDescriptors.schemas(state, 1, objectVersions)
                 .stream()
                 .map(NewSchemaEntry::new)
                 .collect(Collectors.toList());
 
-        checker.compareEntries(entries, "NewSchemaEntry", 1);
+        checker.compareEntries(entries, "NewSchemaEntry", entryVersion());
     }
 
     @Test
@@ -194,7 +194,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new DropSchemaEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropSchemaEntry", 1);
+        checker.compareEntries(entries, "DropSchemaEntry", entryVersion());
     }
 
     // Tables
@@ -218,7 +218,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new RenameTableEntry(state.id(), "NEW_NAME2")
         );
 
-        checker.compareEntries(entries, "RenameTableEntry", 1);
+        checker.compareEntries(entries, "RenameTableEntry", entryVersion());
     }
 
     @Test
@@ -228,7 +228,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new DropTableEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropTableEntry", 1);
+        checker.compareEntries(entries, "DropTableEntry", entryVersion());
     }
 
     // Indexes
@@ -259,7 +259,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
     public void renameIndex() {
         List<UpdateEntry> entries = List.of(new RenameIndexEntry(state.id(), "NEW_NAME"));
 
-        checker.compareEntries(entries, "RenameIndexEntry", 1);
+        checker.compareEntries(entries, "RenameIndexEntry", entryVersion());
     }
 
     @Test
@@ -269,7 +269,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new RemoveIndexEntry(state.id())
         );
 
-        checker.compareEntries(entries, "RemoveIndexEntry", 1);
+        checker.compareEntries(entries, "RemoveIndexEntry", entryVersion());
     }
 
     @Test
@@ -279,7 +279,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new MakeIndexAvailableEntry(state.id())
         );
 
-        checker.compareEntries(entries, "MakeIndexAvailableEntry", 1);
+        checker.compareEntries(entries, "MakeIndexAvailableEntry", entryVersion());
     }
 
     @Test
@@ -289,7 +289,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new StartBuildingIndexEntry(state.id())
         );
 
-        checker.compareEntries(entries, "StartBuildingIndexEntry", 1);
+        checker.compareEntries(entries, "StartBuildingIndexEntry", entryVersion());
     }
 
     @Test
@@ -299,7 +299,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new DropIndexEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropIndexEntry", 1);
+        checker.compareEntries(entries, "DropIndexEntry", entryVersion());
     }
 
     // Columns
@@ -317,7 +317,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new NewColumnsEntry(state.id(), columns2)
         );
 
-        checker.compareEntries(entries, "NewColumnsEntry", 1);
+        checker.compareEntries(entries, "NewColumnsEntry", entryVersion());
     }
 
     @Test
@@ -329,7 +329,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new AlterColumnEntry(state.id(), columns.get(0)),
                 new AlterColumnEntry(state.id(), columns.get(1))
         );
-        checker.compareEntries(entries, "AlterColumnsEntry", 1);
+        checker.compareEntries(entries, "AlterColumnsEntry", entryVersion());
     }
 
     @Test
@@ -344,7 +344,7 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
                 new DropColumnsEntry(state.id(), Set.of("C1", "C2")),
                 new DropColumnsEntry(state.id(), Set.of("C3"))
         );
-        checker.compareEntries(entries, "DropColumnsEntry", 1);
+        checker.compareEntries(entries, "DropColumnsEntry", entryVersion());
     }
 
     // System views
