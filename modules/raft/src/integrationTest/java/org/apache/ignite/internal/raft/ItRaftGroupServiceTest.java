@@ -64,6 +64,7 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.CoalescedHeartbeatRequest;
 import org.junit.jupiter.api.AfterEach;
@@ -193,7 +194,11 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         RaftGroupService service0 = nodes.get(0).raftGroupService;
 
         CompletableFuture<Void> changePeersFuture = service0.refreshAndGetLeaderWithTerm()
-                .thenCompose(l -> service0.changePeersAndLearnersAsync(configuration, l.term()));
+                .thenCompose(l -> service0.changePeersAndLearnersAsync(
+                        configuration,
+                        l.term(),
+                        Configuration.NO_SEQUENCE_TOKEN
+                ));
 
         assertThat(changePeersFuture, willCompleteSuccessfully());
 

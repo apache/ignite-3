@@ -37,7 +37,7 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
 
     @Override
     protected byte getProtocolVersion() {
-        return 2;
+        return 3;
     }
 
     @Override
@@ -48,6 +48,8 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
         writeStringList(config.learners(), out);
         writeNullableStringList(config.oldPeers(), out);
         writeNullableStringList(config.oldLearners(), out);
+        out.writeVarInt(config.sequenceToken());
+        out.writeVarInt(config.oldSequenceToken());
     }
 
     private static void writeStringList(List<String> strings, IgniteDataOutput out) throws IOException {
@@ -83,7 +85,17 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
         List<String> oldPeers = readNullableStringList(in);
         List<String> oldLearners = readNullableStringList(in);
 
-        return new RaftGroupConfiguration(index, term, peers, learners, oldPeers, oldLearners);
+        long sequenceToken;
+        long oldSequenceToken;
+        if (protoVer >= 3) {
+            sequenceToken = in.readVarInt();
+            oldSequenceToken = in.readVarInt();
+        } else {
+            sequenceToken = 0;
+            oldSequenceToken = 0;
+        }
+
+        return new RaftGroupConfiguration(index, term, sequenceToken, oldSequenceToken, peers, learners, oldPeers, oldLearners);
     }
 
     private static List<String> readStringList(IgniteDataInput in) throws IOException {

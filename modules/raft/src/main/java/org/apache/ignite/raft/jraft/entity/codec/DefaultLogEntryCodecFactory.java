@@ -16,11 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
-import org.apache.ignite.raft.jraft.entity.codec.v1.V1Decoder;
-import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
+import org.apache.ignite.raft.jraft.entity.codec.v2.V2Encoder;
 
 /**
- * Default log entry codec factory
+ * Default log entry codec factory. Uses V2 encoder for new entries and AutoDetectDecoder for reading
+ * (supports both V1 and V2 formats for backward compatibility).
  */
 public class DefaultLogEntryCodecFactory implements LogEntryCodecFactory {
 
@@ -40,12 +40,12 @@ public class DefaultLogEntryCodecFactory implements LogEntryCodecFactory {
 
     @Override
     public LogEntryEncoder encoder() {
-        return V1Encoder.INSTANCE;
+        return V2Encoder.INSTANCE;
     }
 
     @Override
     public LogEntryDecoder decoder() {
-        return V1Decoder.INSTANCE;
+        return AutoDetectDecoder.INSTANCE;
     }
 
 }

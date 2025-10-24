@@ -138,9 +138,11 @@ public interface RaftGroupService extends RaftCommandRunner {
      * @param peersAndLearners New peers and Learners of the Raft group.
      * @param term Current known leader term.
      *             If real raft group term will be different - configuration update will be skipped.
+     * @param sequenceToken Sequence token of the current change.
+     *
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term);
+    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long sequenceToken);
 
     /**
      * Changes peers and learners of a replication group.
@@ -156,9 +158,11 @@ public interface RaftGroupService extends RaftCommandRunner {
      * @param peersAndLearners New peers and Learners of the Raft group.
      * @param term Current known leader term.
      *             If real raft group term will be different - configuration update will be skipped.
+     * @param sequenceToken Sequence token of the current change.
+     *
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term);
+    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long sequenceToken);
 
     /**
      * Adds learners (non-voting members).

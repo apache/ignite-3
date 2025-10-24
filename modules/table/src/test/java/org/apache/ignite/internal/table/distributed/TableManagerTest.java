@@ -787,7 +787,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
 
-        when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
+        when(replicaMgr.weakStartReplica(any(), any(), any(), anyLong())).thenAnswer(inv -> {
             Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
             return startOperation.get();
         });
