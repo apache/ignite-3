@@ -685,6 +685,23 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         cluster.ensureSame();
     }
 
+    /**
+     * Tests that election step down race condition is handled correctly.
+     *
+     * The race is between NodeImpl.electSelf that first releases and then reacquires the same lock
+     * and VoteTimer that manages to fire while the lock is not acquired.
+     *
+     * First we start a single node but add more than one peers to the configuration to
+     * prevent calling electSelf right from init.
+     * Then we inject our custom LogManager to be able to pause its calls.
+     * Then we call tryElectSelf() to trigger the race condition.
+     *
+     * We pause the execution for 10 seconds, but that's totally fine since vote timeout is 1.2 sec
+     * and the thread will be interrupted anyway by vote timeout.
+     * We pause only the first call since only the first call triggers the issue and
+     * we expect the other calls to pass normally.
+     *
+     */
     @Test
     public void testElectionStepDownRaceOnInit() throws Exception {
         TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT);
