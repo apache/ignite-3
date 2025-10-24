@@ -109,10 +109,6 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                     tx);
         };
 
-        if (tx == null) {
-            return clo.apply(keyRecs, getPartitionAwarenessProvider(keyRecs.iterator().next()));
-        }
-
         return tbl.split(tx, keyRecs, clo, ClientTupleSerializer::getColocationHash);
     }
 

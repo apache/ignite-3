@@ -37,7 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for the transactions running while the primary changes, not related to the tx recovery.
+ * Test direct mapping for client's transactions.
  */
 public class ItClientDirectMappingTest extends ClusterPerTestIntegrationTest {
     /** Table name. */

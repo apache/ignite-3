@@ -388,11 +388,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (ex == null) {
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
-                    if (indicatesUnexpectedProblem(ex)) {
-                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
-                    } else {
-                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
-                    }
+//                    if (indicatesUnexpectedProblem(ex)) {
+//                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
+//                    } else {
+//                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
+//                    }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
                 }

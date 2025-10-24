@@ -189,7 +189,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final OrphanDetector orphanDetector;
 
     /** Topology service. */
-    private final TopologyService topologyService;
+    public final TopologyService topologyService;
 
     /** Messaging service. */
     private final MessagingService messagingService;

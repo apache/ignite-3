@@ -2063,6 +2063,16 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         assert request.requestType() == RO_GET_ALL;
 
+        if (request.full()) {
+            return processReadOnlyDirectFullMultiEntryAction(primaryKeys, opStartTimestamp);
+        } else {
+            return processReadOnlyDirectPartialMultiEntryAction(primaryKeys, opStartTimestamp);
+        }
+    }
+
+    private CompletableFuture<List<BinaryRow>> processReadOnlyDirectFullMultiEntryAction(
+            List<BinaryTuple> primaryKeys,
+            HybridTimestamp opStartTimestamp) {
         CompletableFuture<BinaryRow>[] resolutionFuts = new CompletableFuture[primaryKeys.size()];
 
         for (int i = 0; i < primaryKeys.size(); i++) {
@@ -2083,6 +2093,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
             return rows;
         });
+    }
+
+    private CompletableFuture<List<BinaryRow>> processReadOnlyDirectPartialMultiEntryAction(
+            List<BinaryTuple> primaryKeys,
+            HybridTimestamp opStartTimestamp) {
+        // TODO
+        return CompletableFuture.failedFuture(new IgniteException(INTERNAL_ERR, "Not implemented"));
     }
 
     /**
