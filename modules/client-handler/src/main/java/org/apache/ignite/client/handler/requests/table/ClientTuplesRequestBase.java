@@ -75,6 +75,7 @@ class ClientTuplesRequestBase {
             HybridTimestampTracker tsTracker,
             boolean keyOnly
     ) {
+        // TODO pass obs ts in implicit get
         return readAsync(in, tables, resources, txManager, txReadOnly, notificationSender, tsTracker, keyOnly, false);
     }
 
