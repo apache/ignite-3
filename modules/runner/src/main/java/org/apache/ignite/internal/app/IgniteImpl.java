@@ -575,7 +575,7 @@ public class IgniteImpl implements Ignite {
 
         // Start local configuration to be able to read all local properties.
         try {
-            lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
+            lifecycleManager.startComponentsAsync(new ComponentContext(), vaultMgr, nodeCfgMgr);
         } catch (NodeStoppingException e) {
             throw new AssertionError(String.format("Unexpected exception: [nodeName=%s, configPath=%s]", name, configPath), e);
         }
@@ -1494,7 +1494,6 @@ public class IgniteImpl implements Ignite {
             CompletableFuture<Void> componentsStartFuture = lifecycleManager.startComponentsAsync(
                     componentContext,
                     longJvmPauseDetector,
-                    vaultMgr,
                     nodeProperties,
                     threadPoolsManager,
                     clockWaiter,

@@ -328,6 +328,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public void close() {
+        vaultStorage.close();
         futureTracker.cancelInFlightFutures();
 
         IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
