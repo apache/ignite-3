@@ -34,7 +34,7 @@ const sidebars: SidebarsConfig = {
     // Develop (28 pages)
     {
       type: 'category',
-      label: 'Develop',
+      label: 'Develop and Build',
       link: {type: 'doc', id: 'develop/index'},
       items: [
         {
@@ -77,7 +77,7 @@ const sidebars: SidebarsConfig = {
     // SQL (15 pages)
     {
       type: 'category',
-      label: 'SQL',
+      label: 'Work with SQL',
       link: {type: 'doc', id: 'sql/index'},
       items: [
         {
@@ -88,7 +88,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Working with SQL',
+          label: 'SQL Operations',
           link: {type: 'generated-index'},
           items: ['sql/working-with-sql/execute-queries', 'sql/working-with-sql/system-views'],
         },
@@ -185,7 +185,7 @@ const sidebars: SidebarsConfig = {
     // Understand (15 pages)
     {
       type: 'category',
-      label: 'Understand',
+      label: 'Concepts and Architecture',
       link: {type: 'doc', id: 'understand/index'},
       items: [
         {
@@ -227,7 +227,7 @@ const sidebars: SidebarsConfig = {
     // API Reference (Links only)
     {
       type: 'category',
-      label: 'API Reference',
+      label: 'Client and API Reference',
       link: {type: 'doc', id: 'api-reference/index'},
       items: [
         {
