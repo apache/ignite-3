@@ -19,8 +19,11 @@ package org.apache.ignite.internal.catalog.storage;
 
 /**
  * Tests for catalog storage objects. Protocol version 1 read v1.
+ *
+ * @deprecated Catalog serialization format version 1 was deprecated.
  */
-public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSerializationCompatibilityTest {
+@Deprecated
+public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSerializationCompatibilityV1BaseTest {
 
     @Override
     protected int protocolVersion() {
@@ -30,11 +33,6 @@ public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSeria
     @Override
     protected int entryVersion() {
         return 1;
-    }
-
-    @Override
-    protected String dirName() {
-        return "serialization_v1";
     }
 
     @Override
