@@ -16,6 +16,21 @@ The .NET API provides interfaces and classes for Apache Ignite 3 thin client ope
 
 API documentation is generated from XML comments in source code.
 
+### Access the Documentation
+
+<a href="/docs/api/dotnet/index.html" target="_blank" rel="noopener noreferrer" style={{
+  display: 'inline-block',
+  padding: '12px 24px',
+  backgroundColor: '#0066cc',
+  color: 'white',
+  textDecoration: 'none',
+  borderRadius: '4px',
+  fontWeight: 'bold',
+  marginBottom: '20px'
+}}>Open .NET API Reference →</a>
+
+The locally generated DocFX documentation includes all public APIs, with detailed documentation for interfaces, classes, methods, and properties.
+
 ### Online Documentation
 
 The latest API reference is published with each release:
@@ -28,13 +43,12 @@ Generate API documentation locally using DocFX:
 
 ```bash
 cd modules/platforms/dotnet
+dotnet build Apache.Ignite/Apache.Ignite.csproj -c Release
 dotnet tool restore
 dotnet docfx docs/docfx.json
 ```
 
 Generated documentation appears in `modules/platforms/dotnet/docs/_site/`.
-
-Note: The .NET SDK is required to generate documentation locally.
 
 ## Core Namespaces
 
