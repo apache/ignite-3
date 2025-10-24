@@ -305,7 +305,7 @@ bin/ignite3 cluster config show > cluster-config.txt
 
 |======
 
-== System Configuration
+=== System Configuration
 
 This section describes internal properties, which are used by a number of Ignite components. Although you can edit these properties in the same way you edit all others - using the `node config update` CLI command - we suggest that you discuss the proposed changes with the Ignite support team. The properties can apply to the cluster as a whole - see below - or to a link:administrators-guide/config/node-config#system-configuration[specific node].
 
