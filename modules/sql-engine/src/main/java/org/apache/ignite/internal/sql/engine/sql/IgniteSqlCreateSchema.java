@@ -40,7 +40,7 @@ public class IgniteSqlCreateSchema extends SqlCreate {
 
         /** Constructor. */
         protected Operator(boolean existFlag) {
-            super("CREATE SCHEMA", SqlKind.OTHER_DDL, existFlag);
+            super("CREATE SCHEMA", SqlKind.CREATE_SCHEMA, existFlag);
         }
 
         /** {@inheritDoc} */

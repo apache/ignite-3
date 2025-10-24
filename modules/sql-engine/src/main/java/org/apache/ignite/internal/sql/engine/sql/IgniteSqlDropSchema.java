@@ -41,7 +41,7 @@ public class IgniteSqlDropSchema extends SqlDrop {
 
         /** Constructor. */
         protected Operator(boolean existFlag, IgniteSqlDropSchemaBehavior dropBehavior) {
-            super("DROP SCHEMA", SqlKind.OTHER_DDL, existFlag);
+            super("DROP SCHEMA", SqlKind.DROP_SCHEMA, existFlag);
 
             this.dropBehavior = dropBehavior;
         }
