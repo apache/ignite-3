@@ -1443,6 +1443,13 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} raise term {} when getLastLogId.", getNodeId(), this.currTerm);
                 return;
             }
+
+            // Check if state changed from CANDIDATE during lock release.
+            if (this.state != State.STATE_CANDIDATE) {
+                LOG.warn("Node {} state changed from CANDIDATE to {} during election.", getNodeId(), this.state);
+                return;
+            }
+
             for (final PeerId peer : this.conf.listPeers()) {
                 if (peer.equals(this.serverId)) {
                     continue;
