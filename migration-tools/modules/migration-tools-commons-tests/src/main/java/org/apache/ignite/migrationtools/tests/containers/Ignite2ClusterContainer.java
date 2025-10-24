@@ -40,6 +40,7 @@ import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 /** Container of an Ignite 2 cluster. */
@@ -52,6 +53,8 @@ public class Ignite2ClusterContainer implements Startable {
     private final List<GenericContainer<?>> containers;
 
     private final boolean storagePathMappedToExternal;
+
+    private final String igniteHome;
 
     /**
      * Port on host which binds container's 10800.
@@ -80,11 +83,18 @@ public class Ignite2ClusterContainer implements Startable {
         this.containers = new ArrayList<>(nodeIds.size());
         this.storagePathMappedToExternal = storagePathOnHost != null;
 
+        String dockerImageName = System.getProperty("ignite2.docker.image");
+        assert dockerImageName != null : "ignite2.docker.image must be defined";
+        DockerImageName dockerImage = DockerImageName.parse(dockerImageName);
+
+        this.igniteHome = "/opt/ignite/apache-ignite";
+
         for (int i = 0; i < nodeIds.size(); i++) {
             String hostname = "node" + (1 + i);
             String nodeId = nodeIds.get(i);
 
             var nodeContainer = createIgnite2Container(
+                    dockerImage,
                     hostname,
                     nodeId,
                     cfgFilePath,
@@ -103,6 +113,7 @@ public class Ignite2ClusterContainer implements Startable {
     }
 
     private GenericContainer<?> createIgnite2Container(
+            DockerImageName dockerImage,
             String hostName,
             String nodeId,
             Path cfgFilePath,
@@ -110,10 +121,8 @@ public class Ignite2ClusterContainer implements Startable {
     ) {
         Consumer<OutputFrame> logConsumer = new CheckpointerLogConsumer();
         String heapSize = System.getProperty("ai2.sampleCluster.Xmx", "10g");
-        String ignite2DockerImage = System.getProperty("ignite2.docker.image");
-        assert ignite2DockerImage != null : "ignite2.docker.image must be defined";
 
-        GenericContainer<?> container = new GenericContainer<>(ignite2DockerImage);
+        GenericContainer<?> container = new GenericContainer<>(dockerImage);
 
         if (storagePathMappedToExternal) {
             container.withFileSystemBind(storagePathOnHost.toString(), "/storage", BindMode.READ_WRITE)
@@ -249,6 +258,17 @@ public class Ignite2ClusterContainer implements Startable {
      */
     public String dockerHost() {
         return dockerHost;
+    }
+
+    /**
+     * Copies the supplied file to all the containers classpath.
+     *
+     * @param fileToCopy File to copy.
+     */
+    public void withFileInClasspath(MountableFile fileToCopy) {
+        for (var container : this.containers) {
+            container.withCopyFileToContainer(fileToCopy, this.igniteHome + "/libs/");
+        }
     }
 
     private static class CheckpointerLogConsumer implements Consumer<OutputFrame> {

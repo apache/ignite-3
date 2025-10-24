@@ -24,6 +24,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.migrationtools.tests.e2e.custom.MySqlFunctions;
 import org.apache.ignite.migrationtools.tests.e2e.framework.core.ExampleBasedCacheTest;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,6 +41,7 @@ public class MySimpleMapCacheTest extends VeryBasicAbstractCacheTest<String, Int
     public CacheConfiguration<String, Integer> cacheConfiguration() {
         CacheConfiguration<String, Integer> cfg = super.cacheConfiguration();
         cfg.setSqlSchema(SCHEMA_NAME_CASED);
+        cfg.setSqlFunctionClasses(MySqlFunctions.class);
         return cfg;
     }
 
