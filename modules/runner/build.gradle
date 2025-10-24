@@ -223,6 +223,8 @@ dependencies {
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation project(':ignite-partition-distribution')
+    testFixturesImplementation project(':ignite-partition-replicator')
+    testFixturesImplementation project(':ignite-distribution-zones')
     testFixturesImplementation project(':ignite-configuration-storage')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))

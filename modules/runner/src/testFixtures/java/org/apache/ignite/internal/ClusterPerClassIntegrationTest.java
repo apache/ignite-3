@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -25,7 +26,9 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,7 +37,11 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -50,8 +57,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -67,6 +76,7 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.hamcrest.MatcherAssert;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -182,6 +192,43 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     protected String getNodeBootstrapConfigTemplate() {
         return NODE_BOOTSTRAP_CFG_TEMPLATE;
+    }
+
+    /**
+     * Waits for all partitions in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param zone The name of the distribution zone to check.
+     * @param tableName The name of the table (currently unused by the implementation, reserved for future use).
+     * @param partitionsCount The number of partitions to check (currently unused by the implementation, reserved for future use).
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitions do not become healthy within the timeout period.
+     */
+    protected void awaitPartitionToBeHealthy(String zone, String tableName, int partitionsCount) throws InterruptedException {
+        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 60_000));
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
+                            node.disasterRecoveryManager().localPartitionStates(Set.of(zone), emptySet(), emptySet());
+
+                    MatcherAssert.assertThat(localStateTableFuture, willCompleteSuccessfully());
+
+                    Map<ZonePartitionId, LocalPartitionStateByNode> localState;
+                    try {
+                        localState = localStateTableFuture.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    return localState.values().stream()
+                            .allMatch(partitionStateByNodes ->
+                                    partitionStateByNodes.entrySet().stream()
+                                            .filter(nodePartitionState -> nodePartitionState.getValue().state == HEALTHY)
+                                            .count() == initialNodes()
+                            );
+                },
+                60_000
+        ));
     }
 
     /**

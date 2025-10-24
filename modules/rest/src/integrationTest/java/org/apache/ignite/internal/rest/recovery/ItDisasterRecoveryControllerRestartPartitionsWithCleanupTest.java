@@ -46,7 +46,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -81,6 +81,11 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
                 FIRST_ZONE));
 
         sql(String.format("INSERT INTO PUBLIC.\"%s\" VALUES (1, 1)", TABLE_NAME));
+    }
+
+    @BeforeEach
+    public void awaitClusterStabilize() throws InterruptedException {
+        awaitPartitionToBeHealthy(FIRST_ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
     }
 
     @Test
@@ -161,7 +166,6 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartSpecifiedPartitionsWithCleanup() {
         Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
 
@@ -198,7 +202,6 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartPartitionsWithCleanupAllPartitions() {
         Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
 
@@ -210,7 +213,6 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartTablePartitionsWithCleanupAllPartitions() {
         Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
 

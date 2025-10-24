@@ -30,7 +30,7 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -53,6 +53,11 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         ));
 
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
+    }
+
+    @BeforeEach
+    public void waitClusterToStabilize() throws InterruptedException {
+        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
     }
 
     @Test
@@ -170,7 +175,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartAllPartitionsWithCleanup() {
         String nodeName = CLUSTER.aliveNode().name();
 
@@ -186,7 +190,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartSpecifiedPartitionsWithCleanup() {
         String nodeName = CLUSTER.aliveNode().name();
 
