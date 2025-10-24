@@ -1,0 +1,181 @@
+# Understand
+
+Core concepts, architecture, and performance characteristics of Apache Ignite 3.
+
+## In This Section
+
+<div className="card-container">
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:information-outline" height="24" /> What is Apache Ignite 3?</h3>
+    </div>
+    <div className="card__body">
+      <p>Overview of Ignite capabilities, use cases, and distributed data processing features.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./core-concepts/what-is-ignite">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:table-large" height="24" /> Tables and Schemas</h3>
+    </div>
+    <div className="card__body">
+      <p>Data organization with tables, schemas, and type systems for structured storage.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./core-concepts/tables-and-schemas">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:history" height="24" /> Transactions and MVCC</h3>
+    </div>
+    <div className="card__body">
+      <p>Multi-version concurrency control for ACID transactions and isolation levels.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./core-concepts/transactions-and-mvcc">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:map-marker-multiple-outline" height="24" /> Distribution and Colocation</h3>
+    </div>
+    <div className="card__body">
+      <p>Data placement strategies for partitioning and colocated data processing.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./core-concepts/distribution-and-colocation">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:server-network" height="24" /> Compute and Events</h3>
+    </div>
+    <div className="card__body">
+      <p>Distributed compute model and event handling for reactive applications.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./core-concepts/compute-and-events">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="carbon:layers" height="24" /> Cluster Architecture</h3>
+    </div>
+    <div className="card__body">
+      <p>Node roles, communication protocols, and cluster topology management.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./architecture/storage-architecture">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:database" height="24" /> Storage Architecture</h3>
+    </div>
+    <div className="card__body">
+      <p>Storage layer design with persistence, replication, and consistency guarantees.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./architecture/storage-architecture">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:database" height="24" /> AIPersist Storage Engine</h3>
+    </div>
+    <div className="card__body">
+      <p>Persistent storage engine with durable writes and crash recovery.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./architecture/storage-engines/aipersist">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="carbon:data-base" height="24" /> RocksDB Storage Engine</h3>
+    </div>
+    <div className="card__body">
+      <p>RocksDB-based storage for high-performance persistent data with LSM trees.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./architecture/storage-engines/rocksdb">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:memory" height="24" /> AIMem Storage Engine</h3>
+    </div>
+    <div className="card__body">
+      <p>In-memory storage for maximum performance with volatile data.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./architecture/storage-engines/aimem">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:view-grid-outline" height="24" /> Data Partitioning</h3>
+    </div>
+    <div className="card__body">
+      <p>Partition distribution strategies across cluster nodes for horizontal scaling.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./architecture/data-partitioning">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:security" height="24" /> Security Model</h3>
+    </div>
+    <div className="card__body">
+      <p>Authentication and authorization patterns for secure cluster access.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./architecture/storage-architecture">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:speedometer" height="24" /> Query Performance</h3>
+    </div>
+    <div className="card__body">
+      <p>SQL performance factors including indexing, query planning, and execution.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./performance/using-explain">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:chart-timeline-variant" height="24" /> Using EXPLAIN</h3>
+    </div>
+    <div className="card__body">
+      <p>Analyze query execution plans to identify performance bottlenecks.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./performance/using-explain">Learn more →</a>
+    </div>
+  </div>
+</div>
+
+## Next Steps
+
+- [Getting Started](../getting-started/) - Quick start guides
+- [Develop](../develop/) - Build applications
+- [SQL](../sql/advanced/distribution-zones) - Advanced SQL topics

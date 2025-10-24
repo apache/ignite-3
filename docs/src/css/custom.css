@@ -816,3 +816,148 @@ article.markdown img {
 [data-theme='dark'] .railroad-diagram-container svg text {
   fill: currentColor;
 }
+
+/* ============================================
+   Card Component System for Index Pages
+   ============================================ */
+
+/*
+ * Single-row flex layout with wrapping cards
+ * Card dimensions: 230px min, 300px max
+ * Content column adjusts for 1, 2, or 3 cards at breakpoints
+ */
+
+/* Card container - single row with flex wrap */
+.card-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+/* Individual card styling */
+.card {
+  flex: 1 1 230px;
+  min-width: 230px;
+  max-width: 300px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s, transform 0.2s;
+  background-color: #ffffff;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Card header with icon and title */
+.card__header {
+  margin-bottom: 1rem;
+}
+
+.card__header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ifm-heading-color);
+}
+
+/* Icon styling in card headers */
+.card__header .iconify {
+  flex-shrink: 0;
+  color: var(--ifm-link-color);
+  vertical-align: middle;
+}
+
+/* Card body with description */
+.card__body {
+  flex: 1;
+  color: var(--ifm-color-content);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.card__body p {
+  margin: 0;
+}
+
+/* Card footer with link */
+.card__footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.card__footer a {
+  color: var(--ifm-link-color);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.card__footer a:hover {
+  text-decoration: underline;
+  color: var(--ifm-link-hover-color);
+}
+
+/* Dark mode card styling */
+[data-theme='dark'] .card {
+  background-color: #242526;
+  border-color: var(--ifm-color-emphasis-200);
+}
+
+[data-theme='dark'] .card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='dark'] .card__footer {
+  border-top-color: var(--ifm-color-emphasis-200);
+}
+
+/* Content column width constraints for card layouts */
+/* Optimized for 1, 2, or 3 cards at max width (325px) */
+
+/* Mobile: Full width */
+@media (max-width: 767px) {
+  .card-container {
+    gap: 1rem;
+  }
+
+  .card {
+    min-width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* Tablet: 2 columns max - content width for 2 cards */
+@media (min-width: 768px) and (max-width: 996px) {
+  .col--9 {
+    max-width: 700px; /* 2 cards × 325px + gap */
+  }
+}
+
+/* Desktop: 3 columns max - content width for 3 cards */
+@media (min-width: 997px) {
+  .col--9 {
+    max-width: 1050px; /* 3 cards × 325px + gaps */
+  }
+}
+
+/* Large Desktop: Maintain 3 columns with comfortable spacing */
+@media (min-width: 1441px) {
+  .col--9 {
+    max-width: 1100px; /* 3 cards × 325px + larger gaps */
+  }
+
+  .card-container {
+    gap: 2rem;
+  }
+}

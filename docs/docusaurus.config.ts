@@ -117,6 +117,7 @@ const config: Config = {
       logo: {
         alt: 'Apache Ignite Logo',
         src: 'img/logo.svg',
+        srcDark: 'img/logo-dark.svg',
         href: '/3.1.0/',
         target: '_self',
       },
