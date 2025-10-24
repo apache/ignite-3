@@ -220,7 +220,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
                         throw new RuntimeException(e);
                     }
 
-                    return localState.values().stream()
+                    return localState.entrySet().size() == partitionsCount && localState.values()
+                            .stream()
                             .allMatch(partitionStateByNodes ->
                                     partitionStateByNodes.entrySet().stream()
                                             .filter(nodePartitionState -> nodePartitionState.getValue().state == HEALTHY)
