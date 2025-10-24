@@ -108,10 +108,9 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(fooTable, is(notNullValue()));
 
-        int tableVersion = fooTable.latestSchemaVersion();
         CatalogTableDescriptor bazTable = fooTable.copyBuilder()
                 .name("baz")
-                .latestSchemaVersion(tableVersion + 1)
+                .newColumns(fooTable.columns())
                 .build();
 
         CatalogSchemaDescriptor updatedSchema = replaceTable(schema, bazTable);
@@ -160,7 +159,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 fooIndex.tableId(),
                 fooIndex.unique(),
                 fooIndex.status(),
-                fooIndex.columns(),
+                fooIndex.columnIds(),
                 fooIndex.isCreatedWithTable()
         );
 

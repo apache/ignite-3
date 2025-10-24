@@ -74,7 +74,9 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
         CatalogTableDescriptor table = tableOrThrow(catalog, descriptor.tableId());
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        descriptor.updateTimestamp(timestamp);
+        CatalogIndexDescriptor newDescriptor = descriptor.upgradeIfNeeded(table);
+
+        newDescriptor.updateTimestamp(timestamp);
 
         return new Catalog(
                 catalog.version(),
@@ -85,7 +87,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
                         schema.id(),
                         schema.name(),
                         schema.tables(),
-                        ArrayUtils.concat(schema.indexes(), descriptor),
+                        ArrayUtils.concat(schema.indexes(), newDescriptor),
                         schema.systemViews(),
                         timestamp
                 ), catalog.schemas()),

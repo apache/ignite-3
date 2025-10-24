@@ -34,6 +34,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
@@ -117,8 +118,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 .primaryKeyIndexId(-1)
                 .name("table1")
                 .zoneId(0)
-                .columns(columns)
-                .primaryKeyColumns(List.of("k1"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
     }

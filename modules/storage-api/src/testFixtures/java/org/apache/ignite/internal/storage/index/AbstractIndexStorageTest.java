@@ -43,6 +43,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -165,14 +166,14 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         List<CatalogTableColumnDescriptor> columns = Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream())
                 .map(CatalogUtils::fromParams)
                 .collect(toList());
-        List<String> pkCols = List.of(pkColumn.name());
+        IntList pkCols = IntList.of(0);
         CatalogTableDescriptor tableDescriptor = CatalogTableDescriptor.builder()
                 .id(tableId)
                 .schemaId(schemaId)
                 .primaryKeyIndexId(pkIndexId)
                 .name(TABLE_NAME)
                 .zoneId(zoneId)
-                .columns(columns)
+                .newColumns(columns)
                 .primaryKeyColumns(pkCols)
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();

@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 
 /**
  * A command that adds a new hash index to the catalog.
@@ -56,8 +60,21 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status, boolean createdWithTable) {
-        return new CatalogHashIndexDescriptor(indexId, indexName, tableId, unique, status, columns, createdWithTable);
+    protected CatalogIndexDescriptor createDescriptor(
+            int indexId, CatalogTableDescriptor table, CatalogIndexStatus status, boolean createdWithTable
+    ) {
+        IntList columnIds = new IntArrayList(columns.size());
+        for (String columnName : columns) {
+            CatalogTableColumnDescriptor column = table.column(columnName);
+
+            // createDescriptor() is called after validation,
+            // hence all columns must exists
+            assert column != null : columnName;
+
+            columnIds.add(column.id());
+        }
+
+        return new CatalogHashIndexDescriptor(indexId, indexName, table.id(), unique, status, columnIds, createdWithTable);
     }
 
     private static class Builder implements CreateHashIndexCommandBuilder {

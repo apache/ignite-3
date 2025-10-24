@@ -19,21 +19,64 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Indexed column descriptor.
  */
 public class CatalogIndexColumnDescriptor {
-    private final String name;
+    private final int columnId;
+    private final @Nullable String name;
 
     private final CatalogColumnCollation collation;
 
+    /**
+     * Constructs the object.
+     *
+     * @param name Name of the indexed column.
+     * @param collation Collation of the indexed column.
+     * @deprecated This constructor is used in old deserializers. Use {@link #CatalogIndexColumnDescriptor(int, CatalogColumnCollation)}
+     *         instead.
+     */
+    @Deprecated(forRemoval = true)
     public CatalogIndexColumnDescriptor(String name, CatalogColumnCollation collation) {
-        this.name = name;
+        this.columnId = CatalogTableColumnDescriptor.ID_IS_NOT_ASSIGNED;
+        this.name = Objects.requireNonNull(name, "name");
         this.collation = Objects.requireNonNull(collation, "collation");
     }
 
-    public String name() {
+    /**
+     * Constructs the object.
+     *
+     * @param columnId ID of the indexed column.
+     * @param collation Collation of the indexed column.
+     */
+    public CatalogIndexColumnDescriptor(int columnId, CatalogColumnCollation collation) {
+        assert columnId != CatalogTableColumnDescriptor.ID_IS_NOT_ASSIGNED;
+
+        this.columnId = columnId;
+        this.name = null;
+        this.collation = Objects.requireNonNull(collation, "collation");
+    }
+
+    /** Returns ID of the indexed column. */
+    public int columnId() {
+        if (columnId == CatalogTableColumnDescriptor.ID_IS_NOT_ASSIGNED) {
+            throw new IllegalStateException("Cannot return columnId from non-upgraded index descriptor");
+        }
+
+        return columnId;
+    }
+
+    /**
+     * Returns name of the indexed column.
+     *
+     * @return Name of the indexed column.
+     * @deprecated Non-null may be returned only during catalog recovery after cluster upgrade.
+     *      Use {@link #columnId()} instead.
+     */
+    @Deprecated(forRemoval = true) // still used in old serializers and in upgrade logic
+    public @Nullable String name() {
         return name;
     }
 

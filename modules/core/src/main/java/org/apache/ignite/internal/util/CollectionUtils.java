@@ -41,6 +41,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -511,6 +512,7 @@ public final class CollectionUtils {
     }
 
     /** Returns immutable copy of the given list or {@code null} if the list is null. */
+    @Contract("!null -> !null")
     public static <T> @Nullable List<T> copyOrNull(@Nullable List<T> list) {
         if (list == null) {
             return null;
@@ -520,6 +522,7 @@ public final class CollectionUtils {
     }
 
     /** Returns immutable copy of the given set or {@code null} if the set is null. */
+    @Contract("!null -> !null")
     public static <T> @Nullable Set<T> copyOrNull(@Nullable Set<T> set) {
         if (set == null) {
             return null;

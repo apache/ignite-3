@@ -93,6 +93,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -462,8 +463,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .primaryKeyIndexId(2)
                 .name(TABLE_NAME)
                 .zoneId(1)
-                .columns(columns)
-                .primaryKeyColumns(List.of("intKey", "strKey"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0, 1))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
     }

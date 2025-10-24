@@ -91,6 +91,8 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor imp
         return createdWithTable;
     }
 
+    public abstract CatalogIndexDescriptor upgradeIfNeeded(CatalogTableDescriptor table);
+
     @Override
     public String toString() {
         return S.toString(CatalogIndexDescriptor.class, this, super.toString());

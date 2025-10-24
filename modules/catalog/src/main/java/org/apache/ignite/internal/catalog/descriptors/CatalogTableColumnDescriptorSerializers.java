@@ -97,4 +97,39 @@ public class CatalogTableColumnDescriptorSerializers {
             DefaultValue.writeTo(descriptor.defaultValue(), output);
         }
     }
+
+    @CatalogSerializer(version = 3, since = "3.2.0")
+    static class TableColumnDescriptorSerializerV3 implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
+        @Override
+        public CatalogTableColumnDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            int id = input.readVarIntAsInt();
+            String name = input.readUTF();
+            int typeId = input.readVarIntAsInt();
+            ColumnType type = ColumnType.getById(typeId);
+
+            assert type != null : "Unknown column type: " + typeId;
+
+            boolean nullable = input.readBoolean();
+            int precision = input.readVarIntAsInt();
+            int scale = input.readVarIntAsInt();
+            int length = input.readVarIntAsInt();
+
+            DefaultValue defaultValue = DefaultValue.readFrom(input);
+
+            return new CatalogTableColumnDescriptor(id, name, type, nullable, precision, scale, length, defaultValue);
+        }
+
+        @Override
+        public void writeTo(CatalogTableColumnDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeVarInt(descriptor.type().id());
+            output.writeBoolean(descriptor.nullable());
+            output.writeVarInt(descriptor.precision());
+            output.writeVarInt(descriptor.scale());
+            output.writeVarInt(descriptor.length());
+
+            DefaultValue.writeTo(descriptor.defaultValue(), output);
+        }
+    }
 }

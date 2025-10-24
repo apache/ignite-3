@@ -102,7 +102,7 @@ public class RenameIndexEntry implements UpdateEntry {
                 index.tableId(),
                 index.unique(),
                 index.status(),
-                index.columns(),
+                index.columnIds(),
                 index.isCreatedWithTable()
         );
     }

@@ -77,8 +77,7 @@ public class NewColumnsEntry extends AbstractUpdateTableEntry implements Fireabl
         List<CatalogTableColumnDescriptor> updatedTableColumns = CollectionUtils.concat(table.columns(), descriptors);
 
         return table.copyBuilder()
-                .latestSchemaVersion(nextSchemaVersion(table))
-                .columns(updatedTableColumns);
+                .newColumns(updatedTableColumns);
     }
 
     @Override
