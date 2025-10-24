@@ -17,18 +17,13 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.storage.CatalogSerializationChecker.SerializerClass;
-import org.junit.jupiter.api.AfterAll;
-
 /**
  * Tests for catalog storage objects. Protocol version 1 read v1.
+ *
+ * @deprecated Catalog serialization format version 1 was deprecated.
  */
-public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSerializationCompatibilityTest {
-
-    private static final Set<SerializerClass> collected = new HashSet<>();
+@Deprecated
+public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSerializationCompatibilityV1BaseTest {
 
     @Override
     protected int protocolVersion() {
@@ -41,31 +36,7 @@ public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSeria
     }
 
     @Override
-    protected String dirName() {
-        return "serialization_v1";
-    }
-
-    @Override
     protected boolean expectExactVersion() {
         return true;
-    }
-
-    @AfterAll
-    public static void allSerializersHaveTests() {
-        // 1. Collect serializers (entry class + version)x
-        Set<SerializerClass> serializers = CatalogSerializationChecker.findEntrySerializers()
-                .stream()
-                // Exclude descriptors - their serializers are called manually.
-                .filter(c -> !SerializationV1Classes.includesDescriptor(c))
-                .filter(SerializationV1Classes::includes)
-                .collect(Collectors.toSet());
-
-        // 2. Compare entry class + version with existing serializers
-        compareSerializers(serializers, collected);
-    }
-
-    @Override
-    protected void recordClass(SerializerClass clazz) {
-        collected.add(clazz);
     }
 }

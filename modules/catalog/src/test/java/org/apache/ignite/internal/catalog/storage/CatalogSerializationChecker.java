@@ -49,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
 final class CatalogSerializationChecker {
 
     private static final String UPDATE_TIMESTAMP_FIELD_REGEX = ".*updateTimestamp";
-    
+
     private static final String V1_SERDE_NOTE = "MANUAL CALL TO SUPPORT V1 SERIALIZATION";
 
     private final Map<Integer, Integer> expectedEntryVersions = new HashMap<>();
@@ -69,6 +69,8 @@ final class CatalogSerializationChecker {
     private final Set<SerializerClass> collectedSerializers = new HashSet<>();
 
     private final Consumer<SerializerClass> recordSerializer;
+
+    private boolean addSerializerManually;
 
     CatalogSerializationChecker(
             IgniteLogger log,
@@ -92,6 +94,10 @@ final class CatalogSerializationChecker {
 
     void addExpectedVersion(int typeId, int entryVersion) {
         expectedEntryVersions.put(typeId, entryVersion);
+    }
+
+    void addClassesManually(boolean value) {
+        addSerializerManually = value;
     }
 
     void reset() {
@@ -134,9 +140,11 @@ final class CatalogSerializationChecker {
                 assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
             }
 
-            // Record entry version to support v1 serialization.
-            // This is not needed by v2 serialization.
-            recordSerializer(expectedEntry.typeId(), version, V1_SERDE_NOTE);
+            if (addSerializerManually) {
+                // Record entry version to support v1 serialization.
+                // This is not needed by v2 serialization.
+                recordSerializer(expectedEntry.typeId(), version, V1_SERDE_NOTE);
+            }
 
             assertion.isEqualTo(expectedEntry);
         }
@@ -166,10 +174,6 @@ final class CatalogSerializationChecker {
         assertEquals(update.version(), deserializedUpdate.version());
         assertEquals(update.typeId(), deserializedUpdate.typeId());
         assertEquals(update.delayDurationMs(), deserializedUpdate.delayDurationMs());
-
-        // Record VersionedUpdate's serializer with the version that matches the protocol version.
-        // This is not needed by v2 serialization.
-        recordSerializer(MarshallableEntryType.VERSIONED_UPDATE.id(), protocolVersion, V1_SERDE_NOTE);
 
         return (List) deserializedUpdate.entries();
     }
