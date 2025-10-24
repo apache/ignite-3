@@ -38,6 +38,8 @@ class IndexFileManagerTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp() throws IOException {
         indexFileManager = new IndexFileManager(workDir);
+
+        indexFileManager.start();
     }
 
     @Test
