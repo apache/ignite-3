@@ -28,7 +28,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -37,6 +36,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.NodeConfig;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -85,7 +85,7 @@ public class IgniteServerImpl implements IgniteServer {
 
     private final String nodeName;
 
-    private final Path configPath;
+    private final NodeConfig nodeConfig;
 
     private final Path workDir;
 
@@ -143,7 +143,7 @@ public class IgniteServerImpl implements IgniteServer {
      */
     public IgniteServerImpl(
             String nodeName,
-            Path configPath,
+            NodeConfig nodeConfig,
             Path workDir,
             @Nullable ClassLoader classLoader,
             Executor asyncContinuationExecutor
@@ -154,11 +154,8 @@ public class IgniteServerImpl implements IgniteServer {
         if (nodeName.isEmpty()) {
             throw new NodeStartException("Node name must not be empty.");
         }
-        if (configPath == null) {
-            throw new NodeStartException("Config path must not be null");
-        }
-        if (Files.notExists(configPath)) {
-            throw new NodeStartException("Config file doesn't exist");
+        if (nodeConfig == null) {
+            throw new NodeStartException("Node config must not be null");
         }
         if (workDir == null) {
             throw new NodeStartException("Working directory must not be null");
@@ -168,7 +165,7 @@ public class IgniteServerImpl implements IgniteServer {
         }
 
         this.nodeName = nodeName;
-        this.configPath = configPath;
+        this.nodeConfig = nodeConfig;
         this.workDir = workDir;
         this.classLoader = classLoader;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
@@ -369,7 +366,7 @@ public class IgniteServerImpl implements IgniteServer {
             return failedFuture(new NodeNotStartedException());
         }
 
-        IgniteImpl instance = new IgniteImpl(this, this::restartAsync, configPath, workDir, classLoader, asyncContinuationExecutor);
+        IgniteImpl instance = new IgniteImpl(this, this::restartAsync, nodeConfig, workDir, classLoader, asyncContinuationExecutor);
 
         ackBanner();
 
