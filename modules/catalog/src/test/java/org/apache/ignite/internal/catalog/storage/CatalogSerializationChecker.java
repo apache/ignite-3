@@ -355,7 +355,7 @@ final class CatalogSerializationChecker {
         @Override
         public int compareTo(CatalogSerializationChecker.SerializerClass o) {
             int c1 = Integer.compare(entryTypeId, o.entryTypeId);
-            if (c1 < 0) {
+            if (c1 != 0) {
                 return c1;
             } else {
                 return Integer.compare(serializerVersion, o.serializerVersion);
