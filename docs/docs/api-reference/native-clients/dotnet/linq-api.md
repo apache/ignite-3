@@ -1,6 +1,7 @@
 ---
-id: linq
-title: .NET LINQ Queries
+title: LINQ API
+id: linq-api
+sidebar_position: 3
 ---
 
 import Tabs from '@theme/Tabs';

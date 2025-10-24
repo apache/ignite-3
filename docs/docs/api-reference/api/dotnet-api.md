@@ -99,5 +99,3 @@ Async APIs use `Task<T>`, `ValueTask<T>`, and `IAsyncEnumerable<T>` for modern a
 
 - [.NET API Documentation](../native-clients/dotnet/) - Usage guides for each API area
 - [.NET Client Guide](../../develop/ignite-clients/dotnet-client) - Client setup and configuration
-- [ADO.NET Integration](../../develop/integrate/ado-net) - Database connectivity
-- [LINQ Provider](../../develop/integrate/linq) - Query integration

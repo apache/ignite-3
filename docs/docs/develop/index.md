@@ -34,12 +34,10 @@ APIs and patterns for data manipulation and processing.
 
 ### Integrate
 
-Framework and platform integrations.
+Framework integrations for Spring ecosystem.
 
 - **[Spring Boot Integration](./integrate/spring-boot)** - Auto-configuration and starters
 - **[Spring Data Integration](./integrate/spring-data)** - Repository pattern support
-- **[ADO.NET Integration](./integrate/ado-net)** - .NET data access
-- **[LINQ Queries](./integrate/linq)** - Language-integrated queries for .NET
 
 ## Next Steps
 

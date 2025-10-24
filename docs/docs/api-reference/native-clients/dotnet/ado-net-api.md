@@ -1,6 +1,7 @@
 ---
-id: ado-net
-title: ADO.NET Integration
+title: ADO.NET API
+id: ado-net-api
+sidebar_position: 5
 ---
 
 Apache Ignite implements [ADO.NET](https://learn.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) classes, such as `DbConnection`, `DbCommand`, `DbDataReader`, etc.,
