@@ -108,32 +108,32 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readDataOnRecovery() {
+    public CompletableFuture<ReadEntry> readDataOnRecovery() {
         return supplyAsync(() -> {
             synchronized (this) {
                 if (fail) {
                     throw new StorageException("Failed to read data");
                 }
 
-                return new Data(new HashMap<>(map), version);
+                return new ReadEntry(new HashMap<>(map), version);
             }
         });
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long sentVersion) {
+    public CompletableFuture<Boolean> write(WriteEntry writeEntry) {
         return supplyAsync(() -> {
             synchronized (this) {
                 if (fail) {
                     throw new StorageException("Failed to write data");
                 }
 
-                if (sentVersion != version) {
+                if (writeEntry.version() != version) {
                     return false;
                 }
 
-                for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
+                for (Map.Entry<String, ? extends Serializable> entry : writeEntry.newValues().entrySet()) {
                     if (entry.getValue() != null) {
                         map.put(entry.getKey(), entry.getValue());
                     } else {
@@ -143,7 +143,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
                 version++;
 
-                var data = new Data(newValues, version);
+                var data = new ReadEntry(writeEntry.newValues(), version);
 
                 listeners.forEach(listener -> listener.onEntriesChanged(data).join());
 

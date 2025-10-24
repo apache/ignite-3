@@ -176,14 +176,14 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     }
 
     @Override
-    public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
-        CompletableFuture<Data> future = metaStorageMgr.recoveryFinishedFuture()
+    public CompletableFuture<ReadEntry> readDataOnRecovery() throws StorageException {
+        CompletableFuture<ReadEntry> future = metaStorageMgr.recoveryFinishedFuture()
                 .thenApplyAsync(revisions -> readDataOnRecovery0(revisions.revision()), threadPool);
 
         return registerFuture(future);
     }
 
-    private Data readDataOnRecovery0(long metaStorageRevision) {
+    private ReadEntry readDataOnRecovery0(long metaStorageRevision) {
         Map<String, Serializable> data = new HashMap<>();
         long cfgRevision = 0;
 
@@ -221,12 +221,13 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         changeId = cfgRevision;
 
-        return new Data(data, cfgRevision);
+        return new ReadEntry(data, cfgRevision);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long curChangeId) {
+    public CompletableFuture<Boolean> write(WriteEntry writeEntry) {
+        long curChangeId = writeEntry.version();
         assert curChangeId <= changeId;
         assert lsnr != null : "Configuration listener must be initialized before write.";
 
@@ -239,7 +240,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         var operations = new ArrayList<Operation>();
 
-        for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
+        for (Map.Entry<String, ? extends Serializable> entry : writeEntry.newValues().entrySet()) {
             ByteArray key = new ByteArray(DISTRIBUTED_PREFIX + entry.getKey());
 
             if (entry.getValue() != null) {
@@ -297,7 +298,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
             changeId = newChangeId;
 
-            return lsnr.onEntriesChanged(new Data(data, newChangeId));
+            return lsnr.onEntriesChanged(new ReadEntry(data, newChangeId));
         });
     }
 
