@@ -16,13 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.entity;
 
-import java.nio.ByteBuffer;
-import java.nio.ReadOnlyBufferException;
-import java.util.Arrays;
-import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
-import org.junit.jupiter.api.Test;
-
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,6 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import java.nio.ByteBuffer;
+import java.nio.ReadOnlyBufferException;
+import java.util.Arrays;
+import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
+import org.apache.ignite.raft.jraft.entity.codec.v2.LogEntryV2CodecFactory;
+import org.junit.jupiter.api.Test;
 
 public class LogEntryTest {
     @Test
@@ -49,7 +49,7 @@ public class LogEntryTest {
 
         assertNotNull(content);
         assertTrue(content.length > 0);
-        assertEquals(LogEntryV1CodecFactory.MAGIC, content[0]);
+        assertEquals(LogEntryV2CodecFactory.MAGIC, content[0]);
 
         LogEntry nentry = factory.decoder().decode(content);
 
@@ -78,7 +78,7 @@ public class LogEntryTest {
 
         assertNotNull(content);
         assertTrue(content.length > 0);
-        assertEquals(LogEntryV1CodecFactory.MAGIC, content[0]);
+        assertEquals(LogEntryV2CodecFactory.MAGIC, content[0]);
 
         LogEntry nentry = factory.decoder().decode(content);
 

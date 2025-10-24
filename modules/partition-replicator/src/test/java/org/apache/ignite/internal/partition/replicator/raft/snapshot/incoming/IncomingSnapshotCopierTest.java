@@ -762,6 +762,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         return new RaftGroupConfiguration(
                 13L,
                 37L,
+                111L,
+                110L,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),

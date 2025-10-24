@@ -125,7 +125,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status addPeer(final String groupId, final Configuration conf, final PeerId peer) {
+    public Status addPeer(final String groupId, final Configuration conf, final PeerId peer, long sequenceToken) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
         Requires.requireNonNull(peer, "Null peer");
@@ -141,6 +141,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .peerId(peer.toString())
+            .sequenceToken(sequenceToken)
             .build();
 
         try {
@@ -166,7 +167,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status removePeer(final String groupId, final Configuration conf, final PeerId peer) {
+    public Status removePeer(final String groupId, final Configuration conf, final PeerId peer, long sequenceToken) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
         Requires.requireNonNull(peer, "Null peer");
@@ -183,6 +184,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .peerId(peer.toString())
+            .sequenceToken(sequenceToken)
             .build();
 
         try {
@@ -208,7 +210,8 @@ public class CliServiceImpl implements CliService {
             final String groupId,
             final Configuration conf,
             final Configuration newPeersAndLearners,
-            long term
+            long term,
+            long sequenceToken
     ) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
@@ -227,6 +230,7 @@ public class CliServiceImpl implements CliService {
             .newPeersList(newPeersAndLearners.getPeers().stream().map(Object::toString).collect(toList()))
             .newLearnersList(newPeersAndLearners.getLearners().stream().map(Object::toString).collect(toList()))
             .term(term)
+            .sequenceToken(sequenceToken)
             .build();
 
         try {
@@ -247,7 +251,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status resetPeer(final String groupId, final PeerId peerId, final Configuration newPeers) {
+    public Status resetPeer(final String groupId, final PeerId peerId, final Configuration newPeers, long sequenceToken) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(peerId, "Null peerId");
         Requires.requireNonNull(newPeers, "Null new peers");
@@ -261,6 +265,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .peerId(peerId.toString())
             .newPeersList(newPeers.getPeers().stream().map(Object::toString).collect(toList()))
+            .sequenceToken(sequenceToken)
             .build();
 
         try {
@@ -279,7 +284,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners) {
+    public Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long sequenceToken) {
         checkLearnersOpParams(groupId, conf, learners);
 
         final PeerId leaderId = new PeerId();
@@ -297,6 +302,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
+            .sequenceToken(sequenceToken)
             .build();
 
         try {
@@ -343,7 +349,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners) {
+    public Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long sequenceToken) {
         checkLearnersOpParams(groupId, conf, learners);
 
         final PeerId leaderId = new PeerId();
@@ -361,6 +367,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
+            .sequenceToken(sequenceToken)
             .build();
 
         try {
@@ -374,16 +381,16 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner) {
-        Status status = removeLearners(groupId, conf, Arrays.asList(learner));
+    public Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner, long sequenceToken) {
+        Status status = removeLearners(groupId, conf, Arrays.asList(learner), sequenceToken);
         if (status.isOk()) {
-            status = addPeer(groupId, conf, new PeerId(learner.getConsistentId()));
+            status = addPeer(groupId, conf, new PeerId(learner.getConsistentId()), sequenceToken);
         }
         return status;
     }
 
     @Override
-    public Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners) {
+    public Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long sequenceToken) {
         checkLearnersOpParams(groupId, conf, learners);
 
         final PeerId leaderId = new PeerId();
@@ -401,6 +408,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
+            .sequenceToken(sequenceToken)
             .build();
 
         try {

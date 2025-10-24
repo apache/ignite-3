@@ -71,6 +71,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
@@ -227,7 +228,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
-    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+    private final Function<ReplicationGroupId, CompletableFuture<IgniteBiTuple<byte[], Long>>> getPendingAssignmentsSupplier;
 
     /**
      * Constructor for a replica service.
@@ -266,7 +267,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
+            Function<ReplicationGroupId, CompletableFuture<IgniteBiTuple<byte[], Long>>> getPendingAssignmentsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -798,10 +799,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param replicaGrpId Replication group ID.
      * @param peersAndLearners New node configuration.
+     * @param sequenceToken Sequence token.
      */
-    public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
+    public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
-        ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
+        ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners, sequenceToken);
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
@@ -1207,9 +1209,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Boolean> weakStartReplica(
             ReplicationGroupId groupId,
             Supplier<CompletableFuture<Boolean>> startOperation,
-            @Nullable Assignments forcedAssignments
+            @Nullable Assignments forcedAssignments,
+            long revision
     ) {
-        return replicaStateManager.weakStartReplica(groupId, startOperation, forcedAssignments);
+        return replicaStateManager.weakStartReplica(groupId, startOperation, forcedAssignments, revision);
     }
 
     /**

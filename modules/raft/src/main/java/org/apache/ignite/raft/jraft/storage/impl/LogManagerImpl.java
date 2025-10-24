@@ -310,10 +310,12 @@ public class LogManagerImpl implements LogManager {
                 if (entry.getType() == EntryType.ENTRY_TYPE_CONFIGURATION) {
                     Configuration oldConf = new Configuration();
                     if (entry.getOldPeers() != null) {
-                        oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners());
+                        oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners(), entry.getOldSequenceToken());
                     }
+                    LOG.info("Add old conf {}, seq is {}.",
+                              oldConf, entry.getOldSequenceToken());
                     final ConfigurationEntry conf = new ConfigurationEntry(entry.getId(),
-                        new Configuration(entry.getPeers(), entry.getLearners()), oldConf);
+                        new Configuration(entry.getPeers(), entry.getLearners(), entry.getSequenceToken()), oldConf);
                     this.configManager.add(conf);
                 }
             }
@@ -708,7 +710,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     private Configuration confFromMeta(final SnapshotMeta meta) {
-        final Configuration conf = new Configuration();
+        final Configuration conf = new Configuration(meta.sequenceToken());
         if (meta.peersList() != null) {
             for (String metaPeer : meta.peersList()) {
                 final PeerId peer = new PeerId();

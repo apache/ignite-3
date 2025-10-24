@@ -199,7 +199,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         listener.onWrite(List.of(writeCommandClosure).iterator());
 
-        var config = new RaftGroupConfiguration(26, 43, List.of("foo"), List.of("bar"), null, null);
+        var config = new RaftGroupConfiguration(26, 43, 111L, 110L, List.of("foo"), List.of("bar"), null, null);
 
         listener.onConfigurationCommitted(config, config.index(), config.term());
 
@@ -281,7 +281,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         long index = 1;
         long term = 2;
 
-        var raftGroupConfiguration = new RaftGroupConfiguration(index, term, List.of("foo"), List.of("bar"), null, null);
+        var raftGroupConfiguration = new RaftGroupConfiguration(index, term, 111L, 110L, List.of("foo"), List.of("bar"), null, null);
 
         var tableProcessor = new TestRaftTableProcessor();
 
@@ -368,7 +368,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         listener.onWrite(List.of(writeCommandClosure).iterator());
 
-        var config = new RaftGroupConfiguration(26, 43, List.of("foo"), List.of("bar"), null, null);
+        var config = new RaftGroupConfiguration(26, 43, 111L, 110L, List.of("foo"), List.of("bar"), null, null);
 
         listener.onConfigurationCommitted(config, config.index(), config.term());
 
@@ -424,6 +424,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 new RaftGroupConfiguration(
                         index,
                         1,
+                        111L,
+                        110L,
                         List.of("foo"),
                         List.of("bar"),
                         null,

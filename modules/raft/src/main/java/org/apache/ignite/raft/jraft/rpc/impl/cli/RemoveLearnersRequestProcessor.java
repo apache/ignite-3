@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.conf.Configuration;import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest;
@@ -61,9 +61,11 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
             removeingLearners.add(peer);
         }
 
+        long sequenceToken = request.sequenceToken() != null ? request.sequenceToken() : Configuration.NO_SEQUENCE_TOKEN;
+
         LOG.info("Receive RemoveLearnersRequest to {} from {}, removing {}.", ctx.node.getNodeId(),
             done.getRpcCtx().getRemoteAddress(), removeingLearners);
-        ctx.node.removeLearners(removeingLearners, status -> {
+        ctx.node.removeLearners(removeingLearners, sequenceToken, status -> {
             if (!status.isOk()) {
                 done.run(status);
             }

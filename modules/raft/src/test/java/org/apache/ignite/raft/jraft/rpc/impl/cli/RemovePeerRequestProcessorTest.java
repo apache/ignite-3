@@ -16,6 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
@@ -25,10 +30,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.eq;
-
 public class RemovePeerRequestProcessorTest extends AbstractCliRequestProcessorTest<RemovePeerRequest> {
 
     @Override
@@ -37,6 +38,7 @@ public class RemovePeerRequestProcessorTest extends AbstractCliRequestProcessorT
             .groupId(groupId)
             .leaderId(peerId.toString())
             .peerId("localhost:8082")
+            .sequenceToken(111L)
             .build();
     }
 
@@ -48,7 +50,7 @@ public class RemovePeerRequestProcessorTest extends AbstractCliRequestProcessorT
     @Override
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
         assertEquals(RemovePeerRequest.class.getName(), interest);
-        Mockito.verify(node).removePeer(eq(new PeerId("localhost", 8082)), doneArg.capture());
+        Mockito.verify(node).removePeer(eq(new PeerId("localhost", 8082)), anyLong(), doneArg.capture());
         Closure done = doneArg.getValue();
         assertNotNull(done);
         done.run(Status.OK());
