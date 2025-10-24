@@ -17,27 +17,9 @@
 
 package org.apache.ignite.internal;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-
-import io.micronaut.http.HttpRequest;
-import io.micronaut.http.HttpResponse;
-import io.micronaut.http.HttpStatus;
-import io.micronaut.http.MediaType;
-import io.micronaut.http.MutableHttpRequest;
-import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.multipart.MultipartBody;
-import io.micronaut.http.client.multipart.MultipartBody.Builder;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
@@ -102,40 +84,5 @@ public class CompatibilityTestCommon {
         try (var cursor = client.sql().execute(null, sql)) {
             return cursor.wasApplied();
         }
-    }
-
-    /** Deploys class to the cluster using the given deployment client. */
-    public static void deployJob(Class<?> clazz, Path workDir, HttpClient deploymentClient) throws IOException {
-        Path jarFile = createJar(clazz, workDir);
-
-        HttpResponse<Object> deploy = deploy(clazz.getName(), "1.0.0", jarFile.toFile(), deploymentClient);
-        assertThat(deploy.status(), is(HttpStatus.OK));
-
-    }
-
-    private static Path createJar(Class<?> clazz, Path workDir) throws IOException {
-        String resource = clazz.getName().replace('.', '/') + ".class";
-        Path path = Path.of(clazz.getClassLoader().getResource(resource).getPath());
-        Path jarFile = Files.createFile(workDir.resolve(clazz.getName() + ".jar"));
-
-        try (FileOutputStream fos = new FileOutputStream(jarFile.toFile()); JarOutputStream jos = new JarOutputStream(fos)) {
-            JarEntry entry = new JarEntry(resource);
-            jos.putNextEntry(entry);
-            Files.copy(path, jos);
-            jos.closeEntry();
-        }
-
-        return jarFile;
-    }
-
-    private static HttpResponse<Object> deploy(String id, String version, File file, HttpClient deploymentClient) {
-        Builder builder = MultipartBody.builder();
-        builder.addPart("unitContent", file);
-        MultipartBody body = builder.build();
-
-        MutableHttpRequest<MultipartBody> post = HttpRequest.POST("units/" + id + "/" + version, body)
-                .contentType(MediaType.MULTIPART_FORM_DATA);
-
-        return deploymentClient.toBlocking().exchange(post);
     }
 }
