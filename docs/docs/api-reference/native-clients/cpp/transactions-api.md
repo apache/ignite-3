@@ -509,7 +509,7 @@ guard.commit();  // Automatic rollback if not committed
 ## Reference
 
 - [C++ API Documentation](https://ignite.apache.org/releases/ignite3/latest/cpp-api/)
-- [Transactions Concept](../../../develop/transactions/transactions)
+- [Transactions Concept](../../../develop/work-with-data/transactions)
 - [Client API](./client-api)
 - [Tables API](./tables-api)
 - [SQL API](./sql-api)

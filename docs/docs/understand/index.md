@@ -4,7 +4,8 @@ Core concepts, architecture, and performance characteristics of Apache Ignite 3.
 
 ## In This Section
 
-### [Core Concepts](./core-concepts/)
+### Core Concepts
+
 Fundamental concepts and data models.
 
 - **[What is Apache Ignite 3?](./core-concepts/what-is-ignite)** - Overview and use cases
@@ -13,26 +14,28 @@ Fundamental concepts and data models.
 - **[Distribution and Colocation](./core-concepts/distribution-and-colocation)** - Data placement
 - **[Compute and Events](./core-concepts/compute-and-events)** - Processing model
 
-### [Architecture](./architecture/)
+### Architecture
+
 System architecture and internal design.
 
-- **[Cluster Architecture](./architecture/cluster-architecture)** - Node roles and communication
+- **[Cluster Architecture](./architecture/storage-architecture)** - Node roles and communication
 - **[Storage Architecture](./architecture/storage-architecture)** - Storage layer design
-- **[Storage Engines](./architecture/storage-engines/)** - Available storage engines
+- **[Storage Engines](./architecture/storage-engines/aipersist)** - Available storage engines
   - **[AIPersist](./architecture/storage-engines/aipersist)** - Persistent storage engine
   - **[RocksDB](./architecture/storage-engines/rocksdb)** - RocksDB-based storage
   - **[AIMem](./architecture/storage-engines/aimem)** - In-memory storage
 - **[Data Partitioning](./architecture/data-partitioning)** - Partition distribution
-- **[Security Model](./architecture/security-model)** - Authentication and authorization
+- **[Security Model](./architecture/storage-architecture)** - Authentication and authorization
 
-### [Performance](./performance/)
+### Performance
+
 Performance characteristics and optimization.
 
-- **[Query Performance](./performance/query-performance)** - SQL performance factors
+- **[Query Performance](./performance/using-explain)** - SQL performance factors
 - **[Using EXPLAIN](./performance/using-explain)** - Analyze query execution plans
 
 ## Next Steps
 
 - [Getting Started](../getting-started/) - Quick start guides
 - [Develop](../develop/) - Build applications
-- [SQL](../sql/advanced/) - Advanced SQL topics
+- [SQL](../sql/advanced/distribution-zones) - Advanced SQL topics

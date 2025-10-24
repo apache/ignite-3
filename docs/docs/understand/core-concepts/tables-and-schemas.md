@@ -8,4 +8,4 @@ sidebar_position: 2
 
 Tables are the primary data structure in Ignite 3. Each table has a schema defining columns and types.
 
-For details on working with tables, see the [Table API documentation](/docs/3.1.0/developers-guide/table-api).
+For details on working with tables, see the [Table API documentation](/docs/3.1.0/develop/work-with-data/table-api).

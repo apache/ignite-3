@@ -4,22 +4,25 @@ Complete SQL reference for Apache Ignite 3, including fundamentals, syntax, and 
 
 ## In This Section
 
-### [SQL Fundamentals](./fundamentals/)
+### SQL Fundamentals
+
 Understanding the SQL engine and query processing.
 
 - **[SQL Engine Architecture](./fundamentals/engine-architecture)** - How the SQL engine works
-- **[Query Processing](./fundamentals/query-processing)** - Query execution pipeline
-- **[Distributed Queries](./fundamentals/distributed-queries)** - Cross-partition queries
+- **[Query Processing](./fundamentals/engine-architecture)** - Query execution pipeline
+- **[Distributed Queries](./fundamentals/engine-architecture)** - Cross-partition queries
 
-### [Working with SQL](./working-with-sql/)
+### Working with SQL
+
 Practical guides for executing SQL queries.
 
 - **[Execute Queries](./working-with-sql/execute-queries)** - Run SQL from applications
-- **[Use SQL API](./working-with-sql/sql-api)** - Programmatic SQL execution
+- **[Use SQL API](./working-with-sql/execute-queries)** - Programmatic SQL execution
 - **[Work with System Views](./working-with-sql/system-views)** - Query metadata and metrics
-- **[Use Transactions](./working-with-sql/transactions)** - SQL transaction control
+- **[Use Transactions](./working-with-sql/execute-queries)** - SQL transaction control
 
-### [SQL Reference](./reference/)
+### SQL Reference
+
 Complete SQL syntax and language reference.
 
 - **[DDL Commands](./reference/ddl)** - CREATE, ALTER, DROP statements
@@ -30,16 +33,17 @@ Complete SQL syntax and language reference.
 - **[Keywords](./reference/keywords)** - Reserved SQL keywords
 - **[SQL Conformance](./reference/sql-conformance)** - Standards compliance
 
-### [Advanced SQL](./advanced/)
+### Advanced SQL
+
 Performance tuning and advanced features.
 
 - **[Distribution Zones](./advanced/distribution-zones)** - Control data distribution
 - **[EXPLAIN Statement](./advanced/explain-statement)** - Analyze query plans
-- **[Query Optimization](./advanced/query-optimization)** - Improve query performance
+- **[Query Optimization](./advanced/performance-tuning)** - Improve query performance
 - **[Performance Tuning](./advanced/performance-tuning)** - Best practices for SQL performance
 
 ## Next Steps
 
 - [Develop](../develop/) - Build applications with SQL
 - [Configure and Operate](../configure-and-operate/) - Production deployment
-- [API Reference](../api-reference/sql-only-apis/) - SQL driver documentation
+- [API Reference](../api-reference/sql-only-apis/jdbc) - SQL driver documentation

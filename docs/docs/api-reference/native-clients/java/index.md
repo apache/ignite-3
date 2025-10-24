@@ -39,7 +39,7 @@ Both modes share common APIs for tables, SQL, transactions, compute, and streami
 
 ## Reference
 
-- [Java API Documentation](../../api/java-api)
+- [Java API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/javadoc/)
 
 ## Next Steps
 

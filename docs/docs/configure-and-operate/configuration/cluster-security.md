@@ -6,7 +6,7 @@ sidebar_label: Cluster Security
 
 ## User Security
 
-By default, all users can perform any updates on the cluster, or [upload arbitrary code to the cluster](/docs/3.1.0/developers-guide/code-deployment/code-deployment) and perform remote code execution with [distributed computing](/docs/3.1.0/developers-guide/compute/compute). To improve security, we recommend configuring user roles and permissions and enabling authorization on the cluster.
+By default, all users can perform any updates on the cluster, or [upload arbitrary code to the cluster](/docs/3.1.0/develop/work-with-data/code-deployment) and perform remote code execution with [distributed computing](/docs/3.1.0/develop/work-with-data/compute). To improve security, we recommend configuring user roles and permissions and enabling authorization on the cluster.
 
 ## Communication
 
@@ -24,4 +24,4 @@ Communication between nodes usually happens within the same data center. We reco
 Client to server communication may be over internet or otherwise untrusted network. Only the client port (10800 by default) is typically exposed outside of the cluster. To securely interact with your clients:
 
 - Enable SSL for client communication with the `ignite.clientConnector.ssl` [node configuration](/docs/3.1.0/configure-and-operate/reference/node-configuration).
-- Enable [authentication](/docs/3.1.0/configure-and-operate/configuration/authentication) on the cluster.
+- Enable [authentication](/docs/3.1.0/configure-and-operate/configuration/config-authentication) on the cluster.

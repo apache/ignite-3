@@ -33,7 +33,7 @@ The API supports both strongly typed operations with POCOs and dynamic access wi
 
 ## Reference
 
-- [.NET API Documentation](../../api/dotnet-api)
+- [.NET API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/dotnetdoc/)
 
 ## Next Steps
 

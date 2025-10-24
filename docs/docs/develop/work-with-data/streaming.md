@@ -324,7 +324,7 @@ ReceiverDescriptor<IIgniteTuple, object?, object> desc = ReceiverDescriptor.Of(n
 </TabItem>
 </Tabs>
 
-3. Next, obtain the target table to partition the data for streaming. In this example we partition by `customerId` to ensure the receiver is [colocated](/docs/3.1.0/administrators-guide/colocation) with the customer data, enabling local upserts. Then define how to extract keys and payloads from the source, and stream the data using a `SubmissionPublisher`.
+3. Next, obtain the target table to partition the data for streaming. In this example we partition by `customerId` to ensure the receiver is [colocated](/docs/3.1.0/understand/core-concepts/distribution-and-colocation) with the customer data, enabling local upserts. Then define how to extract keys and payloads from the source, and stream the data using a `SubmissionPublisher`.
 
 <Tabs>
 <TabItem value="java" label="Java">

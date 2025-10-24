@@ -4,9 +4,9 @@ Full-featured native clients with support for all Apache Ignite 3 APIs.
 
 ## Available Clients
 
-- **[Java Client](./java)** - Primary API with complete feature set
-- **[.NET Client](./dotnet)** - Native .NET client for C# applications
-- **[C++ Client](./cpp)** - High-performance C++ client
+- **[Java Client](./java-client)** - Primary API with complete feature set
+- **[.NET Client](./dotnet-client)** - Native .NET client for C# applications
+- **[C++ Client](./cpp-client)** - High-performance C++ client
 
 ## Features
 
@@ -30,4 +30,4 @@ Use native Ignite clients when you need:
 - Event handling
 - High-performance data access
 
-For SQL-only connectivity, see [Connect to Ignite](../connect-to-ignite/).
+For SQL-only connectivity, see [Connect to Ignite](../connect-to-ignite/jdbc).

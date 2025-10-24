@@ -13,4 +13,4 @@ Ignite 3 uses MVCC (Multi-Version Concurrency Control) for transaction isolation
 - Deadlock-free operation
 - Support for read-only transactions
 
-For details on using transactions, see the [Transactions documentation](/docs/3.1.0/developers-guide/transactions).
+For details on using transactions, see the [Transactions documentation](/docs/3.1.0/develop/work-with-data/transactions).

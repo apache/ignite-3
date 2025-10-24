@@ -32,7 +32,7 @@ The API offers both typed views with template specialization and binary views wi
 
 ## Reference
 
-- [C++ API Documentation](../../api/cpp-api)
+- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/cppdoc/)
 
 ## Next Steps
 

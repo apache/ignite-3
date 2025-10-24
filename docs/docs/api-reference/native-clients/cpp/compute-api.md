@@ -512,6 +512,6 @@ for (auto& execution : executions) {
 ## Reference
 
 - [C++ API Documentation](https://ignite.apache.org/releases/ignite3/latest/cpp-api/)
-- [Compute Concept](../../../develop/compute/compute)
+- [Compute Concept](../../../develop/work-with-data/compute)
 - [Client API](./client-api)
 - [Network API](./network-api)

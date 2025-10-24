@@ -4,7 +4,8 @@ Comprehensive API documentation for all supported languages and drivers.
 
 ## In This Section
 
-### [Native Client APIs](./native-clients/)
+### Native Client APIs
+
 Full-featured clients with support for all Ignite APIs.
 
 #### [Java API (PRIMARY)](./native-clients/java/)
@@ -43,7 +44,8 @@ High-performance C++ client.
 - [Compute API](./native-clients/cpp/compute-api) - Distributed computing
 - [Network API](./native-clients/cpp/network-api) - Cluster topology
 
-### [SQL-Only APIs](./sql-only-apis/)
+### SQL-Only APIs
+
 Standard database connectivity for SQL operations only.
 
 - **[JDBC Driver](./sql-only-apis/jdbc)** - Java Database Connectivity (JDBC 4.x)
