@@ -85,6 +85,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
@@ -830,10 +832,15 @@ public class InternalTableImpl implements InternalTable {
      * @param <R> Result type.
      * @return The future.
      */
-    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(Collection<BinaryRowEx> keyRows) {
+    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(Collection<BinaryRowEx> keyRows, boolean full) {
         InternalTransaction actualTx = txManager.beginImplicitRo(observableTimestampTracker);
 
-        int partId = partitionId(keyRows.iterator().next());
+        Iterator<BinaryRowEx> iterator = keyRows.iterator();
+        int partId = partitionId(iterator.next());
+
+        while (iterator.hasNext()) {
+            assert partId == partitionId(iterator.next());
+        }
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
@@ -845,6 +852,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(keyRows.iterator().next().schemaVersion())
                         .primaryKeys(serializeBinaryTuples(keyRows))
                         .requestType(RO_GET_ALL)
+                        .full(full)
                         .build());
     }
 
@@ -1024,13 +1032,16 @@ public class InternalTableImpl implements InternalTable {
 
         if (tx == null && isSinglePartitionBatch(keyRows)) {
             // Embedded batch request.
-            return evaluateReadOnlyPrimaryNode(keyRows);
+            return evaluateReadOnlyPrimaryNode(keyRows, true);
         }
 
+        // TODO make sure timeouts are used.
         if (tx != null && tx.isReadOnly()) {
             if (tx.implicit()) {
-                // Batch from a client TODO validate batch in partition
-                return evaluateReadOnlyPrimaryNode(keyRows);
+                // KV batch read request.
+                // TODO validate batch in partition
+                // TODO support embedded.
+                return evaluateReadOnlyPrimaryNode(keyRows, false);
             }
 
             return getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), null);

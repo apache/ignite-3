@@ -202,10 +202,6 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     tx);
         };
 
-        if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
-        }
-
         return tbl.split(tx, keys, clo, new HashMap<>(), (agg, cur) -> {
             agg.putAll(cur);
             return agg;

@@ -154,6 +154,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
             boolean full,
             boolean timeoutExceeded
     ) {
+        // TODO why do we need this ?
         observableTsTracker.update(executionTimestamp);
 
         return nullCompletedFuture();

@@ -15,17 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.replication;
+package org.apache.ignite.internal.client;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TableAware;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.table.ItDataConsistencyTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Read only direct multi row replica request.
- */
-@Transferable(PartitionReplicationMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadOnlyDirectMultiRowReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest, TableAware {
-    boolean full();
+public class ItClientDataConsistencyTest extends ItDataConsistencyTest {
+    private IgniteClient client;
+
+    @BeforeEach
+    public void startClient() {
+        client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+    }
+
+    @Override
+    protected Ignite assignNodeForIteration(int workerId) {
+        return client;
+    }
+
+    @Override
+    @Test
+    public void testDataConsistency() throws InterruptedException {
+        super.testDataConsistency();
+    }
 }

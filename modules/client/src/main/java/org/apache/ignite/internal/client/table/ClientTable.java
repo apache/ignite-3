@@ -813,8 +813,6 @@ public class ClientTable implements Table {
             BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<List<E>>> fun,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
-        assert tx != null;
-
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
 
