@@ -5,7 +5,7 @@ Ignite 3 persistent data storage is not directly compatible with Ignite 2. You n
 There are two options for creating the required Ignite 3 configuration:
 
 * <<Replicating Caches to Ignite 3>>
-* <<Migrating Persistent Data Manually>>
+* <<Migrating Persistent Data>>
 
 Regardless of the approach you choose, you need to download the migration tools first:
 
