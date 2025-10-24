@@ -196,5 +196,6 @@ tasks.register('postRelease', Copy) {
 
         versionsFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(versionsJson))
                 .replace('    ', '  ') // dirty hack to make the indent 2 spaces instead of 4
+        versionsFile.append(System.lineSeparator())
     }
 }
