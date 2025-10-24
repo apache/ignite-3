@@ -36,18 +36,7 @@ JAVA_MEMORY_OPTIONS="-Xmx${JVM_MAX_MEM} -Xms${JVM_MIN_MEM}"
 
 JAVA_GC_OPTIONS="-XX:+Use${JVM_GC} -XX:G1HeapRegionSize=${JVM_G1HeapRegionSize}"
 
-while IFS= read -r JAR || [ -n "${JAR}" ]; do
-    if [ -z "${CLASSPATH+x}" ]; then
-        CLASSPATH="-classpath ${LIBS_DIR}/${JAR}"
-    else
-        CLASSPATH="$CLASSPATH:${LIBS_DIR}/${JAR}"
-    fi
-done < "${LIBS_DIR}/@CLASS_PATH_FILE@"
-
-if [ -z "${CLASSPATH+x}" ]; then
-  echo "CLASSPATH could not be built from ${LIBS_DIR}/@CLASS_PATH_FILE@ file"
-  exit 1
-fi
+CLASSPATH="-classpath ${LIBS_DIR}/@APP_JAR@:${LIBS_DIR}/* @MAIN_CLASS@"
 
 MAIN_CLASS="@MAIN_CLASS@"
 

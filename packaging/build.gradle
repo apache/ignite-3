@@ -83,7 +83,8 @@ def tokens = [
 ]
 
 def replaceVars = tasks.register('replaceVars', Copy) {
-    from "$rootDir/packaging/common/linux"
+    from "$rootDir/packaging/common/linux/$tokens.SETUP_JAVA_FILE_NAME"
+    from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
