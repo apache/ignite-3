@@ -179,6 +179,10 @@ h1 {
   box-shadow: var(--ifm-navbar-shadow);
 }
 
+.navbar__logo {
+  margin-left: 1em;
+}
+
 /* Navbar text colors */
 .navbar__title {
   font-weight: normal;
@@ -461,13 +465,13 @@ h1 {
 .theme-doc-markdown {
   background-color: #ffffff;
   border-left: 1px solid #eeeeee;
-  padding: 0 50px 30px;
+  padding: 30px 50px;
   margin-top: 10px; /* Space above content for version badge */
 }
 
 [data-theme='dark'] .theme-doc-markdown {
   background-color: #242526;
-  border-left: 1px solid #404040;
+  border: 1px solid #404040;
 }
 
 article.markdown {
