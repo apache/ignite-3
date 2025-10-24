@@ -576,6 +576,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     new RaftGroupConfiguration(
                             1,
                             1,
+                            111L,
+                            110L,
                             List.of(LOCAL_NODE.name()),
                             Collections.emptyList(),
                             null,

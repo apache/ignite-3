@@ -43,6 +43,7 @@ public class ChangePeersAndLearnersAsyncRequestProcessorTest extends AbstractCli
                 .newPeersList(PEERS)
                 .newLearnersList(LEARNERS)
                 .term(1L)
+                .sequenceToken(111L)
                 .build();
     }
 
@@ -55,7 +56,7 @@ public class ChangePeersAndLearnersAsyncRequestProcessorTest extends AbstractCli
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
         assertEquals(ChangePeersAndLearnersAsyncRequest.class.getName(), interest);
 
-        Configuration expectedConf = new Configuration();
+        Configuration expectedConf = new Configuration(111);
         PEERS.stream().map(PeerId::parsePeer).forEach(expectedConf::addPeer);
         LEARNERS.stream().map(PeerId::parsePeer).forEach(expectedConf::addLearner);
 

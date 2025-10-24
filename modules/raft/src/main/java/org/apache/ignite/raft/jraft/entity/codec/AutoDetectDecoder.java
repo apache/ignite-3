@@ -17,10 +17,14 @@
 package org.apache.ignite.raft.jraft.entity.codec;
 
 import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.V1Decoder;
+import org.apache.ignite.raft.jraft.entity.codec.v2.LogEntryV2CodecFactory;
+import org.apache.ignite.raft.jraft.entity.codec.v2.V2Decoder;
 
 /**
- * Decoder that supports both v1 and v2 log entry codec protocol.
+ * Decoder that supports both V1 and V2 log entry codec protocol.
+ * Uses magic byte to auto-detect the version.
  */
 public class AutoDetectDecoder implements LogEntryDecoder {
 
@@ -36,13 +40,15 @@ public class AutoDetectDecoder implements LogEntryDecoder {
             return null;
         }
 
-        return V1Decoder.INSTANCE.decode(bs);
-
-//        if (bs[0] == LogEntryV2CodecFactory.MAGIC_BYTES[0]) {
-//            return V2Decoder.INSTANCE.decode(bs);
-//        } else {
-//            return V1Decoder.INSTANCE.decode(bs);
-//        }
+        // Auto-detect version based on magic byte
+        if (bs[0] == LogEntryV2CodecFactory.MAGIC) {
+            return V2Decoder.INSTANCE.decode(bs);
+        } else if (bs[0] == LogEntryV1CodecFactory.MAGIC) {
+            return V1Decoder.INSTANCE.decode(bs);
+        } else {
+            // Unknown magic byte - corrupted data
+            return null;
+        }
     }
 
 }

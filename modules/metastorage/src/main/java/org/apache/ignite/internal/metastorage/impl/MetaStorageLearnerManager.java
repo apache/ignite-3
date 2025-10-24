@@ -67,7 +67,8 @@ class MetaStorageLearnerManager {
     }
 
     CompletableFuture<Void> updateLearners(long term) {
-        return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term));
+        // TODO: Proper token for MS.
+        return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term, 0));
     }
 
     CompletableFuture<Void> addLearner(RaftGroupService raftService, InternalClusterNode learner) {
@@ -101,7 +102,7 @@ class MetaStorageLearnerManager {
                 })));
     }
 
-    CompletableFuture<Void> resetLearners(RaftGroupService raftService, long term) {
+    CompletableFuture<Void> resetLearners(RaftGroupService raftService, long term, long sequenceToken) {
         return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
                 .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
                     Set<String> peers = raftService.peers().stream().map(Peer::consistentId).collect(toSet());
@@ -114,7 +115,7 @@ class MetaStorageLearnerManager {
                     PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
 
                     // We can't use 'resetLearners' call here because it does not support empty lists of learners.
-                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term);
+                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term, sequenceToken);
                 })));
     }
 

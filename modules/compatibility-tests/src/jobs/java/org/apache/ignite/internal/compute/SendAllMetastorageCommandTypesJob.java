@@ -33,6 +33,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that runs different MetastorageWriteCommands. */
@@ -43,7 +44,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
         try {
             IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
-            byte[] value = "value".getBytes();
+            byte[] value = ByteUtils.stringToBytes("value");
 
             MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
 

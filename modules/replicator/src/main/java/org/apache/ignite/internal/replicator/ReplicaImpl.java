@@ -29,6 +29,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -67,7 +68,7 @@ public class ReplicaImpl implements Replica {
 
     private final PlacementDriver placementDriver;
 
-    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+    private final Function<ReplicationGroupId, CompletableFuture<IgniteBiTuple<byte[], Long>>> getPendingAssignmentsSupplier;
 
     private LeaderElectionListener onLeaderElectedFailoverCallback;
 
@@ -95,7 +96,7 @@ public class ReplicaImpl implements Replica {
             ReplicaListener listener,
             InternalClusterNode localNode,
             PlacementDriver placementDriver,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
+            Function<ReplicationGroupId, CompletableFuture<IgniteBiTuple<byte[], Long>>> getPendingAssignmentsSupplier,
             FailureProcessor failureProcessor,
             PlacementDriverMessageProcessor placementDriverMessageProcessor
     ) {
@@ -206,11 +207,11 @@ public class ReplicaImpl implements Replica {
 
             return null;
         }).thenCompose(pendingsBytes -> {
-            if (pendingsBytes == null) {
+            if (pendingsBytes == null || pendingsBytes.get1() == null) {
                 return nullCompletedFuture();
             }
 
-            PeersAndLearners newConfiguration = fromAssignments(AssignmentsQueue.fromBytes(pendingsBytes).poll().nodes());
+            PeersAndLearners newConfiguration = fromAssignments(AssignmentsQueue.fromBytes(pendingsBytes.get1()).poll().nodes());
 
             LOG.info(
                     "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
@@ -220,7 +221,7 @@ public class ReplicaImpl implements Replica {
             );
 
             // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
-            return raftClient.changePeersAndLearnersAsync(newConfiguration, term);
+            return raftClient.changePeersAndLearnersAsync(newConfiguration, term, pendingsBytes.get2());
         }).exceptionally(e -> {
             LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicaGrpId, term);
 

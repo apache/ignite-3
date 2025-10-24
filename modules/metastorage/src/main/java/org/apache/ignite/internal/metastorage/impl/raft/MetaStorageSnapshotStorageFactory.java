@@ -75,6 +75,8 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
                 .peersList(configuration.peers())
                 .oldPeersList(configuration.oldPeers())
                 .learnersList(configuration.learners())
+                .sequenceToken(configuration.sequenceToken())
+                .oldSequenceToken(configuration.oldSequenceToken())
                 .oldLearnersList(configuration.oldLearners())
                 .build();
     }

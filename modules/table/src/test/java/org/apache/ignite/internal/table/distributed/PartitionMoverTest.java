@@ -45,6 +45,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -70,16 +71,17 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
     public void testChangePeersAndLearnersAsyncRetryLogic() {
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        when(raftService.changePeersAndLearnersAsync(any(), anyLong()))
+        when(raftService.changePeersAndLearnersAsync(any(), anyLong(), anyLong()))
                 .thenReturn(failedFuture(new RuntimeException()))
                 .thenReturn(failedFuture(new IOException()))
                 .thenReturn(nullCompletedFuture());
 
         var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), willCompleteSuccessfully());
+        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
-        verify(raftService, times(3)).changePeersAndLearnersAsync(eq(PEERS_AND_LEARNERS), eq(TERM));
+        verify(raftService, times(3))
+                .changePeersAndLearnersAsync(eq(PEERS_AND_LEARNERS), eq(TERM), eq(Configuration.NO_SEQUENCE_TOKEN));
     }
 
     @Test
@@ -92,7 +94,8 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
 
         lock.block();
 
-        assertThrowsWithCause(() -> partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), NodeStoppingException.class);
+        assertThrowsWithCause(() -> partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN),
+                NodeStoppingException.class);
     }
 
     @Test
@@ -101,11 +104,12 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
 
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        when(raftService.changePeersAndLearnersAsync(any(), anyLong()))
+        when(raftService.changePeersAndLearnersAsync(any(), anyLong(), anyLong()))
                 .then(invocation -> CompletableFuture.runAsync(lock::block));
 
         var partitionMover = new PartitionMover(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
+        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM, Configuration.NO_SEQUENCE_TOKEN),
+                willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 }
