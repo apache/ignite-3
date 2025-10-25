@@ -191,7 +191,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.table.RowIdGenerator;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
-import org.apache.ignite.internal.table.distributed.PartitionModificationInfo;
+import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -592,10 +592,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             return processGetEstimatedSizeRequest();
         }
 
-        if (request instanceof GetEstimatedSizeWithModifyTsRequest) {
-            return processGetEstimatedSizeWithTsRequest();
-        }
-
         if (request instanceof ChangePeersAndLearnersAsyncReplicaRequest) {
             return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
         }
@@ -619,11 +615,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
         return completedFuture(mvDataStorage.estimatedSize());
-    }
-
-    private CompletableFuture<PartitionModificationInfo> processGetEstimatedSizeWithTsRequest() {
-        return completedFuture(new PartitionModificationInfo(mvDataStorage.estimatedSize(),
-                storageUpdateHandler.lastModificationCounterMilestone().longValue()));
     }
 
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {

@@ -63,6 +63,11 @@ public class PartitionModificationCounter {
         return counter.get();
     }
 
+    /** Returns partition estimated size. */
+    public long estimatedSize() {
+        return partitionSizeSupplier.get();
+    }
+
     /**
      * Returns a timestamp representing the commit time of the
      * last transaction that caused the counter to reach a milestone.

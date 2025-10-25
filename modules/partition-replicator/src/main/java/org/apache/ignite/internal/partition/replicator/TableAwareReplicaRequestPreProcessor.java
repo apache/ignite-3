@@ -98,7 +98,6 @@ public class TableAwareReplicaRequestPreProcessor {
         assert txTs == null
                 ? request instanceof GetEstimatedSizeRequest || request instanceof ScanCloseReplicaRequest
                 || request instanceof BuildIndexReplicaRequest || request instanceof TableWriteIntentSwitchReplicaRequest
-                || request instanceof GetEstimatedSizeWithModifyTsRequest
                 : opTs.compareTo(txTs) >= 0 :
                 "Invalid request timestamps [request=" + request + ']';
 

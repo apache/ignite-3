@@ -17,17 +17,36 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.PartitionModificationInfoMessage;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsRequest;
 
 /**
  * Factory for producing {@link PartitionModificationCounter}.
  */
 public class PartitionModificationCounterFactory {
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
+    private final MessagingService messagingService;
+    private final Map<TablePartitionId, PartitionModificationCounter> partitionsInfo = new HashMap<>();
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier) {
+    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier, MessagingService messagingService) {
         this.currentTimestampSupplier = currentTimestampSupplier;
+        this.messagingService = messagingService;
     }
 
     /**
@@ -35,17 +54,25 @@ public class PartitionModificationCounterFactory {
      *
      * @param partitionSizeSupplier Partition size supplier.
      * @param stalenessConfigurationSupplier Partition size supplier.
+     * @param tableId Table id.
+     * @param partitionId partition id.
      * @return New partition modification counter.
      */
     public PartitionModificationCounter create(
             SizeSupplier partitionSizeSupplier,
-            StalenessConfigurationSupplier stalenessConfigurationSupplier
+            StalenessConfigurationSupplier stalenessConfigurationSupplier,
+            int tableId,
+            int partitionId
     ) {
-        return new PartitionModificationCounter(
+        PartitionModificationCounter info = new PartitionModificationCounter(
                 currentTimestampSupplier.get(),
                 partitionSizeSupplier,
                 stalenessConfigurationSupplier
         );
+
+        partitionsInfo.put(new TablePartitionId(tableId, partitionId), info);
+
+        return info;
     }
 
     /** An interface representing supplier of current size. */
@@ -58,5 +85,40 @@ public class PartitionModificationCounterFactory {
     @FunctionalInterface
     public interface StalenessConfigurationSupplier {
         TableStatsStalenessConfiguration get();
+    }
+
+    /**
+     * Starts routine.
+     */
+    public void start() {
+        messagingService.addMessageHandler(ReplicaMessageGroup.class, this::handleMessage);
+    }
+
+    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+        if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
+            handleRequestCounter(sender);
+        }
+    }
+
+    private void handleRequestCounter(InternalClusterNode sender) {
+        List<PartitionModificationInfoMessage> modificationInfo = new ArrayList<>();
+
+        for (Map.Entry<TablePartitionId, PartitionModificationCounter> ent : partitionsInfo.entrySet()) {
+            PartitionModificationCounter info = ent.getValue();
+            TablePartitionId tblPartId = ent.getKey();
+            PartitionModificationInfoMessage infoMsg = REPLICA_MESSAGES_FACTORY.partitionModificationInfoMessage()
+                    .tableId(tblPartId.tableId())
+                    .partId(tblPartId.partitionId())
+                    .estimatedSize(info.estimatedSize())
+                    .lastModificationCounter(info.lastMilestoneTimestamp().longValue())
+                    .build();
+
+            modificationInfo.add(infoMsg);
+        }
+
+        messagingService.send(sender, REPLICA_MESSAGES_FACTORY
+                .getEstimatedSizeWithLastModifiedTsResponse()
+                .modifications(modificationInfo)
+                .build());
     }
 }

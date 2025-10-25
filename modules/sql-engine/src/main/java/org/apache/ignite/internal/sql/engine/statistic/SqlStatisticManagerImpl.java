@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -45,7 +47,7 @@ import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.PartitionModificationInfo;
+import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.jetbrains.annotations.TestOnly;
 
@@ -79,10 +81,10 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;
-    private final StatisticAggregator<InternalTable, CompletableFuture<PartitionModificationInfo>> statSupplier;
+    private final StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> statSupplier;
 
     static final long INITIAL_DELAY = 5_000;
-    static final long REFRESH_PERIOD = 20_000;
+    static final long REFRESH_PERIOD = 2_000; // !!!!
 
     /** Constructor. */
     public SqlStatisticManagerImpl(
@@ -90,7 +92,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
             CatalogService catalogService,
             LowWatermark lowWatermark,
             ScheduledExecutorService scheduler,
-            StatisticAggregator<InternalTable, CompletableFuture<PartitionModificationInfo>> statSupplier
+            StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> statSupplier
     ) {
         this.tableManager = tableManager;
         this.catalogService = catalogService;
@@ -143,6 +145,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
             return;
         }
 
+        Collection<InternalTable> tables = new ArrayList<>(tableSizeMap.size());
+
         for (Map.Entry<Integer, ActualSize> ent : tableSizeMap.entrySet()) {
             Integer tableId = ent.getKey();
 
@@ -154,47 +158,50 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
             if (tableView == null) {
                 LOG.debug("No table found to update statistics [id={}].", ent.getKey());
-                continue;
+            } else {
+                tables.add(tableView.internalTable());
             }
+        }
 
-            CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tableView.internalTable())
-                    .handle((res, err) -> {
-                            if (err != null) {
-                                LOG.debug("Failed to update table statistics for [tableId={}].", err, tableId);
+        CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tables)
+                .handle((infos, err) -> {
+                    for (Map.Entry<Integer, PartitionModificationInfo> ent : infos.entrySet()) {
+                        int tableId = ent.getKey();
+                        PartitionModificationInfo info = ent.getValue();
 
-                                return null;
-                            } else {
-                                ActualSize estimatedTableSize = new ActualSize(Math.max(res.getEstimatedSize(), DEFAULT_TABLE_SIZE),
-                                        res.lastModificationCounter());
-                                ActualSize prevSize = tableSizeMap.get(tableId);
-                                // the table can be concurrently dropped and we shouldn't put new value in this case.
-                                tableSizeMap.compute(tableId, (k, v) -> {
-                                    if (v == null) {
-                                        return estimatedTableSize;
-                                    }
-
-                                    // check for stale update
-                                    if (v.modificationCounter() > res.lastModificationCounter()) {
-                                        return v;
-                                    }
-
+                        if (err != null) {
+                            LOG.debug("Failed to update table statistics for [tableId={}].", err, tableId);
+                        } else {
+                            ActualSize estimatedTableSize = new ActualSize(Math.max(info.getEstimatedSize(), DEFAULT_TABLE_SIZE),
+                                    info.lastModificationCounter());
+                            ActualSize prevSize = tableSizeMap.get(tableId);
+                            // the table can be concurrently dropped and we shouldn't put new value in this case.
+                            tableSizeMap.compute(tableId, (k, v) -> {
+                                if (v == null) {
                                     return estimatedTableSize;
-                                });
-
-                                if (!estimatedTableSize.equals(prevSize)) {
-                                    StatisticUpdatesSupplier supplier = changesSupplier.get();
-                                    if (supplier != null) {
-                                        supplier.accept(tableId);
-                                    }
                                 }
 
-                                return null;
+                                // check for stale update
+                                if (v.modificationCounter() > info.lastModificationCounter()) {
+                                    return v;
+                                }
+
+                                return estimatedTableSize;
+                            });
+
+                            if (!estimatedTableSize.equals(prevSize)) {
+                                StatisticUpdatesSupplier supplier = changesSupplier.get();
+                                if (supplier != null) {
+                                    supplier.accept(tableId);
+                                }
                             }
                         }
-                    );
+                    }
+
+                    return null;
+                });
 
             latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
-        }
     }
 
     @Override

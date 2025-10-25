@@ -474,8 +474,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
 
-    private final PartitionModificationHandler partitionModificationHandler;
-
     /**
      * Creates a new table manager.
      *
@@ -639,9 +637,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableId -> tablesById().get(tableId)
         );
 
-        partitionModificationHandler = new PartitionModificationHandler(messagingService, replicaMgr::replica,
-                () -> topologyService.localMember().id());
-
         this.sharedTxStateStorage = txStateRocksDbSharedStorage;
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
@@ -698,7 +693,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
 
             partitionReplicatorNodeRecovery.start();
-            partitionModificationHandler.start();
 
             if (!nodeProperties.colocationEnabled()) {
                 executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
@@ -3198,7 +3192,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         SizeSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
 
         PartitionModificationCounter modificationCounter =
-                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration);
+                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration, table.tableId(), partitionId);
 
         registerPartitionModificationCounterMetrics(table, partitionId, modificationCounter);
 

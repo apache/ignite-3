@@ -38,8 +38,6 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsResponse;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
@@ -219,16 +217,6 @@ public interface PartitionReplicationMessageGroup {
      * Message type for {@link ChangePeersAndLearnersAsyncReplicaRequest}.
      */
     short CHANGE_PEERS_AND_LEARNERS_ASYNC_REPLICA_REQUEST = 28;
-
-    /**
-     * Message type for {@link GetEstimatedSizeWithLastModifiedTsRequest}.
-     */
-    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST = 29;
-
-    /**
-     * Message type for {@link GetEstimatedSizeWithLastModifiedTsResponse}.
-     */
-    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_RESPONSE = 30;
 
     /**
      * Message types for partition replicator module RAFT commands.

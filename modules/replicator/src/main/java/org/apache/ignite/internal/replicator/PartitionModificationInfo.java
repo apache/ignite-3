@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.replicator;
 
 /** Partition modification information holder. */
 public class PartitionModificationInfo {

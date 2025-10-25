@@ -18,51 +18,83 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsRequest;
-import org.apache.ignite.internal.partition.replicator.network.message.GetEstimatedSizeWithLastModifiedTsResponse;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsResponse;
+import org.apache.ignite.internal.replicator.message.PartitionModificationInfoMessage;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.distributed.PartitionModificationInfo;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
 
 /** Statistic aggregator. */
 public class StatisticAggregatorImpl implements
-        StatisticAggregator<InternalTable, CompletableFuture<PartitionModificationInfo>> {
-    private final PlacementDriver placementDriver;
+        StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> {
+    private final Supplier<Set<LogicalNode>> clusterNodes;
     private final Supplier<HybridTimestamp> currentClock;
     private final MessagingService messagingService;
-    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
-            new PartitionReplicationMessagesFactory();
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
     private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
+    private final Map<TablePartitionId, CompletableFuture<Object>> requestsCompletion = new HashMap<>();
 
     /** Constructor. */
     public StatisticAggregatorImpl(
-            PlacementDriver placementDriver,
+            Supplier<Set<LogicalNode>> clusterNodes,
             Supplier<HybridTimestamp> currentClock,
             MessagingService messagingService
     ) {
-        this.placementDriver = placementDriver;
+        this.clusterNodes = clusterNodes;
         this.currentClock = currentClock;
         this.messagingService = messagingService;
+
+        messagingService.addMessageHandler(ReplicaMessageGroup.class, this::handleMessage);
+    }
+
+    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+        if (message instanceof GetEstimatedSizeWithLastModifiedTsResponse && !requestsCompletion.isEmpty()) {
+            GetEstimatedSizeWithLastModifiedTsResponse response = (GetEstimatedSizeWithLastModifiedTsResponse) message;
+            for (PartitionModificationInfoMessage ent : response.modifications()) {
+                TablePartitionId id = new TablePartitionId(ent.tableId(), ent.partId());
+                long estSize = ent.estimatedSize();
+                long modificationCounter = ent.lastModificationCounter();
+
+                CompletableFuture<Object> responseFut = requestsCompletion.get(id);
+
+                // stale response
+                if (responseFut == null) {
+                    continue;
+                }
+
+                if (isCompletedSuccessfully(responseFut)) {
+                    PartitionModificationInfo res = (PartitionModificationInfo) responseFut.join();
+                    if (res.lastModificationCounter() < modificationCounter) {
+                        requestsCompletion.put(id, completedFuture(new PartitionModificationInfo(estSize, modificationCounter)));
+                    }
+                } else {
+                    responseFut.complete(new PartitionModificationInfo(estSize, modificationCounter));
+                }
+            }
+        }
     }
 
     /**
@@ -71,64 +103,58 @@ public class StatisticAggregatorImpl implements
      * @return Estimated size of this table with last modification timestamp.
      */
     @Override
-    public CompletableFuture<PartitionModificationInfo> estimatedSizeWithLastUpdate(InternalTable table) {
-        int partitions = table.partitions();
+    public CompletableFuture<Map<Integer, PartitionModificationInfo>> estimatedSizeWithLastUpdate(Collection<InternalTable> tables) {
+        Collection<Integer> tablesId = tables.stream().map(InternalTable::tableId).collect(Collectors.toList());
 
-        Map<String, List<ReplicationGroupIdMessage>> peersWithGroups = new HashMap<>();
+        GetEstimatedSizeWithLastModifiedTsRequest request =
+               REPLICA_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest().tables(tablesId).build();
 
-        HybridTimestamp clockNow = currentClock.get();
+        List<CompletableFuture<Void>> reqFutures = new ArrayList<>();
 
-        for (int p = 0; p < partitions; ++p) {
-            ReplicationGroupId replicationGroupId = table.targetReplicationGroupId(p);
-
-            ReplicaMeta repl = placementDriver.getCurrentPrimaryReplica(replicationGroupId, clockNow);
-
-            if (repl != null && repl.getLeaseholder() != null) {
-                peersWithGroups.computeIfAbsent(repl.getLeaseholder(), k -> new ArrayList<>())
-                        .add(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId));
-            } else {
-                return CompletableFuture.failedFuture(
-                        new IgniteInternalException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                        + " [replicationGroupId=" + replicationGroupId + ']'));
+        for (InternalTable t : tables) {
+            for (int p = 0; p < t.partitions(); ++p) {
+                requestsCompletion.put(new TablePartitionId(t.tableId(), p),
+                        new CompletableFuture<>().orTimeout(REQUEST_ESTIMATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
             }
         }
 
-        if (peersWithGroups.isEmpty()) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Table peers are not available"
-                    + " [tableId=" + table.tableId() + ']'));
+        for (LogicalNode node : clusterNodes.get()) {
+            CompletableFuture<Void> reqFut = messagingService.send(node, request);
+
+            reqFutures.add(reqFut.orTimeout(REQUEST_ESTIMATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
         }
 
-        CompletableFuture<PartitionModificationInfo>[] invokeFutures = peersWithGroups.entrySet().stream()
-                .map(ent -> {
-                    GetEstimatedSizeWithLastModifiedTsRequest request =
-                            PARTITION_REPLICATION_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest()
-                                    .tableId(table.tableId()).replicas(ent.getValue()).build();
+        CompletableFuture<CompletableFuture<Void>>[] requests = reqFutures.toArray(CompletableFuture[]::new);
 
-                    return messagingService.invoke(ent.getKey(), request, REQUEST_ESTIMATION_TIMEOUT_MILLIS)
-                            .thenApply(networkMessage -> {
-                                assert networkMessage instanceof GetEstimatedSizeWithLastModifiedTsResponse : networkMessage;
+        CompletableFuture<CompletableFuture<Object>>[] responses = requestsCompletion.values().toArray(CompletableFuture[]::new);
 
-                                GetEstimatedSizeWithLastModifiedTsResponse response
-                                        = (GetEstimatedSizeWithLastModifiedTsResponse) networkMessage;
+        return allOf(requests)
+                .thenCompose(r -> allOf(responses))
+                .thenApply(unused -> {
+                    Map<Integer, PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
 
-                                return new PartitionModificationInfo(response.estimatedSize(), response.lastModified());
-                            });
+                    for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
+                        TablePartitionId id = ent.getKey();
+                        CompletableFuture<Object> val = ent.getValue();
+
+                        if (isCompletedSuccessfully(val)) {
+                            PartitionModificationInfo info = (PartitionModificationInfo) val.join();
+                            long estSize = info.getEstimatedSize();
+                            long modificationCounter = info.lastModificationCounter();
+
+                            summary.compute(id.tableId(), (k, v) -> v == null
+                                    ? new PartitionModificationInfo(estSize, modificationCounter)
+                                    : new PartitionModificationInfo(v.getEstimatedSize() + estSize, Math.max(v.lastModificationCounter(), modificationCounter)));
+                        } else {
+                            // log me !!!
+                        }
+                    }
+
+                    return summary;
                 })
-                .toArray(CompletableFuture[]::new);
-
-        return allOf(invokeFutures).thenApply(unused -> {
-            long lastModification = Long.MIN_VALUE;
-            long count = 0L;
-
-            for (CompletableFuture<PartitionModificationInfo> requestFut : invokeFutures) {
-                PartitionModificationInfo partitionState = requestFut.join();
-
-                lastModification = Math.max(lastModification, partitionState.lastModificationCounter());
-
-                count += partitionState.getEstimatedSize();
-            }
-
-            return new PartitionModificationInfo(count, lastModification);
-        });
+                .whenComplete((res, ex) -> {
+                    requestsCompletion.clear();
+                    //return res;
+                });
     }
 }
