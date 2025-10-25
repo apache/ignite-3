@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -55,7 +57,7 @@ public class StatisticAggregatorImpl implements
     private final MessagingService messagingService;
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
     private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
-    private final Map<TablePartitionId, CompletableFuture<Object>> requestsCompletion = new HashMap<>();
+    private final ConcurrentMap<TablePartitionId, CompletableFuture<Object>> requestsCompletion = new ConcurrentHashMap<>();
 
     /** Constructor. */
     public StatisticAggregatorImpl(
@@ -88,7 +90,7 @@ public class StatisticAggregatorImpl implements
                 if (isCompletedSuccessfully(responseFut)) {
                     PartitionModificationInfo res = (PartitionModificationInfo) responseFut.join();
                     if (res.lastModificationCounter() < modificationCounter) {
-                        requestsCompletion.put(id, completedFuture(new PartitionModificationInfo(estSize, modificationCounter)));
+                        requestsCompletion.replace(id, responseFut, completedFuture(new PartitionModificationInfo(estSize, modificationCounter)));
                     }
                 } else {
                     responseFut.complete(new PartitionModificationInfo(estSize, modificationCounter));
