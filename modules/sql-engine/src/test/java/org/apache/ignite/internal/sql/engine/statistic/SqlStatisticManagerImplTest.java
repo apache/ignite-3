@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -180,7 +181,6 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void checkLoadAllTablesOnStart() throws Exception {
-        int tableId = ThreadLocalRandom.current().nextInt();
         int minimumCatalogVersion = 1;
         int maximumCatalogVersion = 10;
         long tableSize = 99999L;
@@ -218,9 +218,12 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(tableManager.cachedTable(anyInt())).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.tableId()).thenReturn(tableId);
-        when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
-                .thenReturn(CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE))));
+        Map<Integer, PartitionModificationInfo> modifications = new HashMap<>();
+        for (int i = minimumCatalogVersion; i <= maximumCatalogVersion + 1; ++i) {
+            modifications.put(i, new PartitionModificationInfo(tableSize, Long.MAX_VALUE));
+        }
+        when(statAggregator.estimatedSizeWithLastUpdate(any()))
+                .thenReturn(CompletableFuture.completedFuture(modifications));
 
         SqlStatisticManagerImpl sqlStatisticManager =
                 new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
