@@ -51,7 +51,7 @@ To create a Ignite 3 cluster and node configuration HOCON files based on the Ign
 
 === Download and Install Migration Tools
 
-. Download the migration tools.
+. link:https://dlcdn.apache.org/ignite/3.1.0/migration-tools-cli-3.1.0.zip[Download] the migration tools.
 . Unpack the downloaded archive to your machine.
 . To explore the available commands in help, run the following command from the migration tools directory:
 +

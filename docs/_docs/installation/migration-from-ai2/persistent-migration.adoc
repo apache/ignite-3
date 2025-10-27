@@ -1,6 +1,6 @@
 = Persistent Data Migration
 
-Ignite 3 persistent data storage is not directly compatible with Ignite 2. You need to convert your Ignite 2 caches to Ignite 3 tables. The migration tool can be used to convert most GG8 caches.
+Ignite 3 persistent data storage is not directly compatible with Ignite 2. You need to convert your Ignite 2 caches to Ignite 3 tables. The migration tool can be used to convert most Ignite 2 caches
 
 There are two options for creating the required Ignite 3 configuration:
 
@@ -9,7 +9,7 @@ There are two options for creating the required Ignite 3 configuration:
 
 Regardless of the approach you choose, you need to download the migration tools first:
 
-. Download the migration tools.
+. link:https://dlcdn.apache.org/ignite/3.1.0/migration-tools-cli-3.1.0.zip[Download] the migration tools.
 . Unpack the downloaded archive to your machine.
 . To explore the available commands in help, run the following command from the migration tools directory:
 +
@@ -44,7 +44,7 @@ bin/migration-tools sql-ddl-generator [-o={file}] [--allow-extra-fields] [--stop
 
 Where:
 
-* `-o` - saves the script to a file (e.g., `-o=gg9-script.sql`). By default, the script is printed to the console.
+* `-o` - saves the script to a file (e.g., `-o=ai3-script.sql`). By default, the script is printed to the console.
 * `--allow-extra-fields` - if specified, any columns or fields of unsupported types will be saved to an `__EXTRA__` column as JSON data.
 * `--stop-on-error` - if specified, the command stops when it encounters an error when attempting to produce the DDL for a cache. By default,, the command logs errors and continues.
 * `--extra-lib` - if specified, adds the classes from the provided JAR file to CLI tool classpath. These classes, which that may be referenced in any cache configuration, can be used to ensure optimal results and avoid errors and warning messages. Use this parameter for each JAR you want to add. You can specify this parameter multiple times to provide multiple JARs.
@@ -55,7 +55,7 @@ Then, execute the script from the link:ignite-cli-tool[Ignite 3 CLI tool]:
 
 [source, shell]
 ----
-sql --file=gg9-script.sql
+sql --file=ai3-script.sql
 ----
 
 When executed, the script will create all required schemas and tables with the same configuration specified in Ignite 2.
@@ -86,7 +86,7 @@ Where:
 ** `consistent-id` - the Ignite 2 node's unique node identifier.
 ** `config-file` - Ignite 2 configuration file. This file will be used to determine table parameters in Ignite 3.
 ** `cacheName` - the name of the specific cache to migrate.
-** `gg9urls` - the list of URLs that the migration tool will use to connect to the Ignite 3 cluster.
+** `ai3urls` - the list of URLs that the migration tool will use to connect to the Ignite 3 cluster.
 ** `--mode` - the migration mode, which defines what to do in case of an irreconcilable mismatch between the object stored in the cache and the Ignite 3 table:
 *** `ABORT` (default) - abort the migration.
 *** `IGNORE_COLUMN` - ignore (not migrate to the table) those columns/fields in the cache record that are defined in Ignite 2 but not defined in Ignite 3.
@@ -99,7 +99,7 @@ Where:
 +
 [source, shell]
 ----
-bin/migration-tools persistent-data work-dir consistent-id config-file migrate-cache cacheName gg9urls [--mode] [--rate-limiter]  [--client.basicAuthenticator.username]
+bin/migration-tools persistent-data work-dir consistent-id config-file migrate-cache cacheName ai3urls [--mode] [--rate-limiter]  [--client.basicAuthenticator.username]
 ----
 +
 Where:
@@ -108,7 +108,7 @@ Where:
 ** `consistent-id` - the Ignite 2 node's unique node identifier.
 ** `config-file` - Ignite 2 configuration file. This file will be used to determine table parameters in Ignite 3.
 ** `cacheName` - the name of the specific cache to migrate.
-** `gg9urls` - the list of URLs that the migration tool will use to connect to the Ignite 3 cluster.
+** `ai3urls` - the list of URLs that the migration tool will use to connect to the Ignite 3 cluster.
 ** `--mode` - the migration mode, which defines what to do in case of an irreconcilable mismatch between the object stored in the cache and the Ignite 3 table:
 *** `ABORT` (default) - abort the migration.
 *** `IGNORE_COLUMN` - ignore (not migrate to the table) those columns/fields in the cache record that are defined in Ignite 2 but not defined in Ignite 3.
