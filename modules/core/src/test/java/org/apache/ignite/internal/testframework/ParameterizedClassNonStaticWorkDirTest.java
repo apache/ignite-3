@@ -40,7 +40,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * needed so that it doesn't initialized in the BeforeEachCallback.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @TestInstance(Lifecycle.PER_CLASS)
 @ValueSource(ints = {0, 1})
 class ParameterizedClassNonStaticWorkDirTest {

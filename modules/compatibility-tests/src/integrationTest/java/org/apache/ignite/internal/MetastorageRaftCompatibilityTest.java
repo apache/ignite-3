@@ -43,7 +43,7 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Compatibility tests for metastorage raft log. */
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
 // Old version node starts with disabled colocation. New version nodes that start from scratch would fail to join cluster.
