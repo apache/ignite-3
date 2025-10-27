@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
@@ -40,10 +39,13 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.TestInfo;
@@ -69,12 +71,21 @@ public class ItRestPortsTest extends BaseIgniteAbstractTest {
     /** SSL HTTP client that is expected to be defined in subclasses. */
     private HttpClient sslClient;
 
+    private Cluster cluster;
+
     @BeforeEach
     void beforeEach(TestInfo testInfo)
             throws CertificateException, KeyStoreException, IOException, NoSuchAlgorithmException, KeyManagementException {
+        cluster = new Cluster(ClusterConfiguration.builder(testInfo, workDir).build());
+
         sslClient = HttpClient.newBuilder()
                 .sslContext(sslContext())
                 .build();
+    }
+
+    @AfterEach
+    void shutdownCluster() {
+        cluster.shutdown();
     }
 
     private static Stream<Arguments> sslConfigurationProperties() {
@@ -89,33 +100,26 @@ public class ItRestPortsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @DisplayName("Ports are configured in all configurations")
     @MethodSource("sslConfigurationProperties")
-    void portRange(boolean sslEnabled, boolean dualProtocol, TestInfo testInfo) throws IOException, InterruptedException {
+    void portRange(boolean sslEnabled, boolean dualProtocol, TestInfo testInfo) throws Exception {
         List<RestNode> nodes = IntStream.range(0, 3)
-                .mapToObj(id -> {
-                    return RestNode.builder()
-                            .workDir(workDir)
-                            .name(testNodeName(testInfo, id))
-                            .networkPort(3344 + id)
-                            .httpPort(10300 + id)
-                            .httpsPort(10400 + id)
-                            .sslEnabled(sslEnabled)
-                            .dualProtocol(dualProtocol)
-                            .build();
-                })
+                .mapToObj(index -> RestNode.builder()
+                        .cluster(cluster)
+                        .index(index)
+                        .sslEnabled(sslEnabled)
+                        .dualProtocol(dualProtocol)
+                        .build())
                 .collect(Collectors.toList());
-        try {
-            nodes.stream().parallel().forEach(RestNode::start);
-            // When GET /management/v1/configuration/node
-            String httpAddress = sslEnabled ? nodes.get(0).httpsAddress() : nodes.get(0).httpAddress();
-            URI uri = URI.create(httpAddress + "/management/v1/configuration/node");
-            HttpRequest request = HttpRequest.newBuilder(uri).build();
 
-            // Then response code is 200
-            HttpResponse<String> response = sslClient.send(request, BodyHandlers.ofString());
-            assertEquals(200, response.statusCode());
-        } finally {
-            nodes.stream().parallel().forEach(RestNode::stop);
-        }
+        nodes.forEach(RestNode::start);
+
+        // When GET /management/v1/configuration/node
+        String httpAddress = sslEnabled ? nodes.get(0).httpsAddress() : nodes.get(0).httpAddress();
+        URI uri = URI.create(httpAddress + "/management/v1/configuration/node");
+        HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+        // Then response code is 200
+        HttpResponse<String> response = sslClient.send(request, BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
     }
 
     private static SSLContext sslContext()
