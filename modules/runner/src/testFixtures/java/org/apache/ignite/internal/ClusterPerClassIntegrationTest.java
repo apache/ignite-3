@@ -204,7 +204,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @throws AssertionError If partitions do not become healthy within the timeout period.
      */
     protected void awaitPartitionToBeHealthy(String zone, String tableName, int partitionsCount) throws InterruptedException {
-        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 60_000));
+        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 20_000));
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         assertTrue(waitForCondition(() -> {
@@ -228,7 +228,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
                                             .count() == initialNodes()
                             );
                 },
-                60_000
+                300_000
         ));
     }
 

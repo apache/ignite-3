@@ -30,7 +30,6 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -53,11 +52,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         ));
 
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
-    }
-
-    @BeforeEach
-    public void waitClusterToStabilize() throws InterruptedException {
-        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
     }
 
     @Test
@@ -175,7 +169,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRestartAllPartitionsWithCleanup() {
+    public void testRestartAllPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
+
         String nodeName = CLUSTER.aliveNode().name();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
@@ -190,7 +186,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRestartSpecifiedPartitionsWithCleanup() {
+    public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
+
         String nodeName = CLUSTER.aliveNode().name();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
