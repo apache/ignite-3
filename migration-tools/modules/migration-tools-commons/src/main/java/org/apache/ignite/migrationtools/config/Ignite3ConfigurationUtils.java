@@ -19,11 +19,11 @@ package org.apache.ignite.migrationtools.config;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.ignite.migrationtools.config.registry.CombinedConfigRegistry;
-import org.apache.ignite.migrationtools.config.storage.NoDefaultsStorageConfiguration;
 import org.apache.ignite3.configuration.ConfigurationModule;
 import org.apache.ignite3.configuration.RootKey;
 import org.apache.ignite3.configuration.annotation.ConfigurationType;
@@ -33,6 +33,8 @@ import org.apache.ignite3.internal.configuration.ConfigurationModules;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite3.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite3.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite3.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite3.internal.configuration.storage.InMemoryConfigurationStorage;
 import org.apache.ignite3.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite3.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite3.internal.configuration.validation.ConfigurationValidatorImpl;
@@ -103,9 +105,18 @@ public class Ignite3ConfigurationUtils {
         ConfigurationTreeGenerator localConfigurationGenerator =
                 new ConfigurationTreeGenerator(module.rootKeys(), module.schemaExtensions(), module.polymorphicSchemaExtensions());
 
-        LocalFileConfigurationStorage localFileConfigurationStorage = (includeDefaults)
-                ? new LocalFileConfigurationStorage(cfgPath, localConfigurationGenerator, module)
-                : new NoDefaultsStorageConfiguration(cfgPath, localConfigurationGenerator, module);
+        if (includeDefaults) {
+            throw new UnsupportedOperationException("Local configuration storage not yet supported");
+        }
+
+        ConfigurationStorage localFileConfigurationStorage =
+                new LocalFileConfigurationStorage(
+                        "name",
+                        cfgPath,
+                        localConfigurationGenerator,
+                        new InMemoryConfigurationStorage(ConfigurationType.LOCAL, Map.of()),
+                        module
+                );
 
         // Remove the authentication validator because I cannot get the module.patchConfigurationWithDynamicDefaults(change); to work.
         // TODO: Check if this will create an error on the service.

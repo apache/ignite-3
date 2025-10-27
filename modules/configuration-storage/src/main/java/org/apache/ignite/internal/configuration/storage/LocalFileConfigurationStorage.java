@@ -110,7 +110,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Tracks all running futures. */
     private final InFlightFutures futureTracker = new InFlightFutures();
 
-    private final VaultConfigurationStorage vaultStorage;
+    private final ConfigurationStorage defaultStorage;
 
     /** Last revision for configuration. */
     private long lastRevision = 0L;
@@ -146,17 +146,21 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             VaultManager vaultManager,
             @Nullable ConfigurationModule module
     ) {
+        this(nodeName, configPath, generator, createVaultStorage(nodeName, vaultManager), module);
+    }
+
+    public LocalFileConfigurationStorage(
+            String nodeName,
+            Path configPath,
+            ConfigurationTreeGenerator generator,
+            ConfigurationStorage defaultStorage,
+            @Nullable ConfigurationModule module
+    ) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
         this.module = module;
-        this.vaultStorage = new VaultConfigurationStorage(nodeName, vaultManager);
-        vaultStorage.registerConfigurationListener(new ConfigurationStorageListener() {
-            @Override
-            public CompletableFuture<Void> onEntriesChanged(ReadEntry changedEntries) {
-                return CompletableFutures.nullCompletedFuture();
-            }
-        });
+        this.defaultStorage = defaultStorage;
 
         notificationsThreadPool = Executors.newFixedThreadPool(
                 2, IgniteThreadFactory.create(nodeName, "cfg-file", LOG)
@@ -169,7 +173,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<ReadEntry> readDataOnRecovery() {
         lock.writeLock().lock();
         try {
-            return vaultStorage.readDataOnRecovery().thenApply(data -> {
+            return defaultStorage.readDataOnRecovery().thenApply(data -> {
                 // Here we don't use ConfigurationDynamicDefaultsPatcher because it works only on Hocon string representation level.
                 // But it's not applicable here because we need to produce map presentation with same ids in names lists.
                 // Each tree walk for string to map mapping produce different ids by design.
@@ -272,7 +276,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 return falseCompletedFuture();
             }
 
-            return vaultStorage.write(writeEntry).thenApply(success -> {
+            return defaultStorage.write(writeEntry).thenApply(success -> {
                 if (!success) {
                     return false;
                 }
@@ -328,7 +332,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public void close() {
-        vaultStorage.close();
+        defaultStorage.close();
         futureTracker.cancelInFlightFutures();
 
         IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
@@ -427,5 +431,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         );
 
         futureTracker.registerFuture(future);
+    }
+
+    private static ConfigurationStorage createVaultStorage(String nodeName, VaultManager vaultManager) {
+        VaultConfigurationStorage result = new VaultConfigurationStorage(nodeName, vaultManager);
+        result.registerConfigurationListener(changedEntries -> CompletableFutures.nullCompletedFuture());
+        return result;
     }
 }
