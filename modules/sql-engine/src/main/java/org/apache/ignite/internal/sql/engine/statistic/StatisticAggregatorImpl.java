@@ -26,11 +26,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -58,8 +60,9 @@ public class StatisticAggregatorImpl implements
     private final Supplier<HybridTimestamp> currentClock;
     private final MessagingService messagingService;
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-    private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
+    private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(10);
     private final ConcurrentMap<TablePartitionId, CompletableFuture<Object>> requestsCompletion = new ConcurrentHashMap<>();
+    private final AtomicBoolean inProgress = new AtomicBoolean();
 
     /** Constructor. */
     public StatisticAggregatorImpl(
@@ -75,7 +78,7 @@ public class StatisticAggregatorImpl implements
     }
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
-        if (message instanceof GetEstimatedSizeWithLastModifiedTsResponse && !requestsCompletion.isEmpty()) {
+        if (message instanceof GetEstimatedSizeWithLastModifiedTsResponse && inProgress.get()) {
             GetEstimatedSizeWithLastModifiedTsResponse response = (GetEstimatedSizeWithLastModifiedTsResponse) message;
             for (PartitionModificationInfoMessage ent : response.modifications()) {
                 TablePartitionId id = new TablePartitionId(ent.tableId(), ent.partId());
@@ -92,11 +95,10 @@ public class StatisticAggregatorImpl implements
                 if (isCompletedSuccessfully(responseFut)) {
                     PartitionModificationInfo res = (PartitionModificationInfo) responseFut.join();
                     if (modificationCounter > res.lastModificationCounter()) {
-                        requestsCompletion.replace(id, responseFut,
-                                completedFuture(new PartitionModificationInfo(estSize, modificationCounter)));
+                        requestsCompletion.get(id).complete(completedFuture(new PartitionModificationInfo(estSize, modificationCounter)));
                     }
                 } else {
-                    responseFut.complete(new PartitionModificationInfo(estSize, modificationCounter));
+                    requestsCompletion.get(id).complete(new PartitionModificationInfo(estSize, modificationCounter));
                 }
             }
         }
@@ -107,6 +109,10 @@ public class StatisticAggregatorImpl implements
      */
     @Override
     public CompletableFuture<Map<Integer, PartitionModificationInfo>> estimatedSizeWithLastUpdate(Collection<InternalTable> tables) {
+        if (!inProgress.compareAndSet(false, true)) {
+            return completedFuture(Map.of());
+        }
+
         Collection<Integer> tablesId = tables.stream().map(InternalTable::tableId).collect(Collectors.toList());
 
         GetEstimatedSizeWithLastModifiedTsRequest request =
@@ -136,7 +142,7 @@ public class StatisticAggregatorImpl implements
                 .thenApply(unused -> {
                     Map<Integer, PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
 
-                    for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
+                    for (Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
                         TablePartitionId partitionPerTableId = ent.getKey();
                         CompletableFuture<Object> val = ent.getValue();
 
@@ -157,7 +163,12 @@ public class StatisticAggregatorImpl implements
                     return summary;
                 })
                 .whenComplete((res, ex) -> {
+                    System.err.println("!!complete " + ex);
+                    for (Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
+                        System.err.println("resp !!!: " + ent.getKey() + " " + ent.getValue());
+                    }
+                    inProgress.set(false);
                     requestsCompletion.clear();
-                });
+                }).exceptionally(th -> Map.of());
     }
 }
