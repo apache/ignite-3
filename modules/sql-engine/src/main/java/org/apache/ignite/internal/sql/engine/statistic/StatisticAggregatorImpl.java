@@ -140,7 +140,7 @@ public class StatisticAggregatorImpl implements
         Map<Integer, PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
 
         for (InternalTable t : tables) {
-            Map <TablePartitionId, CompletableFuture<Object>> tableResponses = new HashMap<>();
+            Map<TablePartitionId, CompletableFuture<Object>> tableResponses = new HashMap<>();
             for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
                 if (ent.getKey().tableId() == t.tableId()) {
                     tableResponses.put(ent.getKey(), ent.getValue());

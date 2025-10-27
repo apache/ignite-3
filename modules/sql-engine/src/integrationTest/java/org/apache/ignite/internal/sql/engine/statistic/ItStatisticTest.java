@@ -92,8 +92,20 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         insert(0, milestone1);
 
-        sqlStatisticManager.forceUpdateAll();
-        sqlStatisticManager.lastUpdateStatisticFuture().join();
+        int statRefresh = 2 * Math.max(PLAN_UPDATER_REFRESH_PERIOD, PLAN_UPDATER_INITIAL_DELAY);
+        // max 4 times cache pollution
+        long pollInterval = statRefresh / 4;
+
+        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
+                .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+                    sqlStatisticManager.forceUpdateAll();
+                    sqlStatisticManager.lastUpdateStatisticFuture().join();
+
+                    assertQuery("select 1 from t")
+                            .matches(nodeRowCount("TableScan", is((int) milestone1)))
+                            .check();
+                }
+        );
 
         // query not cached in plans
         assertQuery("select 1 from t")
@@ -108,9 +120,16 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         sqlStatisticManager.lastUpdateStatisticFuture().join();
 
         // query not cached in plans
-        assertQuery("select 2 from t")
-                .matches(nodeRowCount("TableScan", is((int) (milestone1 + milestone2))))
-                .check();
+        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
+                .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+                    sqlStatisticManager.forceUpdateAll();
+                    sqlStatisticManager.lastUpdateStatisticFuture().join();
+
+                    assertQuery("select 1 from t")
+                            .matches(nodeRowCount("TableScan", is((int) (milestone1 + milestone2))))
+                            .check();
+                }
+        );
     }
 
     @Test
