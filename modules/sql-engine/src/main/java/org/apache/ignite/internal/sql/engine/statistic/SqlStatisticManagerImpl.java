@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -117,7 +118,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
      */
     @Override
     public long tableSize(int tableId) {
-        return tableSizeMap.computeIfAbsent(tableId, k -> DEFAULT_VALUE).getSize();
+        return tableSizeMap.getOrDefault(tableId, DEFAULT_VALUE).getSize();
     }
 
     @Override
@@ -265,9 +266,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
         @Override
         public int hashCode() {
-            int result = (int) size;
-            result = 31 * result + (int) modificationCounter;
-            return result;
+            return Objects.hash(modificationCounter, size);
         }
     }
 

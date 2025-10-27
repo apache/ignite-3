@@ -55,7 +55,6 @@ public class StatisticAggregatorImpl implements
         StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> {
     private static final IgniteLogger LOG = Loggers.forClass(StatisticAggregatorImpl.class);
     private final Supplier<Set<LogicalNode>> clusterNodes;
-    private final Supplier<HybridTimestamp> currentClock;
     private final MessagingService messagingService;
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
     private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
@@ -65,11 +64,9 @@ public class StatisticAggregatorImpl implements
     /** Constructor. */
     public StatisticAggregatorImpl(
             Supplier<Set<LogicalNode>> clusterNodes,
-            Supplier<HybridTimestamp> currentClock,
             MessagingService messagingService
     ) {
         this.clusterNodes = clusterNodes;
-        this.currentClock = currentClock;
         this.messagingService = messagingService;
 
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this::handleMessage);
