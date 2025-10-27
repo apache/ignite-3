@@ -22,7 +22,11 @@
 namespace ignite {
 
 /**
- * SQL column origin.
+ * @brief SQL column origin.
+ *
+ * Original name of column.
+ * Required when SQL statement change column name using aliases.
+ * See @ref ignite::column_metadata
  */
 class column_origin {
 public:

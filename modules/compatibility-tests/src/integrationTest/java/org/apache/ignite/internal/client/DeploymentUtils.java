@@ -33,8 +33,9 @@ import org.apache.ignite.rest.client.model.DeployMode;
 /**
  * Utility class for deploying jobs.
  */
-class DeploymentUtils {
-    static void deployJobs() {
+public class DeploymentUtils {
+    /** Deploys all jobs in the module. */
+    public static void deployJobs() {
         File jobsJar = Path.of(
                 getResourcePath(ClientCompatibilityTests.class, ""),
                 "../../../libs/ignite-integration-test-jobs-1.0-SNAPSHOT.jar").toFile();

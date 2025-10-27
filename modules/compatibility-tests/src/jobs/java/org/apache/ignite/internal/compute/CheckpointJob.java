@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.compute;
 
 import static java.lang.Thread.sleep;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
@@ -35,12 +35,13 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that forces a checkpoint and optionally cancels the compaction process on the node. */
-class CheckpointJob implements ComputeJob<Boolean, Void> {
+public class CheckpointJob implements ComputeJob<Boolean, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, Boolean shouldCancelCompaction) {
-        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
         try {
+            IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+
             CheckpointManager checkpointManager = checkpointManager(igniteImpl);
 
             if (shouldCancelCompaction) {

@@ -22,7 +22,7 @@
 namespace ignite {
 
 /**
- * Job execution options.
+ * @brief Job execution options.
  */
 class job_execution_options {
 public:

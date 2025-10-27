@@ -27,7 +27,7 @@
 namespace ignite {
 
 /**
- * Represents a qualified name of a database object.
+ * @brief Qualified name of a database object.
  *
  * Schema name and object name should conform to SQL syntax rules for identifiers.
  * - Identifier must start from any character in the Unicode General Category classes
