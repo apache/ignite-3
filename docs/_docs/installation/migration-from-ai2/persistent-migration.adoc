@@ -29,9 +29,7 @@ Substitute `{command}` with the actual command name.
 
 == Replicating Caches to Ignite 3
 
-The migration tool can analyze Ignite 2 configuration and create DDL requests required to reproduce the caches. These caches will be empty, and you can then use the link:migration-from-gg-8/dcr-from-gg8[data center replication between Ignite 2 and Ignite 3] to transfer data between your clusters.
-
-This approach allows migrating data and load to Ignite 3 cluster without downtime, as Ignite 3 cluster will receive data from your cluster and can seamlessly take on the load afterwards.
+The migration tool can analyze Ignite 2 configuration and create DDL requests required to reproduce the caches.
 
 === Export DDL Script
 

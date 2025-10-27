@@ -6,7 +6,7 @@ This section describes how to configure a Ignite 2 cluster into which you will m
 
 You need to configure the cluster you have created to match the Ignite 2 cluster you are migrating from.
 
-While cluster configuration files for Ignite 2 are XML beans, Ignite 3 uses the HOCON format. Moreover, many configuration structures in version 9 are different from those used in version 8.
+While cluster configuration files for Ignite 2 are XML beans, Ignite 3 uses the HOCON format. Moreover, many configuration structures in version 2 are different from those used in version 3.
 
 In Ignite 3, the configuration file has a single root called `ignite`. All configuration sections are children, grandchildren, etc., of that root.
 
