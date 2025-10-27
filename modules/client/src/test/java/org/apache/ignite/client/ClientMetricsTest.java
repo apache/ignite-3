@@ -150,45 +150,13 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testHandshakesFailedTimeout() throws InterruptedException {
+    public void testHandshakesFailedTimeout() {
         // Record handshake timeout logs.
         // These logs are sent after the timeout is detected by the timeout task and after the metric manager is updated.
         // Therefore it's safe to way for them.
         // Checkout: org.apache.ignite.internal.client.TcpClientChannel.handshakeAsync
-        AtomicInteger timeoutCounter = new AtomicInteger();
         CountDownLatch latch = new CountDownLatch(1);
-        LoggerFactory loggerFactory = name -> {
-            Logger base = System.getLogger(name);
-            if (ReliableChannel.class.getName().equals(name)) {
-                Logger tracker = Mockito.mock(
-                        base.getClass(),
-                        Mockito.withSettings()
-                                .spiedInstance(base)
-                                .defaultAnswer(Mockito.CALLS_REAL_METHODS)
-                                .stubOnly()
-                );
-
-                Mockito.doAnswer(inv -> {
-                    Throwable err = inv.getArgument(2);
-                    if (err instanceof CompletionException && err.getCause() instanceof IgniteClientConnectionException) {
-                        IgniteClientConnectionException ex = (IgniteClientConnectionException) err.getCause();
-                        if (ex.getMessage().startsWith("Handshake timeout")) {
-                            // Updates the timeout counter and releases the responses so that we can connect to the server.
-                            int i = timeoutCounter.getAndIncrement();
-                            if (i == 0) {
-                                latch.countDown();
-                            }
-                        }
-                    }
-
-                    return inv.callRealMethod();
-                }).when(tracker).log(Mockito.eq(Level.WARNING), Mockito.anyString(), Mockito.any(Throwable.class));
-
-                return tracker;
-            } else {
-                return base;
-            }
-        };
+        HandshakeTimeoutLoggerListener handshakeTimeoutListener = new HandshakeTimeoutLoggerListener(latch);
 
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
         // Blocks until a timeout was observed.
@@ -197,7 +165,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 latch.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted while waiting for latch", e);
+                throw new RuntimeException("Interrupted while waiting for handshake timeout latch", e);
             }
 
             return 0;
@@ -216,10 +184,10 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
         client = clientBuilder()
                 .connectTimeout(100)
-                .loggerFactory(loggerFactory)
+                .loggerFactory(handshakeTimeoutListener)
                 .build();
 
-        long numObservedTimeouts = timeoutCounter.get();
+        long numObservedTimeouts = handshakeTimeoutListener.count();
         assertThat("handshakesFailedTimeout", metrics().handshakesFailedTimeout(), greaterThanOrEqualTo(numObservedTimeouts));
     }
 
@@ -463,5 +431,53 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
     private ClientMetricSource metrics() {
         return ((TcpIgniteClient) client).metrics();
+    }
+
+    /** This logger factory intercepts and counts Handshake Timeout messages. Can be generalised in the future for other messages. */
+    private static class HandshakeTimeoutLoggerListener implements LoggerFactory {
+        private final CountDownLatch latch;
+
+        private final AtomicInteger counter;
+
+        HandshakeTimeoutLoggerListener(CountDownLatch latch) {
+            this.latch = latch;
+            this.counter = new AtomicInteger(0);
+        }
+
+        @Override
+        public Logger forName(String name) {
+            Logger base = System.getLogger(name);
+            if (ReliableChannel.class.getName().equals(name)) {
+                Logger tracker = Mockito.mock(
+                        base.getClass(),
+                        Mockito.withSettings()
+                                .spiedInstance(base)
+                                .defaultAnswer(Mockito.CALLS_REAL_METHODS)
+                                .stubOnly()
+                );
+
+                Mockito.doAnswer(inv -> {
+                    Throwable err = inv.getArgument(2);
+                    if (err instanceof CompletionException && err.getCause() instanceof IgniteClientConnectionException) {
+                        IgniteClientConnectionException ex = (IgniteClientConnectionException) err.getCause();
+                        if (ex.getMessage().startsWith("Handshake timeout")) {
+                            // Updates the timeout counter and releases the responses so that we can connect to the server.
+                            counter.getAndIncrement();
+                            latch.countDown();
+                        }
+                    }
+
+                    return inv.callRealMethod();
+                }).when(tracker).log(Mockito.eq(Level.WARNING), Mockito.anyString(), Mockito.any(Throwable.class));
+
+                return tracker;
+            } else {
+                return base;
+            }
+        }
+
+        int count() {
+            return this.counter.get();
+        }
     }
 }
