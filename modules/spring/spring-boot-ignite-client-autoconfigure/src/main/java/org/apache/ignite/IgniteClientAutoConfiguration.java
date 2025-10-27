@@ -17,6 +17,7 @@
 
 package org.apache.ignite;
 
+import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -84,6 +85,14 @@ public class IgniteClientAutoConfiguration {
 
         if (config.getOperationTimeout() != null) {
             builder.operationTimeout(config.getOperationTimeout());
+        }
+
+        if (config.getAuthenticator() != null) {
+            builder.authenticator(config.getAuthenticator());
+        } else if (config.getAuth() != null) {
+            String userName = config.getAuth().getBasic().getUsername();
+            String password = config.getAuth().getBasic().getPassword();
+            builder.authenticator(BasicAuthenticator.builder().username(userName).password(password).build());
         }
 
         return builder.build();

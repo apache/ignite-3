@@ -19,16 +19,25 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
+import static org.apache.ignite.internal.util.IgniteUtils.fsyncFile;
 
 import java.io.BufferedOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * File manager responsible for persisting {@link ReadModeIndexMemTable}s to index files.
@@ -68,10 +77,15 @@ import java.util.Map.Entry;
  * +-------------------------------------------------------------------------+-----+
  * </pre>
  *
+ * <p>Index File Manager is also responsible for maintaining an in-memory cache of persisted index files' metadata for quicker index file
+ * lookup.
+ *
  * @see ReadModeIndexMemTable
  * @see SegmentFileManager
  */
 class IndexFileManager {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexFileManager.class);
+
     static final int MAGIC_NUMBER = 0x6BF0A76A;
 
     static final int FORMAT_VERSION = 1;
@@ -86,31 +100,42 @@ class IndexFileManager {
 
     static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
-    private final Path baseDir;
+    private final Path indexFilesDir;
 
     /**
-     * Current index file index (used to generate index file names).
+     * Current index file ordinal (used to generate index file names).
      *
      * <p>No synchronized access is needed because this field is only used by the checkpoint thread.
      */
-    private int curFileIndex = 0;
+    private int curFileOrdinal = 0;
 
-    IndexFileManager(Path baseDir) {
-        this.baseDir = baseDir;
+    /**
+     * Index file metadata grouped by Raft Group ID.
+     */
+    private final Map<Long, GroupIndexMeta> groupIndexMetas = new ConcurrentHashMap<>();
+
+    IndexFileManager(Path baseDir) throws IOException {
+        indexFilesDir = baseDir.resolve("index");
+
+        Files.createDirectories(indexFilesDir);
+    }
+
+    Path indexFilesDir() {
+        return indexFilesDir;
     }
 
     /**
      * Saves the given index memtable to a file.
-     *
-     * <p>The file is saved into a temporary location and is expected to be later renamed using {@link IndexFile#syncAndRename}.
      */
-    IndexFile saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
-        String fileName = indexFileName(curFileIndex++, 0);
+    Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
+        String fileName = indexFileName(curFileOrdinal, 0);
 
-        Path path = baseDir.resolve(fileName + ".tmp");
+        Path tmpFilePath = indexFilesDir.resolve(fileName + ".tmp");
 
-        try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(path, CREATE_NEW, WRITE))) {
-            os.write(header(indexMemTable));
+        try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
+            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable);
+
+            os.write(headerBytes);
 
             Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
 
@@ -119,10 +144,76 @@ class IndexFileManager {
             }
         }
 
-        return new IndexFile(fileName, path);
+        curFileOrdinal++;
+
+        return syncAndRename(tmpFilePath, tmpFilePath.resolveSibling(fileName));
     }
 
-    private static byte[] header(ReadModeIndexMemTable indexMemTable) {
+    /**
+     * Returns a pointer into a segment file that contains the entry for the given group's index. Returns {@code null} if the given log
+     * index could not be found in any of the index files.
+     */
+    @Nullable
+    SegmentFilePointer getSegmentFilePointer(long groupId, long logIndex) throws IOException {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        if (groupIndexMeta == null) {
+            return null;
+        }
+
+        IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
+
+        if (indexFileMeta == null) {
+            return null;
+        }
+
+        Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
+
+        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex) range.
+        long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
+
+        assert payloadArrayIndex >= 0 : payloadArrayIndex;
+
+        long payloadOffset = indexFileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
+
+        try (SeekableByteChannel channel = Files.newByteChannel(indexFile, StandardOpenOption.READ)) {
+            channel.position(payloadOffset);
+
+            ByteBuffer segmentPayloadOffsetBuffer = ByteBuffer.allocate(Integer.BYTES).order(BYTE_ORDER);
+
+            while (segmentPayloadOffsetBuffer.hasRemaining()) {
+                int bytesRead = channel.read(segmentPayloadOffsetBuffer);
+
+                if (bytesRead == -1) {
+                    throw new EOFException("EOF reached while reading index file: " + indexFile);
+                }
+            }
+
+            int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
+
+            return new SegmentFilePointer(indexFileMeta.indexFileOrdinal(), segmentPayloadOffset);
+        }
+    }
+
+    /**
+     * Returns the lowest log index for the given group across all index files or {@code -1} if no such index exists.
+     */
+    long firstLogIndexInclusive(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.firstLogIndexInclusive();
+    }
+
+    /**
+     * Returns the highest possible log index for the given group across all index files or {@code -1} if no such index exists.
+     */
+    long lastLogIndexExclusive(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndexExclusive();
+    }
+
+    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);
@@ -140,21 +231,46 @@ class IndexFileManager {
         while (it.hasNext()) {
             Entry<Long, SegmentInfo> entry = it.next();
 
-            long groupId = entry.getKey();
+            // Using the boxed value to avoid unnecessary autoboxing later.
+            Long groupId = entry.getKey();
 
             SegmentInfo segmentInfo = entry.getValue();
+
+            long firstLogIndexInclusive = segmentInfo.firstLogIndexInclusive();
+
+            long lastLogIndexExclusive = segmentInfo.lastLogIndexExclusive();
+
+            var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, curFileOrdinal);
+
+            putIndexFileMeta(groupId, indexFileMeta);
 
             headerBuffer
                     .putLong(groupId)
                     .putInt(0) // Flags.
                     .putInt(payloadOffset)
-                    .putLong(segmentInfo.firstLogIndex())
-                    .putLong(segmentInfo.lastLogIndex());
+                    .putLong(firstLogIndexInclusive)
+                    .putLong(lastLogIndexExclusive);
 
             payloadOffset += payloadSize(segmentInfo);
         }
 
         return headerBuffer.array();
+    }
+
+    private void putIndexFileMeta(Long groupId, IndexFileMeta indexFileMeta) {
+        GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
+
+        if (existingGroupIndexMeta == null) {
+            groupIndexMetas.put(groupId, new GroupIndexMeta(indexFileMeta));
+        } else {
+            existingGroupIndexMeta.addIndexMeta(indexFileMeta);
+        }
+    }
+
+    private static Path syncAndRename(Path from, Path to) throws IOException {
+        fsyncFile(from);
+
+        return atomicMoveFile(from, to, LOG);
     }
 
     private static byte[] payload(SegmentInfo segmentInfo) {
@@ -173,7 +289,7 @@ class IndexFileManager {
         return segmentInfo.size() * Integer.BYTES;
     }
 
-    private static String indexFileName(int fileIndex, int generation) {
-        return String.format(INDEX_FILE_NAME_FORMAT, fileIndex, generation);
+    private static String indexFileName(int fileOrdinal, int generation) {
+        return String.format(INDEX_FILE_NAME_FORMAT, fileOrdinal, generation);
     }
 }

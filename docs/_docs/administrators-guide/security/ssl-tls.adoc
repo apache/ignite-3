@@ -26,15 +26,15 @@ All internal connections in the cluster context, as well as cluster's user inter
 
 All SSL configurations activities are performed at the node level.
 
-Ignite does not support direct paths to SSL certificates. Instead, it utilizes PKCS12 and JKS keystore.
+Apache Ignite does not support direct paths to SSL certificates. Instead, it utilizes PKCS12 and JKS keystore.
 
 == REST
 
-The standard implementation of SSL for REST involves configuring a secure connection on a separate port. Ignite supports HTTP and HTTPS, arch on its own port.
+The standard implementation of SSL for REST involves configuring a secure connection on a separate port. Apache Ignite supports HTTP and HTTPS, each on its own port.
 
-The Ignite 3 REST security configuration in the JSON format is provided below.
+The Apache Ignite 3 REST security configuration in the JSON format is provided below.
 
-NOTE: In Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
+NOTE: In Apache Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
 
 [source, json]
 ----
@@ -43,14 +43,21 @@ NOTE: In Ignite 3, you can create and maintain the configuration in either JSON 
         "rest" : {
             "dualProtocol" : false,
             "httpToHttpsRedirection" : false,
+            "port" : 10300,
             "ssl" : {
+                "ciphers" : "",
+                "clientAuth" : "require",
                 "enabled" : true,
-                "port" : 10400,
-                "portRange" : 100,
                 "keyStore" : {
-                    "type" : "PKCS12",
+                    "password" : "may be empty",
                     "path" : "must not be empty",
-                    "password" : "may be empty"
+                    "type" : "PKCS12"
+                },
+                "port" : 10400,
+                "trustStore" : {
+                    "password" : "may be empty",
+                    "path" : "must not be empty",
+                    "type" : "PKCS12"
                 }
             }
         }
@@ -60,13 +67,13 @@ NOTE: In Ignite 3, you can create and maintain the configuration in either JSON 
 
 == Clients and JDBC
 
-Ignite 3 Client implementation is based on the Netty framework, which supports configuration for security connections via `SSLContextBuilder`.
+Apache Ignite 3 Client implementation is based on the Netty framework, which supports configuration for security connections via `SSLContextBuilder`.
 
 === Server-side Configuration
 
 The default way to configure SSL on the server side is to update the configuration with SSL properties. The example below is in the JSON format.
 
-NOTE: In Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
+NOTE: In Apache Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
 
 [source, json]
 ----
@@ -74,8 +81,9 @@ NOTE: In Ignite 3, you can create and maintain the configuration in either JSON 
     "ignite" : {
         "clientConnector" : {
             "ssl" : {
-                "enabled" : true,
+                "ciphers" : "",
                 "clientAuth" : "require",
+                "enabled" : true,
                 "keyStore" : {
                     "type" : "PKCS12",
                     "path" : "must not be empty",
@@ -122,10 +130,9 @@ To enable SSL in your Java clients, use the `IgniteClient` class and pass the ss
 ----
 var sslConfiguration = SslConfiguration.builder()
                         .enabled(true)
-                        .trustStoreType("JKS")
+                        .ciphers("TLS_AES_256_GCM_SHA384")
                         .trustStorePath(trustStorePath)
                         .trustStorePassword(password)
-                        .clientAuth(REQUIRE)
                         .keyStorePath(keyStorePath)
                         .keyStorePassword(password)
                         .build();
@@ -133,7 +140,7 @@ var sslConfiguration = SslConfiguration.builder()
 try (IgniteClient client = IgniteClient.builder()
     .addresses("localhost:10800")
     .ssl(sslConfiguration)
-    .build()
+    .build();
 )
 ----
 
@@ -169,9 +176,9 @@ Store the CLI security configuration in a separate file with permission settings
 
 == Network Configuration
 
-The node network is based on the Netty framework. The configuration is the same as described for the Ignite Client part except for the part that addresses the Ignite 3 configuration.
+The node network is based on the Netty framework. The configuration is the same as described for the Apache Ignite Client part except for the part that addresses the Apache Ignite 3 configuration.
 
-NOTE: In Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
+NOTE: In Apache Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
 
 [source, json]
 ----
@@ -179,8 +186,8 @@ NOTE: In Ignite 3, you can create and maintain the configuration in either JSON 
     "ignite" : {
         "network" : {
             "ssl" : {
+                "ciphers" : "",
                 "enabled" : true,
-                "clientAuth" : "none",
                 "keyStore" : {
                     "type" : "PKCS12",
                     "path" : "must not be empty",
@@ -205,23 +212,27 @@ Two-way authentication requires that both server and client have certificates th
 
 To support client authentication, a connection must include the `clientAuth`, `trustStore` and `keyStore` properties. Here is an example of a possible client configuration. The example below is in the JSON format.
 
-NOTE: In Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
+NOTE: In Apache Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
 
 [source, json]
 ----
 {
     "ignite" : {
-        "clientConnector.ssl" : {
-            "enabled" : true,
-            "clientAuth" : "require",
-            "keyStore" : {
-                "path" : "must not be empty",
-                "password : "may be empty"
-            },
-            "trustStore" : {
-                "type" : "JKS",
-                "path" : "must not be empty",
-                "password" : "may be empty"
+        "clientConnector" : {
+            "ssl" : {
+                "ciphers" : "",
+                "clientAuth" : "require",
+                "enabled" : true,
+                "keyStore" : {
+                    "type" : "PKCS12",
+                    "path" : "must not be empty",
+                    "password" : "may be empty"
+                },
+                "trustStore" : {
+                    "type" : "JKS",
+                    "path" : "must not be empty",
+                    "password" : "may be empty"
+                }
             }
         }
     }

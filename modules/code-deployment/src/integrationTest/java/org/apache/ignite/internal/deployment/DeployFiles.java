@@ -35,8 +35,8 @@ import java.util.zip.ZipInputStream;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
-import org.apache.ignite.internal.deployunit.FilesDeploymentUnit;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
+import org.apache.ignite.internal.deployunit.StreamDeploymentUnit;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
@@ -240,7 +240,7 @@ class DeployFiles {
             }
             return new ZipDeploymentUnit(zis);
         } else {
-            return new FilesDeploymentUnit(map);
+            return new StreamDeploymentUnit(map);
         }
     }
 }

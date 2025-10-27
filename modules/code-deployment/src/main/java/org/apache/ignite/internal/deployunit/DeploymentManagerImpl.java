@@ -56,6 +56,7 @@ import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -412,7 +413,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         Path deploymentUnitFolder = workDir.resolve(configuration.location().value());
-        deployer.initUnitsFolder(deploymentUnitFolder);
+        Path deploymentUnitTmp = workDir.resolve(configuration.tempLocation().value());
+        deployer.initUnitsFolder(deploymentUnitFolder, deploymentUnitTmp);
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();
@@ -471,5 +473,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     public DeploymentUnitAccessor deploymentUnitAccessor() {
         return deploymentUnitAccessor;
+    }
+
+    public TempStorageProvider tempStorageProvider() {
+        return deployer.tempStorageProvider();
     }
 }

@@ -684,9 +684,7 @@ public class PartitionReplicaLifecycleManager extends
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
-        RaftGroupEventsListener raftGroupEventsListener = localAssignment.isPeer()
-                ? createRaftGroupEventsListener(zonePartitionId)
-                : RaftGroupEventsListener.noopLsnr;
+        RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zonePartitionId);
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
@@ -1238,7 +1236,6 @@ public class PartitionReplicaLifecycleManager extends
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
         AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
-        Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -1255,10 +1252,12 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId.partitionId(),
                         zonePartitionId.zoneId(),
                         localNode().address(),
-                        pendingAssignments,
+                        pendingAssignmentsQueue,
                         revision
                 );
             }
+
+            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             return handleChangePendingAssignmentEvent(
                     zonePartitionId,

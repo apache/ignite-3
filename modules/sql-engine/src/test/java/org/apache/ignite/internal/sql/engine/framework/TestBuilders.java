@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Proxy;
 import java.time.Clock;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -676,6 +678,15 @@ public class TestBuilders {
 
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
+
+            ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+            when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
+
+            ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                    IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
+            );
+
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
@@ -685,7 +696,9 @@ public class TestBuilders {
                     PLANNING_THREAD_COUNT,
                     PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(),
-                    schemaManager
+                    schemaManager,
+                    clockService::currentLong,
+                    scheduledExecutor
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
@@ -696,10 +709,6 @@ public class TestBuilders {
                     systemViewsByNode.computeIfAbsent(nodeName, (k) -> new ArrayList<>()).add(systemViewName);
                 }
             }
-
-            ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                    IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
-            );
 
             var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
             var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter));
@@ -1030,6 +1039,7 @@ public class TestBuilders {
                     Objects.requireNonNull(name),
                     tableId != null ? tableId : TABLE_ID_GEN.incrementAndGet(),
                     1,
+                    1L,
                     tableDescriptor,
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),

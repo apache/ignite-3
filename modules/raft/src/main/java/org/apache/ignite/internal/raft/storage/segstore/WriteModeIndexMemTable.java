@@ -17,21 +17,22 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Mutable index memtable.
  *
  * <p>This class represents an in-memory index of the current segment file used by a {@link SegmentFileManager}. Index is
  * essentially a mapping from {@code [groupId, logIndex]} to the offset in the segment file where the corresponding log entry is stored.
  *
- * <p>It is expected that entries for each {@code groupId} are written by one thread, therefore concurrent writes to the same
+ * <p>It is expected that entries for each {@code groupId} are modified by one thread, therefore concurrent writes to the same
  * {@code groupId} are not safe. However, reads from multiple threads are safe in relation to the aforementioned writes.
  */
 interface WriteModeIndexMemTable {
     /**
-     * Returns the offset in the segment file where the log entry with the given {@code logIndex} is stored or {@code 0} if the log entry
-     * was not found in the memtable.
+     * Returns information about a segment file for the given group ID or {@code null} if it is not present in this memtable.
      */
-    int getSegmentFileOffset(long groupId, long logIndex);
+    @Nullable SegmentInfo segmentInfo(long groupId);
 
     /**
      * Appends a new segment file offset to the memtable.
@@ -41,6 +42,11 @@ interface WriteModeIndexMemTable {
      * @param segmentFileOffset Offset in the segment file.
      */
     void appendSegmentFileOffset(long groupId, long logIndex, int segmentFileOffset);
+
+    /**
+     * Removes all offsets for the given Raft group which log indices are strictly larger than {@code lastLogIndexKept}.
+     */
+    void truncateSuffix(long groupId, long lastLogIndexKept);
 
     /**
      * Returns the read-only version of this memtable.

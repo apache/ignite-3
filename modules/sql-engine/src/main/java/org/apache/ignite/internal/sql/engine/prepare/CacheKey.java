@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
-import java.util.Objects;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -35,9 +34,7 @@ public class CacheKey {
 
     private final String query;
 
-    private final Object contextKey;
-
-    private final Object[] paramTypes;
+    private final ColumnType[] paramTypes;
 
     private int hashCode = 0;
 
@@ -46,17 +43,30 @@ public class CacheKey {
      *
      * @param catalogVersion Catalog version.
      * @param schemaName Schema name.
-     * @param query      Query string.
-     * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
-     *                   LOCAL flag)
+     * @param query Query string.
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, ColumnType[] paramTypes) {
+    public CacheKey(int catalogVersion, String schemaName, String query, ColumnType[] paramTypes) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
-        this.contextKey = contextKey;
         this.paramTypes = paramTypes;
+    }
+
+    int catalogVersion() {
+        return catalogVersion;
+    }
+
+    String schemaName() {
+        return schemaName;
+    }
+
+    ColumnType[] paramTypes() {
+        return paramTypes;
+    }
+
+    String query() {
+        return query;
     }
 
     /** {@inheritDoc} */
@@ -80,9 +90,6 @@ public class CacheKey {
         if (!query.equals(cacheKey.query)) {
             return false;
         }
-        if (!Objects.equals(contextKey, cacheKey.contextKey)) {
-            return false;
-        }
 
         return Arrays.deepEquals(paramTypes, cacheKey.paramTypes);
     }
@@ -93,7 +100,6 @@ public class CacheKey {
             int result = catalogVersion;
             result = 31 * result + schemaName.hashCode();
             result = 31 * result + query.hashCode();
-            result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
             result = 31 * result + Arrays.deepHashCode(paramTypes);
 
             hashCode = result;

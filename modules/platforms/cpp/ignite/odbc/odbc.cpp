@@ -150,7 +150,9 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE *result) 
             break;
     }
 
-    *result = nullptr;
+    if (result)
+        *result = nullptr;
+
     return SQL_ERROR;
 }
 

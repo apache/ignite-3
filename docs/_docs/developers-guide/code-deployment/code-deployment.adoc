@@ -28,19 +28,78 @@ The example below demonstrates how to load a script that is packaged within a JA
 
 [source, java]
 ----
-public Object execute() throws Exception {
-    try (InputStream in = ComputeJob.class.getClassLoader()
-            .getResourceAsStream("/path_to_folder_in_resources/script.sh")) {
-        if (in == null) {
-            throw new IllegalStateException("Resource not found: /path_to_folder_in_resources/script.sh");
+public class MyJob implements ComputeJob<String, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext ctx, String arg) {
+        Ignite ignite = ctx.ignite();
+
+        /** Full path to the script we want to run */
+        final String resPath = "/org/apache/ignite/example/code/deployment/resources/script.sh";
+
+        try (InputStream in = MyJob.class.getResourceAsStream(resPath)) {
+            if (in == null) {
+                throw new IllegalStateException("Resource not found: " + resPath);
+            }
+
+            byte[] script = in.readAllBytes();
+
+            Process p = new ProcessBuilder("sh", "-s", "--", arg)
+                    .redirectErrorStream(true)
+                    .start();
+
+            try (OutputStream os = p.getOutputStream()) {
+                os.write(script);
+            }
+
+            String out;
+            try (InputStream procOut = p.getInputStream()) {
+                out = new String(procOut.readAllBytes(), StandardCharsets.UTF_8).strip();
+            }
+
+            int exit = p.waitFor();
+            if (exit != 0) {
+                throw new RuntimeException("Script exited with code " + exit + ":\n" + out);
+            }
+
+            String result = "Node: " + ignite.name()
+                    + "\nArg: " + arg
+                    + "\nScript output:\n" + out;
+
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to run script", e);
         }
-        String scriptContent = new String(in.readAllBytes());
-        return scriptContent;
     }
 }
 ----
 
-You can manage deployment units using either link:ignite-cli-tool[CLI] commands or the link:https://ignite.apache.org/releases/3.0.0/openapi.yaml[REST API]. Both methods provide the same functionality for deploying, listing, and undeploying code.
+You can manage deployment units using either link:ignite-cli-tool[CLI] commands or the link:https://ignite.apache.org/releases/3.1.0/openapi.yaml[REST API]. Both methods provide the same functionality for deploying, listing, and undeploying code.
+
+== Deploying Units with Folder Structures
+
+NOTE: Currently, you can only deploy ZIP archives via REST.
+
+Apache Ignite supports deploying units that contain folder structures using ZIP archives. You can package complex deployment units with multiple files organized in directories, which are automatically extracted and preserved during deployment.
+
+To deploy your code this way, package your files into a ZIP archive and deploy it to the cluster. Apache Ignite will preserve the folder structure.
+
+== Deployment Unit Location
+
+By default, nodes store the deployment units in the `{IGNITE_HOME}/work/deployment` directory. This can be changed with the link:administrators-guide/config/node-config#code-deployment-configuration[`ignite.deployment.location`] node configuration parameter.
+
+The deployment units have the following structure:
+
+----
+deployment
+├─ unit1Id
+│  ├─ version1
+│  └─ version2
+└─ unit2Id
+   ├─ version1
+   └─ version2
+----
+
+Each deployment unit is stored in a separate directory, with each version having its own subdirectory.
 
 == Deploy New Unit
 
@@ -102,7 +161,28 @@ curl -X POST 'http://localhost:10300/management/v1/deployment/units/unit/1.0.0?i
 
 - You can target nodes using either the `deployMode` or `initialNodes` parameter. These options serve the same purpose as the similar CLI parameters, ensuring the unit propagates as needed.
 
-- For additional details see the corresponding link:https://ignite.apache.org/releases/3.0.0/openapi.yaml[API documentation].
+- For additional details see the corresponding link:https://ignite.apache.org/releases/3.1.0/openapi.yaml[API documentation].
+
+=== Deploy Manually
+
+If necessary, you can deploy a new unit manually by adding your code to the deployment unit storage on the node. Unlike other deployment options, node restart is required to load new deployment units.
+
+To deploy the code:
+
+- Find the link:developers-guide/code-deployment/code-deployment#deployment-unit-location[deployment unit location] on the node.
+- Create a new directory. This directory will be used as the deployment unit ID.
+- Create a new subdirectory. This directory will be used as the deployment unit version. You must use link:https://semver.org/[semantic version] as its name.
+- Add your code to the subdirectory.
+- Restart the node to load the new code.
+
+As a result, your directory structure may look like this:
+
+----
+deployment
+└─ myUnit
+  └─ 1.0.0
+     └─ [code files]
+----
 
 == Getting Unit Information
 

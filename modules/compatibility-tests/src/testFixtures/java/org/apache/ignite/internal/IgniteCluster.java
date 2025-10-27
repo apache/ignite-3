@@ -18,9 +18,13 @@
 package org.apache.ignite.internal;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
+import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.Dependencies.constructArgFile;
 import static org.apache.ignite.internal.Dependencies.getProjectRoot;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
@@ -40,6 +44,7 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,7 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -65,6 +70,8 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.model.build.BuildEnvironment;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Cluster of nodes. Can be started with nodes of previous Ignite versions running in the external processes or in the embedded mode
@@ -81,7 +88,7 @@ public class IgniteCluster {
     private final HttpClient client = HttpClient.newBuilder().build();
 
     // External process nodes
-    private List<RunnerNode> runnerNodes;
+    private final List<RunnerNode> runnerNodes = new CopyOnWriteArrayList<>();
 
     private volatile boolean started = false;
     private volatile boolean stopped = false;
@@ -105,7 +112,7 @@ public class IgniteCluster {
             throw new IllegalStateException("The cluster is already started");
         }
 
-        runnerNodes = startRunnerNodes(igniteVersion, nodesCount, extraIgniteModuleIds);
+        startRunnerNodes(igniteVersion, nodesCount, extraIgniteModuleIds);
     }
 
     /**
@@ -113,7 +120,52 @@ public class IgniteCluster {
      *
      * @param nodesCount Number of nodes in the cluster.
      */
-    public void startEmbedded(int nodesCount, boolean initCluster) {
+    public void startEmbedded(int nodesCount) {
+        startEmbedded(null, nodesCount);
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param testInfo Test info.
+     * @param nodesCount Number of nodes in the cluster.
+     */
+    public void startEmbedded(
+            @Nullable TestInfo testInfo,
+            int nodesCount
+    ) {
+        List<ServerRegistration> nodeRegistrations = startEmbeddedNotInitialized(testInfo, nodesCount);
+
+        for (ServerRegistration registration : nodeRegistrations) {
+            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+        }
+
+        started = true;
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param nodesCount Number of nodes in the cluster.
+     *
+     * @return a list of server registrations, one for each node.
+     */
+    public List<ServerRegistration> startEmbeddedNotInitialized(int nodesCount) {
+        return startEmbeddedNotInitialized(null, nodesCount);
+    }
+
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param testInfo Test info.
+     * @param nodesCount Number of nodes in the cluster.
+     *
+     * @return a list of server registrations, one for each node.
+     */
+    public List<ServerRegistration> startEmbeddedNotInitialized(
+            @Nullable TestInfo testInfo,
+            int nodesCount
+    ) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -123,18 +175,12 @@ public class IgniteCluster {
 
         List<ServerRegistration> nodeRegistrations = new ArrayList<>();
         for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
-            nodeRegistrations.add(startEmbeddedNode(nodeIndex));
-        }
-
-        if (initCluster) {
-            init(x -> {});
-        }
-
-        for (ServerRegistration registration : nodeRegistrations) {
-            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+            nodeRegistrations.add(startEmbeddedNode(testInfo, nodeIndex, nodesCount));
         }
 
         started = true;
+
+        return nodeRegistrations;
     }
 
     /**
@@ -157,27 +203,39 @@ public class IgniteCluster {
 
         LOG.info("Shut the embedded cluster down");
 
-        if (runnerNodes != null) {
-            List<String> nodeNames = runnerNodes.stream()
-                    .map(RunnerNode::nodeName)
-                    .collect(toList());
+        List<String> nodeNames = runnerNodes.stream()
+                .map(RunnerNode::nodeName)
+                .collect(toList());
 
-            LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
+        LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
 
-            runnerNodes.parallelStream().forEach(RunnerNode::stop);
-            runnerNodes.clear();
+        runnerNodes.parallelStream().forEach(RunnerNode::stop);
+        runnerNodes.clear();
 
-            LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
-        }
+        LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
 
         started = false;
         stopped = true;
     }
 
     /**
+     * Init a cluster running in embedded mode. Only required if this has not been done before in a prior run.
+     *
+     * @param nodeRegistrations list of server registrations.
+     * @param initParametersConfigurator the consumer to use for configuration.
+     */
+    public void initEmbedded(List<ServerRegistration> nodeRegistrations, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        init(initParametersConfigurator);
+
+        for (ServerRegistration registration : nodeRegistrations) {
+            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+        }
+    }
+
+    /**
      * Initializes the cluster using REST API on the first node with default settings.
      */
-    void init(Consumer<InitParametersBuilder> initParametersConfigurator) {
+    public void init(Consumer<InitParametersBuilder> initParametersConfigurator) {
         init(new int[] { 0 }, initParametersConfigurator);
     }
 
@@ -269,14 +327,44 @@ public class IgniteCluster {
         return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
     }
 
-    private ServerRegistration startEmbeddedNode(int nodeIndex) {
-        String nodeName = nodeName(nodeIndex);
+    /**
+     * Returns cluster nodes.
+     *
+     * @return Cluster nodes.
+     */
+    public List<Ignite> nodes() {
+        return nodes;
+    }
 
-        IgniteServer node = TestIgnitionManager.start(
+    /**
+     * Starts an embedded node with the given index.
+     *
+     * @param testInfo Test info.
+     * @param nodeIndex Index of the node to start.
+     * @param nodesCount the total number of nodes in the cluster.
+     * @return Server registration and future that completes when the node is fully started and joined the cluster.
+     */
+    public ServerRegistration startEmbeddedNode(
+            @Nullable TestInfo testInfo,
+            int nodeIndex,
+            int nodesCount
+    ) {
+        String nodeName = nodeName(nodeIndex);
+        String config = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
+
+        if (testInfo != null && containsOverrides(testInfo, nodeIndex)) {
+            config = TestIgnitionManager.applyOverridesToConfig(config, configOverrides(testInfo, nodeIndex));
+        }
+
+        IgniteServer node = clusterConfiguration.usePreConfiguredStorageProfiles()
+                ? TestIgnitionManager.start(
                 nodeName,
-                null,
-                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName)
-        );
+                config,
+                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName))
+                : TestIgnitionManager.startWithoutPreConfiguredStorageProfiles(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName));
 
         synchronized (igniteServers) {
             setListAtIndex(igniteServers, nodeIndex, node);
@@ -296,31 +384,19 @@ public class IgniteCluster {
         return new ServerRegistration(node, registrationFuture);
     }
 
-    private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
-        try (ProjectConnection connection = GradleConnector.newConnector()
-                .forProjectDirectory(getProjectRoot())
-                .connect()
-        ) {
-            BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
+    private void startRunnerNodes(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
+        try (ProjectConnection connection = getProjectConnection()) {
+            File javaHome = getJavaHome(connection);
+            File argFile = getArgsFile(connection, igniteVersion, extraIgniteModuleIds);
 
-            File javaHome = environment.getJava().getJavaHome();
-
-            Set<String> dependencyIds = new HashSet<>();
-            dependencyIds.add(IGNITE_RUNNER_DEPENDENCY_ID);
-            dependencyIds.addAll(extraIgniteModuleIds);
-
-            String dependenciesListNotation = dependencyIds.stream()
-                    .map(dependency -> dependency + ":" + igniteVersion)
-                    .collect(Collectors.joining(","));
-
-            File argFile = constructArgFile(connection, dependenciesListNotation, false);
-
-            List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
-                result.add(RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodesCount, nodeIndex));
-            }
+                String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
+                String nodeConfig = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
+                RunnerNode newNode = RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodeConfig, nodesCount,
+                        nodeName);
 
-            return result;
+                runnerNodes.add(newNode);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -352,5 +428,71 @@ public class IgniteCluster {
     /** Returns cluster name. */
     public String clusterName() {
         return clusterConfiguration.clusterName();
+    }
+
+    /** Returns list of runner nodes. */
+    public List<RunnerNode> getRunnerNodes() {
+        return runnerNodes;
+    }
+
+    /** Returns embedded node's work directory. */
+    public Path embeddedNodeWorkDir(int nodeIndex) {
+        return workDir(nodeIndex, true);
+    }
+
+    /** Returns runner node's work directory. */
+    public Path runnerNodeWorkDir(int nodeIndex) {
+        return workDir(nodeIndex, false);
+    }
+
+    private Path workDir(int nodeIndex, boolean embedded) {
+        String nodeName = embedded ? igniteServers.get(nodeIndex).name() : runnerNodes.get(nodeIndex).nodeName();
+
+        return clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
+    }
+
+    private static String seedAddressesString(ClusterConfiguration clusterConfiguration, int seedsCount) {
+        return IntStream.range(0, seedsCount)
+                .map(nodeIndex -> clusterConfiguration.basePort() + nodeIndex)
+                .mapToObj(port -> "\"localhost:" + port + '\"')
+                .collect(joining(", "));
+    }
+
+    private static String formatConfig(ClusterConfiguration clusterConfiguration, String nodeName, int nodeIndex, int nodesCount) {
+        return format(
+                clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
+                clusterConfiguration.basePort() + nodeIndex,
+                seedAddressesString(clusterConfiguration, nodesCount),
+                clusterConfiguration.baseClientPort() + nodeIndex,
+                clusterConfiguration.baseHttpPort() + nodeIndex,
+                clusterConfiguration.baseHttpsPort() + nodeIndex,
+                nodeName,
+                nodeIndex
+        );
+    }
+
+    private static ProjectConnection getProjectConnection() {
+        return GradleConnector.newConnector()
+                .forProjectDirectory(getProjectRoot())
+                .connect();
+    }
+
+    private static File getJavaHome(ProjectConnection connection) {
+        BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
+
+        return environment.getJava().getJavaHome();
+    }
+
+    private static File getArgsFile(ProjectConnection connection, String igniteVersion, List<String> extraIgniteModuleIds)
+            throws IOException {
+        Set<String> dependencyIds = new HashSet<>();
+        dependencyIds.add(IGNITE_RUNNER_DEPENDENCY_ID);
+        dependencyIds.addAll(extraIgniteModuleIds);
+
+        String dependenciesListNotation = dependencyIds.stream()
+                .map(dependency -> dependency + ":" + igniteVersion)
+                .collect(joining(","));
+
+        return constructArgFile(connection, dependenciesListNotation, false);
     }
 }

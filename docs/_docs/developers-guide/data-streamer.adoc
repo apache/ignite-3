@@ -23,7 +23,7 @@ Data streaming provides at-least-once delivery guarantee.
 
 == Using Data Streamer API
 
-The link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerTarget.html[Data Streamer API] lets you load large amounts of data into your cluster quickly and reliably using a publisher–subscriber model, where you create a publisher that streams your data entries to a table view, and the system distributes these entries across the cluster. You can configure how the data is processed via a `DataStreamerOptions` object that allows to set batch sizes, auto-flush intervals, retry limits.
+The link:https://ignite.apache.org/releases/3.1.0/javadoc/org/apache/ignite/table/DataStreamerTarget.html[Data Streamer API] lets you load large amounts of data into your cluster quickly and reliably using a publisher–subscriber model, where you create a publisher that streams your data entries to a table view, and the system distributes these entries across the cluster. You can configure how the data is processed via a `DataStreamerOptions` object that allows to set batch sizes, auto-flush intervals, retry limits.
 
 === Configuring Data Streamer
 
@@ -77,6 +77,7 @@ tab:Java[]
 [source, java]
 ----
 public class RecordViewPojoDataStreamerExample {
+    private static final int ACCOUNTS_COUNT = 1000;
 
     public static void main(String[] args) throws Exception {
         /**
@@ -186,12 +187,12 @@ public record Account(int Id, string Name);
 The Apache Ignite 3 streaming API supports advanced streaming scenarios by allowing you to create a custom receiver that defines server-side processing logic. Use a receiver when you need to process or transform data on the server, update multiple tables from a single data stream, or work with incoming data that does not match a table schema.
 
 With a receiver, you can stream data in any format, as it is schema-agnostic.
-The receiver also has access to the full Ignite 3 API through the link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerReceiverContext.html[`DataStreamerReceiverContext`].
+The receiver also has access to the full Ignite 3 API through the link:https://ignite.apache.org/releases/3.1.0/javadoc/org/apache/ignite/table/DataStreamerReceiverContext.html[`DataStreamerReceiverContext`].
 
 The data streamer controls data flow by requesting items only when partition buffers have space. `DataStreamerOptions.perPartitionParallelOperations` controls how many buffers can be allocated per partition. When buffers are full, the streamer stops requesting more data until some items are processed.
-Additionaly, if a `resultSubscriber` is specified, it also applies backpressure on the streamer. If the subscriber is slow at consuming results, the streamer reduces its request rate from the publisher accordingly.
+Additionally, if a `resultSubscriber` is specified, it also applies backpressure on the streamer. If the subscriber is slow at consuming results, the streamer reduces its request rate from the publisher accordingly.
 
-To use a receiver, you need to implement the link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/table/DataStreamerReceiverContext.html[`DataStreamerReceiver`] interface. The receiver’s `receive` method processes each batch of items streamed to the server, so you can apply custom logic and return results for each item as needed:
+To use a receiver, you need to implement the link:https://ignite.apache.org/releases/3.1.0/javadoc/org/apache/ignite/table/DataStreamerReceiver.html[`DataStreamerReceiver`] interface. The receiver's `receive` method processes each batch of items streamed to the server, so you can apply custom logic and return results for each item as needed:
 
 [tabs]
 --
@@ -338,7 +339,7 @@ List<Tuple> sourceData = IntStream.range(1, 10)
 
 CompletableFuture<Void> streamerFut;
 
-RecordView<Tuple> customersTable = ignite().tables().table("customers").recordView();
+RecordView<Tuple> customersTable = client.tables().table("customers").recordView();
 
 // Extract the target table key from each source item; since the source has "customerId" but the target table uses "id", the function maps customerId to id accordingly.
 Function<Tuple, Tuple> keyFunc = sourceItem -> Tuple.create().set("id", sourceItem.intValue("customerId"));
@@ -348,15 +349,15 @@ Function<Tuple, Tuple> payloadFunc = Function.identity();
 
 // Stream data using a publisher.
 try (var publisher = new SubmissionPublisher<Tuple>()) {
-streamerFut = defaultTable().recordView().streamData(
-publisher,
-desc,
-keyFunc,
-payloadFunc,
-null, // Optional receiver arguments
-null, // Result subscriber
-null // Options
-);
+    streamerFut = customersTable.streamData(
+            publisher,
+            desc,
+            keyFunc,
+            payloadFunc,
+            null, // Optional receiver arguments
+            null, // Result subscriber
+            null // Options
+    );
 
     for (Tuple item : sourceData) {
         publisher.submit(item);
@@ -502,7 +503,7 @@ public void runReceiverStreamProcessing() {
                 .primaryKey("id")
                 .build();
 
-        Table dummyTable = ignite().catalog().createTable(txDummyTableDef);
+        Table dummyTable = client.catalog().createTable(txDummyTableDef);
 
         // Source data has "txId" field, but target dummy table has "id" column, so keyFunc maps "txId" to "id".
         Function<Tuple, Tuple> keyFunc = sourceItem -> Tuple.create().set("id", sourceItem.value("txId"));
@@ -602,6 +603,64 @@ await Task.Yield(); // Simulate async data source.
 ----
 --
 
+==== Custom Marshallers in .NET
+
+In .NET, you can define custom marshallers by implementing the link:https://ignite.apache.org/releases/3.1.0/dotnetdoc/api/Apache.Ignite.Marshalling.IMarshaller-1.html[`IMarshaller`] interface.
+
+For example, the code below demonstrates how to use `JsonMarshaller` to serialize data, arguments, and results.
+
+[source, csharp]
+----
+ITable? table = await client.Tables.GetTableAsync("my-table");
+
+ReceiverDescriptor<MyData, MyArg, MyResult> receiverDesc = ReceiverDescriptor.Of(new MyReceiver());
+
+IAsyncEnumerable<MyData> data = Enumerable
+    .Range(1, 100)
+    .Select(x => new MyData(x, $"Name {x}"))
+    .ToAsyncEnumerable();
+
+IAsyncEnumerable<MyResult> results = table!.RecordBinaryView.StreamDataAsync(
+    data: data,
+    receiver: receiverDesc,
+    keySelector: dataItem => new IgniteTuple { ["id"] = dataItem.Id },
+    payloadSelector: dataItem => dataItem,
+    receiverArg: new MyArg("Some info"));
+
+await foreach (MyResult result in results)
+{
+    Console.WriteLine(result);
+}
+
+public record MyData(int Id, string Name);
+
+public record MyArg(string Info);
+
+public record MyResult(MyData Data, MyArg Arg);
+
+public class MyReceiver : IDataStreamerReceiver<MyData, MyArg, MyResult>
+{
+    public IMarshaller<MyData> PayloadMarshaller =>
+        new JsonMarshaller<MyData>();
+
+    public IMarshaller<MyArg> ArgumentMarshaller =>
+        new JsonMarshaller<MyArg>();
+
+    public IMarshaller<MyResult> ResultMarshaller =>
+        new JsonMarshaller<MyResult>();
+
+    public ValueTask<IList<MyResult>?> ReceiveAsync(IList<MyData> page, MyArg arg, IDataStreamerReceiverContext context, CancellationToken cancellationToken)
+    {
+        IList<MyResult> results = page
+            .Select(data => new MyResult(data, arg))
+            .ToList();
+
+        return ValueTask.FromResult(results)!;
+    }
+}
+----
+
+
 == Tracking Failed Entries
 
 If the data streamer fails to process any entries, it collects the failed items in a `DataStreamerException`. You can catch this exception and access the failed entries using the `failedItems()` method, as shown in the example below.
@@ -656,7 +715,7 @@ Console.WriteLine("Failed items: " + string.Join(",", e.FailedItems));
 
 === Tuning Memory Usage
 
-Data streamer may require significant amount of memory to handle the requests in orderly manner. Depending on your environment, you may want to increase or reduce the amount of memory reserved by the data streamer.
+The data streamer may require a significant amount of memory to handle the requests in an orderly manner. Depending on your environment, you may want to increase or reduce the amount of memory reserved by the data streamer.
 
 For every node in the cluster, the streamer reserves an amount of memory equal to `pageSize` (1000 entries by default) multiplied by `perPartitionParallelOperations` (1 by default) setting. For example, a 10-partition table with default parameters and average entry size of 1KB will reserve 10MB for operations.
 
@@ -671,9 +730,9 @@ RecordView<Tuple> view = client.tables().table("accounts").recordView();
 var publisher = new SubmissionPublisher<Tuple>();
 
 var options = DataStreamerOptions.builder()
-.batchSize(10_000)
-.perNodeParallelOperations(10)
-.build();
+        .pageSize(10_000)
+        .perPartitionParallelOperations(10)
+        .build();
 
 streamerFut = view.streamData(publisher, options);
 ----
@@ -681,7 +740,7 @@ streamerFut = view.streamData(publisher, options);
 tab:.NET[]
 [source, csharp]
 ----
-// .NET streamer does not have a perNodeParallelOperations option yet.
+// .NET streamer does not have a perPartitionParallelOperations option yet.
 var options = new DataStreamerOptions
 {
 PageSize = 10_000

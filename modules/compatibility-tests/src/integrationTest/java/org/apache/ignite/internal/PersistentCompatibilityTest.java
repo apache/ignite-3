@@ -17,33 +17,19 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.client.ClientCompatibilityTests.JOBS_UNIT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import io.micronaut.http.HttpRequest;
-import io.micronaut.http.HttpResponse;
-import io.micronaut.http.HttpStatus;
-import io.micronaut.http.MediaType;
-import io.micronaut.http.MutableHttpRequest;
-import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.multipart.MultipartBody;
-import io.micronaut.http.client.multipart.MultipartBody.Builder;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import jakarta.inject.Inject;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.DeploymentUtils;
+import org.apache.ignite.internal.compute.CheckpointJob;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.tx.Transaction;
@@ -87,8 +73,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 // PersistentPageMemoryStorageEngine
 @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 public class PersistentCompatibilityTest extends CompatibilityTestBase {
-    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
-
     /** Delta files are not compacted before updating the cluster. */
     private static final String TABLE_WITH_DELTA_FILES = "TEST_WITH_DELTA_FILES";
 
@@ -107,10 +91,6 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private static final String ORIGINAL_ROW_VALUE = "original_value";
     private static final String UPDATED_ROW_VALUE = "updated_value";
 
-    @Inject
-    @Client(NODE_URL + "/management/v1/deployment")
-    private HttpClient deploymentClient;
-
     @Override
     protected int nodesCount() {
         return 1;
@@ -119,7 +99,7 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         try {
-            deployCheckpointJob();
+            DeploymentUtils.deployJobs();
 
             createAndPopulateTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
             createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
@@ -198,45 +178,13 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private void doCheckpoint(boolean cancelCompaction) {
         try (IgniteClient client = cluster.createClient()) {
             JobDescriptor<Boolean, Void> job = JobDescriptor.builder(CheckpointJob.class)
-                    .units(new DeploymentUnit(CheckpointJob.class.getName(), "1.0.0")).build();
+                    .units(JOBS_UNIT)
+                    .build();
 
             JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
 
             client.compute().execute(jobTarget, job, cancelCompaction);
         }
-    }
-
-    private <T, R> void deployCheckpointJob() throws IOException {
-        Path jarFile = createJar(CheckpointJob.class);
-
-        HttpResponse<Object> deploy = deploy(CheckpointJob.class.getName(), "1.0.0", jarFile.toFile());
-        assertThat(deploy.status(), is(HttpStatus.OK));
-    }
-
-    private Path createJar(Class<?> clazz) throws IOException {
-        String resource = clazz.getName().replace('.', '/') + ".class";
-        Path path = Path.of(clazz.getClassLoader().getResource(resource).getPath());
-        Path jarFile = Files.createFile(workDir.resolve("CheckpointJob.jar"));
-
-        try (FileOutputStream fos = new FileOutputStream(jarFile.toFile()); JarOutputStream jos = new JarOutputStream(fos)) {
-            JarEntry entry = new JarEntry(resource);
-            jos.putNextEntry(entry);
-            Files.copy(path, jos);
-            jos.closeEntry();
-        }
-
-        return jarFile;
-    }
-
-    private HttpResponse<Object> deploy(String id, String version, File file) {
-        Builder builder = MultipartBody.builder();
-        builder.addPart("unitContent", file);
-        MultipartBody body = builder.build();
-
-        MutableHttpRequest<MultipartBody> post = HttpRequest.POST("units/" + id + "/" + version, body)
-                .contentType(MediaType.MULTIPART_FORM_DATA);
-
-        return deploymentClient.toBlocking().exchange(post);
     }
 
     private static void insertRow(Ignite baseIgnite, String tableName, int id, String name) {

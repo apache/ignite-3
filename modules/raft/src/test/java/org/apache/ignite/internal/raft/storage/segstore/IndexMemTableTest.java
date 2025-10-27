@@ -21,6 +21,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -42,10 +45,10 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
         memTable.appendSegmentFileOffset(1, 0, 3);
         memTable.appendSegmentFileOffset(1, 1, 4);
 
-        assertThat(memTable.getSegmentFileOffset(0, 0), is(1));
-        assertThat(memTable.getSegmentFileOffset(0, 1), is(2));
-        assertThat(memTable.getSegmentFileOffset(1, 0), is(3));
-        assertThat(memTable.getSegmentFileOffset(1, 1), is(4));
+        assertThat(memTable.segmentInfo(0).getOffset(0), is(1));
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(2));
+        assertThat(memTable.segmentInfo(1).getOffset(0), is(3));
+        assertThat(memTable.segmentInfo(1).getOffset(1), is(4));
 
         assertThat(memTable.numGroups(), is(2));
     }
@@ -54,9 +57,10 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
     void testMissingValue() {
         memTable.appendSegmentFileOffset(0, 5, 1);
 
-        assertThat(memTable.getSegmentFileOffset(0, 1), is(0));
-        assertThat(memTable.getSegmentFileOffset(0, 5), is(1));
-        assertThat(memTable.getSegmentFileOffset(0, 6), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(5), is(1));
+        assertThat(memTable.segmentInfo(0).getOffset(6), is(0));
+        assertThat(memTable.segmentInfo(1), is(nullValue()));
     }
 
     @Test
@@ -99,9 +103,11 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         RunnableX reader = () -> {
             for (int i = 0; i < numItems; i++) {
-                int offset = memTable.getSegmentFileOffset(0, i);
+                SegmentInfo segmentInfo = memTable.segmentInfo(0);
 
-                assertThat(offset, either(is(i + 1)).or(is(0)));
+                if (segmentInfo != null) {
+                    assertThat(segmentInfo.getOffset(i), either(is(i + 1)).or(is(0)));
+                }
             }
         };
 
@@ -129,9 +135,11 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
             actions.add(() -> {
                 for (int j = 0; j < itemsPerGroup; j++) {
-                    int offset = memTable.getSegmentFileOffset(groupId, j);
+                    SegmentInfo segmentInfo = memTable.segmentInfo(groupId);
 
-                    assertThat(offset, either(is(j + 1)).or(is(0)));
+                    if (segmentInfo != null) {
+                        assertThat(segmentInfo.getOffset(j), either(is(j + 1)).or(is(0)));
+                    }
                 }
             });
         }
@@ -143,8 +151,101 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
 
         for (int groupId = 0; groupId < STRIPES; groupId++) {
             for (int j = 0; j < itemsPerGroup; j++) {
-                assertThat(memTable.getSegmentFileOffset(groupId, j), is(j + 1));
+                assertThat(memTable.segmentInfo(groupId).getOffset(j), is(j + 1));
             }
         }
+    }
+
+    @Test
+    void testTruncateSuffix() {
+        long groupId0 = 1;
+        long groupId1 = 2;
+
+        memTable.appendSegmentFileOffset(groupId0, 1, 42);
+        memTable.appendSegmentFileOffset(groupId0, 2, 43);
+        memTable.appendSegmentFileOffset(groupId0, 3, 44);
+        memTable.appendSegmentFileOffset(groupId0, 4, 45);
+
+        memTable.appendSegmentFileOffset(groupId1, 1, 55);
+        memTable.appendSegmentFileOffset(groupId1, 2, 56);
+        memTable.appendSegmentFileOffset(groupId1, 3, 57);
+        memTable.appendSegmentFileOffset(groupId1, 4, 58);
+
+        memTable.truncateSuffix(groupId0, 2);
+
+        assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(0));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(0));
+
+        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(55));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(56));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(57));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(58));
+
+        memTable.truncateSuffix(groupId1, 4);
+
+        assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(0));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(0));
+
+        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(55));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(56));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(57));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(58));
+
+        memTable.truncateSuffix(groupId1, 0);
+
+        assertThat(memTable.segmentInfo(groupId0).getOffset(1), is(42));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(2), is(43));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(3), is(0));
+        assertThat(memTable.segmentInfo(groupId0).getOffset(4), is(0));
+
+        assertThat(memTable.segmentInfo(groupId1).getOffset(1), is(0));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(2), is(0));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(3), is(0));
+        assertThat(memTable.segmentInfo(groupId1).getOffset(4), is(0));
+    }
+
+    @Test
+    void testTruncateNonExistingSuffix() {
+        assertDoesNotThrow(() -> memTable.truncateSuffix(0, 4));
+
+        memTable.appendSegmentFileOffset(1, 5, 42);
+
+        assertThrows(IllegalArgumentException.class, () -> memTable.truncateSuffix(1, 10));
+    }
+
+    @Test
+    void testAppendAfterTruncateSuffix() {
+        memTable.appendSegmentFileOffset(0, 1, 42);
+
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(42));
+
+        memTable.truncateSuffix(0, 0);
+
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(0));
+
+        memTable.appendSegmentFileOffset(0, 1, 43);
+
+        assertThat(memTable.segmentInfo(0).getOffset(1), is(43));
+    }
+
+    @Test
+    void testTruncateIntoThePast() {
+        memTable.appendSegmentFileOffset(0, 36, 42);
+
+        // Truncate to a position before the moment the last segment info was added.
+        memTable.truncateSuffix(0, 10);
+
+        assertThat(memTable.segmentInfo(0).getOffset(36), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(11), is(0));
+
+        memTable.appendSegmentFileOffset(0, 11, 43);
+
+        assertThat(memTable.segmentInfo(0).getOffset(11), is(43));
+        assertThat(memTable.segmentInfo(0).getOffset(12), is(0));
+        assertThat(memTable.segmentInfo(0).getOffset(36), is(0));
     }
 }

@@ -55,6 +55,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
@@ -362,11 +363,25 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         operationContext::notifyError
                 ));
 
-        return f.whenComplete((r, t) -> {
+        return f.handle((r, t) -> {
             if (t != null) {
-                txWrapper.finalise(t);
+                // We were unable to create cursor, hence need to finalise transaction wrapper
+                // which were created solely for this operation.
+                return txWrapper.finalise(t).handle((none, finalizationErr) -> {
+                    if (finalizationErr != null) {
+                        t.addSuppressed(finalizationErr);
+                    }
+
+                    // Re-throw the exception, so execution future is completed with the same exception.
+                    sneakyThrow(t);
+
+                    // We must never reach this line.
+                    return (AsyncDataCursor<InternalSqlRow>) null;
+                });
             }
-        });
+
+            return completedFuture(r);
+        }).thenCompose(Function.identity());
     }
 
     private static SqlOperationContext createOperationContext(
@@ -967,8 +982,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             localFragments.add(node);
 
             if (!(node instanceof Outbox)) {
-                SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ectx,
-                        treeRoot.getRowType());
+                SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(
+                        treeRoot.getRowType()
+                );
 
                 AsyncRootNode<RowT, InternalSqlRow> rootNode = new AsyncRootNode<>(
                         node,

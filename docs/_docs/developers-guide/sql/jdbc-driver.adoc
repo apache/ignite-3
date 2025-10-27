@@ -34,7 +34,7 @@ The JDBC connector needs to be included from Maven:
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>ignite-jdbc</artifactId>
-    <version>3.0.0</version>
+    <version>3.1.0</version>
 </dependency>
 ----
 
@@ -48,7 +48,7 @@ Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:1080
 The driver connects to one of the cluster nodes and forwards all the queries to it for final execution. The node handles the query distribution and the result’s aggregations. Then the result is sent back to the client application.
 
 The JDBC connection string can have an optional list of name-value pairs as parameters after the '?' delimiter. Name and value are separated by the '=' symbol and multiple properties are separated either by an '&' or a ';'.
-Separate sign can't be mixed and should be either semicolon or ampersand sign.
+Separator signs cannot be mixed and should be either semicolon or ampersand.
 
 [source, java]
 ----

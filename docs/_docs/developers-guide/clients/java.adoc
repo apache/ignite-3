@@ -14,7 +14,7 @@
 // limitations under the License.
 = Java Client
 
-Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there are no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
 
 Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
 
@@ -33,7 +33,7 @@ Java client can be added to your project by using maven:
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>ignite-client</artifactId>
-    <version>3.0.0</version>
+    <version>3.1.0</version>
 </dependency>
 ----
 

@@ -287,7 +287,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         int tableVersion = SCHEMA.version();
 
-        lenient().when(tableDescriptor.tableVersion()).thenReturn(tableVersion);
+        lenient().when(tableDescriptor.latestSchemaVersion()).thenReturn(tableVersion);
         lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
 
         indexMetaStorage = mock(IndexMetaStorage.class);

@@ -78,16 +78,15 @@ public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
              *   deserialization.
              *
              * - Deterministic loader selection:
-             *   We explicitly resolve classes using the ClassLoader that defined this ByteArrayMarshaller
-             *   instance. In Ignite, this loader is set up to be the job/unit ClassLoader when user code
-             *   is executed or transported. This makes class resolution deterministic and aligned with
+             *   We explicitly resolve classes using the ClassLoader set in the thread's context. In Ignite, this loader is set up before
+             *   the unmarshal call to the job/unit ClassLoader. This makes class resolution deterministic and aligned with
              *   the deployment context, mirroring the environment where serialization occurred.
              */
             @Override
             protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
                 String name = desc.getName();
                 try {
-                    return Class.forName(name, false, ByteArrayMarshaller.this.getClass().getClassLoader());
+                    return Class.forName(name, false, Thread.currentThread().getContextClassLoader());
                 } catch (ClassNotFoundException ex) {
                     return super.resolveClass(desc);
                 }

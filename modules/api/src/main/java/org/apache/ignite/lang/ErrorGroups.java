@@ -504,6 +504,9 @@ public class ErrorGroups {
 
         /** Distribution zone was not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Empty data nodes. */
+        public static final int EMPTY_DATA_NODES_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Network error group. */
@@ -574,6 +577,9 @@ public class ErrorGroups {
 
         /** Deployment unit zip deploy error. */
         public static final int UNIT_ZIP_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Deployment unit write to fs error. */
+        public static final int UNIT_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /**
@@ -685,6 +691,9 @@ public class ErrorGroups {
 
         /** Primary replica await error. */
         public static final int PRIMARY_REPLICA_AWAIT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Error that occurs if there are no assignments for a group. */
+        public static final int EMPTY_ASSIGNMENTS_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /** Critical workers error group. */
@@ -718,8 +727,11 @@ public class ErrorGroups {
         /** Error while returning partition states. */
         public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Error while restarting the cluster with clean up. */
-        public static final int RESTART_WITH_CLEAN_UP_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+        /** Error when not enough alive nodes to perform restart with clean up. */
+        public static final int NOT_ENOUGH_ALIVE_NODES_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Error when node names are not in valid set. */
+        public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Embedded API error group. */

@@ -67,7 +67,10 @@ public class CreateTableCommand extends AbstractTableCommand {
 
     private final String zoneName;
 
-    private String storageProfile;
+    private final @Nullable String storageProfile;
+
+    private final double staleRowsFraction;
+    private final long minStaleRowsCount;
 
     /**
      * Constructs the object.
@@ -76,11 +79,15 @@ public class CreateTableCommand extends AbstractTableCommand {
      * @param schemaName Name of the schema to create table in. Should not be null or blank.
      * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param primaryKey Primary key.
-     * @param colocationColumns Name of the columns participating in distribution calculation.
-     *      Should be subset of the primary key columns.
+     * @param colocationColumns Name of the columns participating in distribution calculation. Should be subset of the primary key
+     *         columns.
      * @param columns List of the columns containing by the table. There should be at least one column.
      * @param zoneName Name of the zone to create table in or {@code null} to use the default distribution zone.
      * @param validateSystemSchemas Flag indicating whether system schemas should be validated.
+     * @param staleRowsFraction A fraction of a partition to be modified before the data is considered to be "stale". Should be in
+     *         range [0, 1].
+     * @param minStaleRowsCount Minimal number of rows in partition to be modified before the data is considered to be "stale".
+     *         Should be non-negative.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private CreateTableCommand(
@@ -91,8 +98,10 @@ public class CreateTableCommand extends AbstractTableCommand {
             List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
-            String storageProfile,
-            boolean validateSystemSchemas
+            @Nullable String storageProfile,
+            boolean validateSystemSchemas,
+            double staleRowsFraction,
+            long minStaleRowsCount
     ) throws CatalogValidationException {
         super(schemaName, tableName, ifNotExists, validateSystemSchemas);
 
@@ -101,6 +110,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         this.columns = copyOrNull(columns);
         this.zoneName = zoneName;
         this.storageProfile = storageProfile;
+        this.staleRowsFraction = staleRowsFraction;
+        this.minStaleRowsCount = minStaleRowsCount;
 
         validate();
     }
@@ -127,9 +138,11 @@ public class CreateTableCommand extends AbstractTableCommand {
             zone = zone(catalog, zoneName, true);
         }
 
-        if (storageProfile == null) {
-            storageProfile = zone.storageProfiles().defaultProfile().storageProfile();
-        }
+        assert zone != null;
+
+        String storageProfile = this.storageProfile != null
+                ? this.storageProfile
+                : zone.storageProfiles().defaultProfile().storageProfile();
 
         ensureZoneContainsTablesStorageProfile(zone, storageProfile);
 
@@ -137,17 +150,19 @@ public class CreateTableCommand extends AbstractTableCommand {
         int tableId = id++;
         int pkIndexId = id++;
 
-        CatalogTableDescriptor table = new CatalogTableDescriptor(
-                tableId,
-                schema.id(),
-                pkIndexId,
-                tableName,
-                zone.id(),
-                columns.stream().map(CatalogUtils::fromParams).collect(toList()),
-                primaryKey.columns(),
-                colocationColumns,
-                storageProfile
-        );
+        CatalogTableDescriptor table = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(schema.id())
+                .primaryKeyIndexId(pkIndexId)
+                .name(tableName)
+                .zoneId(zone.id())
+                .columns(columns.stream().map(CatalogUtils::fromParams).collect(toList()))
+                .primaryKeyColumns(primaryKey.columns())
+                .colocationColumns(colocationColumns)
+                .storageProfile(storageProfile)
+                .minStaleRowsCount(minStaleRowsCount)
+                .staleRowsFraction(staleRowsFraction)
+                .build();
 
         String indexName = primaryKey.name();
         if (indexName == null) {
@@ -208,6 +223,14 @@ public class CreateTableCommand extends AbstractTableCommand {
             if (!colocationColumnsSet.add(name)) {
                 throw new CatalogValidationException("Colocation column '{}' specified more that once", name);
             }
+        }
+
+        if (!Double.isFinite(staleRowsFraction) || staleRowsFraction > 1 || staleRowsFraction < 0) {
+            throw new CatalogValidationException("Stale rows fraction should be in range [0, 1].");
+        }
+
+        if (minStaleRowsCount < 0) {
+            throw new CatalogValidationException("Minimal stale rows count should be non-negative.");
         }
     }
 
@@ -274,6 +297,9 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private boolean validateSystemSchemas = true;
 
+        private double staleRowsFraction = CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
+        private long minStaleRowsCount = CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+
         @Override
         public CreateTableCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -338,6 +364,20 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public CreateTableCommandBuilder staleRowsFraction(double staleRowsFraction) {
+            this.staleRowsFraction = staleRowsFraction;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder minStaleRowsCount(long minStaleRowsCount) {
+            this.minStaleRowsCount = minStaleRowsCount;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             List<String> colocationColumns;
 
@@ -360,7 +400,9 @@ public class CreateTableCommand extends AbstractTableCommand {
                     columns,
                     zoneName,
                     storageProfile,
-                    validateSystemSchemas
+                    validateSystemSchemas,
+                    staleRowsFraction,
+                    minStaleRowsCount
             );
         }
     }

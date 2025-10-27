@@ -44,16 +44,40 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
         // File offset can be less than 0 (it's treated as an unsigned integer) but never 0, because of the file header.
         assert segmentFileOffset != 0 : String.format("Segment file offset must not be 0 [groupId=%d]", groupId);
 
-        SegmentInfo segmentInfo = stripe(groupId).memTable.computeIfAbsent(groupId, id -> new SegmentInfo(logIndex));
+        ConcurrentMap<Long, SegmentInfo> memTable = stripe(groupId).memTable;
 
-        segmentInfo.addOffset(logIndex, segmentFileOffset);
+        SegmentInfo segmentInfo = memTable.get(groupId);
+
+        if (segmentInfo == null) {
+            segmentInfo = new SegmentInfo(logIndex);
+
+            segmentInfo.addOffset(logIndex, segmentFileOffset);
+
+            memTable.put(groupId, segmentInfo);
+        } else {
+            segmentInfo.addOffset(logIndex, segmentFileOffset);
+        }
     }
 
     @Override
-    public int getSegmentFileOffset(long groupId, long logIndex) {
-        SegmentInfo segmentInfo = stripe(groupId).memTable.get(groupId);
+    public SegmentInfo segmentInfo(long groupId) {
+        return stripe(groupId).memTable.get(groupId);
+    }
 
-        return segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
+    @Override
+    public void truncateSuffix(long groupId, long lastLogIndexKept) {
+        ConcurrentMap<Long, SegmentInfo> memtable = stripe(groupId).memTable;
+
+        SegmentInfo segmentInfo = memtable.get(groupId);
+
+        if (segmentInfo == null || lastLogIndexKept < segmentInfo.firstLogIndexInclusive()) {
+            // If the current memtable does not have information for the given group or if we are truncating everything currently present
+            // in the memtable, we need to write a special "empty" SegmentInfo into the memtable to override existing persisted data during
+            // search.
+            memtable.put(groupId, new SegmentInfo(lastLogIndexKept + 1));
+        } else {
+            segmentInfo.truncateSuffix(lastLogIndexKept);
+        }
     }
 
     @Override

@@ -27,7 +27,9 @@
 namespace ignite {
 
 /**
- * Column metadata.
+ * @brief SQL statement.
+ *
+ * Contains necessary information for SQL query execution such as query text, query properties, etc.
  */
 class sql_statement {
 public:

@@ -57,13 +57,13 @@ SQLCHAR query1[] = "CREATE TABLE Person ( "
     "id LONG PRIMARY KEY, "
     "firstName VARCHAR, "
     "lastName VARCHAR, "
-    "salary FLOAT) "";
+    "salary FLOAT)";
 
 SQLExecDirect(stmt, query1, SQL_NTS);
 
 SQLCHAR query2[] = "CREATE TABLE Organization ( "
     "id LONG PRIMARY KEY, "
-    "name VARCHAR) "";
+    "name VARCHAR)";
 
 SQLExecDirect(stmt, query2, SQL_NTS);
 
@@ -78,7 +78,7 @@ For both types, we listed specific fields and indexes that will be read or updat
 
 == Handling Errors
 
-The section below covers how you can handle possible errors when working with ODBC. In this example we handle an issue with connecting to the cluste
+The section below covers how you can handle possible errors when working with ODBC. In this example we handle an issue with connecting to the cluster
 
 [source,c++]
 ----
@@ -136,7 +136,7 @@ if (!SQL_SUCCEEDED(ret))
 
   SQLGetDiagRec(SQL_HANDLE_DBC, dbc, 1, sqlstate, &nativeCode, errMsg, errMsgLen, &errMsgLen);
 
-  std::cerr << "Failed to perfrom SQL query: "
+  std::cerr << "Failed to perform SQL query: "
             << reinterpret_cast<char*>(sqlstate) << ": "
             << reinterpret_cast<char*>(errMsg) << ", "
             << "Native error code: " << nativeCode
@@ -158,7 +158,7 @@ else
   // Allocating buffers for columns.
   std::vector<OdbcStringBuffer> columns(columnsCnt);
 
-  // Binding colums. For simplicity we are going to use only
+  // Binding columns. For simplicity we are going to use only
   // string buffers here.
   for (SQLSMALLINT i = 0; i < columnsCnt; ++i)
     SQLBindCol(stmt, i + 1, SQL_C_CHAR, columns[i].buffer, BUFFER_SIZE, &columns[i].resLen);

@@ -60,6 +60,9 @@ public class ThreadPoolsManager implements IgniteComponent {
 
     private final ScheduledExecutorService commonScheduler;
 
+    /** Executor for scheduling rebalance routine. */
+    private final ScheduledExecutorService rebalanceScheduler;
+
     private final MetricManager metricManager;
 
     private final List<ThreadPoolMetricSource> metricSources;
@@ -91,6 +94,8 @@ public class ThreadPoolsManager implements IgniteComponent {
 
         commonScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "common-scheduler", LOG));
 
+        rebalanceScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
+
         this.metricManager = metricManager;
 
         metricSources = new ArrayList<>();
@@ -117,6 +122,7 @@ public class ThreadPoolsManager implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(tableIoExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, SECONDS);
 
         return nullCompletedFuture();
     }
@@ -140,5 +146,10 @@ public class ThreadPoolsManager implements IgniteComponent {
      */
     public ScheduledExecutorService commonScheduler() {
         return commonScheduler;
+    }
+
+    /** Returns executor for scheduling rebalance routine. */
+    public ScheduledExecutorService rebalanceScheduler() {
+        return rebalanceScheduler;
     }
 }

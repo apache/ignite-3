@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.raft.util.VarlenEncoder.readLong;
+import static org.apache.ignite.internal.raft.util.VarlenEncoder.sizeInBytes;
+import static org.apache.ignite.internal.raft.util.VarlenEncoder.writeLong;
+
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
 /**
@@ -34,28 +40,32 @@ class SegmentPayload {
 
     static final int HASH_SIZE = Integer.BYTES;
 
-    private final long groupId;
+    /**
+     * Length of the byte sequence that is written when suffix truncation happens.
+     *
+     * <p>Format: {@code groupId, 0 (special length value), last kept index, crc}
+     */
+    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE;
 
-    private final int payloadSize;
+    private static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
 
-    private final LogEntry logEntry;
-
-    private final LogEntryEncoder logEntryEncoder;
-
-    SegmentPayload(long groupId, LogEntry logEntry, LogEntryEncoder logEntryEncoder) {
-        this.groupId = groupId;
-        this.logEntry = logEntry;
-        this.logEntryEncoder = logEntryEncoder;
-
-        payloadSize = logEntryEncoder.size(logEntry);
-    }
-
-    void writeTo(ByteBuffer buffer) {
+    static void writeTo(
+            ByteBuffer buffer,
+            long groupId,
+            int segmentEntrySize,
+            LogEntry logEntry,
+            LogEntryEncoder logEntryEncoder
+    ) {
         int originalPos = buffer.position();
 
         buffer
                 .putLong(groupId)
-                .putInt(payloadSize);
+                .putInt(segmentEntrySize - fixedOverheadSize());
+
+        LogId logId = logEntry.getId();
+
+        writeLong(logId.getIndex(), buffer);
+        writeLong(logId.getTerm(), buffer);
 
         logEntryEncoder.encode(buffer, logEntry);
 
@@ -70,11 +80,69 @@ class SegmentPayload {
         buffer.putInt(crc);
     }
 
-    int size() {
-        return overheadSize() + payloadSize;
+    static void writeTruncateSuffixRecordTo(ByteBuffer buffer, long groupId, long lastLogIndexKept) {
+        int originalPos = buffer.position();
+
+        buffer
+                .putLong(groupId)
+                .putInt(TRUNCATE_SUFFIX_RECORD_MARKER)
+                .putLong(lastLogIndexKept);
+
+        buffer.position(originalPos);
+
+        int crc = FastCrc.calcCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - HASH_SIZE);
+
+        buffer.putInt(crc);
     }
 
-    static int overheadSize() {
+    static LogEntry readFrom(ByteBuffer buffer, LogEntryDecoder logEntryDecoder) {
+        int originalPosition = buffer.position();
+
+        buffer.position(originalPosition + GROUP_ID_SIZE_BYTES); // Skip group ID.
+
+        int payloadLength = buffer.getInt();
+
+        int payloadPosition = buffer.position();
+
+        readLong(buffer); // Skip log entry index.
+        readLong(buffer); // Skip log entry term.
+
+        int logEntryPosition = buffer.position();
+
+        int crcPosition = payloadPosition + payloadLength;
+
+        int crc = buffer.getInt(crcPosition);
+
+        buffer.position(originalPosition);
+
+        int actualCrc = FastCrc.calcCrc(buffer, crcPosition - originalPosition);
+
+        if (crc != actualCrc) {
+            throw new IllegalStateException("CRC mismatch, expected: " + crc + ", actual: " + actualCrc);
+        }
+
+        buffer.position(logEntryPosition);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26623.
+        byte[] entryBytes = new byte[crcPosition - logEntryPosition];
+
+        buffer.get(entryBytes);
+
+        // Move the position as if we have read the whole payload.
+        buffer.position(buffer.position() + HASH_SIZE);
+
+        return logEntryDecoder.decode(entryBytes);
+    }
+
+    static int size(LogEntry logEntry, LogEntryEncoder logEntryEncoder) {
+        int entrySize = logEntryEncoder.size(logEntry);
+
+        LogId logId = logEntry.getId();
+
+        return fixedOverheadSize() + sizeInBytes(logId.getIndex()) + sizeInBytes(logId.getTerm()) + entrySize;
+    }
+
+    static int fixedOverheadSize() {
         return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE;
     }
 }

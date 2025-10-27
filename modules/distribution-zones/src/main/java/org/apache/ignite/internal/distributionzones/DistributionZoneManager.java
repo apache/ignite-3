@@ -22,6 +22,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
@@ -39,7 +40,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -67,6 +67,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -112,6 +114,7 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -147,15 +150,6 @@ public class DistributionZoneManager extends
      */
     private final ConcurrentSkipListMap<Long, Set<NodeWithAttributes>> logicalTopologyByRevision = new ConcurrentSkipListMap<>();
 
-    /**
-     * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
-     * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-24608 properly clean up this map
-     *
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
-     */
-    private Map<UUID, NodeWithAttributes> nodesAttributes = new ConcurrentHashMap<>();
-
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
 
@@ -170,10 +164,16 @@ public class DistributionZoneManager extends
 
     private final MetricManager metricManager;
 
+    private final ClockService clockService;
+
     /** Mapping from a zone identifier to the corresponding metric source. */
     private final Map<Integer, ZoneMetricSource> zoneMetricSources = new ConcurrentHashMap<>();
 
     private final String localNodeName;
+
+    @TestOnly
+    @Nullable
+    private Predicate<NodeWithAttributes> additionalNodeFilter = null;
 
     /**
      * Constructor.
@@ -181,6 +181,7 @@ public class DistributionZoneManager extends
     @TestOnly
     public DistributionZoneManager(
             String nodeName,
+            Supplier<UUID> nodeIdSupplier,
             RevisionListenerRegistry registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
@@ -191,6 +192,7 @@ public class DistributionZoneManager extends
     ) {
         this(
                 nodeName,
+                nodeIdSupplier,
                 registry,
                 metaStorageManager,
                 logicalTopologyService,
@@ -207,6 +209,7 @@ public class DistributionZoneManager extends
      * Creates a new distribution zone manager.
      *
      * @param nodeName Node name.
+     * @param nodeIdSupplier Node id supplier.
      * @param registry Registry for versioned values.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
@@ -217,6 +220,7 @@ public class DistributionZoneManager extends
      */
     public DistributionZoneManager(
             String nodeName,
+            Supplier<UUID> nodeIdSupplier,
             RevisionListenerRegistry registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
@@ -232,6 +236,7 @@ public class DistributionZoneManager extends
         this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
         this.localNodeName = nodeName;
+        this.clockService = clockService;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
@@ -256,13 +261,15 @@ public class DistributionZoneManager extends
 
         dataNodesManager = new DataNodesManager(
                 nodeName,
+                nodeIdSupplier,
                 busyLock,
                 metaStorageManager,
                 catalogManager,
                 clockService,
                 failureProcessor,
                 this::fireTopologyReduceLocalEvent,
-                partitionDistributionResetTimeoutConfiguration::currentValue
+                partitionDistributionResetTimeoutConfiguration::currentValue,
+                this::logicalTopology
         );
 
         this.metricManager = metricManager;
@@ -325,6 +332,18 @@ public class DistributionZoneManager extends
     }
 
     /**
+     * Returns data nodes for the given time.
+     *
+     * @param zoneId Zone id.
+     * @return Data nodes for the current time.
+     */
+    public CompletableFuture<Set<String>> currentDataNodes(int zoneId) {
+        HybridTimestamp current = clockService.current();
+        int catalogVersion = catalogManager.activeCatalogVersion(current.longValue());
+        return dataNodes(current, catalogVersion, zoneId);
+    }
+
+    /**
      * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
      * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
      * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
@@ -354,6 +373,10 @@ public class DistributionZoneManager extends
         }
 
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
+    }
+
+    public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
@@ -418,17 +441,13 @@ public class DistributionZoneManager extends
     private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
+        Set<NodeWithAttributes> filteredDataNodes = filterDataNodes(logicalTopology(causalityToken), zone).stream()
+                .filter(n -> additionalNodeFilter == null || additionalNodeFilter.test(n))
+                .collect(toSet());
+
         return dataNodesManager
-                .onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone))
-                .thenRun(() -> {
-                    try {
-                        registerMetricSource(zone);
-                    } catch (Exception e) {
-                        // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
-                        // So, just log the error.
-                        LOG.error("Failed to register a new zone metric source [zoneDescriptor={}]", e, zone);
-                    }
-                });
+                .onZoneCreate(zone.id(), timestamp, filteredDataNodes)
+                .thenRun(() -> registerMetricSource(zone));
     }
 
     /**
@@ -505,25 +524,13 @@ public class DistributionZoneManager extends
     private void restoreGlobalStateFromLocalMetaStorage(long recoveryRevision) {
         Entry lastHandledTopologyEntry = metaStorageManager.getLocally(zonesLastHandledTopology(), recoveryRevision);
 
-        Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), recoveryRevision);
-
         if (lastHandledTopologyEntry.value() != null) {
-            // We save zonesLastHandledTopology and zonesNodesAttributes in Meta Storage in a one batch, so it is impossible
-            // that one value is not null, but other is null.
-            assert nodeAttributesEntry.value() != null;
-
             logicalTopologyByRevision.put(recoveryRevision, deserializeLogicalTopologySet(lastHandledTopologyEntry.value()));
-
-            nodesAttributes = DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value());
         }
 
         assert lastHandledTopologyEntry.value() == null
                 || logicalTopology(recoveryRevision).equals(deserializeLogicalTopologySet(lastHandledTopologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
-
-        assert nodeAttributesEntry.value() == null
-                || nodesAttributes.equals(DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value()))
-                : "Initial value of nodes' attributes was changed after initialization from the Meta Storage manager.";
     }
 
     /**
@@ -587,8 +594,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology},
-     * {@link DistributionZoneManager#nodesAttributes} are updated.
+     * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology} is updated.
      * This fields are saved to Meta Storage, also timers are scheduled.
      * Note that all futures of Meta Storage updates that happen in this method are returned from this method.
      *
@@ -620,8 +626,6 @@ public class DistributionZoneManager extends
             futures.add(f);
         }
 
-        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
-
         futures.add(saveRecoverableStateToMetastorage(revision, newLogicalTopology));
 
         return allOf(futures.toArray(CompletableFuture[]::new));
@@ -649,7 +653,6 @@ public class DistributionZoneManager extends
             Set<NodeWithAttributes> newLogicalTopology
     ) {
         Operation[] puts = {
-                put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes())),
                 put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision)),
                 put(
                         zonesLastHandledTopology(),
@@ -717,14 +720,9 @@ public class DistributionZoneManager extends
         return dataNodesManager;
     }
 
-    /**
-     * Returns local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
-     * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     *
-     * @return Mapping {@code nodeId} -> node's attributes.
-     */
-    public Map<UUID, NodeWithAttributes> nodesAttributes() {
-        return nodesAttributes;
+    @TestOnly
+    public void setAdditionalNodeFilter(Predicate<NodeWithAttributes> filter) {
+        additionalNodeFilter = filter;
     }
 
     public Set<NodeWithAttributes> logicalTopology() {
@@ -764,12 +762,47 @@ public class DistributionZoneManager extends
      * @param zone Zone descriptor.
      */
     private void registerMetricSource(CatalogZoneDescriptor zone) {
-        ZoneMetricSource source = new ZoneMetricSource(metaStorageManager, localNodeName, zone);
+        registerMetricSource(zone, null);
+    }
 
-        zoneMetricSources.put(zone.id(), source);
+    /**
+     * Registers metric source for the specified zone.
+     *
+     * @param zone Zone descriptor.
+     * @param copyFrom Source to copy metrics from.
+     */
+    private void registerMetricSource(CatalogZoneDescriptor zone, @Nullable ZoneMetricSource copyFrom) {
+        try {
+            ZoneMetricSource source = (copyFrom == null)
+                    ? new ZoneMetricSource(metaStorageManager, localNodeName, zone)
+                    : new ZoneMetricSource(metaStorageManager, localNodeName, zone, copyFrom);
 
-        metricManager.registerSource(source);
-        metricManager.enable(source);
+            zoneMetricSources.put(zone.id(), source);
+
+            metricManager.registerSource(source);
+            metricManager.enable(source);
+        } catch (Exception e) {
+            LOG.error("Failed to register zone metric source [zoneName={}, zoneId={}]", e, zone.name(), zone.id());
+        }
+    }
+
+    /**
+     * Unregisters metric source for the specified zone.
+     *
+     * @param zoneId Zone identifier.
+     */
+    private void unregisterMetricSource(int zoneId) {
+        ZoneMetricSource source = zoneMetricSources.remove(zoneId);
+
+        if (source == null) {
+            return;
+        }
+
+        try {
+            metricManager.unregisterSource(source);
+        } catch (Exception e) {
+            LOG.error("Failed to unregister zone metric source [zoneName={}, zoneId={}]", e, source.zoneName(), zoneId);
+        }
     }
 
     /**
@@ -806,14 +839,7 @@ public class DistributionZoneManager extends
     }
 
     private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
-        try {
-            ZoneMetricSource source = zoneMetricSources.remove(parameters.zoneId());
-            if (source != null) {
-                metricManager.unregisterSource(source);
-            }
-        } catch (Exception e) {
-            LOG.error("Failed to unregister zone metric source [dropZoneEvent={}]", e, parameters);
-        }
+        unregisterMetricSource(parameters.zoneId());
 
         long causalityToken = parameters.causalityToken();
 
@@ -845,21 +871,10 @@ public class DistributionZoneManager extends
         @Override
         protected CompletableFuture<Void> onNameUpdate(AlterZoneEventParameters parameters, String oldName) {
             return inBusyLock(busyLock, () -> {
-                try {
-                    CatalogZoneDescriptor zoneDescriptor = parameters.zoneDescriptor();
+                ZoneMetricSource oldSource = zoneMetricSources.get(parameters.zoneDescriptor().id());
 
-                    // Update metric source name.
-                    ZoneMetricSource source = zoneMetricSources.remove(zoneDescriptor.id());
-                    if (source != null) {
-                        metricManager.unregisterSource(source);
-                    }
-
-                    registerMetricSource(parameters.zoneDescriptor());
-                } catch (Exception e) {
-                    // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
-                    // So, just log the error.
-                    LOG.error("Failed to update zone metric set [alterZoneEvent={}]", e, parameters);
-                }
+                unregisterMetricSource(parameters.zoneDescriptor().id());
+                registerMetricSource(parameters.zoneDescriptor(), oldSource);
 
                 return nullCompletedFuture();
             });

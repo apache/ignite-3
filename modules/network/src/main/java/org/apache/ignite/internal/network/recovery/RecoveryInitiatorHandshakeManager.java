@@ -41,9 +41,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
-import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -100,8 +98,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
      */
     private final CompletableFuture<CompletionStage<NettySender>> masterHandshakeCompleteFuture = new CompletableFuture<>();
 
-    private final AckConfiguration ackConfiguration;
-
     /** Remote node. */
     private InternalClusterNode remoteNode;
 
@@ -124,7 +120,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
-     * @param ackConfiguration Acknowledgement configuration.
      */
     public RecoveryInitiatorHandshakeManager(
             InternalClusterNode localNode,
@@ -135,8 +130,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            IgniteProductVersionSource productVersionSource,
-            AckConfiguration ackConfiguration
+            IgniteProductVersionSource productVersionSource
     ) {
         this.localNode = localNode;
         this.connectionId = connectionId;
@@ -146,7 +140,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
-        this.ackConfiguration = ackConfiguration;
 
         localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -351,12 +344,13 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
     private void handleLoopConnection(HandshakeStartMessage msg) {
         String message = String.format(
-                "Got handshake start from self, this should never happen; this is a programming error [localNode=%s, acceptorNode=%s]",
+                "Got handshake start from self [localNode=%s, acceptorNode=%s]",
                 localNode,
                 msg.serverNode()
         );
 
-        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, CriticalHandshakeException::new);
+        // TODO IGNITE-25802 Introduce a specific exception for this case.
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, HandshakeException::new);
     }
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
@@ -380,7 +374,10 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
     private void handleClusterIdMismatch(HandshakeStartMessage msg) {
         String message = String.format(
-                "%s:%s belongs to cluster %s which is different from this one %s, connection rejected; should CMG/MG repair be finished?",
+                "%s:%s belongs to cluster %s which is different from this one %s, connection rejected. "
+                        + "Either another cluster is reachable for this one on the network (in this case make sure they can't connect), "
+                        + "or CMG/MG repair was made and then some node that did not participate one is started "
+                        + "(in this case, migrate the started node to the repaired cluster using CMG/MG repair tools)",
                 msg.serverNode().name(), msg.serverNode().id(), msg.serverClusterId(), clusterIdSupplier.clusterId()
         );
 
@@ -426,16 +423,12 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        if (!stopping.getAsBoolean() && msg.reason().logAsWarn()) {
-            LOG.warn("Handshake rejected by acceptor: {}", msg.message());
-        } else {
-            LOG.debug("Handshake rejected by acceptor: {}", msg.message());
-        }
+        msg.reason().print(stopping.getAsBoolean(), LOG, "Handshake rejected by acceptor: {}", msg.message());
 
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
             giveUpClinch();
         } else {
-            localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
+            localHandshakeCompleteFuture.completeExceptionally(HandshakeManagerUtils.createExceptionFromRejectionMessage(msg));
         }
     }
 
@@ -477,7 +470,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
-        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY, ackConfiguration.value());
+        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
 
         HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
                 .clientNode(clusterNodeToMessage(localNode))

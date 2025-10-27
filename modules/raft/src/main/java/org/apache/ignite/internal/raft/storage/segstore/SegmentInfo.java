@@ -56,6 +56,17 @@ class SegmentInfo {
             return new ArrayWithSize(array, size + 1);
         }
 
+        ArrayWithSize truncate(int newSize) {
+            assert newSize <= size
+                    : String.format("Array must shrink on truncation, current size: %d, size after truncation: %d", size, newSize);
+
+            int[] newArray = new int[size];
+
+            System.arraycopy(array, 0, newArray, 0, newSize);
+
+            return new ArrayWithSize(newArray, newSize);
+        }
+
         int get(int index) {
             return array[index];
         }
@@ -77,7 +88,7 @@ class SegmentInfo {
     }
 
     /**
-     * Base log index. All log indexes in this memtable lie in the {@code [logIndexBase, logIndexBase + segmentFileOffsets.size]} range.
+     * Base log index. All log indexes in this memtable lie in the {@code [logIndexBase, logIndexBase + segmentFileOffsets.size)} range.
      */
     private final long logIndexBase;
 
@@ -133,14 +144,14 @@ class SegmentInfo {
     /**
      * Returns the inclusive lower bound of log indices stored in this memtable.
      */
-    long firstLogIndex() {
+    long firstLogIndexInclusive() {
         return logIndexBase;
     }
 
     /**
-     * Returns the non-inclusive upper bound of log indices stored in this memtable.
+     * Returns the inclusive upper bound of log indices stored in this memtable.
      */
-    long lastLogIndex() {
+    long lastLogIndexExclusive() {
         return logIndexBase + segmentFileOffsets.size();
     }
 
@@ -157,8 +168,33 @@ class SegmentInfo {
     void saveOffsetsTo(ByteBuffer buffer) {
         ArrayWithSize offsets = segmentFileOffsets;
 
-        for (int i = 0; i < offsets.size(); i++) {
-            buffer.putInt(offsets.get(i));
+        buffer.asIntBuffer().put(offsets.array, 0, offsets.size);
+    }
+
+    /**
+     * Removes all data which log indices are strictly greater than {@code lastLogIndexKept}.
+     */
+    void truncateSuffix(long lastLogIndexKept) {
+        assert lastLogIndexKept >= logIndexBase : String.format("logIndexBase=%d, lastLogIndexKept=%d", logIndexBase, lastLogIndexKept);
+
+        ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
+
+        long newSize = lastLogIndexKept - logIndexBase + 1;
+
+        // Not using an assertion here, because this value comes doesn't come from the storage code.
+        if (newSize > segmentFileOffsets.size()) {
+            throw new IllegalArgumentException(String.format(
+                    "lastLogIndexKept is too large. Last index in memtable: %d, lastLogIndexKept: %d",
+                    logIndexBase + segmentFileOffsets.size() - 1, lastLogIndexKept
+            ));
         }
+
+        ArrayWithSize newSegmentFileOffsets = segmentFileOffsets.truncate((int) newSize);
+
+        // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
+        // this invariant, just in case.
+        boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, segmentFileOffsets, newSegmentFileOffsets);
+
+        assert updated : "Concurrent writes detected";
     }
 }

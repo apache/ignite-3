@@ -20,11 +20,17 @@ package org.apache.ignite.internal.rest.deployment;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.zip.ZipInputStream;
+import org.apache.ignite.internal.deployunit.CachedDeploymentUnit;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitWriteException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitZipException;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteException;
@@ -38,13 +44,19 @@ public class ZipInputStreamCollector implements InputStreamCollector {
     private static final IgniteLogger LOG = Loggers.forClass(ZipInputStreamCollector.class);
     private static final byte[] ZIP_MAGIC_HEADER = {0x50, 0x4b, 0x03, 0x04};
 
-    private ZipInputStream zis;
+    private final TempStorage tempStorage;
 
     private IgniteException igniteException;
 
+    private CompletableFuture<Path> future;
+
+    public ZipInputStreamCollector(TempStorage tempStorage) {
+        this.tempStorage = tempStorage;
+    }
+
     @Override
     public void addInputStream(String filename, InputStream is) {
-        if (zis != null || igniteException != null) {
+        if (future != null || igniteException != null) {
             // We don't need the stream anymore, so we close it to avoid resource leak.
             safeClose(is);
             if (igniteException == null) {
@@ -56,7 +68,14 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
 
         if (isZip(result)) {
-            zis = new ZipInputStream(result);
+            future = tempStorage.store(filename, result)
+                    .whenComplete((path, throwable) -> {
+                        try {
+                            result.close();
+                        } catch (IOException e) {
+                            LOG.error("Error with closing zip input stream.", e);
+                        }
+                    });
         } else {
             safeClose(result);
             igniteException = new DeploymentUnitZipException("Only zip file is supported.");
@@ -82,10 +101,8 @@ public class ZipInputStreamCollector implements InputStreamCollector {
     }
 
     @Override
-    public void close() throws Exception {
-        if (zis != null) {
-            zis.close();
-        }
+    public void rollback() throws Exception {
+        tempStorage.rollback();
     }
 
     @Override
@@ -93,6 +110,14 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         if (igniteException != null) {
             throw igniteException;
         }
-        return new ZipDeploymentUnit(zis);
+
+        return new CachedDeploymentUnit(future.thenApply(zip -> {
+            try {
+                return new ZipDeploymentUnit(new ZipInputStream(Files.newInputStream(zip)));
+            } catch (IOException e) {
+                LOG.error("Error when creating zip deployment unit", e);
+                throw new DeploymentUnitWriteException("Failed to create zip deployment unit", e);
+            }
+        }));
     }
 }

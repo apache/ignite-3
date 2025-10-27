@@ -162,7 +162,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         await(cancelHandle.cancelAsync());
 
         // Expect all transactions to be rolled back.
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     private void executeBatchAndCancel(Function<CancellationToken, long[]> execute) throws InterruptedException {
@@ -185,7 +185,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         await(cancelHandle.cancelAsync());
 
         // Expect all transactions to be rolled back.
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     @Override

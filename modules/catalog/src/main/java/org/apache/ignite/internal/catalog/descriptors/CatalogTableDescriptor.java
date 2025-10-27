@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -63,42 +64,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
 
     private final String storageProfile;
 
-    /**
-     * Constructor for new table.
-     *
-     * @param id Table ID.
-     * @param pkIndexId Primary key index ID.
-     * @param name Table name.
-     * @param zoneId Distribution zone ID.
-     * @param columns Table column descriptors.
-     * @param pkCols Primary key column names.
-     * @param storageProfile Storage profile.
-     */
-    public CatalogTableDescriptor(
-            int id,
-            int schemaId,
-            int pkIndexId,
-            String name,
-            int zoneId,
-            List<CatalogTableColumnDescriptor> columns,
-            List<String> pkCols,
-            @Nullable List<String> colocationCols,
-            String storageProfile
-    ) {
-        this(
-                id,
-                schemaId,
-                pkIndexId,
-                name,
-                zoneId,
-                columns,
-                pkCols,
-                colocationCols,
-                new CatalogTableSchemaVersions(new TableVersion(columns)),
-                storageProfile,
-                INITIAL_TIMESTAMP
-        );
-    }
+    private final CatalogTableProperties properties;
 
     /**
      * Internal constructor.
@@ -112,7 +78,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
      * @param storageProfile Storage profile.
      * @param timestamp Token of the update of the descriptor.
      */
-    CatalogTableDescriptor(
+    private CatalogTableDescriptor(
             int id,
             int schemaId,
             int pkIndexId,
@@ -123,15 +89,16 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
-            HybridTimestamp timestamp
+            HybridTimestamp timestamp,
+            CatalogTableProperties properties
     ) {
         super(id, Type.TABLE, name, timestamp);
 
         this.schemaId = schemaId;
         this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;
-        this.columns = Objects.requireNonNull(columns, "No columns defined.");
-        this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
+        this.columns = columns;
+        this.primaryKeyColumns = pkCols;
 
         Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
         for (int i = 0; i < columns.size(); i++) {
@@ -143,35 +110,33 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
+        this.properties = properties;
     }
 
     /**
-     * Creates new table descriptor, using existing one as a template.
+     * Creates a builder of copy of this table descriptor prepopulated with parameters of this descriptor.
+     *
+     * @return new Builder.
      */
-    public CatalogTableDescriptor newDescriptor(
-            String name,
-            int tableVersion,
-            List<CatalogTableColumnDescriptor> columns,
-            HybridTimestamp timestamp,
-            String storageProfile
-    ) {
-        CatalogTableSchemaVersions newSchemaVersions = tableVersion == schemaVersions.latestVersion()
-                ? schemaVersions
-                : schemaVersions.append(new TableVersion(columns), tableVersion);
+    public Builder copyBuilder() {
+        return new Builder()
+                .id(id())
+                .name(name())
+                .timestamp(updateTimestamp())
+                .zoneId(zoneId())
+                .schemaId(schemaId())
+                .primaryKeyIndexId(primaryKeyIndexId())
+                .schemaVersions(schemaVersions)
+                .columns(columns)
+                .primaryKeyColumns(primaryKeyColumns())
+                .colocationColumns(colocationColumns())
+                .storageProfile(storageProfile())
+                .staleRowsFraction(properties.staleRowsFraction())
+                .minStaleRowsCount(properties.minStaleRowsCount());
+    }
 
-        return new CatalogTableDescriptor(
-                id(),
-                schemaId,
-                pkIndexId,
-                name,
-                zoneId,
-                columns,
-                primaryKeyColumns,
-                colocationColumns,
-                newSchemaVersions,
-                storageProfile,
-                timestamp
-        );
+    public static Builder builder() {
+        return new Builder();
     }
 
     /**
@@ -203,9 +168,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     }
 
     /**
-     * Returns a version of this table descriptor.
+     * Returns the latest version of this table descriptor schema.
      */
-    public int tableVersion() {
+    public int latestSchemaVersion() {
         return schemaVersions.latestVersion();
     }
 
@@ -282,4 +247,247 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         return storageProfile;
     }
 
+    /** Returns holder for table-related properties. */
+    public CatalogTableProperties properties() {
+        return properties;
+    }
+
+    /**
+     * {@code CatalogTableDescriptor} builder static inner class.
+     */
+    public static final class Builder {
+        private int id;
+        private String name;
+        private int zoneId;
+        private int schemaId;
+        private int pkIndexId;
+        private CatalogTableSchemaVersions schemaVersions;
+        private List<CatalogTableColumnDescriptor> columns;
+        private List<String> primaryKeyColumns;
+        @Nullable private List<String> colocationColumns;
+        private String storageProfile;
+        private HybridTimestamp timestamp = INITIAL_TIMESTAMP;
+        private int latestSchemaVersion = 0;
+        private double staleRowsFraction;
+        private long minStaleRowsCount;
+
+        /**
+         * Sets the {@code id} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param id the {@code id} to set
+         * @return a reference to this Builder
+         */
+        public Builder id(int id) {
+            this.id = id;
+            return this;
+        }
+
+        /**
+         * Sets the {@code name} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param name the {@code name} to set
+         * @return a reference to this Builder
+         */
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        /**
+         * Sets the {@code timestamp} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param timestamp the {@code timestamp} to set
+         * @return a reference to this Builder
+         */
+        public Builder timestamp(HybridTimestamp timestamp) {
+            this.timestamp = timestamp;
+            return this;
+        }
+
+        /**
+         * Sets the {@code zoneId} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param zoneId the {@code zoneId} to set
+         * @return a reference to this Builder
+         */
+        public Builder zoneId(int zoneId) {
+            this.zoneId = zoneId;
+            return this;
+        }
+
+        /**
+         * Sets the {@code schemaId} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param schemaId the {@code schemaId} to set
+         * @return a reference to this Builder
+         */
+        public Builder schemaId(int schemaId) {
+            this.schemaId = schemaId;
+            return this;
+        }
+
+        /**
+         * Sets the {@code primaryKeyIndexId} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param primaryKeyIndexId the {@code primaryKeyIndexId} to set
+         * @return a reference to this Builder
+         */
+        public Builder primaryKeyIndexId(int primaryKeyIndexId) {
+            this.pkIndexId = primaryKeyIndexId;
+            return this;
+        }
+
+        /**
+         * Sets the {@code schemaVersions} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param schemaVersions the {@code schemaVersions} to set
+         * @return a reference to this Builder
+         */
+        public Builder schemaVersions(CatalogTableSchemaVersions schemaVersions) {
+            this.schemaVersions = schemaVersions;
+            return this;
+        }
+
+        /**
+         * Sets the {@code columns} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param columns the {@code columns} to set
+         * @return a reference to this Builder
+         */
+        public Builder columns(List<CatalogTableColumnDescriptor> columns) {
+            this.columns = columns;
+            return this;
+        }
+
+        /**
+         * Sets the {@code primaryKeyColumns} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param primaryKeyColumns the {@code primaryKeyColumns} to set
+         * @return a reference to this Builder
+         */
+        public Builder primaryKeyColumns(List<String> primaryKeyColumns) {
+            this.primaryKeyColumns = primaryKeyColumns;
+            return this;
+        }
+
+        /**
+         * Sets the {@code colocationColumns} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param colocationColumns the {@code colocationColumns} to set
+         * @return a reference to this Builder
+         */
+        public Builder colocationColumns(@Nullable List<String> colocationColumns) {
+            this.colocationColumns = colocationColumns;
+            return this;
+        }
+
+        /**
+         * Sets the {@code storageProfile} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param storageProfile the {@code storageProfile} to set
+         * @return a reference to this Builder
+         */
+        public Builder storageProfile(String storageProfile) {
+            this.storageProfile = storageProfile;
+            return this;
+        }
+
+        /**
+         * Sets the {@code latestSchemaVersion} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param latestSchemaVersion the {@code latestSchemaVersion} to set.
+         * @return a reference to this Builder.
+         */
+        public Builder latestSchemaVersion(int latestSchemaVersion) {
+            this.latestSchemaVersion = latestSchemaVersion;
+            return this;
+        }
+
+        /**
+         * Sets the {@code minStaleRowsCount} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param minStaleRowsCount The {@code minStaleRowsCount} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableProperties#minStaleRowsCount()
+         */
+        public Builder minStaleRowsCount(long minStaleRowsCount) {
+            this.minStaleRowsCount = minStaleRowsCount;
+            return this;
+        }
+
+        /**
+         * Sets the {@code staleRowsFraction} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param staleRowsFraction The {@code staleRowsFraction} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableProperties#staleRowsFraction()
+         */
+        public Builder staleRowsFraction(double staleRowsFraction) {
+            this.staleRowsFraction = staleRowsFraction;
+            return this;
+        }
+
+        /**
+         * Returns a {@code CatalogTableDescriptor} built from the parameters previously set.
+         *
+         * @return a {@code CatalogTableDescriptor} built with parameters of this {@code CatalogTableDescriptor.Builder}
+         */
+        public CatalogTableDescriptor build() {
+            Objects.requireNonNull(columns, "No columns defined.");
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("No columns defined.");
+            }
+
+            Objects.requireNonNull(primaryKeyColumns, "No primary key columns.");
+            if (primaryKeyColumns.isEmpty()) {
+                throw new IllegalArgumentException("No primary key columns.");
+            }
+
+            if (schemaVersions == null) {
+                // in case we are creating a new table from scratch, if schema version is not defined we make a default one
+                schemaVersions = new CatalogTableSchemaVersions(new TableVersion(columns));
+            }
+
+            if (latestSchemaVersion == 0) {
+                latestSchemaVersion = schemaVersions.latestVersion();
+            } else if (latestSchemaVersion < schemaVersions.latestVersion()) {
+                throw new IllegalArgumentException(format(
+                        "Latest schema version {} should not be less than a previous version {}.",
+                        latestSchemaVersion,
+                        schemaVersions.latestVersion()
+                ));
+            }
+
+            if (latestSchemaVersion == schemaVersions.latestVersion()) {
+                TableVersion latestTableVersion = Objects.requireNonNull(schemaVersions.get(schemaVersions.latestVersion()));
+                if (!Objects.equals(latestTableVersion.columns(), columns)) {
+                    throw new IllegalArgumentException(format(
+                            "Latest schema version columns do not match descriptor definition columns. "
+                                    + "Schema columns: {}, table columns: {}.",
+                            latestTableVersion.columns(),
+                            columns
+                    ));
+                }
+            }
+
+            CatalogTableSchemaVersions newSchemaVersions = latestSchemaVersion == schemaVersions.latestVersion()
+                    ? schemaVersions
+                    : schemaVersions.append(new TableVersion(columns), latestSchemaVersion);
+
+            return new CatalogTableDescriptor(
+                    id,
+                    schemaId,
+                    pkIndexId,
+                    name,
+                    zoneId,
+                    columns,
+                    primaryKeyColumns,
+                    colocationColumns,
+                    newSchemaVersions,
+                    storageProfile,
+                    timestamp,
+                    new CatalogTableProperties(staleRowsFraction, minStaleRowsCount)
+            );
+        }
+    }
 }

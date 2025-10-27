@@ -14,7 +14,7 @@
 // limitations under the License.
 = Working with Events
 
-Ignite can generate events for a variety of operations happening in the cluster and notify your application about those operations. There are many types of events, including cache events, node discovery events, distributed task execution events, and many more.
+Apache Ignite can generate events for a variety of operations happening in the cluster and notify your application about those operations. There are many types of events, including cache events, node discovery events, distributed task execution events, and many more.
 
 == Enabling Events
 
@@ -27,7 +27,7 @@ To create an event channel:
 cluster config update ignite.eventlog.channels.exampleChannel.events=["USER_AUTHENTICATION_SUCCESS"]
 ----
 
-This channel will track the `USER_AUTHENTICATION_SUCCESS`, but not trigger yet. For the events to trigger, a *sink* must be configured. It sends the event information to the configured logger category at the configured level. Currently, only the `log` sink type is supported, and it writes output to Ignite log. Here is how you can enable log sink by using the CLI tool:
+This channel will track the `USER_AUTHENTICATION_SUCCESS`, but not trigger yet. For the events to trigger, a *sink* must be configured. It sends the event information to the configured logger category at the configured level. Currently, only the `log` sink type is supported, and it writes output to Apache Ignite log. Here is how you can enable log sink by using the CLI tool:
 
 [source, shell]
 ----
@@ -37,12 +37,12 @@ cluster config update ignite.eventlog.sinks.exampleSink = {type="log", channel="
 Now, the authorization events will be written to the log. Here is how the event may look like:
 
 ----
-2024-06-04 16:19:29:840 +0300 [INFO][%defaultNode%sql-execution-pool-1][EventLog] {"type":"USER_AUTHORIZATION_SUCCESS","timestamp":1717507169840,"productVersion":"3.0.0","user":{"username":"ignite","authenticationProvider":"basic"},"fields":{"privileges":[{"action":"CREATE_TABLE","on":{"objectType":"TABLE","objectName":"TEST2","schema":"PUBLIC"}}],"roles":["system"]}}
+2024-06-04 16:19:29:840 +0300 [INFO][%defaultNode%sql-execution-pool-1][EventLog] {"type":"USER_AUTHORIZATION_SUCCESS","timestamp":1717507169840,"productVersion":"3.1.0","user":{"username":"ignite","authenticationProvider":"basic"},"fields":{"privileges":[{"action":"CREATE_TABLE","on":{"objectType":"TABLE","objectName":"TEST2","schema":"PUBLIC"}}],"roles":["system"]}}
 ----
 
 Below is the cluster configuration config in JSON.
 
-NOTE: In Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
+NOTE: In Apache Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
 
 [source, json]
 ----
@@ -69,7 +69,7 @@ NOTE: In Ignite 3, you can create and maintain the configuration in either JSON 
 
 == Sink Structure
 
-Data sink configuration in Ignite 3 has the following structure:
+Data sink configuration in Apache Ignite 3 has the following structure:
 
 [source, json]
 ----
@@ -109,7 +109,7 @@ Data sink configuration in Ignite 3 has the following structure:
 
 == Channel Structure
 
-Event channel configuration in Ignite 3 has the following structure:
+Event channel configuration in Apache Ignite 3 has the following structure:
 
 [source, json]
 ----
@@ -137,7 +137,7 @@ Event channel configuration in Ignite 3 has the following structure:
 
 == Event Structure
 
-All events in Ignite 3 follow the same basic structure described below. Some events provide additional context in the `data` field.
+All events in Apache Ignite 3 follow the same basic structure described below. Some events provide additional context in the `data` field.
 
 [source, json]
 ----
@@ -145,7 +145,7 @@ All events in Ignite 3 follow the same basic structure described below. Some eve
   "type": "AUTHENTICATION",
   "user": { "username": "John", "authenticationProvider": "basic" },
   "timestamp": 1715169617,
-  "productVersion": "3.0.0",
+  "productVersion": "3.1.0",
   "fields": {}
 }
 ----
@@ -165,7 +165,7 @@ All events in Ignite 3 follow the same basic structure described below. Some eve
 |Even time in UNIX epoch time.
 
 |productVersion
-|Ignite version used by the client.
+|Apache Ignite version used by the client.
 
 |fields
 |Event-specific data.
