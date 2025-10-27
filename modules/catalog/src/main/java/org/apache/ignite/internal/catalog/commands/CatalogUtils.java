@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNC
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.IntList;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -837,16 +838,16 @@ public class CatalogUtils {
      * @throws IllegalArgumentException if any column ID in the list does not exist in the table
      */
     public static List<String> resolveColumnNames(CatalogTableDescriptor table, IntList columnIds) {
-        return columnIds.intStream()
-                .mapToObj(id -> {
-                    CatalogTableColumnDescriptor column = table.columnById(id);
-                    if (column == null) {
-                        throw new IllegalArgumentException("Column with id=" + id + " not found in table " + table);
-                    }
+        List<String> names = new ArrayList<>(columnIds.size());
+        for (int columnId : columnIds) {
+            CatalogTableColumnDescriptor column = table.columnById(columnId);
+            if (column == null) {
+                throw new IllegalArgumentException("Column with id=" + columnId + " not found in table " + table);
+            }
 
-                    return column;
-                })
-                .map(CatalogTableColumnDescriptor::name)
-                .collect(toList());
+            names.add(column.name());
+        }
+
+        return names;
     }
 }

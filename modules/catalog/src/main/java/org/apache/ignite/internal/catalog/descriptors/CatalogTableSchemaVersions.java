@@ -93,7 +93,7 @@ public class CatalogTableSchemaVersions implements MarshallableEntry {
     }
 
     CatalogTableSchemaVersions(int base, int nextColumnId, TableVersion... versions) {
-        validateColumnIdsAreAssigned(versions);
+        validateColumnIdsAreAssigned(nextColumnId, versions);
 
         this.base = base;
         this.nextColumnId = nextColumnId;
@@ -191,7 +191,7 @@ public class CatalogTableSchemaVersions implements MarshallableEntry {
         return newVersions;
     }
 
-    private static void validateColumnIdsAreAssigned(TableVersion[] versions) {
+    private static void validateColumnIdsAreAssigned(int nextColumnId, TableVersion[] versions) {
         if (!IgniteUtils.assertionsEnabled()) {
             return;
         }
@@ -202,6 +202,7 @@ public class CatalogTableSchemaVersions implements MarshallableEntry {
             for (CatalogTableColumnDescriptor column : version.columns) {
                 assert column.id() != CatalogTableColumnDescriptor.ID_IS_NOT_ASSIGNED : "One or more column doesn't have an id assigned";
                 assert column.id() > lastSeenColumnId : "Column ids must be increasing: " + version.columns;
+                assert column.id() < nextColumnId : "Column ids of existing columns must be less than nextColumnId: " + version.columns;
 
                 lastSeenColumnId = column.id();
             }
