@@ -177,16 +177,9 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                             ActualSize prevSize = tableSizeMap.get(tableId);
                             // the table can be concurrently dropped and we shouldn't put new value in this case.
                             tableSizeMap.compute(tableId, (k, v) -> {
-                                if (v == null) {
-                                    return estimatedTableSize;
-                                }
-
-                                // check for stale update
-                                if (v.modificationCounter() > info.lastModificationCounter()) {
-                                    return v;
-                                }
-
-                                return estimatedTableSize;
+                                return v != null && v.modificationCounter() > info.lastModificationCounter()
+                                        ? v
+                                        : estimatedTableSize; // Save initial or replace stale state.
                             });
 
                             if (!estimatedTableSize.equals(prevSize)) {
