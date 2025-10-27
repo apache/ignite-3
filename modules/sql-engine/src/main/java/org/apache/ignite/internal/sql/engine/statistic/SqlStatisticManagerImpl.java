@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,10 +43,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.jetbrains.annotations.TestOnly;
 
@@ -201,7 +200,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                     return null;
                 });
 
-            latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
+        latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
     }
 
     @Override

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,11 +27,11 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsRequest;
 import org.apache.ignite.internal.replicator.message.PartitionModificationInfoMessage;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.jetbrains.annotations.Nullable;
-import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsRequest;
 
 /**
  * Factory for producing {@link PartitionModificationCounter}.

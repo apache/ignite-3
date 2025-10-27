@@ -50,9 +50,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -395,8 +395,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable))).thenReturn(
                 // stale result goes first
-                 CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize1, time1.longValue()))),
-                 CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize2, time2.longValue())))
+                CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize1, time1.longValue()))),
+                CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize2, time2.longValue())))
         );
 
         SqlStatisticManagerImpl sqlStatisticManager =
