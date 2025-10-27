@@ -126,16 +126,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 {7, null}
         });
 
-        System.err.println("!!! gatherStatistics");
-        gatherStatistics();
-
-        try {
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        System.err.println("!!! gatherStatistics2");
+        System.err.println("!!!! gatherStatistics");
         gatherStatistics();
     }
 

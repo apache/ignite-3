@@ -82,8 +82,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private final ScheduledExecutorService scheduler;
     private final StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> statSupplier;
 
-    static final long INITIAL_DELAY = 5_000;
-    static final long REFRESH_PERIOD = 2_000; // !!!!
+    static final long INITIAL_DELAY = 15_000;
+    static final long REFRESH_PERIOD = 15_000;
 
     /** Constructor. */
     public SqlStatisticManagerImpl(

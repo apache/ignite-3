@@ -24,13 +24,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -60,8 +58,8 @@ public class StatisticAggregatorImpl implements
     private final Supplier<HybridTimestamp> currentClock;
     private final MessagingService messagingService;
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-    private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(10);
-    private final ConcurrentMap<TablePartitionId, CompletableFuture<Object>> requestsCompletion = new ConcurrentHashMap<>();
+    private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
+    private final Map<TablePartitionId, CompletableFuture<Object>> requestsCompletion = new HashMap<>();
     private final AtomicBoolean inProgress = new AtomicBoolean();
 
     /** Constructor. */
@@ -92,20 +90,22 @@ public class StatisticAggregatorImpl implements
                     continue;
                 }
 
-                if (isCompletedSuccessfully(responseFut)) {
-                    PartitionModificationInfo res = (PartitionModificationInfo) responseFut.join();
-                    if (modificationCounter > res.lastModificationCounter()) {
-                        requestsCompletion.get(id).complete(completedFuture(new PartitionModificationInfo(estSize, modificationCounter)));
+                synchronized (responseFut) {
+                    if (isCompletedSuccessfully(responseFut)) {
+                        PartitionModificationInfo res = (PartitionModificationInfo) responseFut.join();
+                        if (modificationCounter > res.lastModificationCounter()) {
+                            responseFut.complete(completedFuture(new PartitionModificationInfo(estSize, modificationCounter)));
+                        }
+                    } else {
+                        responseFut.complete(new PartitionModificationInfo(estSize, modificationCounter));
                     }
-                } else {
-                    requestsCompletion.get(id).complete(new PartitionModificationInfo(estSize, modificationCounter));
                 }
             }
         }
     }
 
     /**
-     * Returns the map<<em>last modification timestamp</em>, <em>estimated size</em>> for input tables.
+     * Returns future with map<<em>last modification timestamp</em>, <em>estimated size</em>> for input tables.
      */
     @Override
     public CompletableFuture<Map<Integer, PartitionModificationInfo>> estimatedSizeWithLastUpdate(Collection<InternalTable> tables) {
@@ -118,14 +118,14 @@ public class StatisticAggregatorImpl implements
         GetEstimatedSizeWithLastModifiedTsRequest request =
                 REPLICA_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest().tables(tablesId).build();
 
-        List<CompletableFuture<Void>> reqFutures = new ArrayList<>();
-
         for (InternalTable t : tables) {
             for (int p = 0; p < t.partitions(); ++p) {
                 requestsCompletion.put(new TablePartitionId(t.tableId(), p),
                         new CompletableFuture<>().orTimeout(REQUEST_ESTIMATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
             }
         }
+
+        List<CompletableFuture<Void>> reqFutures = new ArrayList<>();
 
         for (LogicalNode node : clusterNodes.get()) {
             CompletableFuture<Void> reqFut = messagingService.send(node, request);
@@ -135,40 +135,54 @@ public class StatisticAggregatorImpl implements
 
         CompletableFuture<CompletableFuture<Void>>[] requests = reqFutures.toArray(CompletableFuture[]::new);
 
-        CompletableFuture<CompletableFuture<Object>>[] responses = requestsCompletion.values().toArray(CompletableFuture[]::new);
+        CompletableFuture<Void> allRequests = allOf(requests);
 
-        return allOf(requests)
-                .thenCompose(r -> allOf(responses))
-                .thenApply(unused -> {
-                    Map<Integer, PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
+        Map<Integer, PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
 
-                    for (Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
-                        TablePartitionId partitionPerTableId = ent.getKey();
-                        CompletableFuture<Object> val = ent.getValue();
+        for (InternalTable t : tables) {
+            Map <TablePartitionId, CompletableFuture<Object>> tableResponses = new HashMap<>();
+            for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
+                if (ent.getKey().tableId() == t.tableId()) {
+                    tableResponses.put(ent.getKey(), ent.getValue());
+                }
+            }
 
-                        if (isCompletedSuccessfully(val)) {
-                            PartitionModificationInfo info = (PartitionModificationInfo) val.join();
-                            long estSize = info.getEstimatedSize();
-                            long modificationCounter = info.lastModificationCounter();
-
-                            summary.compute(partitionPerTableId.tableId(), (k, v) -> v == null
-                                    ? new PartitionModificationInfo(estSize, modificationCounter)
-                                    : new PartitionModificationInfo(v.getEstimatedSize() + estSize,
-                                            Math.max(v.lastModificationCounter(), modificationCounter)));
-                        } else {
-                            LOG.debug("Can`t update statistics for table partition [id={}].", partitionPerTableId);
+            allRequests = allRequests
+                    .thenCompose(r -> allOf(tableResponses.values().toArray(CompletableFuture[]::new)))
+                    .handle((ret, ex) -> {
+                        if (ex != null) {
+                            LOG.debug("Can`t update statistics for table [id={}].", ex, t.tableId());
                         }
-                    }
 
-                    return summary;
-                })
-                .whenComplete((res, ex) -> {
-                    System.err.println("!!complete " + ex);
-                    for (Entry<TablePartitionId, CompletableFuture<Object>> ent : requestsCompletion.entrySet()) {
-                        System.err.println("resp !!!: " + ent.getKey() + " " + ent.getValue());
-                    }
-                    inProgress.set(false);
-                    requestsCompletion.clear();
-                }).exceptionally(th -> Map.of());
+                        for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
+                            if (isCompletedSuccessfully(ent.getValue())) {
+                                PartitionModificationInfo info = (PartitionModificationInfo) ent.getValue().join();
+                                long estSize = info.getEstimatedSize();
+                                long modificationCounter = info.lastModificationCounter();
+
+                                summary.compute(ent.getKey().tableId(), (k, v) -> v == null
+                                        ? new PartitionModificationInfo(estSize, modificationCounter)
+                                        : new PartitionModificationInfo(v.getEstimatedSize() + estSize,
+                                                Math.max(v.lastModificationCounter(), modificationCounter)));
+                            } else {
+                                LOG.debug("Can`t update statistics for table partition [id={}].", ent.getKey());
+                            }
+                        }
+
+                        return null;
+                    });
+        }
+
+        return allRequests.handle((ret, ex) -> {
+            if (ex != null) {
+                LOG.debug("Exception during tables size estimation.", ex);
+                return Map.of();
+            }
+
+            inProgress.set(false);
+            requestsCompletion.clear();
+
+            return summary;
+        });
     }
 }
