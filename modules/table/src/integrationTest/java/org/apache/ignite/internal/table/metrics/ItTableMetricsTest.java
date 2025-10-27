@@ -27,7 +27,10 @@ import static org.apache.ignite.internal.table.metrics.TableMetricSource.WRITES;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.table.QualifiedName.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -71,8 +74,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     private static final String SORTED_IDX = "SORTED_IDX";
     private static final String HASH_IDX = "HASH_IDX";
 
-    private static final String METRIC_SOURCE_NAME = TableMetricSource.SOURCE_NAME + '.'
-            + QualifiedName.fromSimple(TABLE_NAME).toCanonicalForm();
+    private static final String METRIC_SOURCE_NAME = TableMetricSource.sourceName(QualifiedName.fromSimple(TABLE_NAME));
 
     @Override
     protected int initialNodes() {
@@ -526,8 +528,16 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         CatalogManager catalogManager = ignite.catalogManager();
 
         String initialName = "TABLE1";
-        String renamedName = "TABLE1_TMP";
+        QualifiedName initialTableName = QualifiedName.fromSimple(initialName);
+        String initialTableMetricSourceName = TableMetricSource.sourceName(initialTableName);
+        String initialEngineMetricSourceName = StorageEngineTablesMetricSource.sourceName("aipersist", initialTableName);
 
+        String renamedName = "TABLE1_TMP";
+        QualifiedName renamedTableName = QualifiedName.fromSimple(renamedName);
+        String renamedTableMetricSourceName = TableMetricSource.sourceName(renamedTableName);
+        String renamedEngineMetricSourceName = StorageEngineTablesMetricSource.sourceName("aipersist", renamedTableName);
+
+        // When table is created
         CatalogCommand createTableCommand = CreateTableCommand.builder()
                 .tableName(initialName)
                 .schemaName(DEFAULT_SCHEMA_NAME)
@@ -536,24 +546,38 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
                 .primaryKey(TableHashPrimaryKey.builder().columns(List.of("id")).build())
                 .build();
 
+        assertThat(catalogManager.execute(createTableCommand), willCompleteSuccessfully());
+
+        // And record is inserted
+        ignite.tables().table(initialName).recordView().insert(null, Tuple.create().set("\"id\"", 1));
+
+        // Then a single write is in "Writes" metrics
+        assertThat(metricValues(List.of(WRITES), initialTableMetricSourceName), allOf(aMapWithSize(1), hasEntry(WRITES, 1L)));
+
+        // When table is renamed
         CatalogCommand renameCmd = RenameTableCommand.builder()
                 .tableName(initialName)
                 .newTableName(renamedName)
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .build();
 
-        assertThat(catalogManager.execute(createTableCommand), willCompleteSuccessfully());
         assertThat(catalogManager.execute(renameCmd), willCompleteSuccessfully());
 
-        String initialTableMetricSourceName = TableMetricSource.sourceName(QualifiedName.fromSimple(initialName));
-        String renamedTableMetricSourceName = TableMetricSource.sourceName(QualifiedName.fromSimple(renamedName));
-        String initialEngineMetricSourceName = StorageEngineTablesMetricSource.sourceName("aipersist", QualifiedName.fromSimple(initialName));
-        String renamedEngineMetricSourceName = StorageEngineTablesMetricSource.sourceName("aipersist", QualifiedName.fromSimple(renamedName));
+        // And another record is inserted
+        ignite.tables().table(renamedName).recordView().insert(null, Tuple.create().set("\"id\"", 2));
 
+        // Then there's no metrics for the initial table
+        assertThat(metricValues(List.of(WRITES), initialTableMetricSourceName), anEmptyMap());
+
+        // And there's two writes for the renamed table
+        assertThat(metricValues(List.of(WRITES), renamedTableMetricSourceName), allOf(aMapWithSize(1), hasEntry(WRITES, 2L)));
+
+        // When getting all metric sources
         Set<String> metricSources = ignite.metricManager().metricSources().stream()
                 .map(MetricSource::name)
                 .collect(toSet());
 
+        // Then there are sources for renamed table and none for the initial table
         assertThat(metricSources, allOf(
                 hasItem(renamedTableMetricSourceName),
                 hasItem(renamedEngineMetricSourceName),
@@ -561,6 +585,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
                 not(hasItem(initialEngineMetricSourceName))
         ));
 
+        // Drop the table to clean up
         CatalogCommand dropTableCommand = DropTableCommand.builder()
                 .tableName(renamedName)
                 .schemaName(DEFAULT_SCHEMA_NAME)
@@ -635,11 +660,11 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     ) {
         assertThat(metricNames.size(), is(expectedValues.size()));
 
-        Map<String, Long> initialValues = metricValues(metricNames);
+        Map<String, Long> initialValues = metricValues(metricNames, METRIC_SOURCE_NAME);
 
         op.run();
 
-        Map<String, Long> actualValues = metricValues(metricNames);
+        Map<String, Long> actualValues = metricValues(metricNames, METRIC_SOURCE_NAME);
 
         for (int i = 0; i < metricNames.size(); ++i) {
             String metricName = metricNames.get(i);
@@ -661,9 +686,10 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
      * Returns the sum of the specified metrics on all nodes.
      *
      * @param metricNames Metric names.
+     * @param metricSourceName Metric source name.
      * @return Map of metric names to their values.
      */
-    private Map<String, Long> metricValues(List<String> metricNames) {
+    private Map<String, Long> metricValues(List<String> metricNames, String metricSourceName) {
         Map<String, Long> values = new HashMap<>(metricNames.size());
 
         for (int i = 0; i < initialNodes(); ++i) {
@@ -671,7 +697,11 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
                     .metricManager()
                     .metricSnapshot()
                     .metrics()
-                    .get(METRIC_SOURCE_NAME);
+                    .get(metricSourceName);
+
+            if (tableMetrics == null) {
+                return Map.of();
+            }
 
             metricNames.forEach(metricName ->
                     values.compute(metricName, (k, v) -> {

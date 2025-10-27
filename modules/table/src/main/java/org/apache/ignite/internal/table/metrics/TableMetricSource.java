@@ -23,6 +23,7 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.table.metrics.TableMetricSource.Holder;
 import org.apache.ignite.table.QualifiedName;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Set of metrics related to a specific table.
@@ -129,6 +130,16 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
     }
 
     /**
+     * Creates a new instance of {@link TableMetricSource}.
+     *
+     * @param tableName Qualified table name.
+     */
+    public TableMetricSource(QualifiedName tableName, @Nullable TableMetricSource source) {
+        super(sourceName(tableName), "Table metrics.", "tables", Holder.copyFrom(source));
+        this.tableName = tableName;
+    }
+
+    /**
      * Returns a metric source name for the given table name.
      *
      * @param tableName Qualified table name.
@@ -223,6 +234,13 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
                 "The total number of writes executed within read-write transactions.");
 
         private final List<Metric> metrics = List.of(roReads, rwReads, writes);
+
+        public static @Nullable Holder copyFrom(TableMetricSource source) {
+            if (source == null) {
+                return null;
+            }
+            return source.holder();
+        }
 
         @Override
         public Iterable<Metric> metrics() {
