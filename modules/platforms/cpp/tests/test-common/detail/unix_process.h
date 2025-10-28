@@ -46,7 +46,6 @@ public:
      * @param command Command.
      * @param args Arguments.
      * @param workDir Working directory.
-     * @param env Environment variables.
      */
     UnixProcess(std::string command, std::vector<std::string> args, std::string workDir)
         : m_running(false)

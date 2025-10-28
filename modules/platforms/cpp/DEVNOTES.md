@@ -191,6 +191,6 @@ class in IDEA with a debugger or profiler, then run C++ tests as usual, optional
 ### Running compatibility Tests
 
 To enable compatibility test pass `-DENABLE_COMPATIBILITY_TESTS=ON` to cmake build.
-If you are debugging then it is recommended to run one version at once by providing environment variable e.g `IGNITE_CPP_TESTS_COMPATIBILITY_VERSIONS_OVERRIDE=9.1.1`
+If you are debugging then it is recommended to run one version at once by providing environment variable e.g `IGNITE_CPP_TESTS_COMPATIBILITY_VERSIONS_OVERRIDE=3.0.0`
 To start tests run in modules/platforms/cpp/tests/compatibility-tests
 `./cmake-build-debug/bin/ignite-client-compatibility-test`
