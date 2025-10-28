@@ -51,6 +51,7 @@ import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.ReadEntry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.WriteEntryImpl;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -175,7 +176,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     void setUp() {
         storage = spy(new TestConfigurationStorage(TEST_CONFIGURATION_TYPE));
 
-        when(storage.write(lastWriteCapture.capture(), anyLong())).thenAnswer(InvocationOnMock::callRealMethod);
+        when(storage.write(new WriteEntryImpl(lastWriteCapture.capture(), anyLong()))).thenAnswer(InvocationOnMock::callRealMethod);
     }
 
     @AfterEach

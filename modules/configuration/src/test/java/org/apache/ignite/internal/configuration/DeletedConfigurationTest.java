@@ -46,6 +46,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.WriteEntryImpl;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -112,7 +113,7 @@ class DeletedConfigurationTest extends BaseIgniteAbstractTest {
 
         changer = createChanger(DeletedTestConfiguration.KEY);
 
-        CompletableFuture<Boolean> write = storage.write(fullConfig, 0);
+        CompletableFuture<Boolean> write = storage.write(new WriteEntryImpl(fullConfig, 0));
         assertThat(write, willCompleteSuccessfully());
 
         assertDoesNotThrow(changer::start);
