@@ -50,6 +50,14 @@ std::string resolve_ignite_home(const std::string &path = "");
 std::filesystem::path resolve_test_dir();
 
 /**
+ * Generates a path in the temporary directory.
+ * @param subDir Optional subdirectory.
+ * @param prefix Optional prefix.
+ * @return Filesystem path to the generated temporary directory.
+ */
+std::filesystem::path resolve_temp_dir(std::string_view subDir = "", std::string_view prefix = "");
+
+/**
  * Check async operation result and propagate error to the promise if there is
  * any.
  *

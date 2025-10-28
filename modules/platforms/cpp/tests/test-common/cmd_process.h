@@ -40,9 +40,10 @@ public:
      * @param command Command.
      * @param args Arguments.
      * @param workDir Working directory.
+     * @param env Environment variables.
      * @return CmdProcess.
      */
-    static std::unique_ptr<CmdProcess> make(std::string command, std::vector<std::string> args, std::string workDir);
+    static std::unique_ptr<CmdProcess> make(std::string command, std::vector<std::string> args, std::string workDir, std::vector<std::string> env = {});
 
     /**
      * Start process.
