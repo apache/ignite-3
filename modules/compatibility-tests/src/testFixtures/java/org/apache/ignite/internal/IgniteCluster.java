@@ -30,11 +30,14 @@ import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatc
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -47,6 +50,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -61,7 +65,9 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -94,6 +100,7 @@ public class IgniteCluster {
     private volatile boolean stopped = false;
 
     private final ClusterConfiguration clusterConfiguration;
+    private @Nullable IgniteClientAuthenticator authenticator;
 
     IgniteCluster(ClusterConfiguration clusterConfiguration) {
         this.clusterConfiguration = clusterConfiguration;
@@ -236,36 +243,29 @@ public class IgniteCluster {
      * Initializes the cluster using REST API on the first node with default settings.
      */
     public void init(Consumer<InitParametersBuilder> initParametersConfigurator) {
-        init(new int[] { 0 }, initParametersConfigurator);
+        int[] cmgNodes = { 0 };
+        InitParameters initParameters = initParameters(cmgNodes, initParametersConfigurator);
+
+        authenticator = authenticator(initParameters);
+
+        init(initParameters);
     }
 
     /**
      * Initializes the cluster using REST API on the first node with specified Metastorage and CMG nodes.
-     *
-     * @param cmgNodes Indices of the CMG nodes (also used as Metastorage group).
      */
-    void init(int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
+    private void init(InitParameters initParameters) {
         // Wait for the node to start accepting requests
         await()
                 .ignoreExceptions()
                 .timeout(30, TimeUnit.SECONDS)
                 .until(
                         () -> send(get("/management/v1/node/state")).body(),
-                        hasJsonPath("$.state", is(equalTo("STARTING")))
+                        hasJsonPath("$.state", anyOf(equalTo("STARTING"), equalTo("STARTED")))
                 );
 
         // Initialize the cluster
-        List<String> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
-                .mapToObj(this::nodeName)
-                .collect(toList());
-
-        InitParametersBuilder builder = InitParameters.builder()
-                .metaStorageNodeNames(metaStorageAndCmgNodes)
-                .clusterName(clusterConfiguration.clusterName());
-
-        initParametersConfigurator.accept(builder);
-
-        sendInitRequest(builder.build());
+        sendInitRequest(initParameters);
 
         // Wait for the cluster to be initialized
         await()
@@ -278,6 +278,20 @@ public class IgniteCluster {
 
         started = true;
         stopped = false;
+    }
+
+    private InitParameters initParameters(int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        List<String> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+                .mapToObj(this::nodeName)
+                .collect(toList());
+
+        InitParametersBuilder builder = InitParameters.builder()
+                .metaStorageNodeNames(metaStorageAndCmgNodes)
+                .clusterName(clusterConfiguration.clusterName());
+
+        initParametersConfigurator.accept(builder);
+
+        return builder.build();
     }
 
     private void sendInitRequest(InitParameters initParameters) {
@@ -304,7 +318,17 @@ public class IgniteCluster {
      * @return Ignite client instance.
      */
     public IgniteClient createClient() {
-        return IgniteClient.builder().addresses("localhost:" + clusterConfiguration.baseClientPort()).build();
+        return createClient(authenticator);
+    }
+
+    private IgniteClient createClient(@Nullable IgniteClientAuthenticator authenticator) {
+        IgniteClient.Builder builder = IgniteClient.builder().addresses("localhost:" + clusterConfiguration.baseClientPort());
+
+        if (authenticator != null) {
+            builder.authenticator(authenticator);
+        }
+
+        return builder.build();
     }
 
     /**
@@ -413,8 +437,26 @@ public class IgniteCluster {
         return newBuilder(path).build();
     }
 
+    private HttpRequest get(String path, int nodeIndex) {
+        return newBuilder(path, nodeIndex).build();
+    }
+
+    private Builder newBuilder(String path, int nodeIndex) {
+        Builder builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port(nodeIndex) + path));
+
+        if (authenticator instanceof BasicAuthenticator) {
+            builder.header("Authorization", basicAuthenticationHeader((BasicAuthenticator) authenticator));
+        }
+
+        return builder;
+    }
+
     private Builder newBuilder(String path) {
-        return HttpRequest.newBuilder(URI.create("http://localhost:" + clusterConfiguration.baseHttpPort() + path));
+        return newBuilder(path, 0);
+    }
+
+    private int port(int nodeIndex) {
+        return clusterConfiguration.baseHttpPort() + nodeIndex;
     }
 
     private HttpResponse<String> send(HttpRequest request) {
@@ -494,5 +536,42 @@ public class IgniteCluster {
                 .collect(joining(","));
 
         return constructArgFile(connection, dependenciesListNotation, false);
+    }
+
+    private static String basicAuthenticationHeader(BasicAuthenticator authenticator) {
+        String valueToEncode = authenticator.identity() + ":" + authenticator.secret();
+        return "Basic " + Base64.getEncoder().encodeToString(valueToEncode.getBytes());
+    }
+
+    /**
+     * Parses the cluster configuration and returns {@link BasicAuthenticator} if there is a user with "system" role.
+     *
+     * @see ClusterSecurityConfigurationBuilder
+     */
+    private static @Nullable IgniteClientAuthenticator authenticator(InitParameters initParameters) {
+        if (initParameters.clusterConfiguration() == null) {
+            return null;
+        }
+
+        Config cfg = ConfigFactory.parseString(initParameters.clusterConfiguration());
+
+        if (!cfg.hasPath("ignite.security.enabled")
+                || !cfg.getBoolean("ignite.security.enabled")
+                || !cfg.hasPath("ignite.security.authentication.providers")) {
+            return null;
+        }
+
+        return cfg.getConfigList("ignite.security.authentication.providers")
+                .stream()
+                .filter(provider -> "basic".equalsIgnoreCase(provider.getString("type")))
+                .flatMap(provider -> provider.getConfigList("users").stream())
+                .filter(user -> user.getStringList("roles").contains("system"))
+                .findAny()
+                .map(user -> BasicAuthenticator.builder()
+                        .username(user.getString("username"))
+                        .password(user.getString("password"))
+                        .build()
+                )
+                .orElseThrow();
     }
 }

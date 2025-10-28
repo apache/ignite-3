@@ -26,9 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +49,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientMetricSource;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -52,6 +57,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -59,6 +65,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
@@ -143,10 +150,27 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testHandshakesFailedTimeout() throws InterruptedException {
-        AtomicInteger counter = new AtomicInteger();
+    public void testHandshakesFailedTimeout() {
+        // Record handshake timeout logs.
+        // These logs are sent after the timeout is detected by the timeout task and after the metric manager is updated.
+        // Therefore it's safe to way for them.
+        // Checkout: org.apache.ignite.internal.client.TcpClientChannel.handshakeAsync
+        CountDownLatch latch = new CountDownLatch(1);
+        HandshakeTimeoutLoggerListener handshakeTimeoutListener = new HandshakeTimeoutLoggerListener(latch);
+
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
-        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() < 3 ? 600 : 0;
+        // Blocks until a timeout was observed.
+        Function<Integer, Integer> responseDelay = idx -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for handshake timeout latch", e);
+            }
+
+            return 0;
+        };
+
         server = new TestServer(
                 1000,
                 new FakeIgnite(),
@@ -157,13 +181,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 null,
                 null
         );
+
         client = clientBuilder()
                 .connectTimeout(100)
+                .loggerFactory(handshakeTimeoutListener)
                 .build();
 
-        assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 200, 6_000),
-                () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
+        long numObservedTimeouts = handshakeTimeoutListener.count();
+        assertThat("handshakesFailedTimeout", metrics().handshakesFailedTimeout(), greaterThanOrEqualTo(numObservedTimeouts));
     }
 
     @SuppressWarnings("resource")
@@ -406,5 +431,53 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
     private ClientMetricSource metrics() {
         return ((TcpIgniteClient) client).metrics();
+    }
+
+    /** This logger factory intercepts and counts Handshake Timeout messages. Can be generalised in the future for other messages. */
+    private static class HandshakeTimeoutLoggerListener implements LoggerFactory {
+        private final CountDownLatch latch;
+
+        private final AtomicInteger counter;
+
+        HandshakeTimeoutLoggerListener(CountDownLatch latch) {
+            this.latch = latch;
+            this.counter = new AtomicInteger(0);
+        }
+
+        @Override
+        public Logger forName(String name) {
+            Logger base = System.getLogger(name);
+            if (ReliableChannel.class.getName().equals(name)) {
+                Logger tracker = Mockito.mock(
+                        base.getClass(),
+                        Mockito.withSettings()
+                                .spiedInstance(base)
+                                .defaultAnswer(Mockito.CALLS_REAL_METHODS)
+                                .stubOnly()
+                );
+
+                Mockito.doAnswer(inv -> {
+                    Throwable err = inv.getArgument(2);
+                    if (err instanceof CompletionException && err.getCause() instanceof IgniteClientConnectionException) {
+                        IgniteClientConnectionException ex = (IgniteClientConnectionException) err.getCause();
+                        if (ex.getMessage().startsWith("Handshake timeout")) {
+                            // Updates the timeout counter and releases the responses so that we can connect to the server.
+                            counter.getAndIncrement();
+                            latch.countDown();
+                        }
+                    }
+
+                    return inv.callRealMethod();
+                }).when(tracker).log(Mockito.eq(Level.WARNING), Mockito.anyString(), Mockito.any(Throwable.class));
+
+                return tracker;
+            } else {
+                return base;
+            }
+        }
+
+        int count() {
+            return this.counter.get();
+        }
     }
 }
