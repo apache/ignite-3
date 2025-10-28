@@ -38,7 +38,7 @@ protected:
 
 
 TEST_F(basic_test_ign_version, connection_should_be_successful) {
-    auto tabs = m_client.get_tables().get_tables();
+    auto cluster_nodes = m_client.get_cluster_nodes();
 
-    std::cout << tabs.size() << "\n";
+    ASSERT_GE(cluster_nodes.size(), 1);
 }
