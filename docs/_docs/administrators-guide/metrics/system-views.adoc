@@ -100,7 +100,7 @@ A node system view that lists the currently active locks.
 | MODE | STRING a| The link:https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=211885498#IEP91:Transactionprotocol-Lockingmodel[lock mode]. Possible values are: 
 
 * IS - intention shared lock
-* S- shared lock
+* S - shared lock
 * IX - intention exclusive lock
 * SIX - shared intention exclusive lock
 * X - exclusive lock

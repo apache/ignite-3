@@ -719,7 +719,14 @@ public class RexUtils {
                 }
             }
 
-            bounds.add(createBounds(fc, calls, cluster, fldType, complexity, allowRange));
+            SearchBounds searchBounds = createBounds(fc, calls, cluster, fldType, complexity, allowRange);
+
+            if (searchBounds == null) {
+                // The bounds do not completely cover the search predicate.
+                return null;
+            }
+
+            bounds.add(searchBounds);
         }
 
         return bounds;

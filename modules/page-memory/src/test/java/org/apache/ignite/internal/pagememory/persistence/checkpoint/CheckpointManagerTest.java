@@ -94,6 +94,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
                 executorService,
+                new CheckpointMetricSource("test"),
                 1024
         );
 
@@ -251,6 +252,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
                 executorService,
+                new CheckpointMetricSource("test"),
                 1024
         ));
 

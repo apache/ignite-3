@@ -116,6 +116,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-transactions'))
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-cluster-management'))
 
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
@@ -138,8 +139,6 @@ dependencies {
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-sql-engine-api')
     integrationTestImplementation project(':ignite-eventlog')
-    integrationTestImplementation project(':ignite-placement-driver-api') // TODO: IGNITE-25283 - remove.
-    integrationTestImplementation project(':ignite-partition-distribution') // TODO: IGNITE-25283 - remove.
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))

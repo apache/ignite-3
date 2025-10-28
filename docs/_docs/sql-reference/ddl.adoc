@@ -14,7 +14,7 @@
 // limitations under the License.
 = Data Definition Language (DDL)
 
-This section walks you through all data definition language (DDL) commands supported by Ignite 3.0.
+This section walks you through all data definition language (DDL) commands supported by Apache Ignite 3.
 
 == CREATE TABLE
 
@@ -68,7 +68,7 @@ Keywords and parameters:
 
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
 * `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key.
-* `ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. Can be specified as a case-sensitive string or case-insensitive identifier. Does not need to exists at the moment of table creation, and can be created before writing data.
+* `ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. Can be specified as a case-sensitive string or case-insensitive identifier. Does not need to exist at the moment of table creation, and can be created before writing data.
 * `STORAGE PROFILE` - sets the link:administrators-guide/config/node-config#storage-configuration[storage profile] that will be used to store the table. Must be specified as a case-sensitive string.
 
 Examples:
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS Person (
 ----
 
 
-Creates a Person table where the default value if the `city_id` column is 1:
+Creates a Person table where the default value of the `city_id` column is 1:
 
 [source,sql]
 ----
@@ -185,7 +185,7 @@ ALTER TABLE Person ADD COLUMN (code varchar, gdp double);
 Removes column(s) from an existing table. Once a column is removed, it cannot be accessed within queries. This command has the following limitations:
 
 - If the column was indexed, the index has to be dropped manually in advance by using the 'DROP INDEX' command.
-- It is not possible to remove a column if it represents the whole value stored in the cluster. The limitation is relevant for primitive values.
+- It is not possible to remove a column if it represents the entire value stored in the cluster. The limitation is relevant for primitive values.
 
 [.diagram-container]
 Diagram(
@@ -390,7 +390,7 @@ NonTerminal('literal_value')
 
 Keywords and parameters:
 
-* `IF NOT EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
 
 === ALTER TABLE IF EXISTS table ALTER COLUMN column DROP DEFAULT
 

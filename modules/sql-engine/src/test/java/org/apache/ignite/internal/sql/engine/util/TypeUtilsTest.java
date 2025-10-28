@@ -56,8 +56,6 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.RowType;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -329,27 +327,6 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         return supportedTypes().map(t -> expectCompatible(t, nullType));
     }
 
-    /** Type compatibility rules for custom data types. */
-    @TestFactory
-    public Stream<DynamicTest> testCustomDataTypeCompatibility() {
-        IgniteCustomType type1 = new TestCustomType("type1");
-        IgniteCustomType type2 = new TestCustomType("type2");
-        RelDataType someType = TYPE_FACTORY.createSqlType(SqlTypeName.ANY);
-
-        return Stream.of(
-                // types with same custom type name are compatible.
-                expectCompatible(type1, new TestCustomType(type1.getCustomTypeName())),
-
-                // different custom types are never compatible.
-                expectIncompatible(type1, type2),
-                expectIncompatible(type2, type1),
-
-                // custom types are not compatible with other data types.
-                expectIncompatible(someType, type1),
-                expectIncompatible(type1, someType)
-        );
-    }
-
     private static Stream<RelDataType> supportedTypes() {
         List<SqlTypeName> types = new ArrayList<>();
 
@@ -365,10 +342,6 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         types.forEach(typeName -> {
             relDataTypes.add(TYPE_FACTORY.createSqlType(typeName));
         });
-
-        for (String typeName : TYPE_FACTORY.getCustomTypeSpecs().keySet()) {
-            relDataTypes.add(TYPE_FACTORY.createCustomType(typeName));
-        }
 
         return relDataTypes.stream();
     }
@@ -602,30 +575,6 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                 upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 2)),
                 is(new BigDecimal("9.99"))
         );
-    }
-
-    private static final class TestCustomType extends IgniteCustomType {
-
-        private TestCustomType(String typeName) {
-            super(new IgniteCustomTypeSpec(typeName,
-                    NativeTypes.INT8, ColumnType.INT8, Byte.class,
-                    IgniteCustomTypeSpec.getCastFunction(TestCustomType.class, "cast")), false, -1);
-        }
-
-        @Override
-        protected void generateTypeString(StringBuilder sb, boolean withDetail) {
-            sb.append(getCustomTypeName());
-        }
-
-        @Override
-        public IgniteCustomType createWithNullability(boolean nullable) {
-            throw new AssertionError();
-        }
-
-        @SuppressWarnings("unused")
-        public static byte cast(Object ignore) {
-            throw new AssertionError();
-        }
     }
 
     static class RelToExecTestCase {

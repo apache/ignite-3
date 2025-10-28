@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -382,7 +383,10 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES);
 
-        assertThat(service.snapshot(new Peer("localhost-8082"), false), willThrow(TimeoutException.class, "Send with retry timed out"));
+        assertThat(
+                service.snapshot(new Peer("localhost-8082"), false),
+                willTimeoutFast()
+        );
     }
 
     @Test

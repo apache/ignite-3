@@ -20,44 +20,29 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
-import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite's {@link LogStorage} implementation.
  *
  * <p>Every storage instance is associated with a single Raft group, but multiple storage instances can share the same
  * {@link SegmentFileManager} instance meaning that they can share the same segment files.
- *
- * <p>Every appended entry is converted into its serialized form (a.k.a. "payload"), defined by a {@link LogEntryEncoder},
- * and stored in a segment file.
- *
- * <p>Binary representation of each entry is as follows:
- * <pre>
- * +---------------+---------+--------------------------+---------+----------------+
- * | Raft Group ID (8 bytes) | Payload Length (4 bytes) | Payload | Hash (4 bytes) |
- * +---------------+---------+--------------------------+---------+----------------+
- * </pre>
  */
 class SegstoreLogStorage implements LogStorage {
-    static final int GROUP_ID_SIZE_BYTES = Long.BYTES;
-
-    static final int LENGTH_SIZE_BYTES = Integer.BYTES;
-
-    static final int HASH_SIZE = Integer.BYTES;
-
     private final long groupId;
 
     private final SegmentFileManager segmentFileManager;
 
     private volatile LogEntryEncoder logEntryEncoder;
+
+    private volatile LogEntryDecoder logEntryDecoder;
 
     SegstoreLogStorage(long groupId, SegmentFileManager segmentFileManager) {
         if (groupId <= 0) {
@@ -71,47 +56,20 @@ class SegstoreLogStorage implements LogStorage {
     @Override
     public boolean init(LogStorageOptions opts) {
         logEntryEncoder = opts.getLogEntryCodecFactory().encoder();
+        logEntryDecoder = opts.getLogEntryCodecFactory().decoder();
 
         return true;
     }
 
     @Override
     public boolean appendEntry(LogEntry entry) {
-        // TODO: optimize, see https://issues.apache.org/jira/browse/IGNITE-26419
-        byte[] bytes = logEntryEncoder.encode(entry);
-
-        try (WriteBuffer writeBuffer = segmentFileManager.reserve(entrySize(bytes))) {
-            writeEntry(writeBuffer, bytes);
+        try {
+            segmentFileManager.appendEntry(groupId, entry, logEntryEncoder);
         } catch (IOException e) {
             throw new IgniteInternalException(INTERNAL_ERR, e);
         }
 
         return true;
-    }
-
-    private void writeEntry(WriteBuffer writeBuffer, byte[] payload) {
-        ByteBuffer buffer = writeBuffer.buffer();
-
-        int originalPos = buffer.position();
-
-        buffer
-                .putLong(groupId)
-                .putInt(payload.length)
-                .put(payload);
-
-        int dataSize = buffer.position() - originalPos;
-
-        // Rewind the position for CRC calculation.
-        buffer.position(originalPos);
-
-        int crc = FastCrc.calcCrc(buffer, dataSize);
-
-        // After CRC calculation the position will be at the provided end of the buffer.
-        buffer.putInt(crc);
-    }
-
-    static int entrySize(byte[] payload) {
-        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payload.length + HASH_SIZE;
     }
 
     @Override
@@ -125,22 +83,34 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public long getFirstLogIndex() {
-        throw new UnsupportedOperationException();
+        long firstLogIndex = segmentFileManager.firstLogIndexInclusive(groupId);
+
+        // JRaft requires to return 1 as the first log index if there are no entries.
+        return firstLogIndex >= 0 ? firstLogIndex : 1;
     }
 
     @Override
     public long getLastLogIndex() {
-        throw new UnsupportedOperationException();
+        long lastLogIndex = segmentFileManager.lastLogIndexExclusive(groupId);
+
+        // JRaft requires to return 0 as the last log index if there are no entries.
+        return Math.max(lastLogIndex - 1, 0);
     }
 
     @Override
-    public LogEntry getEntry(long index) {
-        throw new UnsupportedOperationException();
+    public @Nullable LogEntry getEntry(long index) {
+        try {
+            return segmentFileManager.getEntry(groupId, index, logEntryDecoder);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
     }
 
     @Override
     public long getTerm(long index) {
-        throw new UnsupportedOperationException();
+        LogEntry entry = getEntry(index);
+
+        return entry == null ? 0 : entry.getId().getTerm();
     }
 
     @Override
@@ -150,7 +120,13 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public boolean truncateSuffix(long lastIndexKept) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.truncateSuffix(groupId, lastIndexKept);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        return true;
     }
 
     @Override

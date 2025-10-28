@@ -433,6 +433,9 @@ namespace Apache.Ignite
 
             /// <summary> ZoneNotFound error. </summary>
             public const int ZoneNotFound = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> EmptyDataNodes error. </summary>
+            public const int EmptyDataNodes = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> Network errors. </summary>
@@ -518,6 +521,12 @@ namespace Apache.Ignite
 
             /// <summary> UnitUnavailable error. </summary>
             public const int UnitUnavailable = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> UnitZip error. </summary>
+            public const int UnitZip = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> UnitWrite error. </summary>
+            public const int UnitWrite = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> GarbageCollector errors. </summary>
@@ -649,6 +658,9 @@ namespace Apache.Ignite
 
             /// <summary> PrimaryReplicaAwait error. </summary>
             public const int PrimaryReplicaAwait = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> EmptyAssignments error. </summary>
+            public const int EmptyAssignments = (GroupCode << 16) | (3 & 0xFFFF);
         }
 
         /// <summary> CriticalWorkers errors. </summary>
@@ -694,8 +706,11 @@ namespace Apache.Ignite
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> RestartWithCleanUp error. </summary>
-            public const int RestartWithCleanUp = (GroupCode << 16) | (5 & 0xFFFF);
+            /// <summary> NotEnoughAliveNodes error. </summary>
+            public const int NotEnoughAliveNodes = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> IllegalNodesSet error. </summary>
+            public const int IllegalNodesSet = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>

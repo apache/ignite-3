@@ -24,7 +24,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
@@ -403,18 +402,26 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Key-value marshaller for tests. */
     private KvMarshaller<TestKey, TestValue> kvMarshaller;
 
-    private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-            TABLE_ID, 1, 2, TABLE_NAME, 1,
-            List.of(
-                    new CatalogTableColumnDescriptor("intKey", ColumnType.INT32, false, 0, 0, 0, null),
-                    new CatalogTableColumnDescriptor("strKey", ColumnType.STRING, false, 0, 0, 0, null),
-                    new CatalogTableColumnDescriptor("intVal", ColumnType.INT32, false, 0, 0, 0, null),
-                    new CatalogTableColumnDescriptor("strVal", ColumnType.STRING, false, 0, 0, 0, null)
-            ),
-            List.of("intKey", "strKey"),
-            null,
-            DEFAULT_STORAGE_PROFILE
-    );
+    private final CatalogTableDescriptor tableDescriptor;
+
+    {
+        List<CatalogTableColumnDescriptor> columns = List.of(
+                new CatalogTableColumnDescriptor("intKey", ColumnType.INT32, false, 0, 0, 0, null),
+                new CatalogTableColumnDescriptor("strKey", ColumnType.STRING, false, 0, 0, 0, null),
+                new CatalogTableColumnDescriptor("intVal", ColumnType.INT32, false, 0, 0, 0, null),
+                new CatalogTableColumnDescriptor("strVal", ColumnType.STRING, false, 0, 0, 0, null)
+        );
+        tableDescriptor = CatalogTableDescriptor.builder()
+                .id(TABLE_ID)
+                .schemaId(1)
+                .primaryKeyIndexId(2)
+                .name(TABLE_NAME)
+                .zoneId(1)
+                .columns(columns)
+                .primaryKeyColumns(List.of("intKey", "strKey"))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
+    }
 
     /** Placement driver. */
     private TestPlacementDriver placementDriver;
@@ -954,7 +961,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
 
         doAnswer(invocation -> nullCompletedFuture())
-                .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), any(), any());
+                .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).cleanup(any(), anyString(), any());
     }
@@ -1036,7 +1043,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private void makeTableBeDroppedAfter(HybridTimestamp txBeginTs, int tableId) {
         CatalogTableDescriptor tableVersion1 = mock(CatalogTableDescriptor.class);
-        when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
+        when(tableVersion1.latestSchemaVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion1.name()).thenReturn(TABLE_NAME);
 
         when(catalog.table(tableId)).thenReturn(tableVersion1);
@@ -1173,7 +1180,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private void makeSchemaBeNextVersion() {
         CatalogTableDescriptor tableVersion2 = mock(CatalogTableDescriptor.class);
-        when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
+        when(tableVersion2.latestSchemaVersion()).thenReturn(NEXT_SCHEMA_VERSION);
         when(tableVersion2.name()).thenReturn(TABLE_NAME_2);
 
         when(catalog.table(eq(TABLE_ID))).thenReturn(tableVersion2);
@@ -1333,7 +1340,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(5);
+            UUID txId = invocation.getArgument(6);
 
             txManager.updateTxMeta(txId, old -> new TxStateMeta(
                     ABORTED,
@@ -1345,7 +1352,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
             ));
 
             return nullCompletedFuture();
-        }).when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), any(), any());
+        }).when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
 
         CompletableFuture<ReplicaResult> fut = zonePartitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(tablePartitionIdMessage(grpId))

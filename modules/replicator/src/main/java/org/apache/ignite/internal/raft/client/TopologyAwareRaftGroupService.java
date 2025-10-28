@@ -27,9 +27,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -266,38 +264,27 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 return;
             }
 
+            Throwable invokeCause = unwrapCause(invokeThrowable);
             if (!msg.subscribe()) {
                 // We don't want to propagate exceptions when unsubscribing (if it's not an Error!).
-                if (unwrapCause(invokeThrowable) instanceof Error) {
+                if (invokeCause instanceof Error) {
                     msgSendFut.completeExceptionally(invokeThrowable);
                 } else {
                     LOG.debug("An exception while trying to unsubscribe", invokeThrowable);
 
                     msgSendFut.complete(false);
                 }
-            } else if (recoverable(invokeThrowable)) {
-                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetThrowable) -> {
-                    if (topologyGetThrowable != null) {
-                        if (!(unwrapCause(topologyGetThrowable) instanceof NodeStoppingException)) {
-                            LOG.error("Actual logical topology snapshot was not got.", topologyGetThrowable);
-                        }
+            } else if (recoverable(invokeCause)) {
+                sendWithRetry(node, msg, msgSendFut);
+            } else if (invokeCause instanceof RecipientLeftException) {
+                LOG.info(
+                        "Could not subscribe to leader update from a specific node, because the node had left the cluster: [node={}]",
+                        node
+                );
 
-                        msgSendFut.completeExceptionally(topologyGetThrowable);
-
-                        return;
-                    }
-
-                    if (logicalTopologySnapshot.nodes().contains(node)) {
-                        sendWithRetry(node, msg, msgSendFut);
-                    } else {
-                        LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
-                                + " cluster: [node={}]", node);
-
-                        msgSendFut.complete(false);
-                    }
-                }, executor);
+                msgSendFut.complete(false);
             } else {
-                if (!(unwrapCause(invokeThrowable) instanceof NodeStoppingException)) {
+                if (!(invokeCause instanceof NodeStoppingException)) {
                     LOG.error("Could not send the subscribe message to the node: [node={}, msg={}]", invokeThrowable, node, msg);
                 }
 
@@ -313,11 +300,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @return True if the exception is recoverable, false otherwise.
      */
     private static boolean recoverable(Throwable t) {
-        if (t instanceof ExecutionException || t instanceof CompletionException) {
-            t = t.getCause();
-        }
-
-        return t instanceof TimeoutException || t instanceof IOException || t instanceof RecipientLeftException;
+        return t instanceof TimeoutException || t instanceof IOException;
     }
 
     /**

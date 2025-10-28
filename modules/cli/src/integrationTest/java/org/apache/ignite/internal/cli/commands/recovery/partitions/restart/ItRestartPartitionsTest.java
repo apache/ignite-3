@@ -46,11 +46,15 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @BeforeAll
     public void createTables() {
-        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']", ZONE, 3, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
+                ZONE,
+                initialNodes(),
+                DEFAULT_AIPERSIST_PROFILE_NAME
+        ));
+
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     @Test
     public void testRestartAllPartitions() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
@@ -165,12 +169,15 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         ));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartAllPartitionsWithCleanup() {
+        String nodeName = CLUSTER.aliveNode().name();
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_NODE_NAMES_OPTION, nodeName,
                 RECOVERY_WITH_CLEANUP_OPTION
         );
 
@@ -178,13 +185,16 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         assertOutputContains("Successfully restarted partitions.");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartSpecifiedPartitionsWithCleanup() {
+        String nodeName = CLUSTER.aliveNode().name();
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeName,
                 RECOVERY_WITH_CLEANUP_OPTION
         );
 
@@ -192,7 +202,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         assertOutputContains("Successfully restarted partitions.");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     @Test
     public void testRestartPartitionsByNodesWithCleanup() {
         String nodeNames = CLUSTER.runningNodes()
@@ -208,8 +217,8 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
                 RECOVERY_WITH_CLEANUP_OPTION
         );
 
-        assertErrOutputIsEmpty();
-        assertOutputContains("Successfully restarted partitions.");
+        assertOutputIsEmpty();
+        assertErrOutputContains("Only one node name should be specified for the operation.");
     }
 
     @Test
@@ -227,7 +236,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
                 RECOVERY_WITH_CLEANUP_OPTION
         );
 
-        assertErrOutputIsEmpty();
-        assertOutputContains("Successfully restarted partitions.");
+        assertOutputIsEmpty();
+        assertErrOutputContains("Only one node name should be specified for the operation.");
     }
 }

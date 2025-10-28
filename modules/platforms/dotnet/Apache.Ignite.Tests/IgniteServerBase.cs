@@ -48,12 +48,11 @@ public abstract class IgniteServerBase : IDisposable
         _listener.NoDelay = true;
 
         _listener.Bind(new IPEndPoint(IPAddress.Any, port));
-        _listener.Listen(backlog: 1);
+        _listener.Listen();
 
         Name = TestContext.CurrentContext.Test.Name;
-        Console.WriteLine($"Fake server started [port={Port}, test={Name}]");
 
-        Task.Run(ListenLoop);
+        Task.Run(async () => await ListenLoop());
     }
 
     public int Port => ((IPEndPoint)Listener.LocalEndPoint!).Port;
@@ -154,13 +153,15 @@ public abstract class IgniteServerBase : IDisposable
         }
     }
 
-    private void ListenLoop()
+    private async Task ListenLoop()
     {
+        Console.WriteLine($"Fake server started [port={Port}, test={Name}]");
+
         while (!_cts.IsCancellationRequested)
         {
             try
             {
-                ListenLoopInternal();
+                await ListenLoopInternal();
             }
             catch (Exception e)
             {
@@ -169,21 +170,23 @@ public abstract class IgniteServerBase : IDisposable
                     continue;
                 }
 
-                Console.WriteLine($"Error in FakeServer [Name={Name}]: {e}");
+                Console.WriteLine($"Error in FakeServer [port={Port}, Name={Name}]: {e}");
             }
         }
     }
 
-    private void ListenLoopInternal()
+    private async Task ListenLoopInternal()
     {
         while (!_cts.IsCancellationRequested)
         {
-            Socket handler = _listener.Accept();
+            Socket handler = await _listener.AcceptAsync();
             handler.NoDelay = true;
+
+            Console.WriteLine($"Accepted connection [port={Port}, test={Name}, endpoint={handler.RemoteEndPoint}]");
 
             if (DropNewConnections)
             {
-                handler.Disconnect(true);
+                await handler.DisconnectAsync(true);
                 handler.Dispose();
 
                 continue;
@@ -203,7 +206,17 @@ public abstract class IgniteServerBase : IDisposable
 
             if (AllowMultipleConnections)
             {
-                Task.Run(handleAction);
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        handleAction();
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Error in FakeServer handler with AllowMultipleConnections: " + e);
+                    }
+                });
             }
             else
             {

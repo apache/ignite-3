@@ -29,7 +29,7 @@ attribute-value ::= character-string
 ----
 
 
-In simple terms, an ODBC connection URL is a string with parameters of the choice separated by semicolon.
+In simple terms, an ODBC connection URL is a string with parameters of your choice separated by semicolons.
 
 == Supported Arguments
 
@@ -69,6 +69,22 @@ This argument value is ignored if `ADDRESS` argument is specified.
 |`PAGE_SIZE`
 |Number of rows returned in response to a fetching request to the data source. Default value should be fine in most cases. Setting a low value can result in slow data fetching while setting a high value can result in additional memory usage by the driver, and additional delay when the next page is being retrieved.
 |`1024`
+
+|`SSL_MODE`
+|Determines whether the SSL connection should be negotiated with the server. Use `require` or `disable` mode as needed.
+|`disable`
+
+|`SSL_KEY_FILE`
+|Specifies the path to the file containing the SSL server private key.
+|None.
+
+|`SSL_CERT_FILE`
+|Specifies the path to the file containing the SSL server certificate.
+|None.
+
+|`SSL_CA_FILE`
+|Specifies the path to the file containing the SSL server certificate authority (CA).
+|None.
 
 |=======================================================================
 

@@ -38,7 +38,9 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
     @Override
     public void registerOperationStart(InternalTransaction tx) {
         if (shouldBeTracked(tx)) {
-            if (!delegate.addInflight(tx.id(), tx.isReadOnly())) {
+            boolean result = tx.isReadOnly() ? delegate.addScanInflight(tx.id()) : delegate.track(tx.id());
+
+            if (!result) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
             }
         }
@@ -47,11 +49,13 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
     @Override
     public void registerOperationFinish(InternalTransaction tx) {
         if (shouldBeTracked(tx)) {
-            delegate.removeInflight(tx.id());
+            if (tx.isReadOnly()) {
+                delegate.removeInflight(tx.id());
+            }
         }
     }
 
     private static boolean shouldBeTracked(InternalTransaction tx) {
-        return tx.isReadOnly() && !tx.implicit();
-    } 
+        return !tx.implicit();
+    }
 }

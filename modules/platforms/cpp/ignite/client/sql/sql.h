@@ -35,7 +35,7 @@ class sql_impl;
 }
 
 /**
- * Ignite SQL query facade.
+ * @brief Ignite SQL query API facade.
  */
 class sql {
     friend class ignite_client;

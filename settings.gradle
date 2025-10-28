@@ -193,6 +193,7 @@ include(":migration-tools-packaging-cli")
 // End 2 End test stuff
 include(":migration-tools-e2e-core")
 include(":migration-tools-e2e-implementations")
+include(":migration-tools-e2e-implementations-custom-classes")
 include(":migration-tools-e2e-ai2-runner")
 include(":migration-tools-e2e-ai3-tests")
 
@@ -208,6 +209,7 @@ project(":migration-tools-cli").projectDir = file('migration-tools/modules/migra
 project(":migration-tools-packaging-cli").projectDir = file('migration-tools/packaging/cli')
 project(":migration-tools-e2e-core").projectDir = file('migration-tools/tools/e2e-tests-framework/framework-core')
 project(":migration-tools-e2e-implementations").projectDir = file('migration-tools/tools/e2e-tests-framework/implementations')
+project(":migration-tools-e2e-implementations-custom-classes").projectDir = file('migration-tools/tools/e2e-tests-framework/custom-classes')
 project(":migration-tools-e2e-ai2-runner").projectDir = file('migration-tools/tools/e2e-tests-framework/ai2-runner')
 project(":migration-tools-e2e-ai3-tests").projectDir = file('migration-tools/modules/e2e-ai3-tests')
 

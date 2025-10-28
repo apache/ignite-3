@@ -59,6 +59,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-transactions'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-raft'))
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-cluster-management')

@@ -40,7 +40,7 @@ class ignite_client_impl;
 } // namespace detail
 
 /**
- * Ignite client.
+ * @brief Ignite client.
  */
 class ignite_client {
 public:

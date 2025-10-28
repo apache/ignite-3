@@ -38,7 +38,6 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
@@ -64,7 +63,6 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -98,7 +96,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -259,7 +256,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -1248,8 +1244,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         /** Failure processor. */
         private final FailureManager failureManager;
 
-        private final ScheduledExecutorService rebalanceScheduler;
-
         private final LogStorageFactory logStorageFactory;
 
         private final LogStorageFactory cmgLogStorageFactory;
@@ -1519,9 +1513,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metricManager
             );
 
-            rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                    IgniteThreadFactory.create(name, "test-rebalance-scheduler", logger()));
-
             replicaManager = spy(new ReplicaManager(
                     name,
                     clusterService,
@@ -1565,6 +1556,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             distributionZoneManager = new DistributionZoneManager(
                     name,
+                    () -> clusterService.topologyService().localMember().id(),
                     registry,
                     metaStorageManager,
                     logicalTopologyService,
@@ -1597,7 +1589,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     failureManager,
                     nodeProperties,
                     threadPoolsManager.tableIoExecutor(),
-                    rebalanceScheduler,
+                    threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     clockService,
                     placementDriver,
@@ -1629,7 +1621,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
-                    rebalanceScheduler,
+                    threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.commonScheduler(),
                     clockService,
                     outgoingSnapshotManager,
@@ -1878,12 +1870,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return ((TableViewInternal) table).internalTable();
     }
 
-    private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {
+    private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) throws Exception {
         InternalTable internalTable = getInternalTable(node, tableName);
 
         if (colocationEnabled()) {
-            // Assert that zone tx state storage was removed.
-            assertNull(node.partitionReplicaLifecycleManager.txStatePartitionStorage(internalTable.zoneId(), partitionId));
+            // Assert that zone tx state storage was removed. Wait for the async destroy operation to complete.
+            assertTrue(waitForCondition(
+                    () -> node.partitionReplicaLifecycleManager.txStatePartitionStorage(internalTable.zoneId(), partitionId) == null,
+                    AWAIT_TIMEOUT_MILLIS
+            ), "Zone tx state storage was not destroyed within timeout");
         } else {
             verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                     .destroyPartition(partitionId);

@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -273,6 +275,26 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 addWriteCommitted(rowId, binaryRow3, clock.now()),
                 equalsToAddWriteCommittedResult(AddWriteCommittedResult.writeIntentExists(txId, newCommitTimestamp))
         );
+    }
+
+    /**
+     * Tests handling values of a decently large size.
+     */
+    @Test
+    public void testWriteLongValues() {
+        Random random = new Random();
+
+        for (int length = 10_000; length < 20_000; length++) {
+            BinaryRow insertedValue = binaryRow(key, new TestValue(length, IgniteTestUtils.randomString(random, length)));
+
+            RowId rowId = insert(insertedValue, txId);
+            commitWrite(rowId, clock.now(), txId);
+
+            BinaryRow valueFromStorage = read(rowId, clock.now());
+
+            assertNotNull(valueFromStorage);
+            assertEquals(insertedValue.tupleSlice(), valueFromStorage.tupleSlice(), "Value mismatch at length " + length);
+        }
     }
 
     /**
@@ -1495,6 +1517,48 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertEquals(rowId2, storage.closestRowId(rowId2));
 
         assertNull(storage.closestRowId(rowId2.increment()));
+    }
+
+    @Test
+    void testClosestRow() {
+        RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_TABLE_ID, PARTITION_ID);
+
+        addWrite(rowId1, binaryRow, txId);
+        addWrite(rowId2, binaryRow2, txId);
+
+        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0));
+        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0.increment()));
+
+        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId1));
+
+        assertRowMetaEquals(expectedRowMeta2, storage.closestRow(rowId2));
+
+        assertNull(storage.closestRow(rowId2.increment()));
+    }
+
+    private static void assertRowMetaEquals(RowMeta expected, RowMeta actual) {
+        assertNotNull(actual);
+
+        assertEquals(expected.rowId(), actual.rowId());
+        assertEquals(expected.transactionId(), actual.transactionId());
+        assertEquals(expected.commitTableOrZoneId(), actual.commitTableOrZoneId());
+        assertEquals(expected.commitPartitionId(), actual.commitPartitionId());
+    }
+
+    @Test
+    void testClosestRowReconstruction() {
+        RowId rowId = new RowId(PARTITION_ID, 0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
+
+        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_TABLE_ID, PARTITION_ID);
+
+        addWrite(rowId, binaryRow, txId);
+
+        assertRowMetaEquals(expectedRowMeta, storage.closestRow(RowId.lowestRowId(PARTITION_ID)));
     }
 
     @Test

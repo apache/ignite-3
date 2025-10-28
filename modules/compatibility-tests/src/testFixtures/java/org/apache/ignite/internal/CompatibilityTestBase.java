@@ -20,18 +20,31 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.awaitility.Awaitility.await;
 
+import io.micronaut.http.client.HttpClient;
+import io.micronaut.http.client.annotation.Client;
+import jakarta.inject.Inject;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.IgniteVersions.Version;
+import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -66,8 +79,14 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "  rest.ssl.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false,\n"
+            + "  nodeAttributes: {\n"
+            + "    nodeAttributes: {nodeName: \"{}\", nodeIndex: \"{}\"}\n"
+            + "  }\n"
             + "}";
+
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     // If there are no fields annotated with @Parameter, constructor injection will be used, which is incompatible with the
     // Lifecycle.PER_CLASS.
@@ -77,13 +96,17 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     // Force per class template work directory so that non-static field doesn't get overwritten by the BeforeEach callback.
     @WorkDirectory(forcePerClassTemplate = true)
-    private Path workDir;
+    protected Path workDir;
 
     protected IgniteCluster cluster;
 
     protected List<String> extraIgniteModuleIds() {
         return Collections.emptyList();
     }
+
+    @Inject
+    @Client(NODE_URL + "/management/v1/deployment")
+    protected HttpClient deploymentClient;
 
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
@@ -101,10 +124,15 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             setupBaseVersion(client);
         }
 
+        boolean shouldEnableColocation = Version.parseVersion(baseVersion).compareTo(Version.parseVersion("3.1")) >= 0;
+
+        System.setProperty(COLOCATION_FEATURE_FLAG, String.valueOf(shouldEnableColocation));
+
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();
 
-            cluster.startEmbedded(nodesCount, false);
+            cluster.startEmbedded(nodesCount);
+            await().until(this::noActiveRebalance, willBe(true));
         }
     }
 
@@ -197,11 +225,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      * @return A list of base versions for a test.
      */
     public static List<String> baseVersions(int numLatest, String... skipVersions) {
-        Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
-        List<String> versions = IgniteVersions.INSTANCE.versions().stream()
-                .map(Version::version)
-                .filter(Predicate.not(skipSet::contains))
-                .collect(Collectors.toList());
+        List<String> versions = baseVersions(skipVersions);
         if (shouldTestAllVersions()) {
             return versions;
         } else {
@@ -211,6 +235,19 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * Returns a list of base versions.
+     *
+     * @param skipVersions Array of strings to skip.
+     * @return A list of base versions for a test.
+     */
+    public static List<String> baseVersions(String... skipVersions) {
+        Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
+        return IgniteVersions.INSTANCE.versions().keySet().stream()
+                .filter(Predicate.not(skipSet::contains))
+                .collect(Collectors.toList());
+    }
+
     private static boolean shouldTestAllVersions() {
         String value = System.getProperty("testAllVersions");
         if (value != null) {
@@ -218,5 +255,26 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             return value.isEmpty() || "true".equals(value);
         }
         return false;
+    }
+
+    /**
+     * Checks if there is an active rebalance happening. Does this by checking for pending assignments.
+     *
+     * @return {@code true} if there are no pending assignments in the metastorage.
+     */
+    private CompletableFuture<Boolean> noActiveRebalance() {
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+
+        ByteArray prefix = pendingAssignmentsQueuePrefix(node.nodeProperties().colocationEnabled());
+
+        return subscribeToList(node.metaStorageManager().prefix(prefix))
+                .thenApply(List::isEmpty);
+    }
+
+    private static ByteArray pendingAssignmentsQueuePrefix(boolean colocationEnabled) {
+        byte[] prefix = colocationEnabled
+                ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES
+                : RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+        return new ByteArray(prefix);
     }
 }

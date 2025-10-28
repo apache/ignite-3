@@ -97,6 +97,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticUpdateManager;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -161,7 +162,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private final ReplicaService replicaService;
 
     private final SqlSchemaManager sqlSchemaManager;
-    private final SqlStatisticManager sqlStatisticManager;
+    private final SqlStatisticUpdateManager sqlStatisticManager;
 
     private final FailureManager failureManager;
 
@@ -296,7 +297,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 clusterCfg,
                 nodeCfg,
                 sqlSchemaManager,
-                ddlSqlToCommandConverter
+                ddlSqlToCommandConverter,
+                clockService::currentLong,
+                commonScheduler,
+                sqlStatisticManager
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -338,11 +342,12 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
-                () -> logicalTopologyService.localLogicalTopology().version(),
                 new ExecutionDistributionProviderImpl(placementDriver, systemViewManager, nodeProperties),
-                nodeProperties
+                nodeProperties,
+                taskExecutor
         );
 
+        logicalTopologyService.addEventListener(mappingService);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
         // Need to be implemented after https://issues.apache.org/jira/browse/IGNITE-23519 Add an event for lease Assignments
         // placementDriver.listen(PrimaryReplicaEvent.ASSIGNMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);
@@ -387,7 +392,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 sqlQueryMetricSource
         ));
 
-        queriesViewProvider.init(queryExecutor);
+        queriesViewProvider.init(queryExecutor, prepareSvc);
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
         clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
@@ -602,7 +607,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of(queriesViewProvider.get());
+        return queriesViewProvider.getViews();
     }
 
     @Override
