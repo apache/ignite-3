@@ -323,7 +323,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             node.waitWatches();
 
-            assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
+            assertThat(node.cfgStorage.write(new WriteEntryImpl(data, 0)), willBe(equalTo(true)));
 
             assertTrue(waitForCondition(
                     () -> node.metaStorageManager.appliedRevision() != 0,
