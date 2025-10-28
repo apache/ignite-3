@@ -27,6 +27,10 @@
 #include <sstream>
 #include <stdexcept>
 
+#ifdef WIN32
+# include <Windows.h>
+#endif
+
 namespace {
 
 void set_environment_variable(const char* name, const char* value) {
@@ -44,7 +48,10 @@ constexpr std::string_view SYSTEM_SHELL = IGNITE_SWITCH_WIN_OTHER("cmd.exe", "/b
 constexpr std::string_view SYSTEM_SHELL_ARG_0 = IGNITE_SWITCH_WIN_OTHER("/c ", "-c");
 constexpr std::string_view GRADLEW_SCRIPT = IGNITE_SWITCH_WIN_OTHER("gradlew.bat", "./gradlew");
 
-const std::string SERVER_ADDRESS = "127.0.0.1";
+const char* IGNITE_CLUSTER_HOST = getenv("IGNITE_CLUSTER_HOST");
+const std::string SERVER_ADDRESS = IGNITE_CLUSTER_HOST ? IGNITE_CLUSTER_HOST : "127.0.0.1";
+
+const std::string ADDITIONAL_JVM_OPTIONS_ENV = "CPP_ADDITIONAL_JVM_OPTIONS";
 
 } // anonymous namespace
 
@@ -94,10 +101,11 @@ void ignite_runner::start() {
                    " -x compileTestJava";
     }
 
+    if (auto additional_opts = detail::get_env(ADDITIONAL_JVM_OPTIONS_ENV)) {
+        command += " " + *additional_opts;
+    }
+
     args.emplace_back(command);
-
-    std::vector<std::string> env;
-
     if (m_version) {
         set_environment_variable("IGNITE_OLD_SERVER_VERSION", m_version->c_str());
         set_environment_variable("IGNITE_OLD_SERVER_WORK_DIR", work_dir.c_str());
@@ -110,10 +118,10 @@ void ignite_runner::start() {
 
         set_environment_variable("IGNITE_OLD_SERVER_PORT", port.c_str());
         set_environment_variable("IGNITE_OLD_SERVER_HTTP_PORT", http_port.c_str());
-            set_environment_variable("IGNITE_OLD_SERVER_CLIENT_PORT", client_port.c_str());
+        set_environment_variable("IGNITE_OLD_SERVER_CLIENT_PORT", client_port.c_str());
     }
 
-    m_process = CmdProcess::make(std::string(SYSTEM_SHELL), args, home, env);
+    m_process = CmdProcess::make(std::string(SYSTEM_SHELL), args, home);
     if (!m_process->start()) {
         m_process.reset();
 

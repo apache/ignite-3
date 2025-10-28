@@ -48,12 +48,11 @@ public:
      * @param workDir Working directory.
      * @param env Environment variables.
      */
-    UnixProcess(std::string command, std::vector<std::string> args, std::string workDir, std::vector<std::string> env)
+    UnixProcess(std::string command, std::vector<std::string> args, std::string workDir)
         : m_running(false)
         , m_command(std::move(command))
         , m_args(std::move(args))
-        , m_workDir(std::move(workDir))
-        , m_env(std::move(env)) {}
+        , m_workDir(std::move(workDir)) {}
 
     /**
      * Destructor.
@@ -94,16 +93,7 @@ public:
 
             args.push_back(nullptr);
 
-            std::vector<const char *> env;
-            env.reserve(m_env.size() + 1);
-
-            for (auto &var : m_env) {
-                env.push_back(var.c_str());
-            }
-
-            env.push_back(nullptr);
-
-            res = execve(m_command.c_str(), const_cast<char *const *>(args.data()), const_cast<char * const *>(env.data()));
+            res = execvp(m_command.c_str(), const_cast<char *const *>(args.data()));
 
             // On success this code should never be reached because the process get replaced by a new one.
             std::cout << "Failed to execute process: " + std::to_string(res) << std::endl;
@@ -149,9 +139,6 @@ private:
 
     /** Working directory. */
     const std::string m_workDir;
-
-    /** Environment variables. */
-    const std::vector<std::string> m_env;
 };
 
 } // namespace ignite::detail

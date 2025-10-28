@@ -86,13 +86,12 @@ public:
      * @param args Arguments.
      * @param workDir Working directory.
      */
-    WinProcess(std::string command, std::vector<std::string> args, std::string workDir, std::vector<std::string> env)
+    WinProcess(std::string command, std::vector<std::string> args, std::string workDir)
         : m_running(false)
         , m_command(std::move(command))
         , m_args(std::move(args))
         , m_workDir(std::move(workDir))
-        , m_info{}
-        , m_env(std::move(env)) {}
+        , m_info{} {}
 
     /**
      * Destructor.
@@ -123,20 +122,7 @@ public:
         std::vector<char> cmd(fullCmdStr.begin(), fullCmdStr.end());
         cmd.push_back(0);
 
-        auto cur_env = GetEnvironmentStringsA();
-
-        std::vector<char> env_block;
-        for (LPCH var = cur_env; *var != '\0'; var += strlen(var) + 1) {
-            env_block.insert(env_block.end(), var, var + strlen(var) + 1);
-        }
-
-        for (const auto& env : m_env) {
-            env_block.insert(env_block.end(), env.begin(), env.end());
-            env_block.push_back('\0');
-        }
-        env_block.push_back('\0');
-
-        BOOL success = CreateProcess(NULL, cmd.data(), NULL, NULL, FALSE, 0, env_block.data(), m_workDir.c_str(), &si, &m_info);
+        BOOL success = CreateProcess(NULL, cmd.data(), NULL, NULL, FALSE, 0, NULL, m_workDir.c_str(), &si, &m_info);
 
         m_running = success == TRUE;
 
@@ -193,9 +179,6 @@ private:
 
     /** CmdProcess information. */
     PROCESS_INFORMATION m_info;
-
-    /** Environment variables. */
-    const std::vector<std::string> m_env;
 };
 
 } // namespace ignite::detail
