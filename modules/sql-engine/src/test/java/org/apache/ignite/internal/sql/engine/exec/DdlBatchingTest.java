@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -126,8 +124,8 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     void fewDdlAreBatched() {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
                 "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
-                        + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
-                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
+                + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
+                + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
         );
 
         // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
@@ -490,10 +488,12 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * This case makes sure that exception thrown is matched the order of execution, and not the order exceptions appear.
+     * This case makes sure that exception thrown is matched the order of execution, and not the order
+     * exceptions appear.
      *
      * <p>To be more specific, first seen exception relates to absent PK definition in 3rd statement, but
-     * during execution the exception that should be thrown is the one denoting that table with given name already exists (2nd statement).
+     * during execution the exception that should be thrown is the one denoting that table with given name
+     * already exists (2nd statement).
      */
     @Test
     void mixedErrorsInBatch() {
@@ -603,11 +603,10 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     private CatalogManager catalogManagerDecorator(CatalogManager original) {
         return (CatalogManager) Proxy.newProxyInstance(
                 QueryTimeoutTest.class.getClassLoader(),
-                new Class<?>[]{CatalogManager.class},
+                new Class<?>[] {CatalogManager.class},
                 (proxy, method, args) -> {
                     if ("execute".equals(method.getName())) {
-                        int i = executeCallCounter.incrementAndGet();
-                        System.out.println(IgniteStringFormatter.format("CALL: try={}, args={}", i, Arrays.toString(args)));
+                        executeCallCounter.incrementAndGet();
                     }
 
                     return method.invoke(original, args);
