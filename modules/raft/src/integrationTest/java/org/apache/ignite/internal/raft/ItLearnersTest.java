@@ -246,7 +246,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         assertThat(service1.leader(), is(follower.asPeer()));
         assertThat(service1.learners(), is(empty()));
 
-        CompletableFuture<Void> addLearners = service1.addLearners(Arrays.asList(toPeerArray(learners)));
+        CompletableFuture<Void> addLearners = service1.addLearners(Arrays.asList(toPeerArray(learners)), Configuration.NO_SEQUENCE_TOKEN);
 
         assertThat(addLearners, willCompleteSuccessfully());
 

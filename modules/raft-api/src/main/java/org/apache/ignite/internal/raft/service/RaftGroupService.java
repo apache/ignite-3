@@ -110,9 +110,11 @@ public interface RaftGroupService extends RaftCommandRunner {
      * <p>This operation is executed on a group leader.
      *
      * @param peer Peer
+     * @param sequenceToken Sequence token of the current change.
+     *
      * @return A future.
      */
-    CompletableFuture<Void> addPeer(Peer peer);
+    CompletableFuture<Void> addPeer(Peer peer, long sequenceToken);
 
     /**
      * Removes peer from the replication group.
@@ -123,9 +125,11 @@ public interface RaftGroupService extends RaftCommandRunner {
      * <p>This operation is executed on a group leader.
      *
      * @param peer Peer.
+     * @param sequenceToken Sequence token of the current change.
+     *
      * @return A future.
      */
-    CompletableFuture<Void> removePeer(Peer peer);
+    CompletableFuture<Void> removePeer(Peer peer, long sequenceToken);
 
     /**
      * Changes peers and learners of a replication group.
@@ -173,9 +177,11 @@ public interface RaftGroupService extends RaftCommandRunner {
      * <p>This operation is executed on a group leader.
      *
      * @param learners Collection of learners.
+     * @param sequenceToken Sequence token of the current change.
+     *
      * @return A future.
      */
-    CompletableFuture<Void> addLearners(Collection<Peer> learners);
+    CompletableFuture<Void> addLearners(Collection<Peer> learners, long sequenceToken);
 
     /**
      * Removes learners.
@@ -186,9 +192,11 @@ public interface RaftGroupService extends RaftCommandRunner {
      * <p>This operation is executed on a group leader.
      *
      * @param learners Collection of learners.
+     * @param sequenceToken Sequence token of the current change.
+     *
      * @return A future.
      */
-    CompletableFuture<Void> removeLearners(Collection<Peer> learners);
+    CompletableFuture<Void> removeLearners(Collection<Peer> learners, long sequenceToken);
 
     /**
      * Set learners of the raft group to needed list of learners.
@@ -199,9 +207,11 @@ public interface RaftGroupService extends RaftCommandRunner {
      * <p>This operation is executed on a group leader.
      *
      * @param learners Collection of learners.
+     * @param sequenceToken Sequence token of the current change.
+     *
      * @return A future.
      */
-    CompletableFuture<Void> resetLearners(Collection<Peer> learners);
+    CompletableFuture<Void> resetLearners(Collection<Peer> learners, long sequenceToken);
 
     /**
      * Takes a state machine snapshot on a given group peer.

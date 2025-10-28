@@ -2925,7 +2925,6 @@ public class NodeImpl implements Node, RaftServerService {
         // Return immediately when the new peers equals to the current configuration.
         // Note: Configuration.equals() includes sequenceToken, so configurations with same peers/learners
         // but different tokens are NOT equal and will proceed with the configuration change.
-        // This is correct behavior - we need to update the token even if peers/learners are unchanged.
         if (this.conf.getConf().equals(newConf)) {
             Closure newDone = (Status status) -> {
                 // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.

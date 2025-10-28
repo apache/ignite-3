@@ -343,7 +343,8 @@ public class CmgRaftService implements ManuallyCloseable {
             return raftService.changePeersAndLearnersAsync(newConfiguration, term,  0)
                     .thenRun(() -> raftService.updateConfiguration(newConfiguration));
         } else {
-            return raftService.resetLearners(newConfiguration.learners());
+            // TODO: Replace with CMG specific token.
+            return raftService.resetLearners(newConfiguration.learners(), 0);
         }
     }
 

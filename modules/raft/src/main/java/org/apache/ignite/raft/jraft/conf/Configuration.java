@@ -28,7 +28,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.Requires;
-import org.apache.ignite.raft.jraft.util.StringUtils;import org.jetbrains.annotations.TestOnly;
+import org.apache.ignite.raft.jraft.util.StringUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A configuration with a set of peers.

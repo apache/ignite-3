@@ -77,8 +77,8 @@ class MetaStorageLearnerManager {
         }
 
         return updateConfigUnderLock(() -> isPeer(raftService, learner)
-                ? nullCompletedFuture()
-                : raftService.addLearners(List.of(new Peer(learner.name()))));
+                ? nullCompletedFuture() // TODO: Proper token for MS.
+                : raftService.addLearners(List.of(new Peer(learner.name())), 0));
     }
 
     private static boolean isPeer(RaftGroupService raftService, InternalClusterNode node) {
@@ -98,7 +98,8 @@ class MetaStorageLearnerManager {
                         return nullCompletedFuture();
                     }
 
-                    return raftService.removeLearners(List.of(new Peer(learner.name())));
+                    // TODO: Proper token for MS.
+                    return raftService.removeLearners(List.of(new Peer(learner.name())), 0);
                 })));
     }
 

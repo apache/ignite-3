@@ -312,8 +312,6 @@ public class LogManagerImpl implements LogManager {
                     if (entry.getOldPeers() != null) {
                         oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners(), entry.getOldSequenceToken());
                     }
-                    LOG.info("Add old conf {}, seq is {}.",
-                              oldConf, entry.getOldSequenceToken());
                     final ConfigurationEntry conf = new ConfigurationEntry(entry.getId(),
                         new Configuration(entry.getPeers(), entry.getLearners(), entry.getSequenceToken()), oldConf);
                     this.configManager.add(conf);
