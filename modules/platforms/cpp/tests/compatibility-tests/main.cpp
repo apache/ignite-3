@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
 
             if (pid == -1) {
                 std::stringstream ss;
-                ss << "Can't fork proces for version " << version;
+                ss << "Can't fork process for version " << version;
                 throw std::runtime_error(ss.str());
             }
 
@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
             waitpid(pid, &run_res, 0);
         }
 #endif
-        res = std::min(res, run_res);
+        res = std::max(res, run_res);
     }
 
     return res;

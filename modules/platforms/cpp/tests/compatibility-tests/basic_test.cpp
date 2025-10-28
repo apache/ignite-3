@@ -37,7 +37,7 @@ protected:
 };
 
 
-TEST_F(basic_test_ign_version, connection_should_be_successful) {
+TEST_F(basic_test_ign_version, get_cluster_nodes_successful) {
     auto cluster_nodes = m_client.get_cluster_nodes();
 
     ASSERT_GE(cluster_nodes.size(), 1);

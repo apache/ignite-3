@@ -93,15 +93,15 @@ void ignite_xml_unit_test_result_printer::OnTestIterationEnd(const ::testing::Un
 
         if (sw.rfind(suffix) != sw.size() - suffix.size()) {
             std::stringstream ss;
-            ss << "Expected test suite name to have prefix '"<< suffix <<"' but got [name = "<< sw << "]";
+            ss << "Expected test suite name to have suffix '"<< suffix <<"' but got [name = "<< sw << "]";
             throw std::runtime_error(ss.str());
         }
 
         // it is possible to have more complex version text like 9.1.18-p3, etc.
         if (m_version.size() >= suffix.size()) {
             std::stringstream ss;
-            ss << "Expected version string to be shorter than a prefix but got "
-               << "[version = " << m_version << "; prefix = "<< suffix <<"]";
+            ss << "Expected version string to be shorter than a suffix but got "
+               << "[version = " << m_version << "; suf  fix = "<< suffix <<"]";
             throw std::runtime_error(ss.str());
         }
 
