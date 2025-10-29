@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
+import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -41,9 +42,12 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,6 +63,7 @@ import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.VersionedSchemaManager;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PlanInfo;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -517,7 +522,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1));
 
         AtomicInteger ver = new AtomicInteger();
-        PrepareServiceImpl service = createPlannerServiceWithInactivePlanUpdater(schema, CaffeineCacheFactory.INSTANCE, 10000,
+        PrepareServiceImpl service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000,
                 Integer.MAX_VALUE, 1000, ver);
 
         String selectQuery = "SELECT * FROM test.t1 WHERE c1 = 1";
@@ -529,15 +534,23 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         await(service.prepareAsync(parse(selectQuery), operationContext().build()));
 
         Awaitility.await()
-                .atMost(Duration.ofMillis(10000))
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_REFRESH_PERIOD))
                 .until(
                         () -> service.cache.size() == 2
                 );
 
-        assertThat(service.cache.size(), is(2));
         service.statisticsChanged(table1.id());
 
-        assertThat(service.cache.entrySet().stream().filter(e -> e.getValue().join().needInvalidate()).count(), is(1L));
+        Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedSnap = new HashSet<>(service.cache.entrySet());
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(2 * PLAN_UPDATER_REFRESH_PERIOD))
+                .until(
+                        () -> !new HashSet<>(service.cache.entrySet()).equals(cachedSnap)
+                );
+
+        // cache futures snapshot highlight only one invalidation item.
+        assertThat(cachedSnap.stream().filter(e -> e.getValue().join().needInvalidate()).count(), is(1L));
     }
 
     @Test
