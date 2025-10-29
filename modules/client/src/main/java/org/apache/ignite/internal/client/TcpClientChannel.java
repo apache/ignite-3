@@ -427,12 +427,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             CompletableFuture<T> resFut = new CompletableFuture<>();
 
             fut.handle((unpacker, err) -> {
-                if (err == null) {
-                    completeAsync(payloadReader, notificationFut, unpacker, resFut);
-                } else {
-                    resFut.completeExceptionally(ViewUtils.ensurePublicException(err));
-                }
-
+                completeAsync(payloadReader, notificationFut, unpacker, err, resFut);
                 return null;
             });
 
@@ -455,8 +450,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             @Nullable PayloadReader<T> payloadReader,
             @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
             ClientMessageUnpacker unpacker,
+            @Nullable Throwable err,
             CompletableFuture<T> resFut
     ) {
+        if (err != null) {
+            assert unpacker == null : "unpacker must be null if err is not null";
+            asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(err)));
+            return;
+        }
+
         try {
             // Use asyncContinuationExecutor explicitly to close unpacker if the executor throws.
             // With handleAsync et al we can't close the unpacker in that case.
@@ -467,9 +469,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
                 }
             });
-        } catch (Throwable t) {
+        } catch (Throwable execErr) {
             unpacker.close();
-            resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
+            asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(execErr)));
         }
     }
 
@@ -677,17 +679,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         CompletableFuture<Object> resFut = new CompletableFuture<>();
 
         fut.handle((unpacker, err) -> {
-            if (err == null) {
-                completeAsync(r -> handshakeRes(r.in()), null, unpacker, resFut);
-            } else {
+            if (err != null) {
                 if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                     metrics.handshakesFailedTimeoutIncrement();
-                    resFut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err));
+                    err = new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
                 } else {
                     metrics.handshakesFailedIncrement();
-                    resFut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err));
+                    err = new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
                 }
             }
+
+            completeAsync(r -> handshakeRes(r.in()), null, unpacker, err, resFut);
 
             return null;
         });
