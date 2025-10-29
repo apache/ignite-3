@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -694,7 +695,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return resFut.exceptionally(err -> {
-            if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
+            if (unwrapRootCause(err) instanceof TimeoutException) {
                 metrics.handshakesFailedTimeoutIncrement();
                 throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
             }
