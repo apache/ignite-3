@@ -354,7 +354,7 @@ public final class IgniteTestUtils {
             run.run();
         } catch (Throwable e) {
             if (!hasCause(e, cls, msg)) {
-                fail("Exception is neither of a specified class, nor has a cause of the specified class: " + cls, e);
+                fail("Expected exception not found in stacktrace. [class=" + cls.getName() + "; message='" + msg + "']", e);
             }
 
             return e;

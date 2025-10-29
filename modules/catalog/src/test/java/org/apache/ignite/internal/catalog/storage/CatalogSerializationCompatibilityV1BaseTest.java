@@ -30,35 +30,23 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.Ty
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.CatalogSerializationChecker.SerializerClass;
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for catalog storage objects. Protocol version 2 reads protocol 2.
+ * Tests for catalog storage objects. Protocol version 1.
+ *
+ * @deprecated Catalog serialization format version 1 was deprecated.
  */
-public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSerializationCompatibilityTest {
+@Deprecated
+public abstract class CatalogSerializationCompatibilityV1BaseTest extends CatalogSerializationCompatibilityTest {
 
     private static final Set<SerializerClass> collected = new HashSet<>();
 
     @Override
-    protected int protocolVersion() {
-        return 2;
-    }
-
-    @Override
-    protected int defaultEntryVersion() {
-        return 2;
-    }
-
-    @Override
     protected String dirName() {
-        return "serialization_v2";
-    }
-
-    @Override
-    protected boolean expectExactVersion() {
-        return true;
+        return "serialization_v1";
     }
 
     @AfterAll
@@ -66,10 +54,9 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
         // 1. Collect serializers (entry class + version)
         Set<SerializerClass> serializers = CatalogSerializationChecker.findEntrySerializers()
                 .stream()
-                .filter(sc -> {
-                    // Exclude serializers for protocol version 1
-                    return !SerializationV1Classes.includes(sc);
-                })
+                // Exclude descriptors - their serializers are called manually.
+                .filter(c -> !SerializationV1Classes.includesDescriptor(c))
+                .filter(SerializationV1Classes::includes)
                 .collect(Collectors.toSet());
 
         // 2. Compare entry class + version with existing serializers
@@ -78,7 +65,14 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
     @Override
     protected void recordClass(SerializerClass clazz) {
-        collected.add(clazz);
+        if (collected.add(clazz)) {
+            log.info("Record class {}", clazz);
+        }
+    }
+
+    @BeforeEach
+    public void setup() {
+        checker.addClassesManually(true);
     }
 
     @Test
@@ -95,7 +89,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 5675344L,
                 100,
                 zones,
-                TestSchemaDescriptors.schemas(state, 2, objectVersions),
+                TestSchemaDescriptors.schemas(state, 1, objectVersions),
                 zones.get(0).id()
         );
 
@@ -118,7 +112,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 23432L,
                 2343,
                 zones,
-                TestSchemaDescriptors.schemas(state, 2, objectVersions),
+                TestSchemaDescriptors.schemas(state, 1, objectVersions),
                 null
         );
 
@@ -185,7 +179,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
         objectVersions.put(Type.INDEX, defaultEntryVersion());
         objectVersions.put(Type.SYSTEM_VIEW, defaultEntryVersion());
 
-        List<UpdateEntry> entries = TestSchemaDescriptors.schemas(state, 2, objectVersions)
+        List<UpdateEntry> entries = TestSchemaDescriptors.schemas(state, 1, objectVersions)
                 .stream()
                 .map(NewSchemaEntry::new)
                 .collect(Collectors.toList());
@@ -207,7 +201,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
     @Test
     public void newTable() {
-        int version = 2;
+        int version = 1;
 
         List<UpdateEntry> entries = TestTableDescriptors.tables(state, version)
                 .stream()
@@ -241,7 +235,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
     @Test
     public void newIndex() {
-        int version = 2;
+        int version = 1;
 
         List<UpdateEntry> entries1 = TestIndexDescriptors.sortedIndices(state, version)
                 .stream()
@@ -357,7 +351,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
     @Test
     public void newSystemView() {
-        int version = 2;
+        int version = 1;
 
         List<UpdateEntry> entries = TestSystemViewDescriptors.systemViews(state, version)
                 .stream()
@@ -365,18 +359,5 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 .collect(Collectors.toList());
 
         checker.compareEntries(entries, "NewSystemViewEntry", version);
-    }
-
-    @Test
-    public void alterTableProperties() {
-        List<UpdateEntry> entries = List.of(
-                new AlterTablePropertiesEntry(state.id(), null, null),
-                new AlterTablePropertiesEntry(state.id(), 1.0d, null),
-                new AlterTablePropertiesEntry(state.id(), null, 10L),
-                new AlterTablePropertiesEntry(state.id(), 2.0d, 10L)
-        );
-
-        checker.addExpectedVersion(MarshallableEntryType.ALTER_TABLE_PROPERTIES.id(), 1);
-        checker.compareEntries(entries, "AlterTableProperties", 1);
     }
 }
