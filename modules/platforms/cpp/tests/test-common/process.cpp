@@ -31,7 +31,7 @@ namespace ignite {
 
 std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
 #ifdef _WIN32
-    return std::unique_ptr<CmdProcess>(new detail::WinProcess(std::move(command), std::move(args), std::move(workDir)));
+    return std::make_unique<detail::WinProcess>(std::move(command), std::move(args), std::move(workDir));
 #else
     return std::unique_ptr<CmdProcess>(
         new detail::UnixProcess(std::move(command), std::move(args), std::move(workDir)));

@@ -28,10 +28,10 @@ import java.util.regex.Pattern;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -75,7 +75,7 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(TxType.class)
-    @Disabled("IGNITE-26521")
+//    @Disabled("IGNITE-26521")
     void ensureLostOfNodeDoesntCausesQueryToFail(TxType txType) {
         startAdditionalNode();
         startAdditionalNode();
@@ -106,6 +106,7 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
 
         assertThat(nodeName, notNullValue());
 
+        IgniteUtils.DELAY_EVENT_DURATION.set(500);
         CLUSTER.stopNode(nodeName);
 
         txType.runInTx(gateway, tx -> assertQuery(gateway, tx, "SELECT count(*) FROM my_table WHERE val > -1")

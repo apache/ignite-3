@@ -40,6 +40,7 @@ import org.apache.ignite.internal.network.DuplicateConsistentIdException;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -221,6 +222,14 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param member Disappeared cluster member.
      */
     private void fireDisappearedEvent(InternalClusterNode member) {
+        int duration = IgniteUtils.DELAY_EVENT_DURATION.getAndSet(0); 
+        if (duration > 0) {
+            try {
+                Thread.sleep(duration);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
         for (TopologyEventHandler handler : getEventHandlers()) {
             handler.onDisappeared(member);
         }
