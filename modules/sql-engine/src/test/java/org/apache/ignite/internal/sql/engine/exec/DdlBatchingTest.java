@@ -236,7 +236,6 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
 
     @Test
     void batchIsSplitByDrop() {
-        System.out.println("XXX: " + executeCallCounter.get());
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
                 "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
