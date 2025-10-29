@@ -17,26 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import org.apache.calcite.sql.SqlNode;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
 /**
- *  Provide helper methods for batched DDL commands.
+ * Annotation that defines how multi-statement handler executes DDL statement.
+ *
+ * <p>DDL statements of the same {@link DdlBatchGroup} can be executed in together within the same batch except {@link DdlBatchGroup#OTHER}.
+ * Statements marked as {@link DdlBatchGroup#OTHER} can be executed only separately, this is the default behavior.
  */
-class DdlBatchingHelper {
-    /** Returns {@code true} if commands (represented by AST trees) can be executed together, {@code false} otherwise. */
-    static boolean isCompatible(SqlNode node1, SqlNode node2) {
-        DdlBatchGroup kind1 = getCommandType(node1);
-        DdlBatchGroup kind2 = getCommandType(node2);
-
-        return kind1 == kind2 && kind1 != DdlBatchGroup.OTHER;
-    }
-
-    /** Returns command kind. */
-    private static DdlBatchGroup getCommandType(SqlNode node) {
-        DdlBatchAware batchAwareAnnotation = node.getClass().getDeclaredAnnotation(DdlBatchAware.class);
-
-        assert batchAwareAnnotation != null : "Batching behaviour wasn't specified for " + node.getClass();
-
-        return batchAwareAnnotation.group();
-    }
+@Target({TYPE})
+@Retention(RUNTIME)
+public @interface DdlBatchAware {
+    /** Returns DDL batch group. */
+    DdlBatchGroup group() default DdlBatchGroup.OTHER;
 }

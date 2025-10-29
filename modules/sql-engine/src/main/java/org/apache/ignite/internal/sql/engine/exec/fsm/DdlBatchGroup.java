@@ -17,26 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import org.apache.calcite.sql.SqlNode;
-
 /**
- *  Provide helper methods for batched DDL commands.
+ * Groups fpr batching compatible DDL operations.
+ *
+ * @see DdlBatchAware
  */
-class DdlBatchingHelper {
-    /** Returns {@code true} if commands (represented by AST trees) can be executed together, {@code false} otherwise. */
-    static boolean isCompatible(SqlNode node1, SqlNode node2) {
-        DdlBatchGroup kind1 = getCommandType(node1);
-        DdlBatchGroup kind2 = getCommandType(node2);
-
-        return kind1 == kind2 && kind1 != DdlBatchGroup.OTHER;
-    }
-
-    /** Returns command kind. */
-    private static DdlBatchGroup getCommandType(SqlNode node) {
-        DdlBatchAware batchAwareAnnotation = node.getClass().getDeclaredAnnotation(DdlBatchAware.class);
-
-        assert batchAwareAnnotation != null : "Batching behaviour wasn't specified for " + node.getClass();
-
-        return batchAwareAnnotation.group();
-    }
+public enum DdlBatchGroup {
+    /** Group for CREATE operations. */
+    CREATE,
+    /** Group for DROP operations. */
+    DROP,
+    /** Group for other operations. */
+    OTHER;
 }

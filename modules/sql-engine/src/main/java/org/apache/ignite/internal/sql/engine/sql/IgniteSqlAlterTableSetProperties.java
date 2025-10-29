@@ -28,11 +28,13 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Parse tree for {@code ALTER TABLE ... SET} statement.
  */
+@DdlBatchAware
 public class IgniteSqlAlterTableSetProperties extends IgniteAbstractSqlAlterTable {
 
     /** ALTER TABLE ... SET operator. */
