@@ -635,9 +635,12 @@ public class Cluster {
         Collections.fill(nodes, null);
 
         // TODO: IGNITE-26085 Allow stopping nodes in any order. Currently, MS nodes stop only at the last one.
+        // First stop ordinary nodes
         stopNodes(serversToStop, server -> !cmgNodes.contains(server) && !metastorageNodes.contains(server));
+        // Then stop cmg nodes that are not also in metastorage
         stopNodes(cmgNodes, server -> serversToStop.contains(server) && !metastorageNodes.contains(server));
-        stopNodes(metastorageNodes, server -> serversToStop.contains(server) && !cmgNodes.contains(server));
+        // Finally stop metastorage nodes
+        stopNodes(metastorageNodes, serversToStop::contains);
 
         cmgNodes = List.of();
         metastorageNodes = List.of();
