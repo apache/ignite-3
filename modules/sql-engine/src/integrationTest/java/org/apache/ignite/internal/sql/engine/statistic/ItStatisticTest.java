@@ -214,8 +214,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         HashCalculator calc = new HashCalculator();
 
         for (long i = from; i < Integer.MAX_VALUE; ++i) {
-            //PartitionCalculator calc = new PartitionCalculator(3, new NativeType[]{NativeTypes.INT64});
-            //calc.append(i);
             calc.appendLong(i);
             int partition = IgniteUtils.safeAbs(calc.hash()) % PARTITIONS;
             partitionUpdates[partition] += 1;
