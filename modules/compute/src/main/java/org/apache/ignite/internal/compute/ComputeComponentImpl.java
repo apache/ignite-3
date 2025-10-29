@@ -303,18 +303,15 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
-        messaging.start(executionContext -> executeLocally(executionContext, null));
         executionManager.start();
         computeViewProvider.init(executionManager);
 
         return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
@@ -331,6 +328,13 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         IgniteUtils.shutdownAndAwaitTermination(failoverExecutor, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();
+    }
+
+    /**
+     * Enables compute messages handling.
+     */
+    public void enable() {
+        messaging.start(executionContext -> executeLocally(executionContext, null));
     }
 
     private JobExecutionInternal<ComputeJobDataHolder> execJob(JobContext context, ExecutionContext executionContext) {

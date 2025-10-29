@@ -60,10 +60,13 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Binary representation of each entry is as follows:
  * <pre>
- * +---------------+---------+--------------------------+---------+----------------+
- * | Raft Group ID (8 bytes) | Payload Length (4 bytes) | Payload | Hash (4 bytes) |
- * +---------------+---------+--------------------------+---------+----------------+
+ * +-------------------------+--------------------------+-------------------+---------------------+---------+----------------+
+ * | Raft Group ID (8 bytes) | Payload Length (4 bytes) | Term (1-10 bytes) | Index (1-10 bytes)  | Payload | Hash (4 bytes) |
+ * +-------------------------+--------------------------+-------------------+---------------------+---------+----------------+
  * </pre>
+ *
+ * <p>Log Entry Index and Term are stored as variable-length integers (varints), hence the non-fixed size in bytes. They are treated as
+ * a part of the payload, so payload length includes their size as well.
  *
  * <p>In addition to regular Raft log entries, payload can also represent a special type of entry which are written when Raft suffix
  * is truncated. Such entries are identified by having a payload length of 0, followed by 8 bytes of the last log index kept after the
@@ -180,22 +183,21 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     void appendEntry(long groupId, LogEntry entry, LogEntryEncoder encoder) throws IOException {
-        int entrySize = encoder.size(entry);
+        int segmentEntrySize = SegmentPayload.size(entry, encoder);
 
-        if (entrySize > maxPossibleEntrySize()) {
+        if (segmentEntrySize > maxPossibleEntrySize()) {
             throw new IllegalArgumentException(String.format(
-                    "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.", entrySize, maxPossibleEntrySize()
+                    "Segment entry is too big (%d bytes), maximum allowed segment entry size: %d bytes.",
+                    segmentEntrySize, maxPossibleEntrySize()
             ));
         }
 
-        int payloadSize = SegmentPayload.size(entrySize);
-
-        try (WriteBufferWithMemtable writeBufferWithMemtable = reserveBytesWithRollover(payloadSize)) {
+        try (WriteBufferWithMemtable writeBufferWithMemtable = reserveBytesWithRollover(segmentEntrySize)) {
             ByteBuffer segmentBuffer = writeBufferWithMemtable.buffer();
 
             int segmentOffset = segmentBuffer.position();
 
-            SegmentPayload.writeTo(segmentBuffer, groupId, entrySize, entry, encoder);
+            SegmentPayload.writeTo(segmentBuffer, groupId, segmentEntrySize, entry, encoder);
 
             // Append to memtable before write buffer is released to avoid races with checkpoint on rollover.
             writeBufferWithMemtable.memtable.appendSegmentFileOffset(groupId, entry.getId().getIndex(), segmentOffset);
@@ -409,7 +411,7 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     private long maxPossibleEntrySize() {
-        return fileSize - HEADER_RECORD.length - SegmentPayload.overheadSize();
+        return fileSize - HEADER_RECORD.length;
     }
 
     private @Nullable ByteBuffer readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {

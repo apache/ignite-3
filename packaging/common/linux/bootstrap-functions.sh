@@ -20,23 +20,36 @@
 . ${LIBS_DIR}/@SETUP_JAVA_FILE_NAME@
 
 # used by rpm, deb, zip and docker distributions
-export COMMON_JAVA_OPTS="
+COMMON_JAVA_OPTS="
     @ADD_OPENS@ \
     -Dio.netty.tryReflectionSetAccessible=true \
     -Dfile.encoding=UTF-8 \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:+ExitOnOutOfMemoryError"
 
-export LOGGING_JAVA_OPTS="
+LOGGING_JAVA_OPTS="
     -Djava.util.logging.config.file=${CONF_DIR}/ignite.java.util.logging.properties \
     -XX:HeapDumpPath=${LOG_DIR} \
     -Xlog:gc=info:file=${LOG_DIR}/${JVM_GC_LOG_NAME}::filecount=${JVM_GC_NUM_LOGS},filesize=${JVM_GC_LOG_SIZE}"
 
-export CLASSPATH="-classpath ${LIBS_DIR}/@APP_JAR@:${LIBS_DIR}/* @MAIN_CLASS@"
+JAVA_MEMORY_OPTIONS="-Xmx${JVM_MAX_MEM} -Xms${JVM_MIN_MEM}"
 
-export JAVA_MEMORY_OPTIONS="-Xmx${JVM_MAX_MEM} -Xms${JVM_MIN_MEM}"
+JAVA_GC_OPTIONS="-XX:+Use${JVM_GC} -XX:G1HeapRegionSize=${JVM_G1HeapRegionSize}"
 
-export JAVA_GC_OPTIONS="-XX:+Use${JVM_GC} -XX:G1HeapRegionSize=${JVM_G1HeapRegionSize}"
+while IFS= read -r JAR || [ -n "${JAR}" ]; do
+    if [ -z "${CLASSPATH+x}" ]; then
+        CLASSPATH="-classpath ${LIBS_DIR}/${JAR}"
+    else
+        CLASSPATH="$CLASSPATH:${LIBS_DIR}/${JAR}"
+    fi
+done < "${LIBS_DIR}/@CLASS_PATH_FILE@"
+
+if [ -z "${CLASSPATH+x}" ]; then
+  echo "CLASSPATH could not be built from ${LIBS_DIR}/@CLASS_PATH_FILE@ file"
+  exit 1
+fi
+
+MAIN_CLASS="@MAIN_CLASS@"
 
 export JAVA_CMD_WITH_ARGS="${JAVACMD} \
   ${COMMON_JAVA_OPTS} \
@@ -44,7 +57,8 @@ export JAVA_CMD_WITH_ARGS="${JAVACMD} \
   ${JAVA_MEMORY_OPTIONS} \
   ${JAVA_GC_OPTIONS} \
   ${IGNITE3_EXTRA_JVM_ARGS} \
-  ${CLASSPATH}"
+  ${CLASSPATH} \
+  ${MAIN_CLASS}"
 
 export APPLICATION_ARGS="\
   --config-path ${CONFIG_FILE} \

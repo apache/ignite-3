@@ -34,6 +34,3 @@ cd ${IGNITE_HOME} || exit
 
 CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
 $CMD
-
-
-
