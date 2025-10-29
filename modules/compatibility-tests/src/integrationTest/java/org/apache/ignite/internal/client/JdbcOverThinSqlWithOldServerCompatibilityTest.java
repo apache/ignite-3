@@ -74,7 +74,8 @@ public class JdbcOverThinSqlWithOldServerCompatibilityTest extends Compatibility
         IgniteClientConnectionException connectEx = (IgniteClientConnectionException) cause;
 
         assertThat(connectEx.getMessage(),
-                containsString("Connection to node aborted, because node doesn't support new JDBC driver"));
+                containsString("Connection to node aborted, because the node does not support the feature required "
+                                + "by the driver being used. Please use a previous version of the JDBC driver to connect to this node"));
         assertThat(connectEx.code(), is(Client.CONNECTION_ERR));
     }
 }

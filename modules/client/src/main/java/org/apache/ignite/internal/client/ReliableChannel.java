@@ -897,6 +897,10 @@ public final class ReliableChannel implements AutoCloseable {
                         inflights);
 
                 chFut0 = createFut.thenApply(ch -> {
+                    if (channelValidator != null) {
+                        channelValidator.accept(ch.protocolContext());
+                    }
+
                     UUID currentClusterId = ch.protocolContext().clusterId();
                     UUID oldClusterId = clusterId.compareAndExchange(null, currentClusterId);
                     List<UUID> validClusterIds = ch.protocolContext().clusterIds();
@@ -928,10 +932,6 @@ public final class ReliableChannel implements AutoCloseable {
                     if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
                         // New node on the old address.
                         nodeChannelsByName.remove(oldServerNode.name(), this);
-                    }
-
-                    if (channelValidator != null) {
-                        channelValidator.accept(ch.protocolContext());
                     }
 
                     serverNode = newNode;

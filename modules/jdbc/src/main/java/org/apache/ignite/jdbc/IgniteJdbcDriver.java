@@ -316,8 +316,9 @@ public class IgniteJdbcDriver implements Driver {
 
                 throw new IgniteClientConnectionException(
                         CONNECTION_ERR,
-                        IgniteStringFormatter.format("Connection to node aborted, "
-                                + "because node doesn't support new JDBC driver [name={}, address={}]", node.name(), node.address()),
+                        IgniteStringFormatter.format("Connection to node aborted, because the node does not support "
+                                + "the feature required by the driver being used. Please use a previous version of the JDBC driver "
+                                + "to connect to this node [name={}, address={}]", node.name(), node.address()),
                         null
                 );
             }
