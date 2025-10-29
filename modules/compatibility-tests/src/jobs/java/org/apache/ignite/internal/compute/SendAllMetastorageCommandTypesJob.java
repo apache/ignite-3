@@ -58,7 +58,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
                             iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
                     metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
                     sendCompactionCommand(metastorage)
-            );
+            ).thenCompose((v) -> metastorage.storage().flush());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

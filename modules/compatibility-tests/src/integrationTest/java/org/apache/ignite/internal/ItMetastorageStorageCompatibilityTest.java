@@ -17,38 +17,23 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.client.DeploymentUtils.runJob;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.DeploymentUtils;
 import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
-import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Compatibility tests for metastorage raft log. */
+/** Compatibility tests for metastorage storage. */
 @ParameterizedClass
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
-public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
-    @Override
-    protected boolean restartWithCurrentEmbeddedVersion() {
-        return false;
-    }
-
+public class ItMetastorageStorageCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected int nodesCount() {
         return 1;
@@ -60,54 +45,17 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
 
         createDefaultTables(baseIgnite);
 
-        Path nodeWorkDir = cluster.runnerNodeWorkDir(0);
-
         runSendAllMetastorageCommandTypesJob();
-
-        cluster.stop();
-
-        // To force metastorage recovery from the raft log.
-        deleteMetastorageDbDir(nodeWorkDir);
-    }
-
-    @AfterEach
-    void tearDown()  {
-        cluster.stop();
     }
 
     @Test
-    void testReapplication() {
-        cluster.startEmbedded(1);
-
+    void testMetastorageStorageCompatibility() {
         checkMetastorage();
-    }
-
-    @Test
-    void testStreamToFollower() throws InterruptedException {
-        cluster.startEmbedded(2);
-
-        awaitAssignmentsStabilization(node(0), TABLE_NAME_TEST);
-
-        checkMetastorage();
-
-        MetaStorageManager newNodeMetastorage = unwrapIgniteImpl(cluster.node(1)).metaStorageManager();
-        MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
-
-        // Assert that new node got all log entries from old one.
-        assertTrue(waitForCondition(() -> oldNodeMetastorage.appliedRevision() == newNodeMetastorage.appliedRevision(), 10_000));
     }
 
     private void checkMetastorage() {
         // Will fail if metastorage is corrupted.
         sql("SELECT * FROM " + TABLE_NAME_TEST);
-    }
-
-    private static void deleteMetastorageDbDir(Path nodeWorkDir) {
-        Path metastorageDbDir = new ComponentWorkingDir(nodeWorkDir.resolve("metastorage")).dbPath();
-
-        // There is no IgniteUtils.delete() method yet.
-        assertTrue(Files.exists(metastorageDbDir));
-        assertTrue(IgniteUtils.deleteIfExists(metastorageDbDir));
     }
 
     private void runSendAllMetastorageCommandTypesJob() {
