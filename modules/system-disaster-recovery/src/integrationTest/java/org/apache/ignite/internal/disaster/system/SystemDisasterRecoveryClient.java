@@ -17,34 +17,38 @@
 
 package org.apache.ignite.internal.disaster.system;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.util.ArrayUtils.concat;
-
-import java.io.ByteArrayOutputStream;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublisher;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpRequest.Builder;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.util.List;
-import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.Main;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rest.api.cluster.ClusterState;
+import org.apache.ignite.internal.rest.api.recovery.system.MigrateRequest;
+import org.apache.ignite.internal.rest.api.recovery.system.ResetClusterRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to run system disaster recovery CLI commands.
  */
-@SuppressWarnings("UseOfProcessBuilder")
 class SystemDisasterRecoveryClient {
     private static final IgniteLogger LOG = Loggers.forClass(SystemDisasterRecoveryClient.class);
 
-    void initiateClusterReset(
+    static void initiateClusterReset(
             String httpHost,
             int httpPort,
             @Nullable Integer metastorageReplicationFactor,
             String... newCmgNodeNames
-    ) throws InterruptedException {
+    ) {
         LOG.info(
                 "Initiating cluster reset via {}:{}, new CMG {}, metastorage replication Factor {}",
                 httpHost,
@@ -53,99 +57,72 @@ class SystemDisasterRecoveryClient {
                 metastorageReplicationFactor
         );
 
-        String[] args = {Main.class.getName(), "recovery", "cluster", "reset", "--url", "http://" + httpHost + ":" + httpPort};
+        ResetClusterRequest resetClusterRequest = new ResetClusterRequest(List.of(newCmgNodeNames), metastorageReplicationFactor);
 
-        if (newCmgNodeNames.length > 0) {
-            args = concat(args, "--cluster-management-group", String.join(",", newCmgNodeNames));
-        }
-
-        if (metastorageReplicationFactor != null) {
-            args = concat(args, "--metastorage-replication-factor", String.valueOf(metastorageReplicationFactor));
-        }
-
-        executeWithSameJavaBinaryAndClasspath(args);
-    }
-
-    private static void executeWithSameJavaBinaryAndClasspath(String... args) throws InterruptedException {
-        String javaBinaryPath = ProcessHandle.current().info().command().orElseThrow();
-        String javaClassPath = System.getProperty("java.class.path");
-
-        LOG.info("Java binary is {}, classpath is {}", javaBinaryPath, javaClassPath);
-
-        String[] fullArgs = Stream.concat(Stream.of(javaBinaryPath, "-cp", javaClassPath), Arrays.stream(args))
-                .toArray(String[]::new);
-
-        //noinspection UseOfProcessBuilder
-        ProcessBuilder processBuilder = new ProcessBuilder(fullArgs);
-        executeProcessFrom(processBuilder);
-    }
-
-    private static void executeProcessFrom(ProcessBuilder processBuilder) throws InterruptedException {
         try {
-            Process process = processBuilder.start();
-
-            if (!process.waitFor(30, SECONDS)) {
-                throw new RuntimeException("Process did not finish in time, stdout so far '" + stdoutString(process, false)
-                        + "', stderr so far '" + stderrString(process, false) + "'");
-            }
-            if (process.exitValue() != 0) {
-                throw new RuntimeException("Return code " + process.exitValue()
-                        + ", stdout: " + stdoutString(process) + ", stderr: " + stderrString(process));
-            }
-
-            LOG.info("stdout is '{}'", stdoutString(process));
-            LOG.info("stderr is '{}'", stderrString(process));
+            sendPostRequest(httpHost, httpPort, "/management/v1/recovery/cluster/reset", resetClusterRequest);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            LOG.info("Node has gone, this most probably means that cluster repair is initiated and the node restarts.");
         }
     }
 
-    private static String stdoutString(Process process) {
-        return stdoutString(process, true);
-    }
-
-    private static String stdoutString(Process process, boolean readFully) {
-        try (InputStream stdout = process.getInputStream()) {
-            return new String(streamContent(stdout, readFully), UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static String stderrString(Process process) {
-        return stderrString(process, true);
-    }
-
-    private static String stderrString(Process process, boolean readFully) {
-        try (InputStream stderr = process.getErrorStream()) {
-            return new String(streamContent(stderr, readFully), UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static byte[] streamContent(InputStream is, boolean readFully) throws IOException {
-        if (readFully) {
-            return is.readAllBytes();
-        } else {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-            while (is.available() > 0) {
-                baos.write(is.read());
-            }
-
-            return baos.toByteArray();
-        }
-    }
-
-    void initiateMigration(String oldHttpHost, int oldHttpPort, String newHttpHost, int newHttpPort) throws InterruptedException {
+    static void initiateMigration(String oldHttpHost, int oldHttpPort, String newHttpHost, int newHttpPort) {
         LOG.info("Initiating migration, old {}:{}, new {}:{}", oldHttpHost, oldHttpPort, newHttpHost, newHttpPort);
 
-        executeWithSameJavaBinaryAndClasspath(
-                Main.class.getName(),
-                "recovery", "cluster", "migrate",
-                "--old-cluster-url", "http://" + oldHttpHost + ":" + oldHttpPort,
-                "--new-cluster-url", "http://" + newHttpHost + ":" + newHttpPort
-        );
+        try {
+            HttpResponse<String> response = sendGetRequest(newHttpHost, newHttpPort, "/management/v1/cluster/state");
+            ObjectMapper objectMapper = new ObjectMapper();
+            ClusterState clusterState = objectMapper.readValue(response.body(), ClusterState.class);
+
+            MigrateRequest migrateRequest = new MigrateRequest(
+                    List.copyOf(clusterState.cmgNodes()),
+                    List.copyOf(clusterState.msNodes()),
+                    clusterState.igniteVersion(),
+                    clusterState.clusterTag().clusterId(),
+                    clusterState.clusterTag().clusterName(),
+                    clusterState.formerClusterIds()
+            );
+
+            sendPostRequest(oldHttpHost, oldHttpPort, "/management/v1/cluster/migrate", migrateRequest);
+        } catch (IOException e) {
+            LOG.info("Node has gone, this most probably means that migration is initiated and the node restarts.");
+        }
+    }
+
+    private static HttpResponse<String> sendGetRequest(String httpHost, int httpPort, String path) throws IOException {
+        return sendHttpRequest(httpHost, httpPort, path, Builder::GET);
+    }
+
+    private static void sendPostRequest(String httpHost, int httpPort, String path, Object arg) throws IOException {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            BodyPublisher bodyPublisher = BodyPublishers.ofString(objectMapper.writeValueAsString(arg));
+            sendHttpRequest(httpHost, httpPort, path, builder -> builder.POST(bodyPublisher));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static HttpResponse<String> sendHttpRequest(
+            String httpHost,
+            int httpPort,
+            String path,
+            Consumer<Builder> builderConsumer
+    ) throws IOException {
+        Builder builder = HttpRequest.newBuilder(URI.create("http://" + httpHost + ":" + httpPort + path))
+                .header("content-type", "application/json");
+        builderConsumer.accept(builder);
+        HttpRequest request = builder.build();
+
+        try {
+            HttpClient client = HttpClient.newBuilder().build();
+            HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new RuntimeException(response.body());
+            }
+            return response;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

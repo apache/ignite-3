@@ -46,13 +46,14 @@ dependencies {
     integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-metastorage')
     integrationTestImplementation project(':ignite-client')
-    integrationTestImplementation project(':ignite-cli')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
+    integrationTestImplementation libs.jackson.databind
     integrationTestImplementation libs.jetbrains.annotations
 }
 

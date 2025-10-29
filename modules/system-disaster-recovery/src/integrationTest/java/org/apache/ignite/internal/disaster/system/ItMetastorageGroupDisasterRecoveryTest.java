@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster.system;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryClient.initiateClusterReset;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
@@ -92,8 +93,8 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         assertThat(ignite.metaStorageManager().get(new ByteArray("abc")), willCompleteSuccessfully());
     }
 
-    private void initiateMgRepairVia(int conductorIndex, int mgReplicationFactor, int... newCmgIndexes) throws InterruptedException {
-        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), mgReplicationFactor, nodeNames(newCmgIndexes));
+    private void initiateMgRepairVia(int conductorIndex, int mgReplicationFactor, int... newCmgIndexes) {
+        initiateClusterReset("localhost", cluster.httpPort(conductorIndex), mgReplicationFactor, nodeNames(newCmgIndexes));
     }
 
     @Test
