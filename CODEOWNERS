@@ -3,6 +3,6 @@
 
 # Platforms and Clients
 /modules/platforms/dotnet/    ptupitsyn@apache.org
-/modules/platforms/cpp/       isapego@apache.org
-/modules/platforms/python/    isapego@apache.org
-/modules/client-*             isapego@apache.org ptupitsyn@apache.org
+/modules/platforms/cpp/       @isapego
+/modules/platforms/python/    @isapego
+/modules/client-*             @isapego ptupitsyn@apache.org
