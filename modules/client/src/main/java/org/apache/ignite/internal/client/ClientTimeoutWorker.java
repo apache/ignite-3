@@ -25,11 +25,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
 final class ClientTimeoutWorker {
+    private static final IgniteLogger LOG = Loggers.forClass(ClientTimeoutWorker.class);
+
     static final ClientTimeoutWorker INSTANCE = new ClientTimeoutWorker();
 
     private static final int emptyCountThreshold = 10;
@@ -72,7 +75,7 @@ final class ClientTimeoutWorker {
         return Executors.newSingleThreadScheduledExecutor(
                 new NamedThreadFactory(
                         "TcpClientChannel-timeout-worker",
-                        Loggers.voidLogger()));
+                        LOG));
     }
 
     private void checkTimeouts() {
