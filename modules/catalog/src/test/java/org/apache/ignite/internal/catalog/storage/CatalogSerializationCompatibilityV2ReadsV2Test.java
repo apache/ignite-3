@@ -262,6 +262,30 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
     }
 
     @Test
+    public void newIndexV3() {
+        int version = 3;
+
+        List<UpdateEntry> entries1 = TestIndexDescriptors.sortedIndices(state, version)
+                .stream()
+                .map(NewIndexEntry::new)
+                .collect(Collectors.toList());
+
+        List<UpdateEntry> entries2 = TestIndexDescriptors.hashIndices(state, version)
+                .stream()
+                .map(NewIndexEntry::new)
+                .collect(Collectors.toList());
+
+        List<UpdateEntry> entries = new ArrayList<>(entries1);
+        entries.addAll(entries2);
+
+        Collections.shuffle(entries, state.random());
+
+        checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_HASH_INDEX.id(), version);
+        checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_SORTED_INDEX.id(), version);
+        checker.compareEntries(entries, "NewIndexEntry", version);
+    }
+
+    @Test
     public void renameIndex() {
         List<UpdateEntry> entries = List.of(new RenameIndexEntry(state.id(), "NEW_NAME"));
 

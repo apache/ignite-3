@@ -403,7 +403,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testComplexIndexCondition1() {
-        assertQuery("SELECT * FROM Developer WHERE name like 'Moza%' AND depId=3")
+        assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId=3")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();

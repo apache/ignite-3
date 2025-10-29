@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.storage;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Set;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptorSerializers;
 import org.apache.ignite.internal.catalog.storage.CatalogSerializationChecker.SerializerClass;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.CollectionUtils;

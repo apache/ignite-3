@@ -80,17 +80,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void test() {
-        sqlScript(""
-                + "CREATE TABLE t(id INT PRIMARY KEY, val VARCHAR(36));"
-                + "INSERT INTO t VALUES (-1, 'ab'), (0, 'aac'), (1, 'abc'), (2, 'abz'), (4, 'abZ'), (5, 'ab0'), (6, 'ab9'), (7, 'ab '), (3, 'aca');");
-
-        System.out.println(sql("SELECT CHR(255), U&'\\FFFF', U&'\\FFFF'::varchar"));
-        System.out.println(sql("SELECT * FROM t WHERE val like 'ab%'"));
-        System.out.println(sql("SELECT * FROM t WHERE val >= 'ab' AND val < ('ab' || U&'\\FFFF'::varchar)"));
-    }
-
-    @Test
     void subqueryInUpdateAndMerge() {
         //noinspection ConcatenationWithEmptyString
         sqlScript("" 
