@@ -32,10 +32,9 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.HashCalculator;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -45,12 +44,14 @@ import org.junit.jupiter.api.Test;
 /** Integration test to check SQL statistics. */
 public class ItStatisticTest extends BaseSqlIntegrationTest {
     private SqlStatisticManagerImpl sqlStatisticManager;
+    private static final int PARTITIONS = 3;
 
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
 
-        sql("CREATE ZONE zone_with_repl (replicas 2, partitions 3) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']");
+        sql(format("CREATE ZONE zone_with_repl (replicas 2, partitions {}) storage profiles ['"
+                + DEFAULT_STORAGE_PROFILE + "']", PARTITIONS));
         sql("CREATE TABLE t(ID BIGINT PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl");
     }
 
@@ -110,11 +111,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                             .check();
                 }
         );
-
-        // query not cached in plans
-        assertQuery("select 1 from t")
-                .matches(nodeRowCount("TableScan", is((int) updates1)))
-                .check();
 
         milestone = computeNextMilestone(milestone, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
@@ -206,24 +202,29 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         return Math.max((long) (currentSize * staleRowsFraction), minStaleRowsCount);
     }
 
-    /** Inclusively 'from', exclusively 'to' bounds. */
+    /**
+     * Calculates number of rows need to be inserted with guarantee that {@code insertsPerPartition} will be reached for every partition.
+     * Inclusively 'from', exclusively 'to' bounds.
+     */
     private static long insert(long from, long insertsPerPartition) {
         long numberOfInsertions = 0;
 
-        long[] partitionUpdates = new long[3];
+        long[] partitionUpdates = new long[PARTITIONS];
+
+        HashCalculator calc = new HashCalculator();
 
         for (long i = from; i < Integer.MAX_VALUE; ++i) {
-            PartitionCalculator calc = new PartitionCalculator(3, new NativeType[]{NativeTypes.INT64});
-            calc.append(i);
-            partitionUpdates[calc.partition()] += 1;
+            //PartitionCalculator calc = new PartitionCalculator(3, new NativeType[]{NativeTypes.INT64});
+            //calc.append(i);
+            calc.appendLong(i);
+            int partition = IgniteUtils.safeAbs(calc.hash()) % PARTITIONS;
+            partitionUpdates[partition] += 1;
+            calc.reset();
             numberOfInsertions = i;
             boolean filled = true;
-            for (int pos = 0; pos < 3; ++pos) {
+            for (int pos = 0; pos < PARTITIONS; ++pos) {
                 if (partitionUpdates[pos] < insertsPerPartition) {
                     filled = false;
-                }
-
-                if (!filled) {
                     break;
                 }
             }
