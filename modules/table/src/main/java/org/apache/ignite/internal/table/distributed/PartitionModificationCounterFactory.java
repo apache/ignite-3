@@ -68,7 +68,9 @@ public class PartitionModificationCounterFactory {
                 stalenessConfigurationSupplier
         );
 
-        partitionsInfo.put(new TablePartitionId(tableId, partitionId), info);
+        synchronized (this) {
+            partitionsInfo.put(new TablePartitionId(tableId, partitionId), info);
+        }
 
         return info;
     }
@@ -101,17 +103,19 @@ public class PartitionModificationCounterFactory {
     private void handleRequestCounter(InternalClusterNode sender) {
         List<PartitionModificationInfoMessage> modificationInfo = new ArrayList<>();
 
-        for (Map.Entry<TablePartitionId, PartitionModificationCounter> ent : partitionsInfo.entrySet()) {
-            PartitionModificationCounter info = ent.getValue();
-            TablePartitionId tblPartId = ent.getKey();
-            PartitionModificationInfoMessage infoMsg = REPLICA_MESSAGES_FACTORY.partitionModificationInfoMessage()
-                    .tableId(tblPartId.tableId())
-                    .partId(tblPartId.partitionId())
-                    .estimatedSize(info.estimatedSize())
-                    .lastModificationCounter(info.lastMilestoneTimestamp().longValue())
-                    .build();
+        synchronized (this) {
+            for (Map.Entry<TablePartitionId, PartitionModificationCounter> ent : partitionsInfo.entrySet()) {
+                PartitionModificationCounter info = ent.getValue();
+                TablePartitionId tblPartId = ent.getKey();
+                PartitionModificationInfoMessage infoMsg = REPLICA_MESSAGES_FACTORY.partitionModificationInfoMessage()
+                        .tableId(tblPartId.tableId())
+                        .partId(tblPartId.partitionId())
+                        .estimatedSize(info.estimatedSize())
+                        .lastModificationCounter(info.lastMilestoneTimestamp().longValue())
+                        .build();
 
-            modificationInfo.add(infoMsg);
+                modificationInfo.add(infoMsg);
+            }
         }
 
         messagingService.send(sender, REPLICA_MESSAGES_FACTORY
