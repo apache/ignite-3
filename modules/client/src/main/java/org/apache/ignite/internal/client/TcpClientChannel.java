@@ -689,22 +689,18 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         CompletableFuture<Object> resFut = new CompletableFuture<>();
 
         fut.handle((unpacker, err) -> {
-            if (err != null) {
-                if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
-                    metrics.handshakesFailedTimeoutIncrement();
-                    err = new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
-                } else {
-                    metrics.handshakesFailedIncrement();
-                    err = new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
-                }
-            }
-
             completeAsync(r -> handshakeRes(r.in()), null, unpacker, err, resFut);
-
             return null;
         });
 
-        return resFut;
+        return resFut.exceptionally(err -> {
+            if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
+                metrics.handshakesFailedTimeoutIncrement();
+                throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
+            }
+            metrics.handshakesFailedIncrement();
+            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
+        });
     }
 
     /**
