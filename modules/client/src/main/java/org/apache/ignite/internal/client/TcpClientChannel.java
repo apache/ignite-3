@@ -427,10 +427,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             CompletableFuture<T> resFut = new CompletableFuture<>();
 
             fut.handle((unpacker, err) -> {
-                if (err != null) {
-                    resFut.completeExceptionally(ViewUtils.ensurePublicException(err));
-                } else {
+                if (err == null) {
                     completeAsync(payloadReader, notificationFut, unpacker, resFut);
+                } else {
+                    resFut.completeExceptionally(ViewUtils.ensurePublicException(err));
                 }
 
                 return null;
@@ -674,16 +674,25 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
         });
 
-        return fut
-                .thenCompose(unpacker -> completeAsync(r -> handshakeRes(r.in()), null, unpacker))
-                .exceptionally(err -> {
-                    if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
-                        metrics.handshakesFailedTimeoutIncrement();
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
-                    }
+        CompletableFuture<Object> resFut = new CompletableFuture<>();
+
+        fut.handle((unpacker, err) -> {
+            if (err == null) {
+                completeAsync(r -> handshakeRes(r.in()), null, unpacker, resFut);
+            } else {
+                if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
+                    metrics.handshakesFailedTimeoutIncrement();
+                    resFut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err));
+                } else {
                     metrics.handshakesFailedIncrement();
-                    throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
-                });
+                    resFut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err));
+                }
+            }
+
+            return null;
+        });
+
+        return resFut;
     }
 
     /**
