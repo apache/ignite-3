@@ -339,11 +339,11 @@ public class CmgRaftService implements ManuallyCloseable {
 
         if (newLearners.isEmpty()) {
             // Methods for working with learners do not support empty peer lists for some reason.
-            // TODO: Replace with CMG specific token.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-26855.
             return raftService.changePeersAndLearnersAsync(newConfiguration, term,  0)
                     .thenRun(() -> raftService.updateConfiguration(newConfiguration));
         } else {
-            // TODO: Replace with CMG specific token.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-26855.
             return raftService.resetLearners(newConfiguration.learners(), 0);
         }
     }

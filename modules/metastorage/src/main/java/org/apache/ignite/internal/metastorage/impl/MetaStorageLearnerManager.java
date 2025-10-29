@@ -67,7 +67,7 @@ class MetaStorageLearnerManager {
     }
 
     CompletableFuture<Void> updateLearners(long term) {
-        // TODO: Proper token for MS.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
         return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term, 0));
     }
 
@@ -77,7 +77,7 @@ class MetaStorageLearnerManager {
         }
 
         return updateConfigUnderLock(() -> isPeer(raftService, learner)
-                ? nullCompletedFuture() // TODO: Proper token for MS.
+                ? nullCompletedFuture() // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
                 : raftService.addLearners(List.of(new Peer(learner.name())), 0));
     }
 
@@ -98,7 +98,7 @@ class MetaStorageLearnerManager {
                         return nullCompletedFuture();
                     }
 
-                    // TODO: Proper token for MS.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
                     return raftService.removeLearners(List.of(new Peer(learner.name())), 0);
                 })));
     }
