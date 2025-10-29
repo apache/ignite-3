@@ -424,11 +424,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             // Handle the response in the async continuation pool with completeAsync.
-            return fut
-                    .thenCompose(unpacker -> completeAsync(payloadReader, notificationFut, unpacker))
-                    .exceptionally(err -> {
-                        throw sneakyThrow(ViewUtils.ensurePublicException(err));
-                    });
+            CompletableFuture<T> resFut = new CompletableFuture<>();
+
+            fut.handle((unpacker, err) -> {
+                if (err != null) {
+                    resFut.completeExceptionally(ViewUtils.ensurePublicException(err));
+                } else {
+                    completeAsync(payloadReader, notificationFut, unpacker, resFut);
+                }
+
+                return null;
+            });
+
+            return resFut;
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
@@ -443,14 +451,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
     }
 
-    private <T> CompletableFuture<T> completeAsync(
+    private <T> void completeAsync(
             @Nullable PayloadReader<T> payloadReader,
             @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
-            ClientMessageUnpacker unpacker
+            ClientMessageUnpacker unpacker,
+            CompletableFuture<T> resFut
     ) {
         try {
-            CompletableFuture<T> resFut = new CompletableFuture<>();
-
             // Use asyncContinuationExecutor explicitly to close unpacker if the executor throws.
             // With handleAsync et al we can't close the unpacker in that case.
             asyncContinuationExecutor.execute(() -> {
@@ -460,11 +467,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
                 }
             });
-
-            return resFut;
         } catch (Throwable t) {
             unpacker.close();
-            return failedFuture(ViewUtils.ensurePublicException(t));
+            resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
         }
     }
 

@@ -129,7 +129,15 @@ public class ConfigurationTest extends AbstractClientTest {
 
     @Test
     public void testDefaultAsyncContinuationExecutorIsForkJoinPool() {
-        String threadName = client.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+        String threadName = client.tables().tablesAsync().thenApply(unused -> {
+            String thName = Thread.currentThread().getName();
+
+            if (thName.startsWith("nio")) {
+                throw new RuntimeException("Wrong thread: " + thName);
+            }
+
+            return thName;
+        }).join();
 
         assertNull(client.configuration().asyncContinuationExecutor());
 
