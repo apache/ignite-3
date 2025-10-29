@@ -318,17 +318,11 @@ public class IgniteServerImpl implements IgniteServer {
 
     private void triggerStopOnCurrentIgnite() {
         IgniteImpl currentIgnite;
-        CompletableFuture<Void> currentJoinFuture;
         synchronized (igniteChangeMutex) {
             currentIgnite = ignite;
-            currentJoinFuture = joinFuture;
         }
         if (currentIgnite != null) {
             currentIgnite.stopAsync();
-
-            if (currentJoinFuture != null) {
-                currentJoinFuture.completeExceptionally(new NodeStoppingException("Node is stopping."));
-            }
         }
     }
 
