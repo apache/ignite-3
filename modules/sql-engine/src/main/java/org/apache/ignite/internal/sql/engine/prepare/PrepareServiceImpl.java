@@ -1043,8 +1043,6 @@ public class PrepareServiceImpl implements PrepareService {
 
         private final AtomicBoolean inProgress = new AtomicBoolean();
 
-        private volatile boolean recalculatePlans;
-
         private final Cache<CacheKey, CompletableFuture<PlanInfo>> cache;
 
         private final long plannerTimeout;
