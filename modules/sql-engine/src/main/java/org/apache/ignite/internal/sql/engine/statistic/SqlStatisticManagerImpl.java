@@ -182,7 +182,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                                         : estimatedTableSize; // Save initial or replace stale state.
                             });
 
-                            if (!estimatedTableSize.equals(prevSize)) {
+                            if (estimatedTableSize.getSize() != prevSize.getSize()) {
                                 StatisticUpdatesSupplier supplier = changesSupplier.get();
                                 if (supplier != null) {
                                     supplier.accept(tableId);

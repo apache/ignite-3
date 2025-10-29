@@ -32,7 +32,10 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -47,8 +50,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
 
-        sql("CREATE ZONE zone_with_repl (replicas 2) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']");
-        sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl");
+        sql("CREATE ZONE zone_with_repl (replicas 2, partitions 3) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']");
+        sql("CREATE TABLE t(ID BIGINT PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl");
     }
 
     @AfterAll
@@ -68,65 +71,66 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         String selectQuery = "select * from t";
 
-        insert(0, milestone1);
+        long update = insert(0, milestone1);
 
         sql(selectQuery);
 
         AtomicInteger inc = new AtomicInteger();
 
-        long timeout = 2 * Math.max(REFRESH_PERIOD, INITIAL_DELAY);
-        // max 4 times cache pollution
-        long pollInterval = timeout / 4;
+        long timeout = calcStatisticUpdateTimeout();
+        // max 10 times cache pollution
+        long pollInterval = timeout / 10;
 
         Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
                 .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
                         assertQuery(format("select {} from t", inc.incrementAndGet()))
-                                .matches(nodeRowCount("TableScan", is((int) milestone1)))
+                                .matches(nodeRowCount("TableScan", is((int) update)))
                                 .check()
         );
     }
 
     @Test
     public void testTableSizeUpdatesForcibly() {
-        long milestone1 = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+        long milestone = computeNextMilestone(0, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-        insert(0, milestone1);
+        long updates1 = insert(0L, milestone);
 
-        int statRefresh = 2 * Math.max(PLAN_UPDATER_REFRESH_PERIOD, PLAN_UPDATER_INITIAL_DELAY);
-        // max 4 times cache pollution
-        long pollInterval = statRefresh / 4;
+        long timeout = calcStatisticUpdateTimeout();
+
+        // max 10 times cache pollution
+        long pollInterval = timeout / 10;
 
         Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() -> {
                     sqlStatisticManager.forceUpdateAll();
                     sqlStatisticManager.lastUpdateStatisticFuture().join();
 
                     assertQuery("select 1 from t")
-                            .matches(nodeRowCount("TableScan", is((int) milestone1)))
+                            .matches(nodeRowCount("TableScan", is((int) updates1)))
                             .check();
                 }
         );
 
         // query not cached in plans
         assertQuery("select 1 from t")
-                .matches(nodeRowCount("TableScan", is((int) milestone1)))
+                .matches(nodeRowCount("TableScan", is((int) updates1)))
                 .check();
 
-        long milestone2 = computeNextMilestone(milestone1, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+        milestone = computeNextMilestone(milestone, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-        insert(milestone1, milestone1 + milestone2);
+        long updates2 = insert(updates1, milestone);
 
         sqlStatisticManager.forceUpdateAll();
         sqlStatisticManager.lastUpdateStatisticFuture().join();
 
         // query not cached in plans
         Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() -> {
                     sqlStatisticManager.forceUpdateAll();
                     sqlStatisticManager.lastUpdateStatisticFuture().join();
 
                     assertQuery("select 1 from t")
-                            .matches(nodeRowCount("TableScan", is((int) (milestone1 + milestone2))))
+                            .matches(nodeRowCount("TableScan", is((int) updates2)))
                             .check();
                 }
         );
@@ -136,8 +140,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     public void statisticUpdatesChangeQueryPlans() throws Exception {
         try {
             sqlScript(""
-                    + "CREATE TABLE j1(ID INTEGER PRIMARY KEY, VAL INTEGER);"
-                    + "CREATE TABLE j2(ID INTEGER PRIMARY KEY, VAL INTEGER);"
+                    + "CREATE TABLE j1(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl;"
+                    + "CREATE TABLE j2(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl;"
             );
 
             sql("INSERT INTO j1 SELECT x, x FROM system_range(?, ?)", 0, 10);
@@ -148,32 +152,48 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
                     + "j1.* FROM j2, j1 WHERE j2.id = j1.id";
 
-            int statRefresh = 2 * Math.max(PLAN_UPDATER_REFRESH_PERIOD, PLAN_UPDATER_INITIAL_DELAY);
+            long statRefresh = calcStatisticUpdateTimeout();
 
-            Awaitility.await().timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
-                    assertQuery(query)
-                            // expecting right source has less rows than left
-                            .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
-                            .returnNothing()
-                            .check()
+            // max 10 times cache pollution
+            long pollInterval = statRefresh / 10;
+
+            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
+                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                            assertQuery(query)
+                                    // expecting right source has less rows than left
+                                    .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
+                                    .returnNothing()
+                                    .check()
             );
 
-            sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 100);
+            sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 3 * DEFAULT_MIN_STALE_ROWS_COUNT);
 
             sqlStatisticManager.forceUpdateAll();
             sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
 
-            Awaitility.await().timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
-                    assertQuery(query)
-                            // expecting right source has less rows than left
-                            .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
-                            .check()
+            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
+                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                            assertQuery(query)
+                                    // expecting right source has less rows than left
+                                    .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
+                                    .check()
             );
         } finally {
             sqlScript(""
                     + "DROP TABLE IF EXISTS j1;"
                     + "DROP TABLE IF EXISTS j2;");
         }
+    }
+
+    private static long calcStatisticUpdateTimeout() {
+        long inc = TimeUnit.SECONDS.toMillis(2);
+        // need to wait at least 2 statistic updates.
+        long statisticAggregationTimeout = INITIAL_DELAY + 2 * REFRESH_PERIOD;
+
+        return PLAN_UPDATER_INITIAL_DELAY > statisticAggregationTimeout
+                ? PLAN_UPDATER_INITIAL_DELAY + PLAN_UPDATER_REFRESH_PERIOD
+                // need to wait at least one planner cache re-calculation step with a bit timeout for it.
+                : statisticAggregationTimeout + PLAN_UPDATER_REFRESH_PERIOD + inc;
     }
 
     // copy-paste from private method: PartitionModificationCounter#computeNextMilestone
@@ -187,7 +207,34 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     }
 
     /** Inclusively 'from', exclusively 'to' bounds. */
-    private static void insert(long from, long to) {
-        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", from, to - 1);
+    private static long insert(long from, long insertsPerPartition) {
+        long numberOfInsertions = 0;
+
+        long[] partitionUpdates = new long[3];
+
+        for (long i = from; i < Integer.MAX_VALUE; ++i) {
+            PartitionCalculator calc = new PartitionCalculator(3, new NativeType[]{NativeTypes.INT64});
+            calc.append(i);
+            partitionUpdates[calc.partition()] += 1;
+            numberOfInsertions = i;
+            boolean filled = true;
+            for (int pos = 0; pos < 3; ++pos) {
+                if (partitionUpdates[pos] < insertsPerPartition) {
+                    filled = false;
+                }
+
+                if (!filled) {
+                    break;
+                }
+            }
+
+            if (filled) {
+                break;
+            }
+        }
+
+        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", from, numberOfInsertions);
+
+        return numberOfInsertions + 1;
     }
 }

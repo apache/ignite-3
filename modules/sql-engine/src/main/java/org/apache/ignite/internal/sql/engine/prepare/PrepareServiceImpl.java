@@ -136,8 +136,8 @@ public class PrepareServiceImpl implements PrepareService {
 
     private static final String PLANNING_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-planning-executor";
 
-    public static final int PLAN_UPDATER_INITIAL_DELAY = 2_000;
-    public static final int PLAN_UPDATER_REFRESH_PERIOD = 2_000;
+    public static final int PLAN_UPDATER_INITIAL_DELAY = 5_000;
+    public static final int PLAN_UPDATER_REFRESH_PERIOD = 5_000;
 
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
@@ -1055,6 +1055,8 @@ public class PrepareServiceImpl implements PrepareService {
 
         private final BiFunction<Integer, String, SchemaPlus> defaultSchemaFunc;
 
+        private final Set<Integer> statPerTableChanges = new IntOpenHashSet();
+
         PlanUpdater(
                 ScheduledExecutorService planUpdater,
                 Cache<CacheKey, CompletableFuture<PlanInfo>> cache,
@@ -1077,35 +1079,12 @@ public class PrepareServiceImpl implements PrepareService {
          * @param tableId Table Id statistic changed for.
          */
         void statisticsChanged(int tableId) {
-            Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedEntries = cache.entrySet();
-
-            int currentCatalogVersion = catalogVersionSupplier.getAsInt();
-
-            boolean statChanged = false;
-
-            for (Map.Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cachedEntries) {
-                CacheKey key = ent.getKey();
-                CompletableFuture<PlanInfo> fut = ent.getValue();
-
-                if (currentCatalogVersion == key.catalogVersion() && isCompletedSuccessfully(fut)) {
-                    // no wait, already completed
-                    PlanInfo info = fut.join();
-
-                    if (info.sources.contains(tableId)) {
-                        info.invalidate();
-                        statChanged = true;
-                    }
-                }
-            }
-
-            if (statChanged) {
-                recalculatePlans = true;
-            }
+            statPerTableChanges.add(tableId);
         }
 
         void start() {
             planUpdater.scheduleAtFixedRate(() -> {
-                if (!recalculatePlans) {
+                if (statPerTableChanges.isEmpty()) {
                     return;
                 }
 
@@ -1113,47 +1092,65 @@ public class PrepareServiceImpl implements PrepareService {
                     return;
                 }
 
-                CompletableFuture<Void> rePlanningFut = nullCompletedFuture();
+                for (int tableId : statPerTableChanges) {
+                    Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedEntries = cache.entrySet();
 
-                while (recalculatePlans) {
-                    recalculatePlans = false;
-
-                    int currentCatalogVersion = catalogVersionSupplier.getAsInt();
-
-                    for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
+                    for (Map.Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cachedEntries) {
                         CacheKey key = ent.getKey();
-                        CompletableFuture<PlanInfo> fut = cache.get(key);
+                        CompletableFuture<PlanInfo> fut = ent.getValue();
+                        int currentCatalogVersion = catalogVersionSupplier.getAsInt();
 
-                        // can be evicted
-                        if (fut != null && isCompletedSuccessfully(fut)) {
+                        if (currentCatalogVersion == key.catalogVersion() && isCompletedSuccessfully(fut)) {
+                            // no wait, already completed
                             PlanInfo info = fut.join();
 
-                            if (!info.needInvalidate()) {
-                                continue;
+                            if (info.sources.contains(tableId)) {
+                                info.invalidate();
                             }
+                        }
+                    }
 
-                            assert info.statement != null;
+                    // all involved entries are processed
+                    statPerTableChanges.remove(tableId);
+                }
 
-                            if (currentCatalogVersion == key.catalogVersion()) {
-                                SqlQueryType queryType = info.statement.parsedResult().queryType();
+                CompletableFuture<Void> rePlanningFut = nullCompletedFuture();
 
-                                SchemaPlus defaultSchema = defaultSchemaFunc.apply(key.catalogVersion(), key.schemaName());
+                int currentCatalogVersion = catalogVersionSupplier.getAsInt();
 
-                                PlanningContext planningContext = PlanningContext.builder()
-                                        .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                                .defaultSchema(defaultSchema).build())
-                                        .query(info.statement.parsedResult().originalQuery())
-                                        .plannerTimeout(plannerTimeout)
-                                        .catalogVersion(key.catalogVersion())
-                                        .defaultSchemaName(key.schemaName())
-                                        .parameters(Commons.arrayToMap(key.paramTypes()))
-                                        .build();
+                for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
+                    CacheKey key = ent.getKey();
+                    CompletableFuture<PlanInfo> fut = cache.get(key);
 
-                                CompletableFuture<Void> newPlanFut =
-                                        prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
+                    // can be evicted
+                    if (fut != null && isCompletedSuccessfully(fut)) {
+                        PlanInfo info = fut.join();
 
-                                rePlanningFut.thenCompose(v -> newPlanFut);
-                            }
+                        if (!info.needInvalidate()) {
+                            continue;
+                        }
+
+                        assert info.statement != null;
+
+                        if (currentCatalogVersion == key.catalogVersion()) {
+                            SqlQueryType queryType = info.statement.parsedResult().queryType();
+
+                            SchemaPlus defaultSchema = defaultSchemaFunc.apply(key.catalogVersion(), key.schemaName());
+
+                            PlanningContext planningContext = PlanningContext.builder()
+                                    .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                            .defaultSchema(defaultSchema).build())
+                                    .query(info.statement.parsedResult().originalQuery())
+                                    .plannerTimeout(plannerTimeout)
+                                    .catalogVersion(key.catalogVersion())
+                                    .defaultSchemaName(key.schemaName())
+                                    .parameters(Commons.arrayToMap(key.paramTypes()))
+                                    .build();
+
+                            CompletableFuture<Void> newPlanFut =
+                                    prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
+
+                            rePlanningFut.thenCompose(v -> newPlanFut);
                         }
                     }
                 }

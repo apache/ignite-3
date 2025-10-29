@@ -126,7 +126,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 {7, null}
         });
 
-        System.err.println("!!!! gatherStatistics");
         gatherStatistics();
     }
 

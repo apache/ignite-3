@@ -155,19 +155,28 @@ public class StatisticAggregatorImpl implements
                             LOG.debug("Can`t update statistics for table [id={}].", ex, t.tableId());
                         }
 
-                        for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
-                            if (isCompletedSuccessfully(ent.getValue())) {
-                                PartitionModificationInfo info = (PartitionModificationInfo) ent.getValue().join();
-                                long estSize = info.getEstimatedSize();
-                                long modificationCounter = info.lastModificationCounter();
+                        CompletableFuture<Void> allResponses = allOf(tableResponses.values().toArray(CompletableFuture[]::new));
 
-                                summary.compute(ent.getKey().tableId(), (k, v) -> v == null
-                                        ? new PartitionModificationInfo(estSize, modificationCounter)
-                                        : new PartitionModificationInfo(v.getEstimatedSize() + estSize,
-                                                Math.max(v.lastModificationCounter(), modificationCounter)));
-                            } else {
-                                LOG.debug("Can`t update statistics for table partition [id={}].", ent.getKey());
+                        if (!isCompletedSuccessfully(allResponses)) {
+                            if (LOG.isDebugEnabled()) {
+                                for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
+                                    if (isCompletedSuccessfully(ent.getValue())) {
+                                        LOG.debug("Can`t update statistics for table partition [id={}].", ent.getKey());
+                                    }
+                                }
                             }
+                            return null;
+                        }
+
+                        for (Map.Entry<TablePartitionId, CompletableFuture<Object>> ent : tableResponses.entrySet()) {
+                            PartitionModificationInfo info = (PartitionModificationInfo) ent.getValue().join();
+                            long estSize = info.getEstimatedSize();
+                            long modificationCounter = info.lastModificationCounter();
+
+                            summary.compute(ent.getKey().tableId(), (k, v) -> v == null
+                                    ? new PartitionModificationInfo(estSize, modificationCounter)
+                                    : new PartitionModificationInfo(v.getEstimatedSize() + estSize,
+                                            Math.max(v.lastModificationCounter(), modificationCounter)));
                         }
 
                         return null;
