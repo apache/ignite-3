@@ -177,7 +177,7 @@ class MultiStatementHandler {
                         break;
                     }
 
-                    if (!DdlBatchingHelper.isCompatible(
+                    if (!DdlBatchingHelper.canBeAddedToBatched(
                             scriptStatement.parsedResult.parsedTreeSafe(),
                             statement.parsedResult.parsedTreeSafe())
                     ) {

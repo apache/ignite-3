@@ -22,13 +22,23 @@ import org.apache.calcite.sql.SqlNode;
 /**
  *  Provide helper methods for batched DDL commands.
  */
-class DdlBatchingHelper {
+public class DdlBatchingHelper {
     /** Returns {@code true} if commands (represented by AST trees) can be executed together, {@code false} otherwise. */
-    static boolean isCompatible(SqlNode node1, SqlNode node2) {
-        DdlBatchGroup kind1 = getCommandType(node1);
-        DdlBatchGroup kind2 = getCommandType(node2);
+    static boolean canBeAddedToBatched(SqlNode nodeInBatch, SqlNode nodeToAdd) {
+        DdlBatchGroup batchGroup = getCommandType(nodeInBatch);
+        DdlBatchGroup nodeGroup = getCommandType(nodeToAdd);
 
-        return kind1 == kind2 && kind1 != DdlBatchGroup.OTHER;
+        return isCompatible(batchGroup, nodeGroup);
+    }
+
+    /**
+     * Returns {@code true} if node group is compatible with batch group.
+     * Node: the operation is not commutative.
+     */
+    public static boolean isCompatible(DdlBatchGroup batchGroup, DdlBatchGroup nodeGroup) {
+        return (nodeGroup != DdlBatchGroup.OTHER // OTHER group doesn't support batching.
+                && batchGroup == nodeGroup) // Groups matched.
+                || batchGroup == DdlBatchGroup.DROP;
     }
 
     /** Returns command kind. */
@@ -38,5 +48,9 @@ class DdlBatchingHelper {
         assert batchAwareAnnotation != null : "Batching behaviour wasn't specified for " + node.getClass();
 
         return batchAwareAnnotation.group();
+    }
+
+    private DdlBatchingHelper() {
+        // No-op.
     }
 }

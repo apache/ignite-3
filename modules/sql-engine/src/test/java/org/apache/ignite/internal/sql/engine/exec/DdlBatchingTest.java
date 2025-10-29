@@ -26,9 +26,11 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -38,6 +40,8 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchingHelper;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -521,6 +525,30 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertTableExists("t1");
         assertTableNotExists("t2");
         assertIndexNotExists("t1_ind_1");
+    }
+
+    @Test
+    void testDdlBatchingHelper() {
+        EnumSet<DdlBatchGroup> allExceptOther = EnumSet.complementOf(EnumSet.of(DdlBatchGroup.OTHER));
+
+        assert !allExceptOther.isEmpty();
+
+        // Any group is compatible with itself (except OTHER).
+        for (DdlBatchGroup group : allExceptOther) {
+            assertTrue(DdlBatchingHelper.isCompatible(group, group), group.toString());
+        }
+
+        // DROP can be followed by any other group (incl. OTHER).
+        for (DdlBatchGroup group : DdlBatchGroup.values()) {
+            assertTrue(DdlBatchingHelper.isCompatible(DdlBatchGroup.DROP, group), group.toString());
+        }
+
+        // Other incompatible cases.
+        for (DdlBatchGroup batchGroup : EnumSet.complementOf(EnumSet.of(DdlBatchGroup.DROP))) {
+            for (DdlBatchGroup group : EnumSet.complementOf(EnumSet.of(batchGroup))) {
+                assertFalse(DdlBatchingHelper.isCompatible(batchGroup, group), batchGroup + " vs " + group);
+            }
+        }
     }
 
     private static void assertDdlResult(AsyncSqlCursor<InternalSqlRow> cursor, boolean expectedApplied) {
