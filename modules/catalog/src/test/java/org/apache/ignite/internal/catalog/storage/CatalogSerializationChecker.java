@@ -60,7 +60,7 @@ final class CatalogSerializationChecker {
 
     private final String directory;
 
-    private final int entryVersion;
+    private final int defaultEntryVersion;
 
     private final boolean expectExactProtocolVersion;
 
@@ -75,14 +75,14 @@ final class CatalogSerializationChecker {
     CatalogSerializationChecker(
             IgniteLogger log,
             String directory,
-            int entryVersion,
+            int defaultEntryVersion,
             boolean expectExactProtocolVersion,
             int protocolVersion,
             Consumer<SerializerClass> recordSerializer
     ) {
         this.log = log;
         this.directory = directory;
-        this.entryVersion = entryVersion;
+        this.defaultEntryVersion = defaultEntryVersion;
         this.expectExactProtocolVersion = expectExactProtocolVersion;
         this.protocolVersion = protocolVersion;
         this.recordSerializer = recordSerializer;
@@ -116,7 +116,7 @@ final class CatalogSerializationChecker {
         var assertion = BDDAssertions.assertThat(expectedEntry.snapshot())
                 .usingRecursiveComparison();
 
-        if (entryVersion == 1) {
+        if (defaultEntryVersion == 1) {
             // Ignoring update timestamp for version 1.
             assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
         }
@@ -135,7 +135,7 @@ final class CatalogSerializationChecker {
             var assertion = BDDAssertions.assertThat(actualEntry)
                     .as("entry#" + i).usingRecursiveComparison();
 
-            if (entryVersion == 1) {
+            if (defaultEntryVersion == 1) {
                 // Ignoring update timestamp for version 1.
                 assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
             }

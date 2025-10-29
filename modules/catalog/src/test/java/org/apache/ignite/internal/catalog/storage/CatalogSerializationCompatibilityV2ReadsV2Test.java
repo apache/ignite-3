@@ -47,7 +47,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
     }
 
     @Override
-    protected int entryVersion() {
+    protected int defaultEntryVersion() {
         return 2;
     }
 
@@ -83,12 +83,12 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
     @Test
     public void snapshotEntry() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, defaultEntryVersion());
 
         EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
-        objectVersions.put(Type.TABLE, entryVersion());
-        objectVersions.put(Type.INDEX, entryVersion());
-        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
+        objectVersions.put(Type.TABLE, defaultEntryVersion());
+        objectVersions.put(Type.INDEX, defaultEntryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, defaultEntryVersion());
 
         Catalog catalog1 = new Catalog(
                 2367,
@@ -101,17 +101,17 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntry", entryVersion());
+        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntry", defaultEntryVersion());
     }
 
     @Test
     public void snapshotEntryNoDefaultZone() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, defaultEntryVersion());
 
         EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
-        objectVersions.put(Type.TABLE, entryVersion());
-        objectVersions.put(Type.INDEX, entryVersion());
-        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
+        objectVersions.put(Type.TABLE, defaultEntryVersion());
+        objectVersions.put(Type.INDEX, defaultEntryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, defaultEntryVersion());
 
         Catalog catalog1 = new Catalog(
                 789879,
@@ -124,36 +124,36 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
         SnapshotEntry snapshotEntry = new SnapshotEntry(catalog1);
 
-        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", entryVersion());
+        checker.compareSnapshotEntry(snapshotEntry, "SnapshotEntryNoDefaultZone", defaultEntryVersion());
     }
 
     @Test
     public void objectIdUpdate() {
         List<UpdateEntry> entries = List.of(new ObjectIdGenUpdateEntry(23431), new ObjectIdGenUpdateEntry(1204));
 
-        checker.compareEntries(entries, "ObjectIdGenUpdateEntry", entryVersion());
+        checker.compareEntries(entries, "ObjectIdGenUpdateEntry", defaultEntryVersion());
     }
 
     // Zones
 
     @Test
     public void newZone() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, defaultEntryVersion());
         List<UpdateEntry> entries = zones.stream().map(NewZoneEntry::new).collect(Collectors.toList());
 
-        checker.compareEntries(entries, "NewZoneEntry", entryVersion());
+        checker.compareEntries(entries, "NewZoneEntry", defaultEntryVersion());
     }
 
     @Test
     public void alterZone() {
-        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, entryVersion());
+        List<CatalogZoneDescriptor> zones = TestZoneDescriptors.zones(protocolVersion(), state, defaultEntryVersion());
 
         List<UpdateEntry> entries = List.of(
                 new AlterZoneEntry(zones.get(1)),
                 new AlterZoneEntry(zones.get(2))
         );
 
-        checker.compareEntries(entries, "AlterZoneEntry", entryVersion());
+        checker.compareEntries(entries, "AlterZoneEntry", defaultEntryVersion());
     }
 
     @Test
@@ -163,7 +163,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new SetDefaultZoneEntry(state.id())
         );
 
-        checker.compareEntries(entries, "SetDefaultZoneEntry", entryVersion());
+        checker.compareEntries(entries, "SetDefaultZoneEntry", defaultEntryVersion());
     }
 
     @Test
@@ -173,7 +173,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new DropZoneEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropZoneEntry", entryVersion());
+        checker.compareEntries(entries, "DropZoneEntry", defaultEntryVersion());
     }
 
     // Schemas
@@ -181,16 +181,16 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
     @Test
     public void newSchema() {
         EnumMap<Type, Integer> objectVersions = new EnumMap<>(CatalogObjectDescriptor.Type.class);
-        objectVersions.put(Type.TABLE, entryVersion());
-        objectVersions.put(Type.INDEX, entryVersion());
-        objectVersions.put(Type.SYSTEM_VIEW, entryVersion());
+        objectVersions.put(Type.TABLE, defaultEntryVersion());
+        objectVersions.put(Type.INDEX, defaultEntryVersion());
+        objectVersions.put(Type.SYSTEM_VIEW, defaultEntryVersion());
 
         List<UpdateEntry> entries = TestSchemaDescriptors.schemas(state, 2, objectVersions)
                 .stream()
                 .map(NewSchemaEntry::new)
                 .collect(Collectors.toList());
 
-        checker.compareEntries(entries, "NewSchemaEntry", entryVersion());
+        checker.compareEntries(entries, "NewSchemaEntry", defaultEntryVersion());
     }
 
     @Test
@@ -200,7 +200,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new DropSchemaEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropSchemaEntry", entryVersion());
+        checker.compareEntries(entries, "DropSchemaEntry", defaultEntryVersion());
     }
 
     // Tables
@@ -224,7 +224,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new RenameTableEntry(state.id(), "NEW_NAME2")
         );
 
-        checker.compareEntries(entries, "RenameTableEntry", entryVersion());
+        checker.compareEntries(entries, "RenameTableEntry", defaultEntryVersion());
     }
 
     @Test
@@ -234,7 +234,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new DropTableEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropTableEntry", entryVersion());
+        checker.compareEntries(entries, "DropTableEntry", defaultEntryVersion());
     }
 
     // Indexes
@@ -265,7 +265,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
     public void renameIndex() {
         List<UpdateEntry> entries = List.of(new RenameIndexEntry(state.id(), "NEW_NAME"));
 
-        checker.compareEntries(entries, "RenameIndexEntry", entryVersion());
+        checker.compareEntries(entries, "RenameIndexEntry", defaultEntryVersion());
     }
 
     @Test
@@ -275,7 +275,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new RemoveIndexEntry(state.id())
         );
 
-        checker.compareEntries(entries, "RemoveIndexEntry", entryVersion());
+        checker.compareEntries(entries, "RemoveIndexEntry", defaultEntryVersion());
     }
 
     @Test
@@ -285,7 +285,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new MakeIndexAvailableEntry(state.id())
         );
 
-        checker.compareEntries(entries, "MakeIndexAvailableEntry", entryVersion());
+        checker.compareEntries(entries, "MakeIndexAvailableEntry", defaultEntryVersion());
     }
 
     @Test
@@ -295,7 +295,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new StartBuildingIndexEntry(state.id())
         );
 
-        checker.compareEntries(entries, "StartBuildingIndexEntry", entryVersion());
+        checker.compareEntries(entries, "StartBuildingIndexEntry", defaultEntryVersion());
     }
 
     @Test
@@ -305,7 +305,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new DropIndexEntry(state.id())
         );
 
-        checker.compareEntries(entries, "DropIndexEntry", entryVersion());
+        checker.compareEntries(entries, "DropIndexEntry", defaultEntryVersion());
     }
 
     // Columns
@@ -323,7 +323,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new NewColumnsEntry(state.id(), columns2)
         );
 
-        checker.compareEntries(entries, "NewColumnsEntry", entryVersion());
+        checker.compareEntries(entries, "NewColumnsEntry", defaultEntryVersion());
     }
 
     @Test
@@ -335,7 +335,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new AlterColumnEntry(state.id(), columns.get(0)),
                 new AlterColumnEntry(state.id(), columns.get(1))
         );
-        checker.compareEntries(entries, "AlterColumnsEntry", entryVersion());
+        checker.compareEntries(entries, "AlterColumnsEntry", defaultEntryVersion());
     }
 
     @Test
@@ -350,7 +350,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
                 new DropColumnsEntry(state.id(), Set.of("C1", "C2")),
                 new DropColumnsEntry(state.id(), Set.of("C3"))
         );
-        checker.compareEntries(entries, "DropColumnsEntry", entryVersion());
+        checker.compareEntries(entries, "DropColumnsEntry", defaultEntryVersion());
     }
 
     // System views

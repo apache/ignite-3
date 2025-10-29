@@ -31,7 +31,7 @@ public class CatalogSerializationCompatibilityV1ReadsV1Test extends CatalogSeria
     }
 
     @Override
-    protected int entryVersion() {
+    protected int defaultEntryVersion() {
         return 1;
     }
 
