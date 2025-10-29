@@ -455,7 +455,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     ) {
         if (err != null) {
             assert unpacker == null : "unpacker must be null if err is not null";
-            asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(err)));
+
+            try {
+                asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(err)));
+            } catch (Throwable execError) {
+                // Executor error, complete directly.
+                execError.addSuppressed(err);
+                resFut.completeExceptionally(ViewUtils.ensurePublicException(execError));
+            }
+
             return;
         }
 
@@ -471,7 +479,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             });
         } catch (Throwable execErr) {
             unpacker.close();
-            asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(execErr)));
+
+            // Executor error, complete directly.
+            resFut.completeExceptionally(ViewUtils.ensurePublicException(execErr));
         }
     }
 
