@@ -45,6 +45,7 @@ github:
       required_linear_history: true
       required_signatures: false
       required_conversation_resolution: true
+      require_code_owner_reviews: true
   pull_requests:
     # auto-delete head branches after being merged
     del_branch_on_merge: true
