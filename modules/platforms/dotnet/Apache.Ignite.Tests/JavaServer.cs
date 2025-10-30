@@ -40,6 +40,8 @@ namespace Apache.Ignite.Tests
 
         private const int ConnectTimeoutSeconds = 4 * 60;
 
+        private const int MaxAttempts = 3;
+
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --parallel";
 
         private const string GradleCommandExecOldServer = ":ignite-compatibility-tests:runnerPlatformCompatibilityTest --parallel";
@@ -105,6 +107,31 @@ namespace Apache.Ignite.Tests
             KillProcessesOnPorts(Ports);
 
             Log(">>> Java server stopped.");
+        }
+
+        private static async Task<JavaServer> StartInternalAsyncWithRetry(
+            bool old, Dictionary<string, string?> env, int? defaultPort = null)
+        {
+            int attempt = 0;
+
+            while (true)
+            {
+                try
+                {
+                    attempt++;
+                    return await StartInternalAsync(old, env, defaultPort);
+                }
+                catch (Exception e)
+                {
+                    if (attempt == MaxAttempts)
+                    {
+                        Log($">>> Java server start failed after {MaxAttempts} attempts.");
+                        throw;
+                    }
+
+                    Log($">>> Java server start attempt {attempt} failed: {e}. Retrying...");
+                }
+            }
         }
 
         private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env, int? defaultPort = null)
