@@ -21,8 +21,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -42,8 +40,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -117,14 +113,6 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     public void queryWaitAppropriateSchema() throws Exception {
         Ignite ignite0 = cluster.node(0);
         Ignite ignite1 = cluster.node(1);
-
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setDefaultZoneAutoAdjustScaleUpToImmediate(ignite1);
-
-            waitForStableAssignments(ignite1, 0);
-        }
 
         createTable(ignite0, TABLE_NAME);
 
@@ -303,14 +291,6 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
         assertThat(tableFuture, willCompleteSuccessfully());
 
         return unwrapTableViewInternal(tableFuture.join());
-    }
-
-    private static void setDefaultZoneAutoAdjustScaleUpToImmediate(Ignite ignite0) {
-        IgniteImpl node = unwrapIgniteImpl(ignite0);
-        CatalogManager catalogManager = node.catalogManager();
-        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
-
-        setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZone.name());
     }
 
     private static void waitForStableAssignments(Ignite node, int zoneId) throws Exception {

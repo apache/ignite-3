@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
@@ -53,6 +54,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -209,6 +211,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+
+        createDefaultZone(catalogManager);
+
+        assertNotNull(getDefaultZone());
     }
 
     @AfterEach
@@ -1034,7 +1040,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         prepareZonesWithTwoDataNodes();
 
         Map<Integer, Set<String>> expectedDataNodes = new HashMap<>();
-        expectedDataNodes.put(getDefaultZone().id(), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
@@ -1060,7 +1065,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         prepareZonesWithTwoDataNodes();
 
         Map<Integer, Set<String>> expectedDataNodes = new HashMap<>();
-        expectedDataNodes.put(getDefaultZone().id(), Set.of(NODE_0.name()));
+        expectedDataNodes.put(getDefaultZone().id(), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
@@ -1211,10 +1216,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * Added two nodes in topology and assert that data nodes of zones are contains all topology nodes.
      */
     private void prepareZonesWithTwoDataNodes() throws Exception {
-        CatalogZoneDescriptor defaultZone = getDefaultZone();
-
-        alterZone(defaultZone.name(), IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
-
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         createZone(ZONE_NAME_2, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
@@ -1230,7 +1231,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         RevWithTimestamp topologyRevision = putNodeInLogicalTopologyAndGetTimestamp(NODE_1, TWO_NODES);
 
         Set<Integer> zoneIds = Set.of(
-                defaultZone.id(),
                 getZoneId(ZONE_NAME),
                 getZoneId(ZONE_NAME_2),
                 getZoneId(ZONE_NAME_3),

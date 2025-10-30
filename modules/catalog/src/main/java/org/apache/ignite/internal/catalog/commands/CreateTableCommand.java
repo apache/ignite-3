@@ -20,10 +20,19 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -41,11 +50,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
+import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,7 +66,6 @@ import org.jetbrains.annotations.Nullable;
  * A command that adds a new table to the catalog.
  */
 public class CreateTableCommand extends AbstractTableCommand {
-
     /** Returns builder to create a command to create a new table. */
     public static CreateTableCommandBuilder builder() {
         return new Builder();
@@ -127,13 +139,45 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
+        int id = catalog.objectIdGenState();
+        int tableId = id++;
+        int pkIndexId = id++;
+
+        // We will have at max 5 entries if there is lazy default data zone creation action is needed.
+        List<UpdateEntry> updateEntries = new ArrayList<>(5);
+
         CatalogZoneDescriptor zone;
         if (zoneName == null) {
             if (catalog.defaultZone() == null) {
-                throw new CatalogValidationException("The zone is not specified. Please specify zone explicitly or set default one.");
-            }
+                int zoneId = id++;
 
-            zone = catalog.defaultZone();
+                if (catalog.zone(DEFAULT_ZONE_NAME) != null) {
+                    throw new CatalogValidationException(
+                            "Distribution zone with name '{}' already exists. "
+                                    + "Please specify zone name for the new table or set the zone as default",
+                            DEFAULT_ZONE_NAME
+                    );
+                }
+
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26798
+                zone = new CatalogZoneDescriptor(
+                        zoneId,
+                        DEFAULT_ZONE_NAME,
+                        DEFAULT_PARTITION_COUNT,
+                        DEFAULT_REPLICA_COUNT,
+                        DEFAULT_ZONE_QUORUM_SIZE,
+                        IMMEDIATE_TIMER_VALUE,
+                        INFINITE_TIMER_VALUE,
+                        DEFAULT_FILTER,
+                        new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))),
+                        STRONG_CONSISTENCY
+                );
+
+                updateEntries.add(new NewZoneEntry(zone));
+                updateEntries.add(new SetDefaultZoneEntry(zone.id()));
+            } else {
+                zone = catalog.defaultZone();
+            }
         } else {
             zone = zone(catalog, zoneName, true);
         }
@@ -145,10 +189,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                 : zone.storageProfiles().defaultProfile().storageProfile();
 
         ensureZoneContainsTablesStorageProfile(zone, storageProfile);
-
-        int id = catalog.objectIdGenState();
-        int tableId = id++;
-        int pkIndexId = id++;
 
         CatalogTableDescriptor table = CatalogTableDescriptor.builder()
                 .id(tableId)
@@ -173,11 +213,11 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         CatalogIndexDescriptor pkIndex = createPkIndexDescriptor(indexName, pkIndexId, tableId);
 
-        return List.of(
-                new NewTableEntry(table),
-                new NewIndexEntry(pkIndex),
-                new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
-        );
+        updateEntries.add(new NewTableEntry(table));
+        updateEntries.add(new NewIndexEntry(pkIndex));
+        updateEntries.add(new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState()));
+
+        return updateEntries;
     }
 
     private void validate() {

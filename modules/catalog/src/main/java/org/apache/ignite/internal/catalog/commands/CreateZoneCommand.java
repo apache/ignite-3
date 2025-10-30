@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultQuorumSize;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.duplicateDistributionZoneNameCatalogValidationException;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 
@@ -126,7 +127,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 return List.of();
             }
 
-            throw new CatalogValidationException("Distribution zone with name '{}' already exists.", zoneName);
+            throw duplicateDistributionZoneNameCatalogValidationException(zoneName);
         }
 
         CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());

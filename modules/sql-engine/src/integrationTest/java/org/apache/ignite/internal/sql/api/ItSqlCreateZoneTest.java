@@ -22,18 +22,25 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.table.QualifiedName.DEFAULT_SCHEMA_NAME;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.sql.SqlException;
@@ -70,7 +77,7 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testCreateZoneSucceedWithCorrectStorageProfileOnSameNode() {
-        assertDoesNotThrow(() -> createZoneQuery(0, "default"));
+        assertDoesNotThrow(() -> createZoneQuery(0, DEFAULT_STORAGE_PROFILE));
     }
 
     @Test
@@ -148,12 +155,47 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         );
     }
 
-    private  List<List<Object>> createZoneQuery(int nodeIdx, String storageProfile) {
+    @Test
+    void testCreateDefaultZoneLazily() {
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+
+        CatalogManager catalogManager = node.catalogManager();
+        assertNull(catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone());
+
+        assertDoesNotThrow(() -> createZoneQuery(0, DEFAULT_STORAGE_PROFILE));
+
+        assertDoesNotThrow(() -> createTableQuery(0, "test_table", ZONE_MANE));
+
+        String testTableWithoutZoneName = "test_table_without_zone";
+        assertDoesNotThrow(() -> createTableWithoutZoneQuery(0, testTableWithoutZoneName));
+
+        CatalogZoneDescriptor defaultZoneDesc = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone();
+        assertNotNull(defaultZoneDesc);
+
+        CatalogTableDescriptor tableWithDefaultZoneDescriptor = catalogManager
+                .catalog(catalogManager.latestCatalogVersion())
+                .table(DEFAULT_SCHEMA_NAME, testTableWithoutZoneName);
+        assertNotNull(tableWithDefaultZoneDescriptor);
+        assertEquals(defaultZoneDesc.id(), tableWithDefaultZoneDescriptor.zoneId());
+    }
+
+    private List<List<Object>> createZoneQuery(int nodeIdx, String storageProfile) {
         return executeSql(nodeIdx, format("CREATE ZONE IF NOT EXISTS {} STORAGE PROFILES ['{}']", ZONE_MANE, storageProfile));
     }
 
-    private  List<List<Object>> createZoneQueryWithFilter(int nodeIdx, String filter) {
+    private List<List<Object>> createZoneQueryWithFilter(int nodeIdx, String filter) {
         return executeSql(nodeIdx, format("CREATE ZONE IF NOT EXISTS {} (NODES FILTER '{}') "
-                + "STORAGE PROFILES ['default']", ZONE_MANE, filter));
+                + "STORAGE PROFILES ['{}']", ZONE_MANE, filter, DEFAULT_STORAGE_PROFILE));
+    }
+
+    private List<List<Object>> createTableQuery(int nodeIdx, String tableName, String  zoneName) {
+        return executeSql(
+                nodeIdx,
+                format("CREATE TABLE IF NOT EXISTS \"{}\" (key int primary key, val varchar) ZONE {}", tableName, zoneName)
+        );
+    }
+
+    private List<List<Object>> createTableWithoutZoneQuery(int nodeIdx, String tableName) {
+        return executeSql(nodeIdx, format("CREATE TABLE IF NOT EXISTS \"{}\" (key int primary key, val varchar)", tableName));
     }
 }

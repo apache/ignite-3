@@ -119,7 +119,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     @ParameterizedTest
     @MethodSource("replicasChanges")
     void adjustQuorumSize(int initialReplicas, int quorumSize, int targetReplicas, int targetQuorumSize) {
-        Catalog catalog = catalog(alterZoneBuilder()
+        Catalog catalog = catalogWithDefaultZone(alterZoneBuilder()
                 .replicas(initialReplicas)
                 .quorumSize(quorumSize)
                 .build()

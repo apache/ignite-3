@@ -55,6 +55,9 @@ import org.jetbrains.annotations.Nullable;
  * Catalog utils.
  */
 public class CatalogUtils {
+    /** Default zone name. */
+    public static final String DEFAULT_ZONE_NAME = "Default";
+
     /** Default number of distribution zone partitions. */
     public static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -554,6 +557,29 @@ public class CatalogUtils {
     }
 
     /**
+     * Creates common exception for cases when validated distribution zone has already existed name.
+     *
+     * @param duplicatedZoneName Conflicting zone name.
+     * @return Catalog validation exception instance with proper and common for such cases message.
+     */
+    public static CatalogValidationException duplicateDistributionZoneNameCatalogValidationException(String duplicatedZoneName) {
+        return new CatalogValidationException("Distribution zone with name '{}' already exists.", duplicatedZoneName);
+    }
+
+    /**
+     * Returns zone with given name.
+     *
+     * @param catalog Catalog to look up zone in.
+     * @param name Name of the zone of interest.
+     * @return Zone descriptor for given name.
+     * @throws CatalogValidationException If zone with given name is not exists.
+     */
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name)
+            throws CatalogValidationException {
+        return zone(catalog, name, true);
+    }
+
+    /**
      * Returns the primary key index name for table.
      *
      * @param tableName Table name.
@@ -801,13 +827,6 @@ public class CatalogUtils {
         if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
             throw new CatalogValidationException("Column of type '{}' cannot be persisted [col={}].", columnType, columnName);
         }
-    }
-
-    // In case of enabled colocation the start of each node triggers default zone rebalance. In order to eliminate such excessive rebalances
-    // default zone auto adjust scale up timeout is set to 5 seconds. If colocation is disabled tests usually create tables
-    // after all nodes already started meaning that tables are created on stable topology and usually doesn't assume any rebalances at all.
-    public static int defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(boolean colocationEnabled) {
-        return colocationEnabled ? 5 : 0;
     }
 
     /**

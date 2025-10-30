@@ -53,12 +53,20 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Tests for zone related commands. */
 public class CatalogZoneTest extends BaseCatalogManagerTest {
 
+    private static final String DEFAULT_ZONE_TABLE = "DEFAULT_ZONE_TABLE";
+
     private static final String TEST_ZONE_NAME = "TEST_ZONE_NAME";
+
+    @BeforeEach
+    public void createTableWithLazyDefaultZone() {
+        createSomeTable(DEFAULT_ZONE_TABLE);
+    }
 
     @Test
     public void testCreateZone() {
@@ -161,6 +169,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
         // Drop old default zone.
         {
+            tryApplyAndExpectApplied(dropTableCommand(DEFAULT_ZONE_TABLE));
             CatalogCommand dropCommand = DropZoneCommand.builder()
                     .zoneName(initialDefaultZone.name())
                     .build();

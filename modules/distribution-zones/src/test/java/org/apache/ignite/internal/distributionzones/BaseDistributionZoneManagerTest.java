@@ -143,7 +143,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
+        assertThat(
+                startAsync(new ComponentContext(), components),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
@@ -170,7 +173,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     protected void startDistributionZoneManager() {
         assertThat(
                 distributionZoneManager.startAsync(new ComponentContext())
-                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                        .thenCompose(unused -> metaStorageManager.deployWatches())
+                        .thenCompose(unused -> catalogManager.catalogInitializationFuture()),
                 willCompleteSuccessfully()
         );
     }
@@ -230,6 +234,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected int getZoneId(String zoneName) {
         return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
+    }
+
+    protected void setDefaultZone(String zoneName) {
+        DistributionZonesTestUtil.setDefaultZone(catalogManager, zoneName);
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
