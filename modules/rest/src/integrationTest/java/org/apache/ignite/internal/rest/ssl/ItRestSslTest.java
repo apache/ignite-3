@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest.ssl;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,6 +40,8 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.rest.RestNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -93,6 +94,8 @@ public class ItRestSslTest extends BaseIgniteAbstractTest {
 
     private static RestNode httpsWithCustomCipherNode;
 
+    private static Cluster cluster;
+
     @BeforeAll
     static void beforeAll(TestInfo testInfo) throws Exception {
 
@@ -115,60 +118,52 @@ public class ItRestSslTest extends BaseIgniteAbstractTest {
                 .sslParameters(sslParameters)
                 .build();
 
+        cluster = new Cluster(ClusterConfiguration.builder(testInfo, workDir).build());
+
         httpNode = RestNode.builder()
-                .workDir(workDir)
-                .name(testNodeName(testInfo, 3344))
-                .networkPort(3344)
-                .httpPort(10300)
-                .httpsPort(10400)
+                .cluster(cluster)
+                .index(0)
                 .sslEnabled(false)
                 .dualProtocol(false)
                 .build();
 
         httpsNode = RestNode.builder()
-                .workDir(workDir)
-                .name(testNodeName(testInfo, 3345))
-                .networkPort(3345)
-                .httpPort(10301)
-                .httpsPort(10401)
+                .cluster(cluster)
+                .index(1)
                 .sslEnabled(true)
                 .dualProtocol(false)
                 .build();
 
         dualProtocolNode = RestNode.builder()
-                .workDir(workDir)
-                .name(testNodeName(testInfo, 3346))
-                .networkPort(3346)
-                .httpPort(10302)
-                .httpsPort(10402)
+                .cluster(cluster)
+                .index(2)
                 .sslEnabled(true)
                 .dualProtocol(true)
                 .build();
 
         httpsWithClientAuthNode = RestNode.builder()
-                .workDir(workDir)
-                .name(testNodeName(testInfo, 3347))
-                .networkPort(3347)
-                .httpPort(10303)
-                .httpsPort(10403)
+                .cluster(cluster)
+                .index(3)
                 .sslEnabled(true)
                 .sslClientAuthEnabled(true)
                 .dualProtocol(false)
                 .build();
 
         httpsWithCustomCipherNode = RestNode.builder()
-                .workDir(workDir)
-                .name(testNodeName(testInfo, 3348))
-                .networkPort(3348)
-                .httpPort(10304)
-                .httpsPort(10404)
+                .cluster(cluster)
+                .index(4)
                 .sslEnabled(true)
                 .dualProtocol(false)
                 .ciphers("TLS_AES_256_GCM_SHA384")
                 .build();
 
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode).parallel()
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode)
                 .forEach(RestNode::start);
+    }
+
+    @AfterAll
+    static void shutdownCluster() {
+        cluster.shutdown();
     }
 
     @Test
@@ -265,13 +260,6 @@ public class ItRestSslTest extends BaseIgniteAbstractTest {
 
         // Expect IOException for SSL client that configures incompatible cipher
         assertThrows(IOException.class, () -> sslClientWithCustomCipher.send(request, BodyHandlers.ofString()));
-    }
-
-    @AfterAll
-    static void afterAll() {
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode)
-                .parallel()
-                .forEach(RestNode::stop);
     }
 
     private static SSLContext sslContext() throws CertificateException, KeyStoreException, IOException,
