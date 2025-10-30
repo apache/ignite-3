@@ -83,7 +83,7 @@ class SystemDisasterRecoveryClient {
                     clusterState.formerClusterIds()
             );
 
-            sendPostRequest(oldHttpHost, oldHttpPort, "/management/v1/cluster/migrate", migrateRequest);
+            sendPostRequest(oldHttpHost, oldHttpPort, "/management/v1/recovery/cluster/migrate", migrateRequest);
         } catch (IOException e) {
             LOG.info("Node has gone, this most probably means that migration is initiated and the node restarts.");
         }
