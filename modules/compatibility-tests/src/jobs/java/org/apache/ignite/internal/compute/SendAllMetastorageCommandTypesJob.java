@@ -36,6 +36,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that runs different MetastorageWriteCommands. */
+// TODO IGNITE-26874 Add a check that all write commands are covered.
 public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
