@@ -72,7 +72,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
-    private static final String ERROR_MESSAGE = "Connection to node aborted [name={}, address={}]";
+    private static final String ERROR_MESSAGE = "Connection to node aborted [name={}, address={}, version={}]";
 
     private static final int NODES_COUNT = 5;
 
@@ -110,13 +110,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
             latch.countDown();
 
             if (!compatibleNode.equals(ctx.clusterNode().name())) {
-                ClusterNode node = ctx.clusterNode();
-
-                throw new IgniteClientConnectionException(
-                        CONNECTION_ERR,
-                        IgniteStringFormatter.format(ERROR_MESSAGE, node.name(), node.address()),
-                        null
-                );
+                raiseConnectException(ctx);
             }
         };
 
@@ -148,13 +142,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
         Consumer<ProtocolContext> validator = ctx -> {
             attemptCounter.getAndIncrement();
 
-            ClusterNode node = ctx.clusterNode();
-
-            throw new IgniteClientConnectionException(
-                    CONNECTION_ERR,
-                    IgniteStringFormatter.format(ERROR_MESSAGE, node.name(), node.address()),
-                    null
-            );
+            raiseConnectException(ctx);
         };
 
         IgniteTestUtils.assertThrows(
@@ -182,13 +170,8 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
             if (allowAll.get() || compatibleNode.equals(ctx.clusterNode().name())) {
                 return;
             }
-            ClusterNode node = ctx.clusterNode();
 
-            throw new IgniteClientConnectionException(
-                    CONNECTION_ERR,
-                    IgniteStringFormatter.format(ERROR_MESSAGE, node.name(), node.address()),
-                    null
-            );
+            raiseConnectException(ctx);
         };
 
         long reconnectInterval = 1_000;
@@ -238,6 +221,16 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
                 HybridTimestampTracker.atomicTracker(null),
                 channelValidator
         ));
+    }
+
+    private static void raiseConnectException(ProtocolContext ctx) {
+        ClusterNode node = ctx.clusterNode();
+
+        throw new IgniteClientConnectionException(
+                CONNECTION_ERR,
+                IgniteStringFormatter.format(ERROR_MESSAGE, node.name(), node.address(), ctx.productVersion()),
+                null
+        );
     }
 
     private void setupCluster(TestInfo testInfo, Path workDir) {

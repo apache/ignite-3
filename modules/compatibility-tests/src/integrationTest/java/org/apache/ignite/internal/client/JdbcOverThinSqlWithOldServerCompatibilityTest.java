@@ -75,7 +75,8 @@ public class JdbcOverThinSqlWithOldServerCompatibilityTest extends Compatibility
 
         assertThat(connectEx.getMessage(),
                 containsString("Connection to node aborted, because the node does not support the feature required "
-                                + "by the driver being used. Please use a previous version of the JDBC driver to connect to this node"));
+                        + "by the driver being used. Please refer to the documentation and use a compatible version "
+                        + "of the JDBC driver to connect to this node"));
         assertThat(connectEx.code(), is(Client.CONNECTION_ERR));
     }
 }
