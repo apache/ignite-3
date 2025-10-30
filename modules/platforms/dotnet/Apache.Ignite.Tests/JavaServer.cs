@@ -172,14 +172,14 @@ namespace Apache.Ignite.Tests
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
                     var ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
-                    tcs.SetResult(ports);
+                    tcs.TrySetResult(ports);
                 }
 
                 if (line.StartsWith("Exception in thread \"main\"", StringComparison.OrdinalIgnoreCase) ||
                     line.Contains("Unable to start", StringComparison.OrdinalIgnoreCase))
                 {
                     process.Kill(entireProcessTree: true);
-                    tcs.SetException(new Exception($"Java server failed: {line}"));
+                    tcs.TrySetException(new Exception($"Java server failed: {line}"));
                 }
             };
 
