@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Arrays;
 import java.util.Properties;
-import java.util.function.Consumer;
 import java.util.logging.Logger;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClientAuthenticator;
@@ -39,9 +38,9 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
-import org.apache.ignite.internal.client.ProtocolContext;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
@@ -310,7 +309,7 @@ public class IgniteJdbcDriver implements Driver {
                 IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
         );
 
-        Consumer<ProtocolContext> channelValidator = ctx -> {
+        ChannelValidator channelValidator = ctx -> {
             if (!ctx.isFeatureSupported(ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT)) {
                 ClusterNode node = ctx.clusterNode();
 

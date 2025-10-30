@@ -22,7 +22,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -101,7 +100,7 @@ public class TcpIgniteClient implements IgniteClient {
      *                         if it throws an exception, the network channel to that node will be closed.
      */
     private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
-            @Nullable Consumer<ProtocolContext> channelValidator) {
+            @Nullable ChannelValidator channelValidator) {
         this(TcpClientChannel::createAsync, cfg, observableTimeTracker, channelValidator);
     }
 
@@ -115,7 +114,7 @@ public class TcpIgniteClient implements IgniteClient {
      *                         if it throws an exception, the network channel to that node will be closed.
      */
     private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
-            @Nullable Consumer<ProtocolContext> channelValidator) {
+            @Nullable ChannelValidator channelValidator) {
         assert chFactory != null;
         assert cfg != null;
 
@@ -179,7 +178,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
-            @Nullable Consumer<ProtocolContext> channelValidator) {
+            @Nullable ChannelValidator channelValidator) {
         ErrorGroups.initialize();
 
         try {

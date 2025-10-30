@@ -51,7 +51,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
@@ -138,7 +137,7 @@ public final class ReliableChannel implements AutoCloseable {
      * A validator that is called when a connection to a node is established,
      * if it throws an exception, the network channel to that node will be closed.
      */
-    private final @Nullable Consumer<ProtocolContext> channelValidator;
+    private final @Nullable ChannelValidator channelValidator;
 
     /**
      * Constructor.
@@ -155,7 +154,7 @@ public final class ReliableChannel implements AutoCloseable {
             IgniteClientConfiguration clientCfg,
             ClientMetricSource metrics,
             HybridTimestampTracker observableTimeTracker,
-            @Nullable Consumer<ProtocolContext> channelValidator
+            @Nullable ChannelValidator channelValidator
     ) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
@@ -898,7 +897,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                 chFut0 = createFut.thenApply(ch -> {
                     if (channelValidator != null) {
-                        channelValidator.accept(ch.protocolContext());
+                        channelValidator.validate(ch.protocolContext());
                     }
 
                     UUID currentClusterId = ch.protocolContext().clusterId();

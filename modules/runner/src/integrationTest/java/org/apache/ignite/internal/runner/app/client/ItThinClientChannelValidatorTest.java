@@ -36,7 +36,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -44,6 +43,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.ProtocolContext;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -106,7 +106,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
         CountDownLatch latch = new CountDownLatch(startedNodes.size());
         String compatibleNode = startedNodes.get(compatibleNodeIdx).name();
 
-        Consumer<ProtocolContext> validator = ctx -> {
+        ChannelValidator validator = ctx -> {
             latch.countDown();
 
             if (!compatibleNode.equals(ctx.clusterNode().name())) {
@@ -139,7 +139,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
     void noCompatibleNodes() {
         AtomicInteger attemptCounter = new AtomicInteger();
 
-        Consumer<ProtocolContext> validator = ctx -> {
+        ChannelValidator validator = ctx -> {
             attemptCounter.getAndIncrement();
 
             raiseConnectException(ctx);
@@ -164,7 +164,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
         String compatibleNode = startedNodes.get(compatibleNodeIdx).name();
         AtomicBoolean allowAll = new AtomicBoolean(false);
 
-        Consumer<ProtocolContext> validator = ctx -> {
+        ChannelValidator validator = ctx -> {
             latch.countDown();
 
             if (allowAll.get() || compatibleNode.equals(ctx.clusterNode().name())) {
@@ -193,7 +193,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private IgniteClient startClient(long reconnectInterval, Consumer<ProtocolContext> channelValidator) {
+    private IgniteClient startClient(long reconnectInterval, ChannelValidator channelValidator) {
         String[] addresses = startedNodes.stream()
                 .map(ignite -> unwrapIgniteImpl(ignite).clientAddress().port())
                 .map(port -> "127.0.0.1" + ":" + port)
