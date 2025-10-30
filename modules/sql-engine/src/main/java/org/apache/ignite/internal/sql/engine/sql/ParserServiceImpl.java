@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -28,6 +29,8 @@ import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchingHelper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -77,15 +80,22 @@ public class ParserServiceImpl implements ParserService {
 
             assert queryType != null : normalizedQuery;
 
+            AtomicBoolean used = new AtomicBoolean();
+
             results.add(new ParsedResultImpl(
                     queryType,
                     originalQuery,
                     normalizedQuery,
                     result.dynamicParamsCount(),
-                    parsedTree,
-                    () -> {
-                        throw new IllegalStateException("Parsed result of script is not reusable.");
-                    }
+                    DdlBatchingHelper.extractDdlBatchGroup(parsedTree),
+                    queryType == SqlQueryType.TX_CONTROL ? () -> parsedTree
+                            : () -> {
+                                if (!used.compareAndSet(false, true)) {
+                                    throw new IllegalStateException("Parsed result of script is not reusable.");
+                                }
+
+                                return parsedTree;
+                            }
             ));
         }
 
@@ -128,13 +138,28 @@ public class ParserServiceImpl implements ParserService {
 
         assert queryType != null : normalizedQuery;
 
+        AtomicReference<SqlNode> holder = new AtomicReference<>(parsedTree);
+
         return new ParsedResultImpl(
                 queryType,
                 originalQuery,
                 normalizedQuery,
                 dynamicParamsCount,
-                parsedTree,
-                () -> IgniteSqlParser.parse(originalQuery, StatementParseResult.MODE).statement()
+                DdlBatchingHelper.extractDdlBatchGroup(parsedTree),
+                () -> {
+                    // Descendants of SqlNode class are mutable, thus we must use every
+                    // syntax node only once to avoid problem. But we already parsed the
+                    // query once to get normalized result. An `unparse` operation is known
+                    // to be safe, so let's reuse result of parsing for the first invocation
+                    // of `parsedTree` method to avoid double-parsing for one time queries.
+                    SqlNode ast = holder.getAndSet(null);
+
+                    if (ast != null) {
+                        return ast;
+                    }
+
+                    return IgniteSqlParser.parse(originalQuery, StatementParseResult.MODE).statement();
+                }
         );
     }
 
@@ -144,14 +169,14 @@ public class ParserServiceImpl implements ParserService {
         private final String normalizedQuery;
         private final int dynamicParamCount;
         private final Supplier<SqlNode> parsedTreeSupplier;
-        private final AtomicReference<SqlNode> cachedParsedTree;
+        private final DdlBatchGroup ddlBatchGroup;
 
         private ParsedResultImpl(
                 SqlQueryType queryType,
                 String originalQuery,
                 String normalizedQuery,
                 int dynamicParamCount,
-                SqlNode cachedParsedTree,
+                DdlBatchGroup ddlBatchGroup,
                 Supplier<SqlNode> parsedTreeSupplier
         ) {
             this.queryType = queryType;
@@ -159,7 +184,7 @@ public class ParserServiceImpl implements ParserService {
             this.normalizedQuery = normalizedQuery;
             this.dynamicParamCount = dynamicParamCount;
             this.parsedTreeSupplier = parsedTreeSupplier;
-            this.cachedParsedTree = new AtomicReference<>(cachedParsedTree);
+            this.ddlBatchGroup = ddlBatchGroup;
         }
 
         /** {@inheritDoc} */
@@ -188,25 +213,14 @@ public class ParserServiceImpl implements ParserService {
 
         /** {@inheritDoc} */
         @Override
-        public SqlNode parsedTreeSafe() {
-            SqlNode tree = cachedParsedTree.get();
-
-            if (tree != null) {
-                return tree;
-            }
-
-            tree = parsedTreeSupplier.get();
-            cachedParsedTree.set(tree);
-
-            return tree;
+        public DdlBatchGroup ddlBatchGroup() {
+            return ddlBatchGroup;
         }
 
         /** {@inheritDoc} */
         @Override
         public SqlNode parsedTree() {
-            SqlNode tree = cachedParsedTree.getAndSet(null);
-
-            return tree != null ? tree : parsedTreeSupplier.get();
+            return parsedTreeSupplier.get();
         }
     }
 }

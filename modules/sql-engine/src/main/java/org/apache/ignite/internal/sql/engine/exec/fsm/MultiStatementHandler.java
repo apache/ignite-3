@@ -106,7 +106,7 @@ class MultiStatementHandler {
             boolean unfinishedTxBlock = false;
 
             if (!txControlStatementFound && result.queryType() == SqlQueryType.TX_CONTROL) {
-                unfinishedTxBlock = result.parsedTreeSafe() instanceof IgniteSqlStartTransaction;
+                unfinishedTxBlock = result.parsedTree() instanceof IgniteSqlStartTransaction;
 
                 txControlStatementFound = true;
             }
@@ -167,6 +167,8 @@ class MultiStatementHandler {
                             ));
                 }
             } else if (parsedResult.queryType() == SqlQueryType.DDL) {
+                assert scriptStatement.parsedResult.ddlBatchGroup() != null : "DDL statements must be batch aware";
+
                 List<ParsedResultWithNextCursorFuture> ddlBatch = new ArrayList<>();
 
                 do {
@@ -177,9 +179,11 @@ class MultiStatementHandler {
                         break;
                     }
 
-                    if (!DdlBatchingHelper.canBeAddedToBatched(
-                            scriptStatement.parsedResult.parsedTreeSafe(),
-                            statement.parsedResult.parsedTreeSafe())
+                    assert statement.parsedResult.ddlBatchGroup() != null : "DDL statements must be batch aware";
+
+                    if (!DdlBatchingHelper.isCompatible(
+                            scriptStatement.parsedResult.ddlBatchGroup(),
+                            statement.parsedResult.ddlBatchGroup())
                     ) {
                         break;
                     }

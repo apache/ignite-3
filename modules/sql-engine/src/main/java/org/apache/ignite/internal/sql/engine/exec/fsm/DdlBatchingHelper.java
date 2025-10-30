@@ -18,36 +18,27 @@
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import org.apache.calcite.sql.SqlNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *  Provide helper methods for batched DDL commands.
  */
 public class DdlBatchingHelper {
-    /** Returns {@code true} if commands (represented by AST trees) can be executed together, {@code false} otherwise. */
-    static boolean canBeAddedToBatched(SqlNode nodeInBatch, SqlNode nodeToAdd) {
-        DdlBatchGroup batchGroup = getCommandType(nodeInBatch);
-        DdlBatchGroup nodeGroup = getCommandType(nodeToAdd);
-
-        return isCompatible(batchGroup, nodeGroup);
-    }
-
     /**
-     * Returns {@code true} if node group is compatible with batch group.
+     * Returns {@code true} if node group is compatible with batch group
      * Node: the operation is not commutative.
      */
     public static boolean isCompatible(DdlBatchGroup batchGroup, DdlBatchGroup nodeGroup) {
-        return (nodeGroup != DdlBatchGroup.OTHER // OTHER group doesn't support batching.
+        return (batchGroup != DdlBatchGroup.OTHER // OTHER group doesn't support batching.
                 && batchGroup == nodeGroup) // Groups matched.
                 || batchGroup == DdlBatchGroup.DROP;
     }
 
-    /** Returns command kind. */
-    private static DdlBatchGroup getCommandType(SqlNode node) {
+    /** Returns command kind or {@code null} if command is not batch aware. */
+    public static @Nullable DdlBatchGroup extractDdlBatchGroup(SqlNode node) {
         DdlBatchAware batchAwareAnnotation = node.getClass().getDeclaredAnnotation(DdlBatchAware.class);
 
-        assert batchAwareAnnotation != null : "Batching behaviour wasn't specified for " + node.getClass();
-
-        return batchAwareAnnotation.group();
+        return batchAwareAnnotation == null ? null : batchAwareAnnotation.group();
     }
 
     private DdlBatchingHelper() {

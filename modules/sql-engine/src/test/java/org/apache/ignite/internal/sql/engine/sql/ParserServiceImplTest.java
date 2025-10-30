@@ -25,8 +25,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlNode;
@@ -77,22 +77,11 @@ public class ParserServiceImplTest {
 
         ParsedResult result = service.parse(statement.text);
 
-        { // Unsafe call always return new instance.
-            SqlNode firstCall = result.parsedTree();
-            SqlNode secondCall = result.parsedTree();
+        SqlNode firstCall = result.parsedTree();
+        SqlNode secondCall = result.parsedTree();
 
-            assertNotSame(firstCall, secondCall);
-            assertThat(firstCall.toString(), is(secondCall.toString()));
-        }
-
-        { // Safe call return cached result.
-            SqlNode firstCall = result.parsedTreeSafe();
-            SqlNode secondCall = result.parsedTreeSafe();
-            SqlNode unsafeCall = result.parsedTree();
-
-            assertSame(firstCall, secondCall);
-            assertSame(firstCall, unsafeCall);
-        }
+        assertNotSame(firstCall, secondCall);
+        assertThat(firstCall.toString(), is(secondCall.toString()));
     }
 
     @ParameterizedTest
@@ -102,22 +91,11 @@ public class ParserServiceImplTest {
 
         ParsedResult result = service.parseScript(statement.text).get(0);
 
-        { // Unsafe call always return new instance.
-            SqlNode firstCall = result.parsedTree();
-            SqlNode secondCall = result.parsedTree();
+        SqlNode firstCall = result.parsedTree();
+        SqlNode secondCall = result.parsedTree();
 
-            assertNotSame(firstCall, secondCall);
-            assertThat(firstCall.toString(), is(secondCall.toString()));
-        }
-
-        { // Safe call return cached result.
-            SqlNode firstCall = result.parsedTreeSafe();
-            SqlNode secondCall = result.parsedTreeSafe();
-            SqlNode unsafeCall = result.parsedTree();
-
-            assertSame(firstCall, secondCall);
-            assertSame(firstCall, unsafeCall);
-        }
+        assertNotSame(firstCall, secondCall);
+        assertThat(firstCall.toString(), is(secondCall.toString()));
     }
 
     /**
@@ -159,11 +137,15 @@ public class ParserServiceImplTest {
 
             SqlNode parsedTree = result.parsedTree();
 
-            assertThrowsWithCause(
-                    result::parsedTree,
-                    IllegalStateException.class,
-                    "Parsed result of script is not reusable"
-            );
+            if (statements.get(i).type == SqlQueryType.TX_CONTROL) {
+                assertNotNull(result.parsedTree());
+            } else {
+                assertThrowsWithCause(
+                        result::parsedTree,
+                        IllegalStateException.class,
+                        "Parsed result of script is not reusable"
+                );
+            }
 
             assertThat(parsedTree, notNullValue());
             assertThat(parsedTree.toString(), equalTo(singleStatementResult.parsedTree().toString()));

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
 
 /**
  * Result of the parse.
@@ -51,11 +52,9 @@ public interface ParsedResult {
     SqlNode parsedTree();
 
     /**
-     * Returns the syntax tree of the query for read-only purposes.
-     *
-     * @see #parsedTree()
+     * Returns {@link org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup} for batching purposes or {@code null} if unapplicable.
      */
-    default SqlNode parsedTreeSafe() {
-        return parsedTree();
+    default DdlBatchGroup ddlBatchGroup() {
+        return null;
     }
 }
