@@ -46,11 +46,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -90,6 +92,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -108,6 +111,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+    private static final String SKIPPING_THIS_ROUND = "Previous lease update is still in progress, skipping this round.";
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster nodes. */
@@ -126,7 +130,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private AssignmentsTracker assignmentsTracker;
 
     /** Closure to get a lease that is passed in Meta storage. */
-    private volatile Consumer<Lease> renewLeaseConsumer = null;
+    private volatile Function<Lease, CompletableFuture<Boolean>> renewLeaseConsumer = null;
 
     private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
@@ -168,7 +172,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         lenient().when(metaStorageManager.invoke(any(Condition.class), any(Operation.class), any(Operation.class)))
                 .thenAnswer(invocation -> {
-                    Consumer<Lease> leaseConsumer = renewLeaseConsumer;
+                    Function<Lease, CompletableFuture<Boolean>> leaseConsumer = renewLeaseConsumer;
 
                     if (leaseConsumer != null) {
                         OperationImpl op = invocation.getArgument(1);
@@ -176,7 +180,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                         Lease lease = LeaseBatch.fromBytes(toByteArray(op.value())).leases().iterator()
                                 .next();
 
-                        leaseConsumer.accept(lease);
+                        return leaseConsumer.apply(lease);
                     }
 
                     return trueCompletedFuture();
@@ -213,6 +217,41 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         leaseUpdater.deactivate();
         leaseUpdater = null;
+    }
+
+    @Test
+    public void testSkipUpdateRoundWhenMsTooSlow() throws Exception {
+        initAndActivateLeaseUpdater();
+
+        LogInspector logInspector = LogInspector.create(LeaseUpdater.class, true);
+
+        CompletableFuture<Boolean> longMsOpFut = new CompletableFuture<>();
+
+        try {
+            AtomicInteger counter = new AtomicInteger(0);
+
+            logInspector.addHandler(evt -> SKIPPING_THIS_ROUND.equals(evt.getMessage().getFormattedMessage()), counter::incrementAndGet);
+
+            Lease lease = awaitForLease(true);
+
+            assertEquals(0, counter.get());
+
+            renewLeaseConsumer = plonogedLease -> {
+                log.info("PVD:: Simulating slow Meta storage...");
+
+                return longMsOpFut;
+            };
+
+            assertTrue(IgniteTestUtils.waitForCondition(() -> counter.get() >= 1, 10_000));
+
+            longMsOpFut.complete(true);
+
+            awaitForLease(true, lease, 10_000);
+        } finally {
+            longMsOpFut.complete(true);
+
+            logInspector.stop();
+        }
     }
 
     @Test
@@ -437,16 +476,18 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         renewLeaseConsumer = lease -> {
             if (needAccepted && !lease.isAccepted()) {
-                return;
+                return trueCompletedFuture();
             }
 
             if (previousLease != null && previousLease.getExpirationTime().equals(lease.getExpirationTime())) {
-                return;
+                return trueCompletedFuture();
             }
 
             renewedLease.set(lease);
 
             renewLeaseConsumer = null;
+
+            return trueCompletedFuture();
         };
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> renewedLease.get() != null, timeoutMillis));
