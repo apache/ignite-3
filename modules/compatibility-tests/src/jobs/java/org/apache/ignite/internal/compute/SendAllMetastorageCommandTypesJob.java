@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -44,7 +45,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
         try {
             IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
-            byte[] value = "value".getBytes();
+            byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
             MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
 

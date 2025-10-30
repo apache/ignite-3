@@ -26,7 +26,7 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Litmus;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /** An AST node representing table property in CREATE TABLE and ALTER TABLE statements. */
 public class IgniteSqlTableProperty extends SqlCall {
