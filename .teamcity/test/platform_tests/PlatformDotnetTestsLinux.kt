@@ -93,4 +93,8 @@ object PlatformDotnetTestsLinux : BuildType({
             reverse = false
         }
     }
+
+    requirements {
+        equals("env.DIND_ENABLED", "true")
+    }
 })
