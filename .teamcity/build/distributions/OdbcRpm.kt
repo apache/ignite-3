@@ -63,4 +63,12 @@ object OdbcRpm : BuildType({
             param("script.content", "./gradlew")
         }
     }
+
+    /**
+     *  Temporary lock ODBC jobs on old-type agents
+     *  until execution of the :platforms:cmakeBuildOdbc target is fixed on DIND agents
+     */
+    requirements {
+        doesNotExist("env.DIND_ENABLED")
+    }
 })
