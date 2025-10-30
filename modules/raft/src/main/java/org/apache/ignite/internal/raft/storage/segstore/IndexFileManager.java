@@ -100,7 +100,7 @@ class IndexFileManager {
 
     static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
-    private final Path baseDir;
+    private final Path indexFilesDir;
 
     /**
      * Current index file ordinal (used to generate index file names).
@@ -114,8 +114,14 @@ class IndexFileManager {
      */
     private final Map<Long, GroupIndexMeta> groupIndexMetas = new ConcurrentHashMap<>();
 
-    IndexFileManager(Path baseDir) {
-        this.baseDir = baseDir;
+    IndexFileManager(Path baseDir) throws IOException {
+        indexFilesDir = baseDir.resolve("index");
+
+        Files.createDirectories(indexFilesDir);
+    }
+
+    Path indexFilesDir() {
+        return indexFilesDir;
     }
 
     /**
@@ -124,7 +130,7 @@ class IndexFileManager {
     Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
         String fileName = indexFileName(curFileOrdinal, 0);
 
-        Path tmpFilePath = baseDir.resolve(fileName + ".tmp");
+        Path tmpFilePath = indexFilesDir.resolve(fileName + ".tmp");
 
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
             byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable);
@@ -161,10 +167,10 @@ class IndexFileManager {
             return null;
         }
 
-        Path indexFile = baseDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
+        Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
 
-        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex] range.
-        long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndex();
+        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex) range.
+        long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
 
         assert payloadArrayIndex >= 0 : payloadArrayIndex;
 
@@ -192,19 +198,19 @@ class IndexFileManager {
     /**
      * Returns the lowest log index for the given group across all index files or {@code -1} if no such index exists.
      */
-    long firstLogIndex(long groupId) {
+    long firstLogIndexInclusive(long groupId) {
         GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
 
-        return groupIndexMeta == null ? -1 : groupIndexMeta.firstLogIndex();
+        return groupIndexMeta == null ? -1 : groupIndexMeta.firstLogIndexInclusive();
     }
 
     /**
-     * Returns the highest log index for the given group across all index files or {@code -1} if no such index exists.
+     * Returns the highest possible log index for the given group across all index files or {@code -1} if no such index exists.
      */
-    long lastLogIndex(long groupId) {
+    long lastLogIndexExclusive(long groupId) {
         GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
 
-        return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndex();
+        return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndexExclusive();
     }
 
     private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable) {
@@ -230,11 +236,11 @@ class IndexFileManager {
 
             SegmentInfo segmentInfo = entry.getValue();
 
-            long firstLogIndex = segmentInfo.firstLogIndex();
+            long firstLogIndexInclusive = segmentInfo.firstLogIndexInclusive();
 
-            long lastLogIndex = segmentInfo.lastLogIndex();
+            long lastLogIndexExclusive = segmentInfo.lastLogIndexExclusive();
 
-            var indexFileMeta = new IndexFileMeta(firstLogIndex, lastLogIndex, payloadOffset, curFileOrdinal);
+            var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, curFileOrdinal);
 
             putIndexFileMeta(groupId, indexFileMeta);
 
@@ -242,8 +248,8 @@ class IndexFileManager {
                     .putLong(groupId)
                     .putInt(0) // Flags.
                     .putInt(payloadOffset)
-                    .putLong(firstLogIndex)
-                    .putLong(lastLogIndex);
+                    .putLong(firstLogIndexInclusive)
+                    .putLong(lastLogIndexExclusive);
 
             payloadOffset += payloadSize(segmentInfo);
         }

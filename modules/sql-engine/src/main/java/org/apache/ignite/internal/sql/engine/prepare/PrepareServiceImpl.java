@@ -31,6 +31,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -116,6 +117,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
@@ -397,6 +399,27 @@ public class PrepareServiceImpl implements PrepareService {
 
             return null;
         }, planningPool);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<PreparedPlan> preparedPlans() {
+        return cache.entrySet().stream()
+                .filter(e -> {
+                    CompletableFuture<PlanInfo> f = e.getValue();
+                    return f.isDone() && !f.isCompletedExceptionally() && !f.isCancelled();
+                })
+                .map(e -> {
+                    CacheKey key = e.getKey();
+                    PlanInfo value = e.getValue().getNow(null);
+                    Instant timestamp = value.timestamp;
+                    return new PreparedPlan(key, value.queryPlan, timestamp);
+                }).collect(Collectors.toSet());
+    }
+
+    @TestOnly
+    UUID prepareServiceId() {
+        return this.prepareServiceId;
     }
 
     /** Check if the given query plan matches the given predicate. */
@@ -1302,6 +1325,7 @@ public class PrepareServiceImpl implements PrepareService {
         @Nullable
         private final IntSet sources;
         private volatile boolean needToInvalidate;
+        private final Instant timestamp = Instant.now();
 
         private PlanInfo(
                 QueryPlan plan,

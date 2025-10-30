@@ -33,7 +33,7 @@
 namespace ignite {
 
 /**
- * Ignite client configuration.
+ * @brief Ignite client configuration.
  */
 class ignite_client_configuration {
 public:

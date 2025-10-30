@@ -40,6 +40,9 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -71,6 +74,10 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final NodeProperties nodeProperties;
 
+    private final FinalTransactionStateResolver finalTransactionStateResolver;
+
+    private final IndexMetaStorage indexMetaStorage;
+
     private final Map<IndexBuildTaskId, IndexBuildTask> indexBuildTaskById = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -80,11 +87,20 @@ class IndexBuilder implements ManuallyCloseable {
     private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Constructor. */
-    IndexBuilder(Executor executor, ReplicaService replicaService, FailureProcessor failureProcessor, NodeProperties nodeProperties) {
+    IndexBuilder(
+            Executor executor,
+            ReplicaService replicaService,
+            FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
+            FinalTransactionStateResolver finalTransactionStateResolver,
+            IndexMetaStorage indexMetaStorage
+    ) {
         this.executor = executor;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
         this.nodeProperties = nodeProperties;
+        this.finalTransactionStateResolver = finalTransactionStateResolver;
+        this.indexMetaStorage = indexMetaStorage;
     }
 
     /**
@@ -133,11 +149,13 @@ class IndexBuilder implements ManuallyCloseable {
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
+                    indexCreationActivationTs(indexId),
                     indexStorage,
                     partitionStorage,
                     replicaService,
                     failureProcessor,
                     nodeProperties,
+                    finalTransactionStateResolver,
                     executor,
                     busyLock,
                     BATCH_SIZE,
@@ -196,11 +214,13 @@ class IndexBuilder implements ManuallyCloseable {
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
+                    indexCreationActivationTs(indexId),
                     indexStorage,
                     partitionStorage,
                     replicaService,
                     failureProcessor,
                     nodeProperties,
+                    finalTransactionStateResolver,
                     executor,
                     busyLock,
                     BATCH_SIZE,
@@ -213,6 +233,14 @@ class IndexBuilder implements ManuallyCloseable {
 
             putAndStartTaskIfAbsent(taskId, newTask);
         });
+    }
+
+    private HybridTimestamp indexCreationActivationTs(int indexId) {
+        IndexMeta indexMeta = indexMetaStorage.indexMeta(indexId);
+        assert indexMeta != null : "Index meta must be present for indexId=" + indexId;
+
+        long tsLong = indexMeta.statusChange(MetaIndexStatus.REGISTERED).activationTimestamp();
+        return HybridTimestamp.hybridTimestamp(tsLong);
     }
 
     /**

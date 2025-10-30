@@ -28,11 +28,9 @@ import org.apache.ignite.migrationtools.tests.clusters.FullSampleCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 
 /** Ignite2ClusterWithSamples. */
@@ -57,22 +55,6 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
         }
 
         return false;
-    }
-
-    private static GenericContainer createIgnite2Container(String nodeId, String nodeName, Network network,
-            Consumer<OutputFrame> logConsumer) {
-        return new GenericContainer<>("apacheignite/ignite:2.15.0-jdk11")
-                .withLabel("ai2.sample-cluster.node", nodeName)
-                .withNetwork(network)
-                .withNetworkAliases(nodeName)
-                .withCopyFileToContainer(MountableFile.forHostPath(FullSampleCluster.CLUSTER_CFG_PATH), "/config-file.xml")
-                .withFileSystemBind(FullSampleCluster.TEST_CLUSTER_PATH.toString(), "/storage", BindMode.READ_WRITE)
-                .withEnv("CONFIG_URI", "/config-file.xml")
-                .withEnv("IGNITE_WORK_DIR", "/storage")
-                .withEnv("IGNITE_QUIET", "false")
-                .withEnv("IGNITE_NODE_NAME", nodeId)
-                .withLogConsumer(logConsumer)
-                .waitingFor(Wait.forLogMessage(".*Node started .*", 1));
     }
 
     protected abstract Ignite2ClusterContainer createClusterContainers();
