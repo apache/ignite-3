@@ -411,7 +411,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                                 "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
                                 nodeId, type, addr, connectionManager.localBindAddress()
                         );
-                    } else if (ex != null && LOG.isInfoEnabled()) {
+                    } else if (ex != null && !hasCause(ex, NodeStoppingException.class) && LOG.isInfoEnabled()) {
                         // TODO IGNITE-25802 Detect a LOOP rejection reason and retry the connection.
                         LOG.info(
                                 "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",
