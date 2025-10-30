@@ -187,6 +187,8 @@ public class ParserServiceImpl implements ParserService {
             this.parsedTreeSupplier = parsedTreeSupplier;
             this.ddlBatchGroup = ddlBatchGroup;
 
+            // Here we ensure that DDL batch group is set for DDL queries.
+            // For the case the one missed adding DDL operation to the Multi-statement test.
             assert queryType != SqlQueryType.DDL || ddlBatchGroup != null : "DDL query without batch group";
         }
 

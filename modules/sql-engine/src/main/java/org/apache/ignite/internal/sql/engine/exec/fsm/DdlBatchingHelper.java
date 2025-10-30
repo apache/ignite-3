@@ -34,9 +34,10 @@ public class DdlBatchingHelper {
         @Nullable DdlBatchGroup statementGroup = statement.ddlBatchGroup();
 
         if (batchGroup == null || statementGroup == null) {
+            // Actually, we should never get here, but I we missed smth, it is always safe to fallback to non-batched execution.
             assert false : "DDL statement should be batch aware.";
 
-            return false; // Fallback to non-batching.
+            return false;
         }
 
         return isCompatible(batchGroup, statementGroup);

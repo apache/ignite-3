@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 /**
- * Groups fpr batching compatible DDL operations.
+ * Groups tha is used for DDL operations batching.
  *
  * @see DdlBatchAware
  */
@@ -27,6 +27,6 @@ public enum DdlBatchGroup {
     CREATE,
     /** Group for DROP operations. */
     DROP,
-    /** Group for other operations. */
+    /** Group for other DDL operations. */
     OTHER;
 }
