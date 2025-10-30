@@ -148,7 +148,8 @@ namespace Apache.Ignite.Tests
                     tcs.SetResult(ports);
                 }
 
-                if (line.StartsWith("Exception in thread \"main\"", StringComparison.OrdinalIgnoreCase))
+                if (line.StartsWith("Exception in thread \"main\"", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Unable to start", StringComparison.OrdinalIgnoreCase))
                 {
                     process.Kill(entireProcessTree: true);
                     tcs.SetException(new Exception($"Java server failed: {line}"));
