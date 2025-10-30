@@ -25,10 +25,10 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
@@ -45,8 +45,8 @@ class CatalogTableDescriptorTest {
                 .primaryKeyIndexId(3)
                 .name("table1")
                 .zoneId(4)
-                .columns(columns)
-                .primaryKeyColumns(List.of("pkCol"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
 
@@ -72,13 +72,13 @@ class CatalogTableDescriptorTest {
                 .primaryKeyIndexId(3)
                 .name("table1")
                 .zoneId(4)
-                .columns(columns)
-                .primaryKeyColumns(List.of("pkCol"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
 
         assertSoftly(assertions -> {
-            assertions.assertThat(descriptor.colocationColumns()).containsExactly("pkCol");
+            assertions.assertThat(descriptor.colocationColumnNames()).containsExactly("pkCol");
             assertions.assertThat(descriptor.updateTimestamp()).isEqualTo(INITIAL_TIMESTAMP);
             assertions.assertThat(descriptor.isPrimaryKeyColumn("pkCol")).isTrue();
             assertions.assertThat(descriptor.latestSchemaVersion()).isEqualTo(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
@@ -87,12 +87,12 @@ class CatalogTableDescriptorTest {
         });
 
         var descriptorV2 = descriptor.copyBuilder()
-                .latestSchemaVersion(2)
+                .newColumns(descriptor.columns())
                 .timestamp(HybridTimestamp.MAX_VALUE)
                 .build();
 
         assertSoftly(assertions -> {
-            assertions.assertThat(descriptor.colocationColumns()).containsExactly("pkCol");
+            assertions.assertThat(descriptor.colocationColumnNames()).containsExactly("pkCol");
             assertions.assertThat(descriptorV2.updateTimestamp()).isEqualTo(HybridTimestamp.MAX_VALUE);
             assertions.assertThat(descriptorV2.isPrimaryKeyColumn("pkCol")).isTrue();
             assertions.assertThat(descriptorV2.latestSchemaVersion()).isEqualTo(2);
@@ -114,53 +114,34 @@ class CatalogTableDescriptorTest {
                 .primaryKeyIndexId(3)
                 .name("table1")
                 .zoneId(4)
-                .columns(columns)
-                .primaryKeyColumns(List.of("pkCol"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE);
-
-        assertThrows(NullPointerException.class, () -> {
-            baseBuilder
-                    .columns(null)
-                    .build();
-        }, "No columns defined.");
 
         assertThrows(IllegalArgumentException.class, () -> {
             baseBuilder
-                    .columns(Collections.emptyList())
+                    .newColumns(null)
                     .build();
-        }, "No columns defined.");
+        }, "Neither columns nor schemaVersions are defined.");
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            baseBuilder
+                    .newColumns(Collections.emptyList())
+                    .build();
+        }, "Neither columns nor schemaVersions are defined.");
 
         assertThrows(NullPointerException.class, () -> {
             baseBuilder
-                    .columns(columns)
+                    .newColumns(columns)
                     .primaryKeyColumns(null)
                     .build();
         }, "No primary key columns.");
 
-        assertThrows(IllegalArgumentException.class, () -> {
-            baseBuilder
-                    .primaryKeyColumns(List.of("pkCol"))
-                    .latestSchemaVersion(-1)
-                    .build();
-        }, "Latest schema version -1 should not be less than a previous version");
-
         assertThrows(NullPointerException.class, () -> {
             baseBuilder
-                    .latestSchemaVersion(1)
+                    .primaryKeyColumns(IntList.of(0))
                     .storageProfile(null)
                     .build();
         }, "No storage profile.");
-
-        List<CatalogTableColumnDescriptor> wrongSchemaVersionColumns = List.of(
-                columns.get(0),
-                new CatalogTableColumnDescriptor("val", ColumnType.STRING, false, 0, 0, 10, null)
-        );
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            baseBuilder
-                    .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
-                    .schemaVersions(new CatalogTableSchemaVersions(new TableVersion(wrongSchemaVersionColumns)))
-                    .build();
-        }, "Latest schema version columns do not match descriptor definition columns.");
     }
 }

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
-import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.HashSet;
@@ -67,14 +66,14 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         this.ifNotExists = ifNotExists;
         this.tableName = tableName;
         this.unique = unique;
-        this.columns = copyOrNull(columns);
+        this.columns = List.copyOf(columns);
     }
 
     public boolean ifNotExists() {
         return ifNotExists;
     }
 
-    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status,
+    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, CatalogTableDescriptor table, CatalogIndexStatus status,
             boolean createdWithTable);
 
     @Override
@@ -99,7 +98,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             }
         }
 
-        if (unique && !new HashSet<>(columns).containsAll(table.colocationColumns())) {
+        if (unique && !new HashSet<>(columns).containsAll(table.colocationColumnNames())) {
             throw new CatalogValidationException("Unique index must include all colocation columns.");
         }
 
@@ -110,7 +109,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
                 : CatalogIndexStatus.REGISTERED;
 
         return List.of(
-                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), status, indexCreatedWithTable)),
+                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table, status, indexCreatedWithTable)),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

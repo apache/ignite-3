@@ -135,11 +135,11 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
     ) {
         assert table.id() == index.tableId() : "indexId=" + index.id() + ", tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
-        return index.columns().stream()
-                .map(columnName -> {
-                    CatalogTableColumnDescriptor column = table.column(columnName);
+        return index.columnIds().intStream()
+                .mapToObj(id -> {
+                    CatalogTableColumnDescriptor column = table.columnById(id);
 
-                    assert column != null : "indexId=" + index.id() + ", columnName=" + columnName;
+                    assert column != null : "indexId=" + index.id() + ", id=" + id;
 
                     return new StorageHashIndexColumnDescriptor(column.name(), getNativeType(column), column.nullable());
                 })

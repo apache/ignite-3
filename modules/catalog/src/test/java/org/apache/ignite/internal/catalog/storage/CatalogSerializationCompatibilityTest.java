@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.storage;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Set;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptorSerializers;
 import org.apache.ignite.internal.catalog.storage.CatalogSerializationChecker.SerializerClass;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -51,6 +52,23 @@ import org.junit.jupiter.api.BeforeEach;
  *         // Use serializer version 42 for all CatalogTableDescriptors in this test case.
  *         checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE.id(), version);
  *         checker.compareEntries(entries, "NewTableEntry", version);
+ *     }
+ * </pre>
+ *
+ * <p>Sometimes you may want to add a snapshot for a new version of a nested object. For this
+ * you still need to add a new test for top level object nesting an object of interest. For
+ * example, to add a snapshot for a {@link CatalogTableColumnDescriptorSerializers} of version 50,
+ * we need to add a new test like this:
+ * <pre>
+ *     public void newTableV&lt;nextAvailableVersion&gt;() {
+ *         int tableSerializerVersion = 2; // latest available version of top level object serializer
+ *         int tableColumnSerializerVersion = 3; // the version we would like to create snapshot for
+ *         int snapshotFileSuffix = 3; // next available version
+ *
+ *         List&lt;UpdateEntry&gt; entries = ... // create descriptor here
+ *
+ *         checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id(), tableColumnSerializerVersion);
+ *         checker.compareEntries(entries, "NewTableEntry", snapshotFileSuffix);
  *     }
  * </pre>
  */
