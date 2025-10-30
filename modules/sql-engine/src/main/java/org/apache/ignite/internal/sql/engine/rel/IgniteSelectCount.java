@@ -38,7 +38,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Relational operator that represents a {@code SELECT COUNT(*) FROM table} queries such as:
