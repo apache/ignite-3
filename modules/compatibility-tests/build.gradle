@@ -37,6 +37,7 @@ dependencies {
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-jdbc')
 
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility

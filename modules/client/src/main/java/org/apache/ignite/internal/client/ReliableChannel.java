@@ -134,23 +134,34 @@ public final class ReliableChannel implements AutoCloseable {
     private final ClientTransactionInflights inflights;
 
     /**
+     * A validator that is called when a connection to a node is established,
+     * if it throws an exception, the network channel to that node will be closed.
+     */
+    private final @Nullable ChannelValidator channelValidator;
+
+    /**
      * Constructor.
      *
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
      * @param metrics Client metrics.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
             ClientMetricSource metrics,
-            HybridTimestampTracker observableTimeTracker) {
+            HybridTimestampTracker observableTimeTracker,
+            @Nullable ChannelValidator channelValidator
+    ) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
         this.observableTimeTracker = Objects.requireNonNull(observableTimeTracker, "observableTime");
+        this.channelValidator = channelValidator;
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
@@ -885,6 +896,10 @@ public final class ReliableChannel implements AutoCloseable {
                         inflights);
 
                 chFut0 = createFut.thenApply(ch -> {
+                    if (channelValidator != null) {
+                        channelValidator.validate(ch.protocolContext());
+                    }
+
                     UUID currentClusterId = ch.protocolContext().clusterId();
                     UUID oldClusterId = clusterId.compareAndExchange(null, currentClusterId);
                     List<UUID> validClusterIds = ch.protocolContext().clusterIds();
