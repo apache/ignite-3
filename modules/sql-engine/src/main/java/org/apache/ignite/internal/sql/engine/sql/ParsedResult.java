@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Result of the parse.
@@ -54,7 +55,7 @@ public interface ParsedResult {
     /**
      * Returns {@link org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup} for batching purposes or {@code null} if unapplicable.
      */
-    default DdlBatchGroup ddlBatchGroup() {
+    default @Nullable DdlBatchGroup ddlBatchGroup() {
         return null;
     }
 }

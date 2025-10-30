@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import org.apache.calcite.sql.SqlNode;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -25,10 +26,27 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DdlBatchingHelper {
     /**
+     * Returns {@code true} if given statement is compatible with script statement.
+     * Node: the operation is not commutative.
+     */
+    static boolean isCompatible(ParsedResult scriptStatement, ParsedResult statement) {
+        @Nullable DdlBatchGroup batchGroup = scriptStatement.ddlBatchGroup();
+        @Nullable DdlBatchGroup statementGroup = statement.ddlBatchGroup();
+
+        if (batchGroup == null || statementGroup == null) {
+            assert false : "DDL statement should be batch aware.";
+
+            return false; // Fallback to non-batching.
+        }
+
+        return isCompatible(batchGroup, statementGroup);
+    }
+
+    /**
      * Returns {@code true} if node group is compatible with batch group
      * Node: the operation is not commutative.
      */
-    public static boolean isCompatible(DdlBatchGroup batchGroup, DdlBatchGroup nodeGroup) {
+    static boolean isCompatible(DdlBatchGroup batchGroup, DdlBatchGroup nodeGroup) {
         return (batchGroup != DdlBatchGroup.OTHER // OTHER group doesn't support batching.
                 && batchGroup == nodeGroup) // Groups matched.
                 || batchGroup == DdlBatchGroup.DROP;

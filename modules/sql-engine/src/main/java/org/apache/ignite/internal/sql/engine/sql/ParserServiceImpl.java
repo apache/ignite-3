@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
 import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchingHelper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An implementation of {@link ParserService} that, apart of parsing, introduces cache of parsed results.
@@ -176,7 +177,7 @@ public class ParserServiceImpl implements ParserService {
                 String originalQuery,
                 String normalizedQuery,
                 int dynamicParamCount,
-                DdlBatchGroup ddlBatchGroup,
+                @Nullable DdlBatchGroup ddlBatchGroup,
                 Supplier<SqlNode> parsedTreeSupplier
         ) {
             this.queryType = queryType;
@@ -185,6 +186,8 @@ public class ParserServiceImpl implements ParserService {
             this.dynamicParamCount = dynamicParamCount;
             this.parsedTreeSupplier = parsedTreeSupplier;
             this.ddlBatchGroup = ddlBatchGroup;
+
+            assert queryType != SqlQueryType.DDL || ddlBatchGroup != null : "DDL query without batch group";
         }
 
         /** {@inheritDoc} */

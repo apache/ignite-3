@@ -167,8 +167,6 @@ class MultiStatementHandler {
                             ));
                 }
             } else if (parsedResult.queryType() == SqlQueryType.DDL) {
-                assert scriptStatement.parsedResult.ddlBatchGroup() != null : "DDL statements must be batch aware";
-
                 List<ParsedResultWithNextCursorFuture> ddlBatch = new ArrayList<>();
 
                 do {
@@ -179,12 +177,7 @@ class MultiStatementHandler {
                         break;
                     }
 
-                    assert statement.parsedResult.ddlBatchGroup() != null : "DDL statements must be batch aware";
-
-                    if (!DdlBatchingHelper.isCompatible(
-                            scriptStatement.parsedResult.ddlBatchGroup(),
-                            statement.parsedResult.ddlBatchGroup())
-                    ) {
+                    if (!DdlBatchingHelper.isCompatible(scriptStatement.parsedResult, statement.parsedResult)) {
                         break;
                     }
 
