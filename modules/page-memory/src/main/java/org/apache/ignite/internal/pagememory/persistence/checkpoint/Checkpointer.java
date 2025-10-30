@@ -347,7 +347,7 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
-            compactor.pause();
+            // compactor.pause();
 
             var tracker = new CheckpointMetricsTracker();
 
