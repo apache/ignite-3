@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -28,7 +29,10 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -58,6 +62,14 @@ public class ParserServiceImplTest {
             this.text = text;
             this.type = type;
         }
+    }
+
+    @Test
+    void ensureAllStatementsAreCovered() {
+        List<SqlQueryType> statementTypes = Arrays.stream(Statement.values()).map(s -> s.type).collect(Collectors.toList());
+        EnumSet<SqlQueryType> missedTypes = EnumSet.complementOf(EnumSet.copyOf(statementTypes));
+
+        assertThat(missedTypes, empty());
     }
 
     @ParameterizedTest

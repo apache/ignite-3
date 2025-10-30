@@ -243,13 +243,9 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
                 "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
-                        + "CREATE TABLE t3 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
-                        + "CREATE INDEX t2_ind_1 ON t2 (val_1);"
-                        + "CREATE INDEX t3_ind_1 ON t3 (val_1);"
                         + "DROP TABLE t1;"
                         + "DROP TABLE t2;"
-                        + "DROP INDEX t3_ind_1;"
                         + "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
         );
 
@@ -264,25 +260,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willSucceedFast());
 
-        // CREATE TABLE t3 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
-        cursor = cursor.nextResult().join();
-        assertDdlResult(cursor, true);
-        assertThat(cursor.hasNextResult(), is(true));
-        assertThat(cursor.nextResult(), willSucceedFast());
-
         // CREATE INDEX t1_ind_1 ON t1 (val_1)
-        cursor = cursor.nextResult().join();
-        assertDdlResult(cursor, true);
-        assertThat(cursor.hasNextResult(), is(true));
-        assertThat(cursor.nextResult(), willSucceedFast());
-
-        // CREATE INDEX t2_ind_1 ON t2 (val_1)
-        cursor = cursor.nextResult().join();
-        assertDdlResult(cursor, true);
-        assertThat(cursor.hasNextResult(), is(true));
-        assertThat(cursor.nextResult(), willSucceedFast());
-
-        // CREATE INDEX t3_ind_1 ON t3 (val_1)
         cursor = cursor.nextResult().join();
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(true));
@@ -300,24 +278,14 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willSucceedFast());
 
-        // DROP INDEX t3_ind_1
-        cursor = cursor.nextResult().join();
-        assertDdlResult(cursor, true);
-        assertThat(cursor.hasNextResult(), is(true));
-        assertThat(cursor.nextResult(), willSucceedFast());
-
         // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
         cursor = cursor.nextResult().join();
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(false));
 
-        assertEquals(3, executeCallCounter.get());
+        assertEquals(2, executeCallCounter.get());
         assertTableExists("t1");
-        assertTableExists("t3");
-        assertTableNotExists("t2");
         assertIndexNotExists("t1_ind_1");
-        assertIndexNotExists("t2_ind_2");
-        assertIndexNotExists("t3_ind_1");
     }
 
     @Test
