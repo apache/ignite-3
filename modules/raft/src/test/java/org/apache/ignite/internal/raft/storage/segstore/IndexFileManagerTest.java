@@ -184,4 +184,84 @@ class IndexFileManagerTest extends IgniteAbstractTest {
                 is(new SegmentFilePointer(2, 3))
         );
     }
+
+    @Test
+    void testFirstLastLogIndicesIndependence() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(2L));
+
+        assertThat(indexFileManager.firstLogIndexInclusive(1), is(-1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(1), is(-1L));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(1, 2, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(2L));
+
+        assertThat(indexFileManager.firstLogIndexInclusive(1), is(2L));
+        assertThat(indexFileManager.lastLogIndexExclusive(1), is(3L));
+    }
+
+    @Test
+    void testFirstLastLogIndicesWithTruncate() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 1);
+        memtable.appendSegmentFileOffset(0, 2, 1);
+        memtable.appendSegmentFileOffset(0, 3, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(4L));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.truncateSuffix(0, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(2L));
+    }
+
+    @Test
+    void testGetSegmentPointerWithTruncate() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 1);
+        memtable.appendSegmentFileOffset(0, 2, 2);
+        memtable.appendSegmentFileOffset(0, 3, 3);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(0, 2)));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.truncateSuffix(0, 1);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(new SegmentFilePointer(0, 1)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(nullValue()));
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 2, 2);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(2, 2)));
+    }
 }

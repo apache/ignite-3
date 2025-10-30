@@ -66,10 +66,4 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
     public void testTruncatePrefix() {
         super.testTruncatePrefix();
     }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26284")
-    @Override
-    public void testTruncateSuffix() {
-        super.testTruncateSuffix();
-    }
 }

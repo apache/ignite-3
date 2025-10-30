@@ -88,7 +88,7 @@ tree-sitter-json = "0.24.8"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
 otel = "1.55.0"
-spring-boot = "3.5.6"
+spring-boot = "3.5.7"
 spring-data = "3.5.5"
 testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
@@ -100,7 +100,7 @@ japicmp = "0.24.2"
 pmdTool = "7.13.0"
 # NOTE: do not update checkstyle to 11.x.x+, because newer versions are not compatible with Java 11.
 checkstyleTool = "10.26.1"
-spotbugsTool = "4.9.7"
+spotbugsTool = "4.9.8"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:7.12.0"
@@ -115,7 +115,7 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.3"
-spotbugs = "com.github.spotbugs:6.4.3"
+spotbugs = "com.github.spotbugs:6.4.4"
 jmh = 'me.champeau.jmh:0.7.3'
 jmhReport = 'io.morethan.jmhreport:0.9.6'
 license = 'com.github.jk1.dependency-license-report:2.9'

@@ -550,8 +550,9 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(isBusy(), "Not in busy stage");
             switch (this.stage) {
                 case STAGE_CATCHING_UP:
-                    LOG.info("Catch up phase to change peers was successfully finished [node={}, from={} to={}]",
-                        this.node.getNodeId(), oldPeers, newPeers);
+                    LOG.info("Catch up phase to change peers was successfully finished "
+                    + "[node={}, from peers={} to peers={}, from learners={}, to learners={}].",
+                        this.node.getNodeId(), oldPeers, newPeers, oldLearners, newLearners);
                     if (this.nchanges > 0) {
                         this.stage = Stage.STAGE_JOINT;
                         this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners),
@@ -1442,6 +1443,13 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} raise term {} when getLastLogId.", getNodeId(), this.currTerm);
                 return;
             }
+
+            // Check if state changed from CANDIDATE during lock release.
+            if (this.state != State.STATE_CANDIDATE) {
+                LOG.warn("Node {} state changed from CANDIDATE to {} during election.", getNodeId(), this.state);
+                return;
+            }
+
             for (final PeerId peer : this.conf.listPeers()) {
                 if (peer.equals(this.serverId)) {
                     continue;
@@ -1611,7 +1619,7 @@ public class NodeImpl implements Node, RaftServerService {
             this.stopTransferArg = null;
         }
         // Learner node will not trigger the election timer.
-        if (!isLearner()) {
+        if (!isLearner(false)) {
             this.electionTimer.restart();
         }
         else {
@@ -1620,8 +1628,18 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     // Should be in readLock
-    private boolean isLearner() {
-        return this.conf.listLearners().contains(this.serverId);
+    private boolean isLearner(boolean blocking) {
+        if (!blocking) {
+            return this.conf.listLearners().contains(this.serverId);
+        }
+
+        this.readLock.lock();
+        try {
+            return this.conf.listLearners().contains(this.serverId);
+        }
+        finally {
+            this.readLock.unlock();
+        }
     }
 
     private void stopStepDownTimer() {
@@ -3290,6 +3308,12 @@ public class NodeImpl implements Node, RaftServerService {
     public boolean isLeader() {
         return isLeader(true);
     }
+
+    @Override
+    public boolean isLearner() {
+        return isLearner(true);
+    }
+
 
     @Override
     public boolean isLeader(final boolean blocking) {

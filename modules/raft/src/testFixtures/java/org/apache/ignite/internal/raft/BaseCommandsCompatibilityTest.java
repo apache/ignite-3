@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.raft;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.UUID;
@@ -82,6 +86,10 @@ public abstract class BaseCommandsCompatibilityTest extends BaseIgniteAbstractTe
         return new UUID(42, 69);
     }
 
+    protected static UUID anotherUuid() {
+        return new UUID(-42, -69);
+    }
+
     protected static HybridTimestamp initiatorTime() {
         return HybridTimestamp.hybridTimestamp(70);
     }
@@ -92,5 +100,13 @@ public abstract class BaseCommandsCompatibilityTest extends BaseIgniteAbstractTe
 
     protected static HybridTimestamp commitTimestamp() {
         return HybridTimestamp.hybridTimestamp(71);
+    }
+
+    /** Annotation to indicate which raft command is being tested. */
+    @Target(ElementType.METHOD)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface TestForCommand {
+        /** Raft command being tested. */
+        Class<? extends Command> value();
     }
 }

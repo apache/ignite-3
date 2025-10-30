@@ -307,6 +307,15 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
             }
 
+            // We need to recalculate assignments to ensure that we have a valid set of nodes with correct roles (peers/learners).
+            partAssignments = calculateAssignmentForPartition(
+                    partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
+                    partId.partitionId(),
+                    partitions,
+                    replicas,
+                    consensusGroupSize
+            );
+
             Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
             boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
@@ -377,7 +386,11 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             LocalPartitionStateEnum state = entry.getValue().state();
 
             if (aliveNodesConsistentIds.contains(nodeName) && (state == HEALTHY || state == CATCHING_UP)) {
-                partAssignments.add(Assignment.forPeer(nodeName));
+                if (entry.getValue().isLearner()) {
+                    partAssignments.add(Assignment.forLearner(nodeName));
+                } else {
+                    partAssignments.add(Assignment.forPeer(nodeName));
+                }
             }
         }
 
