@@ -85,12 +85,10 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 context.excludeNode(exception.nodeName());
 
                 return true;
-            } else if (lockConflict(th) || replicaMiss(th) || groupOverloaded(th)) {
-                return true;
             }
-        }
 
-        query.onError(th);
+            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
+        }
 
         return false;
     }

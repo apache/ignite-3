@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.fsm.Result.Status;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
@@ -65,7 +64,11 @@ class Program<ResultT> {
         this.errorHandler = errorHandler;
     }
 
-    CompletableFuture<ResultT> run(Query query) {
+    ProgramExecutionState<ResultT> createState() {
+        return new ProgramExecutionState<>(name);
+    }
+
+    void run(Query query, ProgramExecutionState<ResultT> state) {
         Result result;
         do {
             ExecutionPhase phase = query.currentPhase();
@@ -75,17 +78,14 @@ class Program<ResultT> {
             } catch (Throwable th) {
                 // handles exception from synchronous part of phase evaluation
 
-                try {
-                    if (errorHandler.test(query, th)) {
-                        continue;
-                    }
-                } catch (AssertionError | Exception ex) {
-                    LOG.warn("Exception in error handler [queryId={}]", ex, query.id);
-
-                    query.onError(th);
+                if (shouldRetry(query, th)) {
+                    continue;
                 }
 
-                return Commons.cast(query.resultHolder);
+                query.setError(th);
+                finalizeActiveProgram(query, state);
+
+                return;
             }
 
             if (result.status() == Status.WAITING_FOR_COMPLETION) {
@@ -101,31 +101,55 @@ class Program<ResultT> {
                                     ex = ExceptionUtils.unwrapCause(ex);
 
                                     // handles exception from asynchronous part of phase evaluation
-                                    try {
-                                        if (errorHandler.test(query, ex)) {
-                                            query.executor.execute(() -> run(query));
-                                        }
-                                    } catch (AssertionError | Exception ex0) {
-                                        LOG.warn("Exception in error handler [queryId={}]", ex0, query.id);
-
-                                        query.onError(ex);
+                                    if (shouldRetry(query, ex)) {
+                                        query.executor.execute(() -> run(query, state));
+                                    } else {
+                                        query.setError(ex);
+                                        finalizeActiveProgram(query, state);
                                     }
 
                                     return;
                                 }
 
                                 query.executor.execute(() -> {
-                                    if (advanceQuery(query)) {
-                                        run(query);
+                                    if (advanceQuery(query, state)) {
+                                        run(query, state);
                                     }
                                 });
                             });
                     break;
                 }
             }
-        } while (advanceQuery(query));
+        } while (advanceQuery(query, state));
+    }
 
-        return Commons.cast(query.resultHolder);
+    private boolean shouldRetry(Query query, Throwable th) {
+        try {
+            if (errorHandler.test(query, th)) {
+                return true;
+            }
+        } catch (AssertionError | Exception ex) {
+            LOG.warn("Exception in error handler [queryId={}]", ex, query.id);
+
+            query.terminateExceptionally(th);
+        }
+
+        return false;
+    }
+
+    private static void finalizeActiveProgram(Query query, ProgramExecutionState<?> executionState) {
+        ProgramExecutionHandle activeHandle = query.activeProgram.getAndSet(null);
+
+        Throwable throwable = query.error.get();
+        if (throwable != null) {
+            // Set error as result of execution.
+            executionState.notifyError(throwable);
+
+            query.terminate();
+        }
+
+        executionState.programFinished.complete(null);
+        assert activeHandle == executionState;
     }
 
     /**
@@ -134,7 +158,7 @@ class Program<ResultT> {
      * @param query Query to advance.
      * @return {@code true} if new state is not terminal (e.g. it does make sense to continue execution).
      */
-    private boolean advanceQuery(Query query) {
+    private boolean advanceQuery(Query query, ProgramExecutionState<ResultT> state) {
         ExecutionPhase phase = query.currentPhase();
 
         Transition transition = transitions.get(phase);
@@ -146,7 +170,13 @@ class Program<ResultT> {
         if (terminalPhase.test(query.currentPhase())) {
             ResultT result = this.result.apply(query);
 
-            query.resultHolder.complete(result);
+            finalizeActiveProgram(query, state);
+
+            if (!state.resultHolder.complete(result)) {
+                assert state.resultHolder.isCompletedExceptionally();
+
+                query.moveTo(ExecutionPhase.TERMINATED);
+            }
 
             return false;
         }

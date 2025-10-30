@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-/** Handler that kick-starts query processing. */
-class RegisteredPhaseHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new RegisteredPhaseHandler();
+import java.util.concurrent.CompletableFuture;
 
-    private RegisteredPhaseHandler() { }
+/**
+ * Provides minimal API to communicate with a running {@link Program program}.
+ */
+interface ProgramExecutionHandle {
+    /**
+     * Notifies program execution about exception related to query this program is running for.
+     *
+     * @param error An error to notify about.
+     */
+    void notifyError(Throwable error);
 
-    @Override
-    public Result handle(Query query) {
-        return Result.completed();
-    }
+    /** Returns a future which will be completed successfully. */
+    CompletableFuture<Void> completionFuture();
 }
