@@ -41,7 +41,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param columnNames A list of indexed columns. Must not contains duplicates.
+     * @param columnNames A list of indexed columns. Must not contain duplicates.
      * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
@@ -70,7 +70,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param columnIds A list of indexed columns. Must not contains duplicates.
+     * @param columnIds A list of indexed columns. Must not contain duplicates.
      * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
@@ -95,7 +95,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param columnNames A list of indexed columns. Must not contains duplicates.
+     * @param columnNames A list of indexed columns. Must not contain duplicates.
      * @param timestamp Timestamp of the update of the descriptor.
      * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      * @throws IllegalArgumentException If columns list contains duplicates.
