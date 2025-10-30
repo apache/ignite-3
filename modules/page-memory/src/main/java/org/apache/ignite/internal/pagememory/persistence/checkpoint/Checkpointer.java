@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -347,7 +348,20 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
-            // compactor.pause();
+            long startCompactorPauseNanos = nanoTime();
+
+            compactor.pause();
+
+            long stopCompactorPauseNanos = nanoTime();
+
+            long durationCompactorPauseNanos = stopCompactorPauseNanos - startCompactorPauseNanos;
+
+            LOG.info(
+                    ">>>>> Checkpoint pause compactor duration: [nanos={}, ms={}, duration={}]",
+                    (durationCompactorPauseNanos),
+                    NANOSECONDS.toMillis(durationCompactorPauseNanos),
+                    Duration.ofNanos(durationCompactorPauseNanos)
+            );
 
             var tracker = new CheckpointMetricsTracker();
 
@@ -458,7 +472,20 @@ public class Checkpointer extends IgniteWorker {
         } finally {
             currentCheckpointProgressForThrottling = null;
 
+            long startCompactorResumeNanos = nanoTime();
+
             compactor.resume();
+
+            long stopCompactorResumeNanos = nanoTime();
+
+            long durationCompactorResumeNanos = stopCompactorResumeNanos - startCompactorResumeNanos;
+
+            LOG.info(
+                    ">>>>> Checkpoint pause compactor duration: [nanos={}, ms={}, duration={}]",
+                    (durationCompactorResumeNanos),
+                    NANOSECONDS.toMillis(durationCompactorResumeNanos),
+                    Duration.ofNanos(durationCompactorResumeNanos)
+            );
         }
     }
 
