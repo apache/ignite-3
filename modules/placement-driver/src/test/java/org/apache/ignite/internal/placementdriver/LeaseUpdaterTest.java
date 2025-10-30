@@ -237,7 +237,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
             assertEquals(0, counter.get());
 
             renewLeaseConsumer = plonogedLease -> {
-                log.info("PVD:: Simulating slow Meta storage...");
+                log.info("Simulating slow Meta storage...");
 
                 return longMsOpFut;
             };
