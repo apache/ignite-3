@@ -66,14 +66,14 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: [], defaultPort: 10942);
+        public static async Task<JavaServer> StartAsync() => await StartInternalAsyncWithRetry(old: false, env: [], defaultPort: 10942);
 
         public static async Task<JavaServer> StartOldAsync(string version, string workDir)
         {
             // Get random unused ports to avoid conflicts with other tests.
             var ports = GetUnusedPorts(3);
 
-            return await StartInternalAsync(
+            return await StartInternalAsyncWithRetry(
                 old: true,
                 env: new()
                 {
