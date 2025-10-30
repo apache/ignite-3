@@ -24,7 +24,8 @@ object Project : Project({
         OdbcZip,
         OpenapiSpec,
         Rpm,
-        Zip
+        Zip,
+        MigrationToolsZip
     ).forEach {
         buildType(
             ApacheIgnite3CustomBuildType.Builder(it)

@@ -135,6 +135,13 @@ object ReleaseBuild : BuildType({
                 artifactRules = "zip => ignite-zip"
             }
         }
+        dependency(MigrationToolsZip) {
+            snapshot {}
+            artifacts {
+                cleanDestination = true
+                artifactRules = "migration-tools-cli-zip => migration-tools-cli"
+            }
+        }
     }
 
 })
