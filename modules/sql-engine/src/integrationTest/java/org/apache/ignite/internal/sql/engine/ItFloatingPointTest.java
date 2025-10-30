@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
+import org.apache.ignite.Ignite;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -440,13 +441,15 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
 
     @Test
     void testAggregations() {
-        assertQuery("SELECT MIN(f), MIN(d) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();
-        assertQuery("SELECT MAX(f), MAX(d) FROM test").returns(Float.NaN, Double.NaN).check();
-        assertQuery("SELECT AVG(f), AVG(d) FROM test").returns(Double.NaN, Double.NaN).check();
+        for (Ignite node : List.of(node(0), node(1))) {
+            assertQuery(node, "SELECT MIN(f), MIN(d) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();
+            assertQuery(node, "SELECT MAX(f), MAX(d) FROM test").returns(Float.NaN, Double.NaN).check();
+            assertQuery(node, "SELECT AVG(f), AVG(d) FROM test").returns(Double.NaN, Double.NaN).check();
 
-        assertQuery("SELECT MIN(fn), MIN(dn) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();
-        assertQuery("SELECT MAX(fn), MAX(dn) FROM test").returns(Float.NaN, Double.NaN).check();
-        assertQuery("SELECT AVG(fn), AVG(dn) FROM test").returns(Double.NaN, Double.NaN).check();
+            assertQuery(node, "SELECT MIN(fn), MIN(dn) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();
+            assertQuery(node, "SELECT MAX(fn), MAX(dn) FROM test").returns(Float.NaN, Double.NaN).check();
+            assertQuery(node, "SELECT AVG(fn), AVG(dn) FROM test").returns(Double.NaN, Double.NaN).check();
+        }
     }
 
     @Test

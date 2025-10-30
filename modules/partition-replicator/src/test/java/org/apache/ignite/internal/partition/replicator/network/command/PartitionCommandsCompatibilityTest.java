@@ -17,64 +17,72 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
-import java.util.Base64;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.raft.BaseCommandsCompatibilityTest;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Compatibility testing for serialization/deserialization of partition raft commands. It is verified that deserialization of commands that
  * were created on earlier versions of the product will be error-free.
- *
- * <p>For MAC users with aarch64 architecture, you will need to add {@code || "aarch64".equals(arch)} to the
- * {@code GridUnsafe#unaligned()} for the tests to pass. For more details, see
- * <a href="https://lists.apache.org/thread/67coyvm8mo7106mkndt24yqwtbvb7590">discussion</a>.</p>
- *
- * <p>To serialize commands, use {@link #serializeAll()} and insert the result into the appropriate tests.</p>
  */
-public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
-    private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
-
-    private final Marshaller marshaller = new ThreadLocalOptimizedMarshaller(registry);
-
+public class PartitionCommandsCompatibilityTest extends BaseCommandsCompatibilityTest {
     private final PartitionReplicationMessagesFactory commandFactory = new PartitionReplicationMessagesFactory();
 
     private final ReplicaMessagesFactory replicaFactory = new ReplicaMessagesFactory();
 
     private final TxMessagesFactory txFactory = new TxMessagesFactory();
 
-    @BeforeEach
-    void setUp() {
-        new PartitionReplicationMessagesSerializationRegistryInitializer().registerFactories(registry);
-        new ReplicaMessagesSerializationRegistryInitializer().registerFactories(registry);
-        new TxMessagesSerializationRegistryInitializer().registerFactories(registry);
+    @Override
+    protected Collection<MessageSerializationRegistryInitializer> initializers() {
+        return List.of(
+                new PartitionReplicationMessagesSerializationRegistryInitializer(),
+                new ReplicaMessagesSerializationRegistryInitializer(),
+                new TxMessagesSerializationRegistryInitializer()
+        );
+    }
+
+    @Override
+    protected Collection<Command> commandsToSerialize() {
+        return List.of(
+                createBuildIndexCommand(),
+                createBuildIndexCommandV2(),
+                createBuildIndexCommandV3(),
+                createFinishTxCommandV1(),
+                createFinishTxCommandV2(),
+                createUpdateAllCommand(),
+                createUpdateAllCommandV2(),
+                createUpdateCommand(),
+                createUpdateCommandV2(),
+                createUpdateMinimumActiveTxBeginTimeCommand(),
+                createWriteIntentSwitchCommand(),
+                createWriteIntentSwitchCommandV2()
+        );
     }
 
     @Test
+    @TestForCommand(BuildIndexCommand.class)
     void testBuildIndexCommand() {
         BuildIndexCommand command = decodeCommand("Ci0BRgIAAAAAAAAAACoAAAAAAAAARQ==");
 
@@ -84,6 +92,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(BuildIndexCommandV2.class)
     void testBuildIndexCommandV2() {
         BuildIndexCommandV2 command = decodeCommand("CjIBRgIAAAAAAAAAACoAAAAAAAAARQg=");
 
@@ -94,6 +103,19 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(BuildIndexCommandV3.class)
+    void testBuildIndexCommandV3() {
+        BuildIndexCommandV3 command = decodeCommand("CjQDAP/////////W/////////7sAAAAAAAAAACoAAAAAAAAARQFGAgAAAAAAAAAAKgAAAAAAAABFCA==");
+
+        assertEquals(69, command.indexId());
+        assertEquals(List.of(uuid()), command.rowIds());
+        assertTrue(command.finish());
+        assertEquals(7, command.tableId());
+        assertThat(command.abortedTransactionIds(), containsInAnyOrder(uuid(), anotherUuid()));
+    }
+
+    @Test
+    @TestForCommand(FinishTxCommandV1.class)
     void testFinishTxCommandV1() {
         FinishTxCommandV1 command = decodeCommand("CikBSAFHAgkrLSJGAAAAAAAAAAAqAAAAAAAAAEU=");
 
@@ -107,6 +129,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(FinishTxCommandV2.class)
     void testFinishTxCommandV2() {
         FinishTxCommandV2 command = decodeCommand("CjMBSAFHAgYVCSwXDAMtIkYAAAAAAAAAACoAAAAAAAAARQ==");
 
@@ -120,6 +143,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(UpdateAllCommand.class)
     void testUpdateAllCommand() {
         UpdateAllCommand command = decodeCommand(
                 "CisBRwErAgAAAAAAAAAAKgAAAAAAAABFChkKEwMEAQIDAdMJRgkrLSIAAAAAAAAAACoAAAAAAAAARQAAAAAAAAAAKgAAAAAAAABF"
@@ -136,6 +160,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(UpdateAllCommandV2.class)
     void testUpdateAllCommandV2() {
         UpdateAllCommandV2 command = decodeCommand(
                 "CjEBRwErAgAAAAAAAAAAKgAAAAAAAABFChkKEwMEAQIDAdMJRggJKy0iAAAAAAAAAAAqAAAAAAAAAEUAAAAAAAAAACoAAAAAAAAARQ=="
@@ -153,6 +178,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(UpdateCommand.class)
     void testUpdateCommand() {
         UpdateCommand command = decodeCommand(
                 "CiwBRwErChkKEwMEAQIDAdMJAAAAAAAAAAAqAAAAAAAAAEVGCSstIgAAAAAAAAAAKgAAAAAAAABFAAAAAAAAAAAqAAAAAAAAAEU="
@@ -170,6 +196,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(UpdateCommandV2.class)
     void testUpdateCommandV2() {
         UpdateCommandV2 command = decodeCommand(
                 "CjABRwErChkKEwMEAQIDAdMJAAAAAAAAAAAqAAAAAAAAAEVGCAkrLSIAAAAAAAAAACoAAAAAAAAARQAAAAAAAAAAKgAAAAAAAABF"
@@ -188,6 +215,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(UpdateMinimumActiveTxBeginTimeCommand.class)
     void testUpdateMinimumActiveTxBeginTimeCommand() {
         UpdateMinimumActiveTxBeginTimeCommand command = decodeCommand("Ci5HRtMJ");
 
@@ -197,6 +225,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(WriteIntentSwitchCommand.class)
     void testWriteIntentSwitchCommand() {
         WriteIntentSwitchCommand command = decodeCommand("CioBSAFHRgAAAAAAAAAAKgAAAAAAAABF");
 
@@ -209,6 +238,7 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @TestForCommand(WriteIntentSwitchCommandV2.class)
     void testWriteIntentSwitchCommandV2() {
         WriteIntentSwitchCommandV2 command = decodeCommand("Ci8BSAFHRgMJCAAAAAAAAAAAKgAAAAAAAABF");
 
@@ -219,22 +249,6 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
         assertTrue(command.commit());
         assertEquals(commitTimestamp(), command.commitTimestamp());
         assertEquals(Set.of(7, 8), command.tableIds());
-    }
-
-    private static HybridTimestamp initiatorTime() {
-        return HybridTimestamp.hybridTimestamp(70);
-    }
-
-    private static HybridTimestamp safeTime() {
-        return HybridTimestamp.hybridTimestamp(69);
-    }
-
-    private static HybridTimestamp commitTimestamp() {
-        return HybridTimestamp.hybridTimestamp(71);
-    }
-
-    private static UUID uuid() {
-        return new UUID(42, 69);
     }
 
     private TablePartitionIdMessage tablePartitionId() {
@@ -269,35 +283,6 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
         return commandFactory.binaryRowMessage()
                 .binaryTuple(ByteBuffer.wrap(new byte[]{1, 2, 3}))
                 .build();
-    }
-
-    private <T extends Command> T deserializeCommand(byte[] bytes) {
-        return marshaller.unmarshall(bytes);
-    }
-
-    private <T extends Command> T decodeCommand(String base64) {
-        return deserializeCommand(Base64.getDecoder().decode(base64));
-    }
-
-    @SuppressWarnings("unused")
-    private void serializeAll() {
-        List<Command> commands = List.of(
-                createBuildIndexCommand(),
-                createBuildIndexCommandV2(),
-                createFinishTxCommandV1(),
-                createFinishTxCommandV2(),
-                createUpdateAllCommand(),
-                createUpdateAllCommandV2(),
-                createUpdateCommand(),
-                createUpdateCommandV2(),
-                createUpdateMinimumActiveTxBeginTimeCommand(),
-                createWriteIntentSwitchCommand(),
-                createWriteIntentSwitchCommandV2()
-        );
-
-        for (Command c : commands) {
-            log.info(">>>>> Serialized command: [command={}, base64='{}']", c.getClass().getSimpleName(), encodeCommand(c));
-        }
     }
 
     private WriteIntentSwitchCommandV2 createWriteIntentSwitchCommandV2() {
@@ -420,19 +405,21 @@ public class PartitionCommandsCompatibilityTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
+    private BuildIndexCommandV2 createBuildIndexCommandV3() {
+        return commandFactory.buildIndexCommandV3()
+                .indexId(69)
+                .rowIds(List.of(uuid()))
+                .finish(true)
+                .tableId(7)
+                .abortedTransactionIds(Set.of(uuid(), anotherUuid()))
+                .build();
+    }
+
     private BuildIndexCommand createBuildIndexCommand() {
         return commandFactory.buildIndexCommand()
                 .indexId(69)
                 .rowIds(List.of(uuid()))
                 .finish(true)
                 .build();
-    }
-
-    private byte[] serializeCommand(Command c) {
-        return marshaller.marshall(c);
-    }
-
-    private String encodeCommand(Command c) {
-        return Base64.getEncoder().encodeToString(serializeCommand(c));
     }
 }

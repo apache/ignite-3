@@ -39,6 +39,17 @@ public:
     static std::vector<std::string> NODE_ADDRS;
     static std::vector<std::string> SSL_NODE_ADDRS;
     static std::vector<std::string> SSL_NODE_CA_ADDRS;
+    static std::vector<std::string> COMPATIBILITY_NODE_ADDRS;
+    inline static bool COMPATIBILITY_MODE = false;
+    inline static std::string COMPATIBILITY_VERSION;
+
+    ignite_runner() = default;
+
+    /**
+     *
+     * @param version If present then should start server of that particular version otherwise current version.
+     */
+    ignite_runner(std::string_view version);
 
     /**
      * Destructor.
@@ -75,6 +86,10 @@ public:
      * @return Addresses.
      */
     static std::vector<std::string> get_node_addrs() {
+        if (COMPATIBILITY_MODE) {
+            return COMPATIBILITY_NODE_ADDRS;
+        }
+
         if (single_node_mode())
             return SINGLE_NODE_ADDR;
 
@@ -98,6 +113,7 @@ public:
 private:
     /** Underlying process. */
     std::unique_ptr<CmdProcess> m_process;
+    std::optional<std::string> m_version = std::nullopt;
 };
 
 } // namespace ignite

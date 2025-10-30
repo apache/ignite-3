@@ -224,7 +224,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21546")
     void writeIntentFromTxAbandonedBeforeShouldNotBeIndexed() throws Exception {
         createTable(1, 1);
 
@@ -246,7 +245,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21546")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26811")
     void writeIntentFromTxAbandonedWhileWaitingForTransactionsToFinishShouldNotBeIndexed() throws Exception {
         createTable(1, 1);
 

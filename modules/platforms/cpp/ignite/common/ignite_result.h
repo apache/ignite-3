@@ -28,7 +28,9 @@
 namespace ignite {
 
 /**
- * Ignite Result.
+ * @brief A wrapper structure to represent operation result.
+ *
+ * May contain operation result or @ref ignite::ignite_error.
  */
 template<typename T>
 class ignite_result {
@@ -152,7 +154,9 @@ private:
 };
 
 /**
- * Ignite Result.
+ * @brief A wrapper structure to represent operation result.
+ *
+ * May contain @ref ignite::ignite_error or empty.
  */
 template<>
 class ignite_result<void> {

@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
+import static org.apache.ignite.internal.raft.util.VarlenEncoder.sizeInBytes;
+import static org.apache.ignite.internal.raft.util.VarlenEncoder.writeLong;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
@@ -103,9 +105,9 @@ public final class V1Encoder implements LogEntryEncoder {
 
         GridUnsafe.putByte(addr++, LogEntryV1CodecFactory.MAGIC);
 
-        addr = writeLong(typeNumber, addr);
-        addr = writeLong(index, addr);
-        addr = writeLong(term, addr);
+        addr += writeLong(typeNumber, addr);
+        addr += writeLong(index, addr);
+        addr += writeLong(term, addr);
 
         Bits.putLongLittleEndian(addr, logEntry.getChecksum());
         addr += Long.BYTES;
@@ -192,10 +194,10 @@ public final class V1Encoder implements LogEntryEncoder {
 
     private static long writeNodesList(long addr, List<PeerId> nodes) {
         if (nodes == null) {
-            return writeLong(0, addr);
+            return addr + writeLong(0, addr);
         }
 
-        addr = writeLong(nodes.size(), addr);
+        addr += writeLong(nodes.size(), addr);
 
         for (PeerId node : nodes) {
             String nodeStr = node.getConsistentId();
@@ -209,8 +211,8 @@ public final class V1Encoder implements LogEntryEncoder {
             }
             addr += length;
 
-            addr = writeLong(node.getIdx(), addr);
-            addr = writeLong(node.getPriority() + 1, addr);
+            addr += writeLong(node.getIdx(), addr);
+            addr += writeLong(node.getPriority() + 1, addr);
         }
 
         return addr;
@@ -235,62 +237,6 @@ public final class V1Encoder implements LogEntryEncoder {
 
             writeLong(peerId.getIdx(), content);
             writeLong(peerId.getPriority() + 1, content);
-        }
-    }
-
-    // Based on DirectByteBufferStreamImplV1.
-    private static void writeLong(long val, ByteBuffer out) {
-        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
-            byte b = (byte) (val | 0x80);
-
-            out.put(b);
-
-            val >>>= 7;
-        }
-
-        out.put((byte) val);
-    }
-
-    private static long writeLong(long val, long addr) {
-        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
-            byte b = (byte) (val | 0x80);
-
-            GridUnsafe.putByte(addr++, b);
-
-            val >>>= 7;
-        }
-
-        GridUnsafe.putByte(addr++, (byte) val);
-
-        return addr;
-    }
-
-    /**
-     * Returns the number of bytes, required by the {@link #writeLong} to write the value.
-    */
-    private static int sizeInBytes(long val) {
-        if (val >= 0) {
-            if (val < (1L << 7)) {
-                return 1;
-            } else if (val < (1L << 14)) {
-                return 2;
-            } else if (val < (1L << 21)) {
-                return 3;
-            } else if (val < (1L << 28)) {
-                return 4;
-            } else if (val < (1L << 35)) {
-                return 5;
-            } else if (val < (1L << 42)) {
-                return 6;
-            } else if (val < (1L << 49)) {
-                return 7;
-            } else if (val < (1L << 56)) {
-                return 8;
-            } else {
-                return 9;
-            }
-        } else {
-            return 10;
         }
     }
 }

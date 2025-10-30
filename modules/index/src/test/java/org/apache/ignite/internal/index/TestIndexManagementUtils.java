@@ -43,9 +43,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -111,12 +109,11 @@ class TestIndexManagementUtils {
     static void awaitTillGlobalMetastoreRevisionIsApplied(MetaStorageManagerImpl metaStorageManager) throws Exception {
         assertTrue(
                 waitForCondition(() -> {
-                    CompletableFuture<RevisionsInfo> currentRevisionsFuture = metaStorageManager.metaStorageService()
-                            .thenCompose(MetaStorageService::currentRevisions);
+                    CompletableFuture<Long> currentRevisionFuture = metaStorageManager.currentRevision();
 
-                    assertThat(currentRevisionsFuture, willCompleteSuccessfully());
+                    assertThat(currentRevisionFuture, willCompleteSuccessfully());
 
-                    return currentRevisionsFuture.join().revision() == metaStorageManager.appliedRevision();
+                    return currentRevisionFuture.join() == metaStorageManager.appliedRevision();
                 }, 1_000)
         );
     }

@@ -496,6 +496,9 @@ namespace Apache.Ignite
 
             /// <summary> ConfigParse error. </summary>
             public const int ConfigParse = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> JoinDenied error. </summary>
+            public const int JoinDenied = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> CodeDeployment errors. </summary>

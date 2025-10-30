@@ -52,6 +52,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.RowMeta;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -258,7 +259,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     ReadResult findLatestRowVersion(VersionChain versionChain) {
-        RowVersion rowVersion = readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
+        return findLatestRowVersion(versionChain, ALWAYS_LOAD_VALUE);
+    }
+
+    private ReadResult findLatestRowVersion(VersionChain versionChain, Predicate<HybridTimestamp> loadValue) {
+        RowVersion rowVersion = readRowVersion(versionChain.headLink(), loadValue);
 
         if (versionChain.isUncommitted()) {
             assert versionChain.transactionId() != null;
@@ -267,7 +272,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             if (versionChain.hasCommittedVersions()) {
                 long newestCommitLink = versionChain.newestCommittedLink();
-                newestCommitTs = readRowVersion(newestCommitLink, ALWAYS_LOAD_VALUE).timestamp();
+                newestCommitTs = readRowVersion(newestCommitLink, loadValue).timestamp();
             }
 
             return writeIntentToResult(versionChain, rowVersion, newestCommitTs);
@@ -607,6 +612,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             try (Cursor<VersionChain> cursor = renewableState.versionChainTree().find(new VersionChainKey(lowerBound), null)) {
                 return cursor.hasNext() ? cursor.next().rowId() : null;
+            } catch (Exception e) {
+                throw new StorageException("Error occurred while trying to read a row id", e);
+            }
+        });
+    }
+
+    @Override
+    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            try (Cursor<VersionChain> cursor = renewableState.versionChainTree().find(new VersionChainKey(lowerBound), null)) {
+                if (cursor.hasNext()) {
+                    VersionChain versionChain = cursor.next();
+                    return new RowMeta(
+                            versionChain.rowId(),
+                            versionChain.transactionId(),
+                            versionChain.commitTableId(),
+                            versionChain.commitPartitionId()
+                    );
+                }
+
+                return null;
             } catch (Exception e) {
                 throw new StorageException("Error occurred while trying to read a row id", e);
             }
