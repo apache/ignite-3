@@ -61,6 +61,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
@@ -554,6 +555,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
             thread.setName(threadNamePrefix + thread.getId());
             thread.setDaemon(true);
+            thread.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
 
             thread.start();
         }
