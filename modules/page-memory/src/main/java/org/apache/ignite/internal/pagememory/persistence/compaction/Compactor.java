@@ -92,6 +92,11 @@ public class Compactor extends IgniteWorker {
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
 
+    private final Object pauseMux = new Object();
+
+    /** Guarded by {@link #pauseMux}. */
+    private boolean paused;
+
     /**
      * Creates new ignite worker with given parameters.
      *
@@ -352,6 +357,8 @@ public class Compactor extends IgniteWorker {
             log.debug("Cancelling grid runnable: " + this);
         }
 
+        resume();
+
         synchronized (mux) {
             // Do not interrupt runner thread.
             isCancelled.set(true);
@@ -396,6 +403,8 @@ public class Compactor extends IgniteWorker {
 
             long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
 
+            pauseCompactionIfNeeded();
+
             // pageIndex instead of pageId, only for debugging in case of errors
             // since we do not know the pageId until we read it from the pageOffset.
             boolean read = deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageIndex, pageOffset, buffer.rewind(), false);
@@ -417,6 +426,8 @@ public class Compactor extends IgniteWorker {
                 return;
             }
 
+            pauseCompactionIfNeeded();
+
             filePageStore.write(pageId, buffer.rewind());
 
             tracker.onDataPageWritten();
@@ -433,6 +444,8 @@ public class Compactor extends IgniteWorker {
             return;
         }
 
+        pauseCompactionIfNeeded();
+
         filePageStore.sync();
 
         // Removing the delta file page store from a file page store.
@@ -447,6 +460,8 @@ public class Compactor extends IgniteWorker {
         }
 
         deltaFilePageStore.markMergedToFilePageStore();
+
+        pauseCompactionIfNeeded();
 
         deltaFilePageStore.stop(true);
 
@@ -483,6 +498,50 @@ public class Compactor extends IgniteWorker {
         ) {
             this.groupPartitionFilePageStore = groupPartitionFilePageStore;
             this.deltaFilePageStoreIo = deltaFilePageStoreIo;
+        }
+    }
+
+    /**
+     * Pauses the compactor until it is resumed or compactor is stopped. It is expected that this method will not be called multiple times
+     * in parallel and subsequent calls will strictly be calls after {@link #resume}.
+     */
+    public void pause() {
+        synchronized (pauseMux) {
+            assert !paused : "It is expected that a further pause will only occur after resume";
+
+            paused = true;
+        }
+    }
+
+    /** Resumes the compactor if it was paused. It is expected that this method will not be called multiple times in parallel. */
+    public void resume() {
+        synchronized (pauseMux) {
+            if (paused) {
+                paused = false;
+
+                pauseMux.notifyAll();
+            }
+        }
+    }
+
+    /** Must be called before each IO operation to provide other IO components with resources. */
+    private void pauseCompactionIfNeeded() throws InterruptedException {
+        try {
+            synchronized (pauseMux) {
+                while (paused) {
+                    blockingSectionBegin();
+
+                    try {
+                        pauseMux.wait();
+                    } finally {
+                        blockingSectionEnd();
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw e;
         }
     }
 }
