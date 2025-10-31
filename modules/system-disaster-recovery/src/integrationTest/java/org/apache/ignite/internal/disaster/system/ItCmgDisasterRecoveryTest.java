@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster.system;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryClient.initiateClusterReset;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -82,8 +83,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
-    private void initiateCmgRepairVia(int conductorIndex, int... newCmgIndexes) throws InterruptedException {
-        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), null, nodeNames(newCmgIndexes));
+    private void initiateCmgRepairVia(int conductorIndex, int... newCmgIndexes) {
+        initiateClusterReset("localhost", cluster.httpPort(conductorIndex), null, nodeNames(newCmgIndexes));
     }
 
     @Test
