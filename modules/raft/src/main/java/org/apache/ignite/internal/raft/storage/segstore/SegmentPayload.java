@@ -44,7 +44,7 @@ class SegmentPayload {
      */
     static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE_BYTES;
 
-    private static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
+    static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
 
     static void writeTo(
             ByteBuffer buffer,

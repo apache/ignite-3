@@ -99,6 +99,8 @@ class IndexFileManager {
 
     private static final Pattern INDEX_FILE_NAME_PATTERN = Pattern.compile("index-(?<ordinal>\\d{10})-(?<generation>\\d{10})\\.bin");
 
+    private static final String TMP_FILE_SUFFIX = ".tmp";
+
     // Magic number + format version + number of Raft groups.
     static final int COMMON_META_SIZE = Integer.BYTES + Integer.BYTES + Integer.BYTES;
 
@@ -143,6 +145,22 @@ class IndexFileManager {
         return indexFilesDir;
     }
 
+    void cleanupTmpFiles() throws IOException {
+        try (Stream<Path> indexFiles = Files.list(indexFilesDir)) {
+            Iterator<Path> it = indexFiles.iterator();
+
+            while (it.hasNext()) {
+                Path indexFile = it.next();
+
+                if (indexFile.getFileName().toString().endsWith(TMP_FILE_SUFFIX)) {
+                    LOG.info("Deleting temporary index file: {}.", indexFile);
+
+                    Files.delete(indexFile);
+                }
+            }
+        }
+    }
+
     /**
      * Saves the given index memtable to a file.
      *
@@ -155,7 +173,7 @@ class IndexFileManager {
     Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
         String fileName = indexFileName(fileOrdinal, 0);
 
-        Path tmpFilePath = indexFilesDir.resolve(fileName + ".tmp");
+        Path tmpFilePath = indexFilesDir.resolve(fileName + TMP_FILE_SUFFIX);
 
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
             byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal);

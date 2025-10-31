@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
+
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
@@ -112,9 +114,9 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
     }
 
     private Stripe stripe(long groupId) {
-        int stripeIndex = Long.hashCode(groupId) % stripes.length;
-
-        assert stripeIndex >= 0 : String.format("Stripe index must not be negative [groupId=%d]", groupId);
+        // FIXME: We should calculate stripes the same way it is done in StripedDisruptor,
+        //  see https://issues.apache.org/jira/browse/IGNITE-26907
+        int stripeIndex = safeAbs(Long.hashCode(groupId) % stripes.length);
 
         return stripes[stripeIndex];
     }

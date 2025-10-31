@@ -305,6 +305,31 @@ class IndexFileManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    void testRecoveryWithTruncateSuffix() throws IOException {
+        var memtable = new IndexMemTable(STRIPES);
+
+        memtable.appendSegmentFileOffset(0, 1, 1);
+        memtable.appendSegmentFileOffset(0, 2, 2);
+        memtable.appendSegmentFileOffset(0, 3, 3);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        memtable = new IndexMemTable(STRIPES);
+
+        memtable.truncateSuffix(0, 2);
+
+        indexFileManager.saveIndexMemtable(memtable);
+
+        indexFileManager = new IndexFileManager(workDir);
+
+        indexFileManager.start();
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(new SegmentFilePointer(0, 1)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(0, 2)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 3), is(nullValue()));
+    }
+
+    @Test
     void testExists() throws IOException {
         assertThat(indexFileManager.indexFileExists(0), is(false));
         assertThat(indexFileManager.indexFileExists(1), is(false));
