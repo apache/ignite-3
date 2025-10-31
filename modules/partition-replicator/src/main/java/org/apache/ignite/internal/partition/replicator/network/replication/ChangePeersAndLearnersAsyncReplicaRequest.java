@@ -28,4 +28,6 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 public interface ChangePeersAndLearnersAsyncReplicaRequest extends PrimaryReplicaRequest {
     /** New peers configuration to rebalance. */
     byte[] pendingAssignments();
+
+    long sequenceToken();
 }

@@ -89,6 +89,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -267,7 +268,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         PeersAndLearners cfg = fromConsistentIds(Set.of(resetToLeader));
 
-        leaderNode.raftClient.changePeersAndLearners(cfg, leader.term()).join();
+        leaderNode.raftClient.changePeersAndLearners(cfg, leader.term(), Configuration.NO_SEQUENCE_TOKEN).join();
 
         PartialNode leaderNode2 = cluster.get(resetToLeader);
 

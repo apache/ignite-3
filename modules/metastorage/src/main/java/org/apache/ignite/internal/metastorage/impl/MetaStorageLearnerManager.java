@@ -67,7 +67,8 @@ class MetaStorageLearnerManager {
     }
 
     CompletableFuture<Void> updateLearners(long term) {
-        return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term));
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+        return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term, 0));
     }
 
     CompletableFuture<Void> addLearner(RaftGroupService raftService, InternalClusterNode learner) {
@@ -76,8 +77,8 @@ class MetaStorageLearnerManager {
         }
 
         return updateConfigUnderLock(() -> isPeer(raftService, learner)
-                ? nullCompletedFuture()
-                : raftService.addLearners(List.of(new Peer(learner.name()))));
+                ? nullCompletedFuture() // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                : raftService.addLearners(List.of(new Peer(learner.name())), 0));
     }
 
     private static boolean isPeer(RaftGroupService raftService, InternalClusterNode node) {
@@ -97,11 +98,12 @@ class MetaStorageLearnerManager {
                         return nullCompletedFuture();
                     }
 
-                    return raftService.removeLearners(List.of(new Peer(learner.name())));
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                    return raftService.removeLearners(List.of(new Peer(learner.name())), 0);
                 })));
     }
 
-    CompletableFuture<Void> resetLearners(RaftGroupService raftService, long term) {
+    CompletableFuture<Void> resetLearners(RaftGroupService raftService, long term, long sequenceToken) {
         return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
                 .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
                     Set<String> peers = raftService.peers().stream().map(Peer::consistentId).collect(toSet());
@@ -114,7 +116,7 @@ class MetaStorageLearnerManager {
                     PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
 
                     // We can't use 'resetLearners' call here because it does not support empty lists of learners.
-                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term);
+                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term, sequenceToken);
                 })));
     }
 

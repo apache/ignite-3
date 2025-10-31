@@ -51,8 +51,9 @@ public interface RaftGroupEventsListener {
      * @param status Description of failure.
      * @param configuration Configuration that failed to be applied.
      * @param term Raft term of the current leader.
+     * @param sequenceToken Sequence token of the current change.
      */
-    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {}
+    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term, long sequenceToken) {}
 
     /**
      * No-op raft group events listener.

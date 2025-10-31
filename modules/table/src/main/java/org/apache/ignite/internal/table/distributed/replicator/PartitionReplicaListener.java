@@ -658,7 +658,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             peersAndLearners
                     );
 
-                    return raftClient.changePeersAndLearnersAsync(peersAndLearners, leaderWithTerm.term());
+                    return raftClient.changePeersAndLearnersAsync(peersAndLearners, leaderWithTerm.term(), request.sequenceToken());
                 });
     }
 
