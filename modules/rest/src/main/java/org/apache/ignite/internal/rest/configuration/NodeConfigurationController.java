@@ -21,7 +21,9 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Controller;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
+import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 
@@ -31,9 +33,14 @@ import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 @Controller("/management/v1/configuration/node")
 @Requires(classes = IgniteExceptionHandler.class)
 public class NodeConfigurationController extends AbstractConfigurationController implements NodeConfigurationApi {
+    private final LocalConfigurationStorage localConfigurationStorage;
 
-    public NodeConfigurationController(@Named("nodeCfgPresentation") ConfigurationPresentation<String> nodeCfgPresentation) {
+    public NodeConfigurationController(
+            @Named("nodeCfgPresentation") ConfigurationPresentation<String> nodeCfgPresentation,
+            LocalConfigurationStorage localConfigurationStorage
+    ) {
         super(nodeCfgPresentation);
+        this.localConfigurationStorage = localConfigurationStorage;
     }
 
     /**
@@ -64,6 +71,14 @@ public class NodeConfigurationController extends AbstractConfigurationController
      */
     @Override
     public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
+        if (!localConfigurationStorage.userModificationsAllowed()) {
+            throw new NodeConfigWriteException(
+                    "The configuration file is read-only, so changes cannot be applied. "
+                            + "Check your system configuration. "
+                            + "If you are using containerization, such as Kubernetes, "
+                            + "the file can only be modified through native Kubernetes methods."
+            );
+        }
         return super.updateConfiguration(updatedConfiguration);
     }
 }
