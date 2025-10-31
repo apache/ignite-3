@@ -323,7 +323,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             node.waitWatches();
 
-            assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
+            assertThat(node.cfgStorage.write(new WriteEntryImpl(data, 0)), willBe(equalTo(true)));
 
             assertTrue(waitForCondition(
                     () -> node.metaStorageManager.appliedRevision() != 0,
@@ -341,9 +341,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             node2.waitWatches();
 
-            CompletableFuture<Data> storageData = node2.cfgStorage.readDataOnRecovery();
+            CompletableFuture<ReadEntry> storageData = node2.cfgStorage.readDataOnRecovery();
 
-            assertThat(storageData.thenApply(Data::values), willBe(equalTo(data)));
+            assertThat(storageData.thenApply(ReadEntry::values), willBe(equalTo(data)));
         } finally {
             node2.stop();
         }

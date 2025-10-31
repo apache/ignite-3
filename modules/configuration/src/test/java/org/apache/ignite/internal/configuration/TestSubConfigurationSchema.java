@@ -35,4 +35,6 @@ public class TestSubConfigurationSchema {
 
     @Value(hasDefault = true)
     public int testInt;
+
+
 }

@@ -30,5 +30,5 @@ public interface ConfigurationStorageListener {
      * @param changedEntries Changed entries, key-value pairs and new version of the storage.
      * @return Completable future that signifies the completion of all custom user listeners execution.
      */
-    CompletableFuture<Void> onEntriesChanged(Data changedEntries);
+    CompletableFuture<Void> onEntriesChanged(ReadEntry changedEntries);
 }
