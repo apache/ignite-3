@@ -588,9 +588,13 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     private static boolean isCrcValid(ByteBuffer buffer, int crcPosition) {
+        int originalPosition = buffer.position();
+
         int crc = buffer.getInt(crcPosition);
 
         int expectedCrc = FastCrc.calcCrc(buffer, crcPosition - buffer.position());
+
+        buffer.position(originalPosition);
 
         return crc == expectedCrc;
     }
