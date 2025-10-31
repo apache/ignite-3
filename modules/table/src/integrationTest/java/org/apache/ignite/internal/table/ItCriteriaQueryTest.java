@@ -159,7 +159,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         Matcher<Tuple> person2 = allOf(tupleValue("id", is(2)), tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)),
                 tupleValue("hash", is("hash2".getBytes())));
 
-        try (Cursor<T> cur = view.query(null, null)) {
+        try (Cursor<T> cur = view.query(null)) {
             assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person0, person1, person2));
         }
 
@@ -263,7 +263,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         Matcher<Tuple> person2 = allOf(tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)),
                 tupleValue("hash", is("hash2".getBytes())));
 
-        try (Cursor<T> cur = view.query(null, null)) {
+        try (Cursor<T> cur = view.query(null)) {
             assertThat(mapToTupleMap(cur, mapper), allOf(
                     aMapWithSize(3),
                     hasEntry(personKey0, person0),
