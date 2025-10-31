@@ -30,7 +30,6 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -170,8 +169,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
-    public void testRestartAllPartitionsWithCleanup() {
+    public void testRestartAllPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
+
         String nodeName = CLUSTER.aliveNode().name();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
@@ -186,8 +186,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
-    public void testRestartSpecifiedPartitionsWithCleanup() {
+    public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
+
         String nodeName = CLUSTER.aliveNode().name();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
