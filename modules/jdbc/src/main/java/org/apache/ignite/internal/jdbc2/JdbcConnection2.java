@@ -827,7 +827,7 @@ public class JdbcConnection2 implements Connection {
         return iface != null && iface.isAssignableFrom(JdbcConnection2.class);
     }
 
-    ConnectionProperties properties() {
+    public ConnectionProperties properties() {
         return properties;
     }
 

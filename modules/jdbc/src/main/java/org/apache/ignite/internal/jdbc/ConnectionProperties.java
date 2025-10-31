@@ -223,4 +223,11 @@ public interface ConnectionProperties {
      * @param timeZoneId Connection time-zone ID.
      */
     void setConnectionTimeZone(ZoneId timeZoneId);
+
+    /**
+     * Get the size of the partition awareness metadata cache.
+     *
+     * @return The size of the partition awareness metadata cache.
+     */
+    int getPartitionAwarenessMetadataCacheSize();
 }
