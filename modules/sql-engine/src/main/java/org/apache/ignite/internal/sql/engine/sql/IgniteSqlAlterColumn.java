@@ -27,11 +27,13 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN} statement.
  */
+@DdlBatchAware
 public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
 
     /** ALTER TABLE .. ALTER COLUMN operator. */

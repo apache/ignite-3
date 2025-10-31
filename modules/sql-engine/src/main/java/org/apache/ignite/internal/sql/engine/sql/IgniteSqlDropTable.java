@@ -27,11 +27,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Parse tree for {@code DROP TABLE} statement.
  */
+@DdlBatchAware(group = DdlBatchGroup.DROP)
 public class IgniteSqlDropTable extends SqlDrop {
 
     /** DROP TABLE operator. */

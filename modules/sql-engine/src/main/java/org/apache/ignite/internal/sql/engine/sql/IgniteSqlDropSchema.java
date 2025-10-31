@@ -28,11 +28,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Parse tree for {@code DROP SCHEMA} statement.
  */
+@DdlBatchAware(group = DdlBatchGroup.DROP)
 public class IgniteSqlDropSchema extends SqlDrop {
 
     /** DROP SCHEMA operator. */
@@ -41,7 +44,7 @@ public class IgniteSqlDropSchema extends SqlDrop {
 
         /** Constructor. */
         protected Operator(boolean existFlag, IgniteSqlDropSchemaBehavior dropBehavior) {
-            super("DROP SCHEMA", SqlKind.OTHER_DDL, existFlag);
+            super("DROP SCHEMA", SqlKind.DROP_SCHEMA, existFlag);
 
             this.dropBehavior = dropBehavior;
         }
