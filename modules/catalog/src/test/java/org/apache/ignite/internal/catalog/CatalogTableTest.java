@@ -70,6 +70,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -164,13 +165,13 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate newly created table
         assertEquals(TABLE_NAME, table.name());
         assertEquals(catalog.defaultZone().id(), table.zoneId());
-        assertEquals(List.of("key1", "key2"), table.primaryKeyColumns());
-        assertEquals(List.of("key2"), table.colocationColumns());
+        assertEquals(List.of("key1", "key2"), table.primaryKeyColumnNames());
+        assertEquals(List.of("key2"), table.colocationColumnNames());
 
         // Validate newly created pk index
         assertEquals(pkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
-        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertEquals(IntList.of(0, 1), pkIndex.columnIds());
         assertTrue(pkIndex.unique());
         assertTrue(pkIndex.isCreatedWithTable());
         assertEquals(AVAILABLE, pkIndex.status());
@@ -182,6 +183,11 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertEquals(0, table.columnIndex("key1"));
         assertEquals(1, table.columnIndex("key2"));
+
+        // Validate column ids
+        assertEquals(0, table.column("key1").id());
+        assertEquals(1, table.column("key2").id());
+        assertEquals(2, table.column("val").id());
     }
 
     @Test
@@ -232,7 +238,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate newly created pk index
         assertEquals(expectedName, pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
-        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertEquals(IntList.of(0, 1), pkIndex.columnIds());
         assertTrue(pkIndex.unique());
         assertTrue(pkIndex.isCreatedWithTable());
         assertEquals(AVAILABLE, pkIndex.status());
@@ -368,6 +374,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertNotNull(table);
         assertNull(table.column(NEW_COLUMN_NAME));
 
+        int maxColumnId = table.columns().stream().mapToInt(CatalogTableColumnDescriptor::id).max().orElseThrow();
+
         // Validate actual catalog
         table = actualTable(TABLE_NAME);
 
@@ -376,6 +384,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate column descriptor.
         CatalogTableColumnDescriptor column = table.column(NEW_COLUMN_NAME);
 
+        int expectedColumnId = maxColumnId + 1;
+        assertEquals(expectedColumnId, column.id());
         assertEquals(NEW_COLUMN_NAME, column.name());
         assertEquals(STRING, column.type());
         assertTrue(column.nullable());
@@ -388,6 +398,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(DEFAULT_SCALE, column.scale());
 
         assertEquals(6, table.columnIndex(NEW_COLUMN_NAME));
+        assertSame(column, table.columnById(expectedColumnId));
     }
 
     @Test
@@ -579,8 +590,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
-        assertThat(curDescriptor.colocationColumns(), is(prevDescriptor.colocationColumns()));
-        assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
+        assertThat(curDescriptor.colocationColumnNames(), is(prevDescriptor.colocationColumnNames()));
+        assertThat(curDescriptor.primaryKeyColumnNames(), is(prevDescriptor.primaryKeyColumnNames()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
         assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));

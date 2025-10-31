@@ -1,6 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/dotnet/Nerdbank.GitVersioning/main/src/NerdBank.GitVersioning/version.schema.json",
-    "version": "3.1.0-snapshot",
+    "version": "3.2.0-snapshot",
     "publicReleaseRefSpec": [
         "^refs/heads/main",
         "^refs/heads/ignite-3\\.\\d+.*$"

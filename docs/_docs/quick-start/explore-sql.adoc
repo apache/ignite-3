@@ -104,7 +104,7 @@ Before we can use the cluster, we need to initialize it:
 
 [source, bash]
 ----
-cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+cluster init --name=ignite3
 ----
 
 NOTE: If the license is not available, make sure the license file was mounted correctly.
@@ -130,7 +130,7 @@ NOTE: If the license is not available, make sure the license file was mounted co
 You appear to have not connected to any node yet. Do you want to connect to the default node http://localhost:10300? [Y/n] y
 Connected to http://localhost:10300
 The cluster is not initialized. Run cluster init command to initialize it.
-[node1]> cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+[node1]> cluster init --name=ignite3
 Cluster was initialized successfully
 [node1]>
 ----

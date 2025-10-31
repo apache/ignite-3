@@ -245,6 +245,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CONFIG_FILE_CREATE:
         case error::code::CONFIG_WRITE:
         case error::code::CONFIG_PARSE:
+        case error::code::JOIN_DENIED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // CodeDeployment group. Group code: 13

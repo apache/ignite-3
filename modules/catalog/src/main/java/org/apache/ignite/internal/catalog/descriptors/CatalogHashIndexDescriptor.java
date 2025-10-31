@@ -18,30 +18,48 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Hash index descriptor. */
 public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
-    private final List<String> columns;
+    private final @Nullable IntList columnIds;
+    private final @Nullable List<String> columnNames;
 
     /**
-     * Constructs a hash index descriptor in status {@link CatalogIndexStatus#REGISTERED}.
+     * Constructs a hash index descriptor.
      *
      * @param id Id of the index.
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @param status Index status.
+     * @param columnNames A list of indexed columns. Must not contain duplicates.
+     * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
+     * @deprecated This constructor is used in old deserializers. Use
+     *         {@link #CatalogHashIndexDescriptor(int, String, int, boolean, CatalogIndexStatus, List, IntList, HybridTimestamp, boolean)}
+     *         instead.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, columns, INITIAL_TIMESTAMP, false);
+    @Deprecated(forRemoval = true)
+    public CatalogHashIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            CatalogIndexStatus status,
+            List<String> columnNames,
+            boolean isCreatedWithTable
+    ) {
+        this(id, name, tableId, unique, status, columnNames, null, INITIAL_TIMESTAMP, isCreatedWithTable);
     }
 
     /**
@@ -52,7 +70,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @param columnIds A list of indexed columns. Must not contain duplicates.
      * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
@@ -63,10 +81,10 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            List<String> columns,
+            IntList columnIds,
             boolean isCreatedWithTable
     ) {
-        this(id, name, tableId, unique, status, columns, INITIAL_TIMESTAMP, isCreatedWithTable);
+        this(id, name, tableId, unique, status, null, columnIds, INITIAL_TIMESTAMP, isCreatedWithTable);
     }
 
     /**
@@ -77,10 +95,9 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @param columnNames A list of indexed columns. Must not contain duplicates.
      * @param timestamp Timestamp of the update of the descriptor.
      * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
-     *
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
     CatalogHashIndexDescriptor(
@@ -89,18 +106,55 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            List<String> columns,
+            @Nullable List<String> columnNames,
+            @Nullable IntList columnIds,
             HybridTimestamp timestamp,
             boolean isCreatedWithTable
     ) {
         super(CatalogIndexDescriptorType.HASH, id, name, tableId, unique, status, timestamp, isCreatedWithTable);
 
-        this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
+        this.columnIds = columnIds;
+        this.columnNames = copyOrNull(columnNames);
     }
 
-    /** Returns indexed columns. */
-    public List<String> columns() {
-        return columns;
+    /**
+     * Returns names of the indexed columns.
+     *
+     * @return Names of the indexed columns.
+     * @deprecated Non-null may be returned only during catalog recovery after cluster upgrade.
+     *      Use {@link #columnIds()} instead.
+     */
+    @Deprecated(forRemoval = true) // still used in old serializers
+    public @Nullable List<String> columns() {
+        return columnNames;
+    }
+
+    @Override
+    public CatalogHashIndexDescriptor upgradeIfNeeded(CatalogTableDescriptor table) {
+        if (columnIds != null) {
+            return this;
+        }
+
+        assert tableId() == table.id();
+        assert columnNames != null;
+
+        int[] columnIds = new int[columnNames.size()];
+        for (int i = 0; i < columnIds.length; i++) {
+            CatalogTableColumnDescriptor column = table.column(columnNames.get(i));
+
+            assert column != null : columnNames.get(i);
+
+            columnIds[i] = column.id();
+        }
+
+        return new CatalogHashIndexDescriptor(
+                id(), name(), tableId(), unique(), status(), null, IntList.of(columnIds), updateTimestamp(), isCreatedWithTable()
+        );
+    }
+
+    /** Returns IDs of the indexed columns. */
+    public IntList columnIds() {
+        return Objects.requireNonNull(columnIds);
     }
 
     @Override

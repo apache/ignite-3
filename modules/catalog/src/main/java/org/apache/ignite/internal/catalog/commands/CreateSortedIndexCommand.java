@@ -29,6 +29,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 
 /**
  * A command that adds a new sorted index to the catalog.
@@ -70,17 +72,26 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status, boolean createdWithTable) {
+    protected CatalogIndexDescriptor createDescriptor(
+            int indexId, CatalogTableDescriptor table, CatalogIndexStatus status, boolean createdWithTable
+    ) {
         var indexColumnDescriptors = new ArrayList<CatalogIndexColumnDescriptor>(columns.size());
 
         for (int i = 0; i < columns.size(); i++) {
+            String columnName = columns.get(i);
+            CatalogTableColumnDescriptor column = table.column(columnName);
+
+            // createDescriptor() is called after validation,
+            // hence all columns must exists
+            assert column != null : columnName;
+
             indexColumnDescriptors.add(new CatalogIndexColumnDescriptor(
-                    columns.get(i), collations.get(i)
+                    column.id(), collations.get(i)
             ));
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, status, indexColumnDescriptors, createdWithTable
+                indexId, indexName, table.id(), unique, status, indexColumnDescriptors, createdWithTable
         );
     }
 

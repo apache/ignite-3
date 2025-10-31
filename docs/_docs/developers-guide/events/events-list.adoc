@@ -48,7 +48,7 @@ These events are fired when the user performs an action that requires authentica
 |USER_AUTHENTICATION_FAILURE
 |User failed to authenticate on the cluster. Get the username from the event's `identity` field.
 
-|======="
+|=======
 
 
 == Authorization Events
@@ -67,7 +67,7 @@ These events are fired when the user performs an action that requires authentica
 
 |USER_AUTHORIZATION_FAILURE
 |An action was denied to the user on a specific object.
-|======="
+|=======
 
 == Query Events
 
