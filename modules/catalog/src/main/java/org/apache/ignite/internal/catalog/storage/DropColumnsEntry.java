@@ -81,8 +81,7 @@ public class DropColumnsEntry extends AbstractUpdateTableEntry implements Fireab
                 .collect(toList());
 
         return table.copyBuilder()
-                .latestSchemaVersion(nextSchemaVersion(table))
-                .columns(updatedTableColumns);
+                .newColumns(updatedTableColumns);
     }
 
     @Override
