@@ -60,6 +60,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
         lock.lock();
 
         try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26703
             // Metric source shouldn't be enabled before because the second call of MetricSource#enable will return null.
             assert !src.enabled() : "Metric source shouldn't be enabled before registration in registry.";
 

@@ -229,6 +229,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TransactionStateR
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -705,7 +706,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 lowWatermark,
                 new NoOpFailureManager(),
                 new SystemPropertiesNodeProperties(),
-                new TableMetricSource(QualifiedName.fromSimple("test_table"))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("test_table")))
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
