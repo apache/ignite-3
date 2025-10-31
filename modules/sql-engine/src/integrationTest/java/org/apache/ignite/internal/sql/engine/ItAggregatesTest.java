@@ -542,7 +542,10 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     public void testGroupingFunction(String[] rules) {
         sql("DELETE FROM test_str_int_real_dec");
 
-        sql("DELETE FROM test_str_int_real_dec");
+        Assumptions.assumeTrue(
+                Arrays.stream(rules).noneMatch(rule -> rule.contains("Colocated")),
+                "https://issues.apache.org/jira/browse/IGNITE-26512"
+        );
 
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (2, 's1', 20)");

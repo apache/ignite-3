@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
@@ -70,10 +72,13 @@ public class TableTestUtils {
 
     /** No-op partition modification counter factory. */
     public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
-            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE) {
+            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
                 @Override
                 public PartitionModificationCounter create(
-                        SizeSupplier partitionSizeSupplier, StalenessConfigurationSupplier configurationSupplier
+                        SizeSupplier partitionSizeSupplier,
+                        StalenessConfigurationSupplier configurationSupplier,
+                        int tableId,
+                        int partitionId
                 ) {
                     return NOOP_PARTITION_MODIFICATION_COUNTER;
                 }
