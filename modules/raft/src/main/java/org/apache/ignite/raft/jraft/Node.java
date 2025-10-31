@@ -105,6 +105,12 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void apply(final Task task);
 
     /**
+     * Apply task to replicated-state-machine bypassing task queue.
+     * @param task task to apply
+     */
+    void applyBypassQueue(final Task task);
+
+    /**
      * [Thread-safe and wait-free]
      *
      * Starts a linearizable read-only query request with request context(optional, such as request id etc.) and

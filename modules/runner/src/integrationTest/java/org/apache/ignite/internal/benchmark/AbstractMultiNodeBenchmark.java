@@ -25,7 +25,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
@@ -34,6 +37,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.ResultSet;
@@ -47,6 +51,10 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
  * Base benchmark class for {@link SelectBenchmark} and {@link InsertBenchmark}.
@@ -56,6 +64,7 @@ import org.openjdk.jmh.annotations.TearDown;
  */
 @State(Scope.Benchmark)
 public class AbstractMultiNodeBenchmark {
+    protected static final int DEFAULT_THREADS_COUNT = 1;
     private static final int BASE_PORT = 3344;
     protected static final int BASE_CLIENT_PORT = 10800;
     private static final int BASE_REST_PORT = 10300;
@@ -88,8 +97,10 @@ public class AbstractMultiNodeBenchmark {
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
     @Setup
-    public void nodeSetUp() throws Exception {
-        System.setProperty("jraft.available_processors", "2");
+    public void clusterSetUp() throws Exception {
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
+        // System.setProperty("jraft.available_processors", "2");
         if (!remote) {
             startCluster();
         }
@@ -270,6 +281,32 @@ public class AbstractMultiNodeBenchmark {
         return IntStream.range(0, clusterNodes)
                 .mapToObj(i -> "127.0.0.1:" + (BASE_CLIENT_PORT + i))
                 .toArray(String[]::new);
+    }
+
+    static void runBenchmark(Class<?> cls, String[] args) throws RunnerException {
+        Map<String, String> params = new HashMap<>(args.length);
+
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            if (arg.startsWith("jmh.")) {
+                String[] av = arg.substring(4).split("=");
+                params.put(av[0], av[1]);
+            }
+        }
+
+        final String threadsParamName = "threads";
+        int threadsCount = params.containsKey(threadsParamName) ? Integer.parseInt(params.get(threadsParamName)) : DEFAULT_THREADS_COUNT;
+        ChainedOptionsBuilder builder = new OptionsBuilder()
+                .include(".*" + cls.getSimpleName() + ".*")
+                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
+                // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc");
+                .threads(threadsCount);
+
+        for (Entry<String, String> entry : params.entrySet()) {
+            builder.param(entry.getKey(), entry.getValue());
+        }
+
+        new Runner(builder.build()).run();
     }
 
     private static String nodeName(int port) {
