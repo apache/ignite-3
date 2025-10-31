@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
 import java.nio.file.Path;
@@ -58,73 +55,6 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
-
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncIntervalMillis: 1000,\n"
-            + "      failurePingIntervalMillis: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipIntervalMillis: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
-    protected static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      failurePingIntervalMillis: 1000000000\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for tests that may not have some storage engines enabled. */
-    protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
 
     protected Cluster cluster;
 

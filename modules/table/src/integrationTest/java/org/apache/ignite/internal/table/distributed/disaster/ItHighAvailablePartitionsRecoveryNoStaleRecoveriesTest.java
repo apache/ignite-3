@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

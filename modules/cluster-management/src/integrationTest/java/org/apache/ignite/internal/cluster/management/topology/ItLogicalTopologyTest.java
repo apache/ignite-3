@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
+import static org.apache.ignite.internal.ConfigTemplates.DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
+import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
