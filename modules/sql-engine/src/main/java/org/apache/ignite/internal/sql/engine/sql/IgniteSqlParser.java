@@ -59,7 +59,7 @@ import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.SqlException;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.

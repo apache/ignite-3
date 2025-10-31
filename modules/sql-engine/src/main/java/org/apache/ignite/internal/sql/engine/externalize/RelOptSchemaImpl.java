@@ -40,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.SqlException;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Minimal implementation of {@link RelOptSchema} interface.
