@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -38,7 +40,6 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
-import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -254,11 +255,12 @@ class ClientSqlCommon {
             int pageSize,
             boolean includePartitionAwarenessMeta,
             boolean sqlDirectTxMappingSupported,
-            boolean sqlMultiStatementSupported
+            boolean sqlMultiStatementSupported,
+            Executor executor
     ) {
         try {
             Long nextResultResourceId = sqlMultiStatementSupported && asyncResultSet.cursor().hasNextResult()
-                    ? saveNextResultResource(asyncResultSet.cursor().nextResult(), pageSize, resources)
+                    ? saveNextResultResource(asyncResultSet.cursor().nextResult(), pageSize, resources, executor)
                     : null;
 
             if ((asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages())) {
@@ -295,13 +297,33 @@ class ClientSqlCommon {
     private static Long saveNextResultResource(
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextResultFuture,
             int pageSize,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            Executor executor
     ) throws IgniteInternalCheckedException {
         ClientResource resource = new ClientResource(
                 new CursorWithPageSize(nextResultFuture, pageSize),
-                () -> nextResultFuture.thenApply(AsyncCursor::closeAsync));
+                () -> nextResultFuture.thenAccept(cur -> iterateThroughResultsAndCloseThem(cur, executor))
+        );
 
         return resources.put(resource);
+    }
+
+    private static void iterateThroughResultsAndCloseThem(AsyncSqlCursor<InternalSqlRow> cursor, Executor executor) {
+        Function<AsyncSqlCursor<InternalSqlRow>, CompletableFuture<AsyncSqlCursor<InternalSqlRow>>> traverser = new Function<>() {
+            @Override
+            public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> apply(AsyncSqlCursor<InternalSqlRow> cur) {
+                return cur.closeAsync()
+                        .thenComposeAsync(none -> {
+                            if (cur.hasNextResult()) {
+                                return cur.nextResult().thenComposeAsync(this, executor);
+                            } else {
+                                return CompletableFuture.completedFuture(cur);
+                            }
+                        }, executor);
+            }
+        };
+
+        CompletableFuture.completedFuture(cursor).thenCompose(traverser);
     }
 
     private static void writeResultSet(

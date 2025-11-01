@@ -59,7 +59,8 @@ public class ClientSqlCursorNextResultRequest {
                                         pageSize
                                 )
                         ).thenCompose(asyncResultSet ->
-                                ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, pageSize, false, false, true)
+                                ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, pageSize, false, false, true,
+                                        operationExecutor)
                         ).thenApply(rsWriter -> rsWriter), operationExecutor);
 
         f.whenCompleteAsync((r, t) -> {
