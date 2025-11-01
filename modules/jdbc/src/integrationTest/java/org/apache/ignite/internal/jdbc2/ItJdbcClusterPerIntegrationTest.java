@@ -26,7 +26,6 @@ import java.sql.Statement;
 import java.util.List;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.jdbc.ItJdbcStatementSelfTest;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,7 +47,6 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26789")
     public void noScriptResourcesAfterExecutingFailingScript() throws Exception {
         for (String statement : STATEMENTS) {
             log.info("Run statement: {}", statement);
@@ -58,23 +56,13 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
                 stmt.execute(statement);
                 // Connection should close the statement
             }
-            // Fails with IGN-CMN-65535 Failed to find resource with id: XYZ
 
             expectNoResources();
-        }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26789")
-    public void noScriptResourcesAfterExecutingFailingScript2() throws Exception {
-        for (String statement : STATEMENTS) {
-            log.info("Run statement: {}", statement);
 
             try (Connection conn = DriverManager.getConnection(JDBC_URL)) {
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute(statement);
                 }
-                // Fails with IGN-CMN-65535 Failed to find resource with id: XYZ
 
                 // All resources should be released
                 expectNoResources();
@@ -83,7 +71,6 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26789")
     public void noResourcesScriptAfterClientTerminates() throws Exception {
         for (String statement : STATEMENTS) {
             log.info("Run statement: {}", statement);

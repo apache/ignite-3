@@ -127,7 +127,7 @@ public class ClientSqlExecuteRequest {
                 arguments
         ).thenCompose(asyncResultSet ->
                         ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, props.pageSize(),
-                                includePartitionAwarenessMeta, sqlDirectTxMappingSupported, sqlMultistatementsSupported))
+                                includePartitionAwarenessMeta, sqlDirectTxMappingSupported, sqlMultistatementsSupported, operationExecutor))
                 .thenApply(rsWriter -> out -> {
                     if (tx != null) {
                         writeTxMeta(out, timestampTracker, clockService, tx, resIdHolder[0]);
