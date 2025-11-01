@@ -111,6 +111,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private final MetricManager metricManager;
 
+    private final PlacementDriverMetricSource metricSource;
+
     /**
      * Constructor.
      *
@@ -189,6 +191,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.placementDriver = createPlacementDriver();
         this.metricManager = metricManager;
+        this.metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker);
     }
 
     @Override
@@ -233,7 +236,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
             recoverInternalComponentsBusy();
 
-            metricManager.registerSource(leaseUpdater.placementDriverMetricSource());
+            metricManager.registerSource(metricSource);
             metricManager.enable(PlacementDriverMetricSource.SOURCE_NAME);
         });
 
