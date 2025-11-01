@@ -71,7 +71,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
-import org.apache.ignite.internal.placementdriver.metrics.PlacementDriverMetricSource;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -120,8 +119,6 @@ public class LeaseUpdater {
 
     /** Cluster clock. */
     private final ClockService clockService;
-
-    private final PlacementDriverMetricSource placementDriverMetrics;
 
     /** Closure to update leases. */
     private final Updater updater;
@@ -173,13 +170,6 @@ public class LeaseUpdater {
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
         this.throttledLogExecutor = throttledLogExecutor;
-
-        this.placementDriverMetrics = new PlacementDriverMetricSource(
-                updater::activeLeaseCount,
-                updater::leaseWithoutCandidatesCount,
-                () -> assignmentsTracker.stableAssignments().size(),
-                () -> assignmentsTracker.pendingAssignments().size()
-        );
 
         clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, new PlacementDriverActorMessageHandler());
     }
@@ -382,10 +372,6 @@ public class LeaseUpdater {
     /** Returns {@code true} if active. */
     boolean active() {
         return active.get();
-    }
-
-    PlacementDriverMetricSource placementDriverMetricSource() {
-        return placementDriverMetrics;
     }
 
     /** Runnable to update lease in Meta storage. */
@@ -658,8 +644,6 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
-            placementDriverMetrics.onLeaseCreate();
-
             return renewedLease;
         }
 
@@ -674,8 +658,6 @@ public class LeaseUpdater {
                 Lease lease,
                 HybridTimestamp newExpirationTimestamp
         ) {
-            placementDriverMetrics.onLeaseProlong();
-
             return lease.prolongLease(newExpirationTimestamp);
         }
 
@@ -697,8 +679,6 @@ public class LeaseUpdater {
             Lease renewedLease = lease.acceptLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
-
-            placementDriverMetrics.onLeasePublish();
         }
 
         /**
