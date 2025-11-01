@@ -36,6 +36,12 @@ public class PlacementDriverMetricSource extends AbstractMetricSource<Holder> {
     private final LeaseTracker leaseTracker;
     private final AssignmentsTracker assignmentsTracker;
 
+    /**
+     * Constructor.
+     *
+     * @param leaseTracker Lease tracker.
+     * @param assignmentsTracker Assignments tracker.
+     */
     public PlacementDriverMetricSource(
             LeaseTracker leaseTracker,
             AssignmentsTracker assignmentsTracker
