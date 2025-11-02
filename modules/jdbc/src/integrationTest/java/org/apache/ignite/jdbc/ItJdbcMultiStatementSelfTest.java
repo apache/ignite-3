@@ -18,10 +18,10 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,7 +35,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.jdbc2.JdbcStatement2;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -47,6 +49,9 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for queries containing multiple sql statements, separated by ";".
  */
 public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
+    /** Number of client resources before test started. */
+    private int resourcesBefore;
+
     /**
      * Setup tables.
      */
@@ -64,21 +69,16 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 + "(2, 43, 'Valery'), "
                 + "(3, 25, 'Michel'), "
                 + "(4, 19, 'Nick');");
+
+        resourcesBefore = openResources(CLUSTER);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        int openCursorResources = openResources(CLUSTER);
-        // connection + not closed result set
-        assertTrue(openResources(CLUSTER) <= 2, "Open cursors: " + openCursorResources);
-
         stmt.close();
 
-        openCursorResources = openResources(CLUSTER);
-
-        // only connection context or 0 if already closed.
-        assertTrue(openResources(CLUSTER) <= 1, "Open cursors: " + openCursorResources);
-        assertTrue(waitForCondition(() -> openCursors(CLUSTER) == 0, 5_000));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER) - resourcesBefore, is(0));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openCursors(CLUSTER), is(0));
     }
 
     @Test
@@ -266,6 +266,17 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(stmt.getMoreResults());
         stmt.getResultSet().next();
         assertEquals(2, stmt.getResultSet().getInt(1));
+    }
+
+    @Test
+    public void statementClosesAllCursors() throws SQLException {
+        stmt.execute("SELECT * FROM SYSTEM_RANGE(1, 15000); SELECT * FROM SYSTEM_RANGE(1, 15000); "
+                + "SELECT * FROM SYSTEM_RANGE(1, 15000);");
+
+        stmt.close();
+
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER) - resourcesBefore, is(0));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openCursors(CLUSTER), is(0));
     }
 
     @Test

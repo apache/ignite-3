@@ -74,25 +74,24 @@ final class ResultSetWrapper {
     }
 
     void close() throws SQLException {
-        JdbcResultSet current = resultSet;
-        if (current == null || current.closed) {
+        JdbcResultSet rs = resultSet;
+        if (rs == null || rs.closed) {
             return;
         }
-        resultSet = null;
 
-        JdbcResultSet rs = current;
+        resultSet = null;
 
         do {
             // w/o iteration over all cursors, the cursors that are
             // not retrieved hung in the void and are never released.
             try {
+                rs.close();
+
                 rs = rs.tryNextResultSet();
             } catch (SQLException ignore) {
                 // This is an execution related exception, ignore it. 
                 break;
             }
         } while (rs != null);
-
-        current.close();
     }
 }
