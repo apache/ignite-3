@@ -27,6 +27,7 @@ dependencies {
     implementation project(':ignite-marshaller-common')
     implementation project(':ignite-metrics')
     implementation project(':ignite-catalog-dsl')
+    implementation project(':ignite-network')
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
@@ -46,7 +47,6 @@ dependencies {
     testImplementation project(':ignite-sql-engine-api')
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-table')
-    testImplementation project(':ignite-network')
     testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
