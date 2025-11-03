@@ -26,10 +26,8 @@ import static org.mockito.ArgumentMatchers.eq;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -42,8 +40,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
-import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,7 +57,6 @@ import org.mockito.stubbing.Answer;
 public class ReplicatorGroupTest extends BaseIgniteAbstractTest {
     private TimerManager timerManager;
     private ReplicatorGroupImpl replicatorGroup;
-    private ExecutorService executor;
     @Mock
     private BallotBox ballotBox;
     @Mock
@@ -95,16 +90,10 @@ public class ReplicatorGroupTest extends BaseIgniteAbstractTest {
         rgOpts.setSnapshotStorage(this.snapshotStorage);
         rgOpts.setRaftOptions(this.raftOptions);
         rgOpts.setTimerManager(this.timerManager);
-
-        NodeOptions options = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-node", "test-executor-", Utils.cpus());
-        options.setCommonExecutor(executor);
-
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8081)));
-        Mockito.when(this.node.getOptions()).thenReturn(options);
         mockSendEmptyEntries();
         assertTrue(this.replicatorGroup.init(this.node.getNodeId(), rgOpts));
     }
@@ -259,7 +248,6 @@ public class ReplicatorGroupTest extends BaseIgniteAbstractTest {
         this.errorCounter.set(0);
         this.stoppedCounter.set(0);
         this.startedCounter.set(0);
-        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
     }
 
     private int heartbeatTimeout(final int electionTimeout) {
