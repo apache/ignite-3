@@ -26,6 +26,44 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_P
  * Node configuration templates.
  */
 public class ConfigTemplates {
+    private static final String DEFAULT_PROFILES = ""
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
+            + "  },\n";
+
+    private static final String FAST_FAILURE_DETECTION = ""
+            + "  network.membership: {\n"
+            + "    membershipSyncIntervalMillis: 1000,\n"
+            + "    failurePingIntervalMillis: 500,\n"
+            + "    scaleCube: {\n"
+            + "      membershipSuspicionMultiplier: 1,\n"
+            + "      failurePingRequestMembers: 1,\n"
+            + "      gossipIntervalMillis: 10\n"
+            + "    }\n"
+            + "  },\n";
+
+    private static final String DISABLED_FAILURE_DETECTION = ""
+            + "  network.membership: {\n"
+            + "    failurePingIntervalMillis: 1000000000\n"
+            + "  }\n";
+
+    /** Default node bootstrap configuration pattern. */
+    public static String NODE_BOOTSTRAP_CFG_TEMPLATE = renderConfigTemplate(DEFAULT_PROFILES);
+
+    /** Template for tests that may not have some storage engines enabled. */
+    public static String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = renderConfigTemplate("");
+
+    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
+    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
+            = renderConfigTemplate(DEFAULT_PROFILES + FAST_FAILURE_DETECTION);
+
+    /** Template for node bootstrap config with Scalecube settings for disabled failure detection. */
+    public static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
+            = renderConfigTemplate(DEFAULT_PROFILES + DISABLED_FAILURE_DETECTION);
+
     /**
      * Renders the configuration template, adding the provided properties string to the template.
      *
@@ -45,42 +83,4 @@ public class ConfigTemplates {
                 + properties
                 + "}";
     }
-
-    private static final String DEFAULT_PROFILES = ""
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n";
-
-    /** Default node bootstrap configuration pattern. */
-    public static String NODE_BOOTSTRAP_CFG_TEMPLATE = renderConfigTemplate(DEFAULT_PROFILES);
-
-    /** Template for tests that may not have some storage engines enabled. */
-    public static String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = renderConfigTemplate("");
-
-    private static final String FAST_FAILURE_DETECTION = ""
-            + "  network.membership: {\n"
-            + "    membershipSyncIntervalMillis: 1000,\n"
-            + "    failurePingIntervalMillis: 500,\n"
-            + "    scaleCube: {\n"
-            + "      membershipSuspicionMultiplier: 1,\n"
-            + "      failurePingRequestMembers: 1,\n"
-            + "      gossipIntervalMillis: 10\n"
-            + "    }\n"
-            + "  },\n";
-
-    private static final String DISABLED_FAILURE_DETECTION = ""
-            + "  network.membership: {\n"
-            + "    failurePingIntervalMillis: 1000000000\n"
-            + "  }\n";
-
-    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
-            = renderConfigTemplate(DEFAULT_PROFILES + FAST_FAILURE_DETECTION);
-
-    /** Template for node bootstrap config with Scalecube settings for disabled failure detection. */
-    public static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
-            = renderConfigTemplate(DEFAULT_PROFILES + DISABLED_FAILURE_DETECTION);
 }
