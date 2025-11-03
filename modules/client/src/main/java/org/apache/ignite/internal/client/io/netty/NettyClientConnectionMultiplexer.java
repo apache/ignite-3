@@ -49,7 +49,6 @@ import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.network.netty.DefaultExceptionHandler;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.jetbrains.annotations.Nullable;
 
@@ -94,7 +93,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                             new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true),
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler(),
-                            new DefaultExceptionHandler());
+                            new DefaultExceptionHandler(clientCfg));
                 }
             });
 
