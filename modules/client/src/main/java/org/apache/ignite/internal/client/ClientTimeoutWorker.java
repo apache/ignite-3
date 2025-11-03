@@ -24,15 +24,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
 final class ClientTimeoutWorker {
-    private static final IgniteLogger LOG = Loggers.forClass(ClientTimeoutWorker.class);
-
     static final ClientTimeoutWorker INSTANCE = new ClientTimeoutWorker();
 
     private static final int emptyCountThreshold = 10;
@@ -47,12 +44,12 @@ final class ClientTimeoutWorker {
         // No-op.
     }
 
-    synchronized void registerClientChannel(TcpClientChannel ch) {
+    synchronized void registerClientChannel(TcpClientChannel ch, IgniteClientConfiguration clientCfg) {
         channels.add(ch);
         emptyCount = 0;
 
         if (executor == null) {
-            executor = createExecutor();
+            executor = createExecutor(clientCfg);
             emptyCount = 0;
 
             long sleepInterval = TimeoutWorker.getSleepInterval();
@@ -71,11 +68,11 @@ final class ClientTimeoutWorker {
         }
     }
 
-    private static ScheduledExecutorService createExecutor() {
+    private static ScheduledExecutorService createExecutor(IgniteClientConfiguration clientCfg) {
         return Executors.newSingleThreadScheduledExecutor(
                 new NamedThreadFactory(
                         "TcpClientChannel-timeout-worker",
-                        LOG));
+                        ClientUtils.logger(clientCfg, ClientTimeoutWorker.class)));
     }
 
     private void checkTimeouts() {
