@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -41,14 +42,16 @@ public class ClientSqlCursorCloseRequest {
             ClientResourceRegistry resources
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
-        ClientSqlResultSet asyncResultSet;
+        ClientResource resource;
 
         try {
-            asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
+            resource = resources.remove(resourceId);
         } catch (IgniteInternalCheckedException | IgniteInternalException ignored) {
-            // Ignore: either resource already removed by asynchronous data retrieval, or registry is closing.
+            // Ignore: either resource was already removed during asynchronous data fetch request, or registry is closing.
             return CompletableFutures.nullCompletedFuture();
         }
+
+        ClientSqlResultSet asyncResultSet = resource.get(ClientSqlResultSet.class);
 
         return asyncResultSet.closeAsync().thenApply(v -> null);
     }

@@ -37,6 +37,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.jdbc2.JdbcStatement2;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,9 +50,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for queries containing multiple sql statements, separated by ";".
  */
 public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
-    /** Number of client resources before test started. */
-    private int resourcesBefore;
-
     /**
      * Setup tables.
      */
@@ -69,15 +67,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 + "(2, 43, 'Valery'), "
                 + "(3, 25, 'Michel'), "
                 + "(4, 19, 'Nick');");
-
-        resourcesBefore = openResources(CLUSTER);
     }
 
     @AfterEach
     void tearDown() throws Exception {
         stmt.close();
 
-        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER) - resourcesBefore, is(0));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER), is(0));
         Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openCursors(CLUSTER), is(0));
     }
 
@@ -245,7 +241,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void requestMoreThanOneFetch() throws Exception {
-        int range = stmt.getFetchSize() + 100;
+        int range = SqlCommon.DEFAULT_PAGE_SIZE + 100;
         stmt.execute(format("START TRANSACTION; SELECT * FROM TABLE(system_range(0, {})); COMMIT;", range));
         assertEquals(range + 1, getResultSetSize());
 
@@ -269,13 +265,17 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void statementClosesAllCursors() throws SQLException {
-        stmt.execute("SELECT * FROM SYSTEM_RANGE(1, 15000); SELECT * FROM SYSTEM_RANGE(1, 15000); "
-                + "SELECT * FROM SYSTEM_RANGE(1, 15000);");
+    public void statementMustCloseAllDependentCursors() throws SQLException {
+        int rowsCount = SqlCommon.DEFAULT_PAGE_SIZE * 3;
+
+        stmt.execute(format("SELECT * FROM SYSTEM_RANGE(0, {});"
+                        + "SELECT * FROM SYSTEM_RANGE(0, {}); "
+                        + "SELECT * FROM SYSTEM_RANGE(0, {});",
+                rowsCount, rowsCount, rowsCount));
 
         stmt.close();
 
-        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER) - resourcesBefore, is(0));
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openResources(CLUSTER), is(0));
         Awaitility.await().timeout(5, TimeUnit.SECONDS).until(() -> openCursors(CLUSTER), is(0));
     }
 
