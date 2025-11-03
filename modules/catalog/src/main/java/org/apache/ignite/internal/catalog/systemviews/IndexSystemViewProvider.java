@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogSystemViewProvider;
@@ -52,28 +53,31 @@ public class IndexSystemViewProvider implements CatalogSystemViewProvider {
 
             return catalog.indexes().stream()
                     .filter(index -> index.status().isAlive())
-                    .map(index -> new IndexWithCatalog(index, catalog))
+                    .map(index -> new IndexWithCatalog(
+                            index, Objects.requireNonNull(catalog.table(index.tableId()),
+                            "table not found by id " + index.tableId()), catalog
+                    ))
                     .iterator();
         };
 
         SystemView<?> indexView = SystemViews.<IndexWithCatalog>clusterViewBuilder()
                 .name("INDEXES")
-                .addColumn("INDEX_ID", INT32, entry -> entry.descriptor.id())
-                .addColumn("INDEX_NAME", STRING, entry -> entry.descriptor.name())
-                .addColumn("TABLE_ID", INT32, entry -> entry.descriptor.tableId())
-                .addColumn("TABLE_NAME", STRING, entry -> getTableDescriptor(entry).name())
+                .addColumn("INDEX_ID", INT32, entry -> entry.index.id())
+                .addColumn("INDEX_NAME", STRING, entry -> entry.index.name())
+                .addColumn("TABLE_ID", INT32, entry -> entry.index.tableId())
+                .addColumn("TABLE_NAME", STRING, entry -> entry.table.name())
                 .addColumn("SCHEMA_ID", INT32, IndexSystemViewProvider::getSchemaId)
                 .addColumn("SCHEMA_NAME", STRING, entry -> entry.catalog.schema(getSchemaId(entry)).name())
-                .addColumn("INDEX_TYPE", STRING, entry -> entry.descriptor.indexType().name())
-                .addColumn("IS_UNIQUE_INDEX", BOOLEAN, entry -> entry.descriptor.unique())
+                .addColumn("INDEX_TYPE", STRING, entry -> entry.index.indexType().name())
+                .addColumn("IS_UNIQUE_INDEX", BOOLEAN, entry -> entry.index.unique())
                 .addColumn("INDEX_COLUMNS", STRING, IndexSystemViewProvider::getColumnsString)
-                .addColumn("INDEX_STATE", STRING, entry -> entry.descriptor.status().name())
+                .addColumn("INDEX_STATE", STRING, entry -> entry.index.status().name())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
                 //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
-                .addColumn("TYPE", STRING, entry -> entry.descriptor.indexType().name())
-                .addColumn("IS_UNIQUE", BOOLEAN, entry -> entry.descriptor.unique())
+                .addColumn("TYPE", STRING, entry -> entry.index.indexType().name())
+                .addColumn("IS_UNIQUE", BOOLEAN, entry -> entry.index.unique())
                 .addColumn("COLUMNS", STRING, IndexSystemViewProvider::getColumnsString)
-                .addColumn("STATUS", STRING, entry -> entry.descriptor.status().name())
+                .addColumn("STATUS", STRING, entry -> entry.index.status().name())
                 // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(SubscriptionUtils.fromIterable(viewData))
                 .build();
@@ -81,30 +85,31 @@ public class IndexSystemViewProvider implements CatalogSystemViewProvider {
         return List.of(indexView);
     }
 
-    private static CatalogTableDescriptor getTableDescriptor(IndexWithCatalog entry) {
-        return entry.catalog.table(entry.descriptor.tableId());
-    }
-
     private static String getColumnsString(IndexWithCatalog entry) {
-        return entry.descriptor.indexType() == HASH
-                ? String.join(", ", ((CatalogHashIndexDescriptor) entry.descriptor).columns())
-                : ((CatalogSortedIndexDescriptor) entry.descriptor)
+        return entry.index.indexType() == HASH
+                ? ((CatalogHashIndexDescriptor) entry.index).columnIds().intStream()
+                        .mapToObj(id -> entry.table.columnById(id).name())
+                        .collect(joining(", "))
+                : ((CatalogSortedIndexDescriptor) entry.index)
                         .columns()
                         .stream()
-                        .map(column -> column.name() + (column.collation().asc() ? " ASC" : " DESC"))
+                        .map(column -> entry.table.columnById(column.columnId()).name()
+                                + (column.collation().asc() ? " ASC" : " DESC"))
                         .collect(joining(", "));
     }
 
     private static int getSchemaId(IndexWithCatalog entry) {
-        return getTableDescriptor(entry).schemaId();
+        return entry.table.schemaId();
     }
 
     private static class IndexWithCatalog {
-        final CatalogIndexDescriptor descriptor;
+        final CatalogIndexDescriptor index;
+        final CatalogTableDescriptor table;
         final Catalog catalog;
 
-        IndexWithCatalog(CatalogIndexDescriptor descriptor, Catalog catalog) {
-            this.descriptor = descriptor;
+        IndexWithCatalog(CatalogIndexDescriptor index, CatalogTableDescriptor table, Catalog catalog) {
+            this.index = index;
+            this.table = table;
             this.catalog = catalog;
         }
     }

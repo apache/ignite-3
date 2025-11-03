@@ -31,6 +31,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -200,8 +201,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                     .primaryKeyIndexId(1)
                     .name("")
                     .zoneId(1)
-                    .columns(List.of(pkCol))
-                    .primaryKeyColumns(List.of(pkCol.name()))
+                    .newColumns(List.of(pkCol))
+                    .primaryKeyColumns(IntList.of(0))
                     .storageProfile("")
                     .build());
             catalogDescriptors.add(CatalogTableDescriptor.builder()
@@ -210,8 +211,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                     .primaryKeyIndexId(1)
                     .name("")
                     .zoneId(1)
-                    .columns(List.of(pkCol))
-                    .primaryKeyColumns(List.of(pkCol.name()))
+                    .newColumns(List.of(pkCol))
+                    .primaryKeyColumns(IntList.of(0))
                     .storageProfile("")
                     .build());
 
@@ -309,8 +310,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(1)
                 .name("")
                 .zoneId(1)
-                .columns(List.of(pkCol))
-                .primaryKeyColumns(List.of(pkCol.name()))
+                .newColumns(List.of(pkCol))
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile("")
                 .build();
         tableCreateCapture.getValue().notify(new CreateTableEventParameters(-1, 0, catalogDescriptor));
@@ -378,8 +379,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(1)
                 .name("")
                 .zoneId(1)
-                .columns(List.of(pkCol))
-                .primaryKeyColumns(List.of(pkCol.name()))
+                .newColumns(List.of(pkCol))
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile("")
                 .build();
         when(catalog.tables()).thenReturn(List.of(catalogDescriptor));

@@ -154,7 +154,6 @@ public class CmgRaftService implements ManuallyCloseable {
                         if (validationErrorResponse.isInvalidNodeConfig()) {
                             var invalidNodeConfigurationException = new InvalidNodeConfigurationException(validationErrorResponse.reason());
 
-                            // TODO: IGNITE-26433 Use dedicated error code for JoinDeniedException
                             throw new JoinDeniedException("JoinRequest command failed", invalidNodeConfigurationException);
                         } else {
                             throw new JoinDeniedException(validationErrorResponse.reason());

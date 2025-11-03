@@ -105,13 +105,10 @@ Use the code snippet below to initiate a cluster:
 InitParameters initParameters = InitParameters.builder()
     .metaStorageNodeNames("node")
     .clusterName("cluster")
-    .clusterConfiguration({config-with-license})
     .build();
 
 node.initCluster(initParameters);
 ----
-
-NOTE: To start an Ignite 3 cluster, you need to provide a license together with the cluster configuration in the `clusterConfiguration` parameter.
 
 == Get an Ignite Instance
 

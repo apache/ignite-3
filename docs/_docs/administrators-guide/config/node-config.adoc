@@ -511,7 +511,7 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
 |======
 
 
-== System Configuration
+=== System Configuration
 
 This section describes internal properties, which are used by a number of Ignite components. Although you can edit these properties in the same way you edit all others - using the `node config update` CLI command - we suggest that you discuss the proposed changes with the Ignite support team. The properties can apply to a specific node - see below - or to the link:administrators-guide/config/cluster-config#system-configuration[cluster as a whole].
 

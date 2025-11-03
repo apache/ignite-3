@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.plan.Convention;
@@ -167,7 +168,7 @@ public class IgniteIndex {
             List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 
             for (CatalogIndexColumnDescriptor column : columns) {
-                int fieldIndex = tableDescriptor.columnIndex(column.name());
+                int fieldIndex = tableDescriptor.columnIndexById(column.columnId());
 
                 RelFieldCollation fieldCollation;
                 switch (column.collation()) {
@@ -193,11 +194,11 @@ public class IgniteIndex {
             return RelCollations.of(fieldCollations);
         } else if (descriptor instanceof CatalogHashIndexDescriptor) {
             CatalogHashIndexDescriptor hashIndexDescriptor = (CatalogHashIndexDescriptor) descriptor;
-            List<String> columns = hashIndexDescriptor.columns();
+            IntList columns = hashIndexDescriptor.columnIds();
             List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 
-            for (String columnName : columns) {
-                CatalogTableColumnDescriptor tableColumn = tableDescriptor.column(columnName);
+            for (int columnId : columns) {
+                CatalogTableColumnDescriptor tableColumn = tableDescriptor.columnById(columnId);
                 int fieldIndex = tableDescriptor.columns().indexOf(tableColumn);
 
                 fieldCollations.add(new RelFieldCollation(fieldIndex, Direction.CLUSTERED, NullDirection.UNSPECIFIED));

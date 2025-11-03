@@ -38,7 +38,7 @@ The JDBC connector needs to be included from Maven:
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>ignite-jdbc</artifactId>
-    <version>{version}</version>
+    <version>3.1.0</version>
 </dependency>
 ----
 
