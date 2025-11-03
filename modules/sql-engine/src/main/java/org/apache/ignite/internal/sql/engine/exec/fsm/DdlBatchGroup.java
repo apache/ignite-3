@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 /**
- * Groups tha is used for DDL operations batching.
+ * Groups that is used for DDL operations batching.
  *
  * @see DdlBatchAware
  */
