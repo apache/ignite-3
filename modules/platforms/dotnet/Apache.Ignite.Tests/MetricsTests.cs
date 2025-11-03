@@ -466,7 +466,7 @@ public class MetricsTests
                 else
                 {
                     var res = _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
-                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {res} (added {newVal})");
+                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {res - newVal} + {newVal} = {res}");
 
                     var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
                     _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);
