@@ -53,7 +53,7 @@ public interface ParsedResult {
     SqlNode parsedTree();
 
     /**
-     * Returns {@link org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup} for batching purposes or {@code null} if unapplicable.
+     * Returns {@link DdlBatchGroup} for batching purposes or {@code null} if not applicable.
      */
     default @Nullable DdlBatchGroup ddlBatchGroup() {
         return null;
