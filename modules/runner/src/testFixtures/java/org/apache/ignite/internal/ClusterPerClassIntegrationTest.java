@@ -55,11 +55,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -230,17 +230,17 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     protected static void awaitPartitionsToBeHealthy(
             String zone,
             String tableName,
-            Set<Integer> partitionIds) throws InterruptedException {
-        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == CLUSTER.nodes().size(), 10_000));
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         assertTrue(waitForCondition(() -> {
-                    CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> globalTablePartitionStates =
-                            node.disasterRecoveryManager().globalTablePartitionStates(Set.of(zone), partitionIds);
+                    CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> globalTablePartitionStates =
+                            node.disasterRecoveryManager().globalPartitionStates(Set.of(zone), partitionIds);
 
                     MatcherAssert.assertThat(globalTablePartitionStates, willCompleteSuccessfully());
 
-                    Map<TablePartitionId, GlobalTablePartitionState> globalStateStates;
+                    Map<ZonePartitionId, GlobalPartitionState> globalStateStates;
                     try {
                         globalStateStates = globalTablePartitionStates.get();
                     } catch (InterruptedException | ExecutionException e) {
