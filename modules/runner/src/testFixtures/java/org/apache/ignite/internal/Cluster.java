@@ -372,6 +372,13 @@ public class Cluster {
         return clusterConfiguration.baseHttpPort() + nodeIndex;
     }
 
+    /**
+     * Returns HTTPS port by index.
+     */
+    public int httpsPort(int nodeIndex) {
+        return clusterConfiguration.baseHttpsPort() + nodeIndex;
+    }
+
     private String seedAddressesString() {
         int localSeedCountOverride = seedCountOverride;
         // We do this maxing because in some scenarios startAndInit() is not invoked, instead startNode() is used directly.

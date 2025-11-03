@@ -37,21 +37,21 @@ ignite.auth.basic.password=
 |======
 |Property|Default|Description
 
-|ignite.jdbc.key-store.path||Path to the JDBC keystore file.
-|ignite.cluster-endpoint-url|http://127.0.1.1:10300|
+|ignite.jdbc.key-store.path||Path to the JDBC keystore file for SSL/TLS client authentication.
+|ignite.cluster-endpoint-url|http://127.0.1.1:10300|URL endpoint for connecting to the Ignite cluster REST API.
 |ignite.jdbc.client-auth||If JDBC client authorization is enabled in CLI.
-|ignite.rest.key-store.password||
-|ignite.jdbc.key-store.password||
+|ignite.rest.key-store.password||Password for the REST API keystore file.
+|ignite.jdbc.key-store.password||Password for the JDBC keystore file.
 |ignite.cli.sql.multiline|true|Enables multiline input mode for SQL commands in the CLI.
 |ignite.cli.syntax-highlighting|true|Enables syntax highlighting in CLI output.
-|ignite.rest.trust-store.path||
-|ignite.jdbc.trust-store.password||
-|ignite.auth.basic.username||
-|ignite.jdbc-url|jdbc:ignite:thin://127.0.0.1:10800|
-|ignite.rest.key-store.path||
-|ignite.rest.trust-store.password||
-|ignite.jdbc.trust-store.path||
-|ignite.auth.basic.password||
+|ignite.rest.trust-store.path||Path to the REST API truststore file for SSL/TLS server verification.
+|ignite.jdbc.trust-store.password||Password for the JDBC truststore file.
+|ignite.auth.basic.username||Username for basic authentication when connecting to the cluster.
+|ignite.jdbc-url|jdbc:ignite:thin://127.0.0.1:10800|JDBC connection URL for connecting to the Ignite cluster.
+|ignite.rest.key-store.path||Path to the REST API keystore file for SSL/TLS client authentication.
+|ignite.rest.trust-store.password||Password for the REST API truststore file.
+|ignite.jdbc.trust-store.path||Path to the JDBC truststore file for SSL/TLS server verification.
+|ignite.auth.basic.password||Password for basic authentication when connecting to the cluster.
 |======
 
 

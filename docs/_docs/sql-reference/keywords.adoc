@@ -29,7 +29,7 @@ SELECT 1 AS "ABS";
 -- SELECT 1 AS ABS;
 ----
 
-The following list shows the keywords in Apache Ignite {version}.
+The following list shows the keywords in Apache Ignite 3.1.0.
 
 [cols="1,1,1", options="header"]
 |===

@@ -40,6 +40,8 @@ namespace Apache.Ignite.Tests
 
         private const int ConnectTimeoutSeconds = 4 * 60;
 
+        private const int MaxAttempts = 3;
+
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --parallel";
 
         private const string GradleCommandExecOldServer = ":ignite-compatibility-tests:runnerPlatformCompatibilityTest --parallel";
@@ -64,14 +66,14 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: [], defaultPort: 10942);
+        public static async Task<JavaServer> StartAsync() => await StartInternalAsyncWithRetry(old: false, env: [], defaultPort: 10942);
 
         public static async Task<JavaServer> StartOldAsync(string version, string workDir)
         {
             // Get random unused ports to avoid conflicts with other tests.
             var ports = GetUnusedPorts(3);
 
-            return await StartInternalAsync(
+            return await StartInternalAsyncWithRetry(
                 old: true,
                 env: new()
                 {
@@ -105,6 +107,31 @@ namespace Apache.Ignite.Tests
             KillProcessesOnPorts(Ports);
 
             Log(">>> Java server stopped.");
+        }
+
+        private static async Task<JavaServer> StartInternalAsyncWithRetry(
+            bool old, Dictionary<string, string?> env, int? defaultPort = null)
+        {
+            int attempt = 0;
+
+            while (true)
+            {
+                try
+                {
+                    attempt++;
+                    return await StartInternalAsync(old, env, defaultPort);
+                }
+                catch (Exception e)
+                {
+                    if (attempt == MaxAttempts)
+                    {
+                        Log($">>> Java server start failed after {MaxAttempts} attempts.");
+                        throw;
+                    }
+
+                    Log($">>> Java server start attempt {attempt} failed: {e}. Retrying...");
+                }
+            }
         }
 
         private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env, int? defaultPort = null)
@@ -145,13 +172,14 @@ namespace Apache.Ignite.Tests
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
                     var ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
-                    tcs.SetResult(ports);
+                    tcs.TrySetResult(ports);
                 }
 
-                if (line.StartsWith("Exception in thread \"main\"", StringComparison.OrdinalIgnoreCase))
+                if (line.StartsWith("Exception in thread \"main\"", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Unable to start", StringComparison.OrdinalIgnoreCase))
                 {
                     process.Kill(entireProcessTree: true);
-                    tcs.SetException(new Exception($"Java server failed: {line}"));
+                    tcs.TrySetException(new Exception($"Java server failed: {line}"));
                 }
             };
 
