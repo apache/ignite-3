@@ -27,34 +27,22 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_P
  */
 public class ConfigTemplates {
     /**
-     * Renders the configuration template, adding the provided profiles string to the template.
+     * Renders the configuration template, adding the provided properties string to the template.
      *
-     * @param profiles Profiles configuration string.
+     * @param properties Additional properties string.
      * @return Generated configuration template.
      */
-    public static String renderConfigTemplate(String profiles) {
-        return renderConfigTemplate(profiles, "");
-    }
-
-    /**
-     * Renders the configuration template, adding the provided profiles string and extra properties to the template.
-     *
-     * @param profiles Profiles configuration string.
-     * @param extraProperties Extra properties string.
-     * @return Generated configuration template.
-     */
-    public static String renderConfigTemplate(String profiles, String extraProperties) {
+    public static String renderConfigTemplate(String properties) {
         return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ {} ]\n"
                 + "  },\n"
-                + profiles
                 + "  clientConnector.port: {},\n"
                 + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
                 + "  rest.port: {},\n"
                 + "  failureHandler.dumpThreadsOnFailure: false,\n"
-                + extraProperties
+                + properties
                 + "}";
     }
 
@@ -90,9 +78,9 @@ public class ConfigTemplates {
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
-            = renderConfigTemplate(DEFAULT_PROFILES, FAST_FAILURE_DETECTION);
+            = renderConfigTemplate(DEFAULT_PROFILES + FAST_FAILURE_DETECTION);
 
     /** Template for node bootstrap config with Scalecube settings for disabled failure detection. */
     public static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
-            = renderConfigTemplate(DEFAULT_PROFILES, DISABLED_FAILURE_DETECTION);
+            = renderConfigTemplate(DEFAULT_PROFILES + DISABLED_FAILURE_DETECTION);
 }
