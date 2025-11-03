@@ -233,14 +233,14 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         assertTrue(waitForCondition(() -> {
-                    CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> globalTablePartitionStates =
+                    CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> globalPartitionStates =
                             node.disasterRecoveryManager().globalPartitionStates(Set.of(zone), partitionIds);
 
-                    MatcherAssert.assertThat(globalTablePartitionStates, willCompleteSuccessfully());
+                    MatcherAssert.assertThat(globalPartitionStates, willCompleteSuccessfully());
 
                     Map<ZonePartitionId, GlobalPartitionState> globalStateStates;
                     try {
-                        globalStateStates = globalTablePartitionStates.get();
+                        globalStateStates = globalPartitionStates.get();
                     } catch (InterruptedException | ExecutionException e) {
                         throw new RuntimeException(e);
                     }
