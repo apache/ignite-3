@@ -30,7 +30,7 @@
 namespace ignite {
 
 /**
- * Ignite Error.
+ * @brief Basic exception type.
  */
 class ignite_error : public std::exception {
 public:

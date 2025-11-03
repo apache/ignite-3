@@ -594,7 +594,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.commonScheduler(),
                 metricManager,
                 zoneId -> completedFuture(Set.of()),
-                id -> null
+                zoneId -> null
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(
@@ -709,6 +709,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
+                () -> clusterSvc.topologyService().localMember().id(),
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,

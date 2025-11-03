@@ -152,7 +152,7 @@ public class RecordMarshallerValidationsTest {
 
         assertThrowsWithCause(
                 () -> factory.create(schema, TestK2V1.class),
-                IllegalArgumentException.class,
+                MarshallerException.class,
                 "No mapped object field found for column 'K1'");
     }
 

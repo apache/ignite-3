@@ -72,7 +72,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -310,6 +309,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
+                () -> clusterSvc.topologyService().localMember().id(),
                 revisionUpdater,
                 metastore,
                 logicalTopologyService,
@@ -382,39 +382,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         startScaleUpBlocking = false;
 
         startScaleDownBlocking = false;
-    }
-
-    @Test
-    public void testNodeAttributesRestoredAfterRestart() throws Exception {
-        PartialNode node = startPartialNode(0);
-
-        node.logicalTopology().putNode(A);
-        node.logicalTopology().putNode(B);
-        node.logicalTopology().putNode(C);
-
-        createZone(getCatalogManager(node), ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, DEFAULT_STORAGE_PROFILE);
-
-        int zoneId = getZoneId(node, ZONE_NAME);
-
-        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
-        CatalogManager catalogManager = getCatalogManager(node);
-
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(A, B, C), TIMEOUT_MILLIS);
-
-        Map<UUID, NodeWithAttributes> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
-
-        node.stop();
-
-        node = startPartialNode(0);
-
-        distributionZoneManager = getDistributionZoneManager(node);
-
-        Map<UUID, NodeWithAttributes> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
-
-        assertEquals(3, nodeAttributesAfterRestart.size());
-
-        assertEquals(nodeAttributesBeforeRestart, nodeAttributesAfterRestart);
     }
 
     @Test

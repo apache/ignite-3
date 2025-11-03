@@ -39,6 +39,8 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     @BeforeAll
     void createTestTable() {
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
+
+        waitUntilRunningQueriesCount(is(0));
     }
 
     @Override

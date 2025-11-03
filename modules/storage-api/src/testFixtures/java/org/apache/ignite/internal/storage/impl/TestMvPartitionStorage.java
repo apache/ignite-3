@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.RowMeta;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -138,7 +140,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             return new VersionChain(rowId, row, null, txId, commitTableId, commitPartitionId, next);
         }
 
-        static VersionChain forCommitted(RowId rowId, @Nullable HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
+        static VersionChain forCommitted(RowId rowId, HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
             return new VersionChain(rowId, uncommittedVersionChain.row, timestamp, null, null,
                     ReadResult.UNDEFINED_COMMIT_PARTITION_ID, uncommittedVersionChain.next);
         }
@@ -626,6 +628,20 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosedOrInProcessOfRebalance();
 
         return map.ceilingKey(lowerBound);
+    }
+
+    @Override
+    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        Entry<RowId, VersionChain> entry = map.ceilingEntry(lowerBound);
+        if (entry == null) {
+            return null;
+        }
+
+        VersionChain versionChain = entry.getValue();
+
+        return new RowMeta(versionChain.rowId, versionChain.txId, versionChain.commitTableId, versionChain.commitPartitionId);
     }
 
     @Override

@@ -32,7 +32,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes a column replacement.
  */
-public class AlterColumnEntry extends UpdateTable implements Fireable {
+public class AlterColumnEntry extends AbstractUpdateTableEntry implements Fireable {
     private final int tableId;
 
     private final CatalogTableColumnDescriptor column;
@@ -77,12 +77,17 @@ public class AlterColumnEntry extends UpdateTable implements Fireable {
     @Override
     public Builder newTableDescriptor(CatalogTableDescriptor table) {
         List<CatalogTableColumnDescriptor> updatedTableColumns = table.columns().stream()
-                .map(source -> source.name().equals(column.name()) ? column : source)
+                .map(source -> {
+                    if (source.name().equals(column.name())) {
+                        return column.clone(source.id());
+                    }
+
+                    return source;
+                })
                 .collect(toList());
 
         return table.copyBuilder()
-                .latestSchemaVersion(newSchemaVersion(table))
-                .columns(updatedTableColumns);
+                .newColumns(updatedTableColumns);
     }
 
     @Override

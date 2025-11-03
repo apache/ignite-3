@@ -20,35 +20,14 @@ package org.apache.ignite.internal.fileio;
 import java.io.IOException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.util.concurrent.ExecutorService;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link AsyncFileIo} factory.
  */
 public class AsyncFileIoFactory implements FileIoFactory {
-    /** Async callback executor. {@code null} for system default pool. */
-    private final @Nullable ExecutorService asyncIoExecutor;
-
-    /**
-     * Constructor.
-     */
-    public AsyncFileIoFactory() {
-        this(null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param asyncIoExecutor Async callback executor or {@code null} to use the default pool.
-     */
-    public AsyncFileIoFactory(@Nullable ExecutorService asyncIoExecutor) {
-        this.asyncIoExecutor = asyncIoExecutor;
-    }
-
     /** {@inheritDoc} */
     @Override
     public FileIo create(Path filePath, OpenOption... modes) throws IOException {
-        return new AsyncFileIo(filePath, asyncIoExecutor, modes);
+        return new AsyncFileIo(filePath, modes);
     }
 }

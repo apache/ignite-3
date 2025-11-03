@@ -20,6 +20,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.docker)
     alias(libs.plugins.checksum)
+    alias(libs.plugins.license)
 }
 
 java {
@@ -27,6 +28,8 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+import com.github.jk1.license.filter.LicenseBundleNormalizer
+import com.github.jk1.license.render.InventoryHtmlReportRenderer
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
@@ -51,6 +54,9 @@ dependencies {
     release project(path: ':packaging-db', configuration: 'dbRelease')
     release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
     release project(path: ':platforms', configuration: 'platformsRelease')
+    release project(path: ':packaging-dotnet-client', configuration: 'dotNetClientRelease')
+    release project(path: ':packaging-java-client', configuration: 'javaClientRelease')
+    release project(path: ':migration-tools-packaging-cli', configuration: 'cliRelease')
     localDefaults project(path: ':packaging-db', configuration: 'localDefaults')
 }
 
@@ -77,17 +83,30 @@ def tokens = [
 ]
 
 def replaceVars = tasks.register('replaceVars', Copy) {
-    from "$rootDir/packaging/common/linux"
+    from "$rootDir/packaging/common/linux/$tokens.SETUP_JAVA_FILE_NAME"
+    from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
 }
 
-ext.docker_image_name = "apacheignite/ignite"
+ext.docker_image_name = "apacheignite/ignite:${project.projectVersion.toString()}"
 
 docker {
     name project.docker_image_name
     dockerfile file('docker/Dockerfile')
+
+    if (project.hasProperty('target_platform')) {
+        platform project.properties["target_platform"]
+        buildx true
+    }
+
+    if (project.hasProperty('docker_push')) {
+        load false
+        push true
+    } else {
+        load true
+    }
 
     copySpec.into 'dist', {
         into('') {
@@ -188,4 +207,12 @@ def prepareRelease = tasks.register('prepareRelease', Copy) {
     include '*.rpm', '*.deb', '*.changes'
     include '*.jar'
     into file("$buildDir/release")
+}
+
+licenseReport {
+    configurations = ['dbArtifacts', 'cliArtifacts']
+    excludeBoms = true
+    renderers = [new InventoryHtmlReportRenderer()]
+    allowedLicensesFile = new File("$rootDir/check-rules/allowed-licenses.json")
+    filters = [new LicenseBundleNormalizer()]
 }

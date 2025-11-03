@@ -54,6 +54,11 @@ public interface MetaStorageManager extends IgniteComponent {
     long appliedRevision();
 
     /**
+     * Returns a future which will hold the current revision of the metastorage leader.
+     */
+    CompletableFuture<Long> currentRevision();
+
+    /**
      * Returns a future of getting the latest version of an entry by key from the metastorage leader.
      *
      * <p>Never completes with a {@link CompactedException}.</p>

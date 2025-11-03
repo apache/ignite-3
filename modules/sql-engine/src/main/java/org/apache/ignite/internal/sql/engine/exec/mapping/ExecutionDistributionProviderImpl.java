@@ -46,6 +46,11 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 
 /** Execution nodes information provider. */
 public class ExecutionDistributionProviderImpl implements ExecutionDistributionProvider {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26651
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26652
+    /** Non-empty assignments await timeout. */
+    public static final int AWAIT_NON_EMPTY_ASSIGNMENTS_TIMEOUT_MILLIS = 30_000;
+
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionDistributionProviderImpl.class);
     private final PlacementDriver placementDriver;
     private final SystemViewManager systemViewManager;
@@ -156,9 +161,10 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             List<ReplicationGroupId> replicationGroupIds,
             HybridTimestamp operationTime
     ) {
-        return placementDriver.getAssignments(
+        return placementDriver.awaitNonEmptyAssignments(
                 replicationGroupIds,
-                operationTime
+                operationTime,
+                AWAIT_NON_EMPTY_ASSIGNMENTS_TIMEOUT_MILLIS
         );
     }
 }

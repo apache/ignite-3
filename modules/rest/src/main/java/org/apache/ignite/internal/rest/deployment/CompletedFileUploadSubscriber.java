@@ -21,6 +21,7 @@ import io.micronaut.http.multipart.CompletedFileUpload;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.reactivestreams.Subscriber;
@@ -39,8 +40,10 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
 
     private Throwable ex;
 
-    public CompletedFileUploadSubscriber(boolean unzip) {
-        this.collector = unzip ? new ZipInputStreamCollector() : new InputStreamCollectorImpl();
+    public CompletedFileUploadSubscriber(TempStorage tempStorage, boolean unzip) {
+        this.collector = unzip
+                ? new ZipInputStreamCollector(tempStorage)
+                : new InputStreamCollectorImpl(tempStorage);
     }
 
     @Override
@@ -61,7 +64,7 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
     @Override
     public void onError(Throwable throwable) {
         try {
-            collector.close();
+            collector.rollback();
         } catch (Exception e) {
             suppressException(e);
         }
@@ -80,7 +83,7 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
             } catch (Exception e) {
                 suppressException(e);
                 try {
-                    collector.close();
+                    collector.rollback();
                 } catch (Exception e2) {
                     suppressException(e2);
                 }

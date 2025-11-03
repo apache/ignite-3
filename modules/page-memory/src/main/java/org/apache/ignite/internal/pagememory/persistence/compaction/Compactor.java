@@ -352,10 +352,10 @@ public class Compactor extends IgniteWorker {
             log.debug("Cancelling grid runnable: " + this);
         }
 
-        // Do not interrupt runner thread.
-        isCancelled.set(true);
-
         synchronized (mux) {
+            // Do not interrupt runner thread.
+            isCancelled.set(true);
+
             mux.notifyAll();
         }
     }

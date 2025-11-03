@@ -68,7 +68,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
@@ -369,7 +368,6 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21546")
     void writeIntentFromAbortedTxShouldNotBeIndexed() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
 

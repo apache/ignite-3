@@ -76,6 +76,7 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -217,7 +218,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 marshallers,
                 mock(IgniteSql.class),
                 mock(FailureProcessor.class),
-                table.primaryKeyIndexId()
+                table.primaryKeyIndexId(),
+                mock(TableStatsStalenessConfiguration.class)
         ));
     }
 

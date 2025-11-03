@@ -31,8 +31,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link FileIo} implementation based on {@link AsynchronousFileChannel}.
@@ -50,12 +48,11 @@ public class AsyncFileIo extends AbstractFileIo {
      * Creates I/O implementation for specified file.
      *
      * @param filePath File path.
-     * @param asyncIoExecutor Callback executor. If the parameter is {@code null}, then the system default thread pool will be used.
      * @param modes Open modes.
      * @throws IOException If some I/O error occurs.
      */
-    public AsyncFileIo(Path filePath, @Nullable ExecutorService asyncIoExecutor, OpenOption... modes) throws IOException {
-        ch = AsynchronousFileChannel.open(filePath, Set.of(modes), asyncIoExecutor);
+    public AsyncFileIo(Path filePath, OpenOption... modes) throws IOException {
+        ch = AsynchronousFileChannel.open(filePath, modes);
     }
 
     /** {@inheritDoc} */

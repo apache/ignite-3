@@ -21,6 +21,7 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V1;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V2;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V3;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V1;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V2;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
@@ -193,18 +194,16 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 tablePartitionId,
                 minTimeCollectorService
         ));
-        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V1, new BuildIndexCommandHandler(
+
+        BuildIndexCommandHandler buildIndexCommandHandler = new BuildIndexCommandHandler(
                 storage,
                 indexMetaStorage,
                 storageUpdateHandler,
                 schemaRegistry
-        ));
-        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V2, new BuildIndexCommandHandler(
-                storage,
-                indexMetaStorage,
-                storageUpdateHandler,
-                schemaRegistry
-        ));
+        );
+        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V1, buildIndexCommandHandler);
+        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V2, buildIndexCommandHandler);
+        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V3, buildIndexCommandHandler);
 
         if (!nodeProperties.colocationEnabled()) {
             commandHandlersBuilder.addHandler(

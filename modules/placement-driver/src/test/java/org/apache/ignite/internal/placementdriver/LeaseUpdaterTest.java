@@ -185,7 +185,9 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         assignmentsTracker = new AssignmentsTracker(
                 metaStorageManager,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                zoneId -> completedFuture(Set.of()),
+                zoneId -> null
         );
         assignmentsTracker.startTrack();
 

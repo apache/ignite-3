@@ -151,6 +151,13 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
+    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.closestRow(lowerBound);
+    }
+
+    @Override
     public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
         assertThreadAllowsToRead();
 

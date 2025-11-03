@@ -1,0 +1,92 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+== CLI Configuration Parameters
+
+[source, bash]
+----
+ignite.jdbc.key-store.path=
+ignite.cluster-endpoint-url=http://localhost:10300
+ignite.jdbc.client-auth=
+ignite.rest.key-store.password=
+ignite.jdbc.key-store.password=
+ignite.cli.sql.multiline=true
+ignite.cli.syntax-highlighting=true
+ignite.rest.trust-store.path=
+ignite.jdbc.trust-store.password=
+ignite.auth.basic.username=
+ignite.jdbc-url=jdbc:ignite:thin://127.0.0.1:10800
+ignite.rest.key-store.path=
+ignite.rest.trust-store.password=
+ignite.jdbc.trust-store.path=
+ignite.auth.basic.password=
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+
+|ignite.jdbc.key-store.path||Path to the JDBC keystore file for SSL/TLS client authentication.
+|ignite.cluster-endpoint-url|http://127.0.1.1:10300|URL endpoint for connecting to the Ignite cluster REST API.
+|ignite.jdbc.client-auth||If JDBC client authorization is enabled in CLI.
+|ignite.rest.key-store.password||Password for the REST API keystore file.
+|ignite.jdbc.key-store.password||Password for the JDBC keystore file.
+|ignite.cli.sql.multiline|true|Enables multiline input mode for SQL commands in the CLI.
+|ignite.cli.syntax-highlighting|true|Enables syntax highlighting in CLI output.
+|ignite.rest.trust-store.path||Path to the REST API truststore file for SSL/TLS server verification.
+|ignite.jdbc.trust-store.password||Password for the JDBC truststore file.
+|ignite.auth.basic.username||Username for basic authentication when connecting to the cluster.
+|ignite.jdbc-url|jdbc:ignite:thin://127.0.0.1:10800|JDBC connection URL for connecting to the Ignite cluster.
+|ignite.rest.key-store.path||Path to the REST API keystore file for SSL/TLS client authentication.
+|ignite.rest.trust-store.password||Password for the REST API truststore file.
+|ignite.jdbc.trust-store.path||Path to the JDBC truststore file for SSL/TLS server verification.
+|ignite.auth.basic.password||Password for basic authentication when connecting to the cluster.
+|======
+
+
+== Configuration Profiles
+
+Apache Ignite link:ignite-cli-tool#interactive-cli-mode[CLI] supports configuration profiles to manage different sets of settings.
+
+Use the following commands to create and manage profiles:
+
+- Create a new configuration profile:
++
+[source, bash]
+----
+cli config create <profile_name>
+----
++
+- Switch to an existing profile:
++
+[source, bash]
+----
+cli config activate <profile_name>
+----
++
+- Display all available profiles:
++
+[source, bash]
+----
+cli config list
+----
++
+- Display the currently used profile with all custom settings:
++
+[source, bash]
+----
+cli config show
+----
+
+Each profile stores its own CLI-specific settings, allowing isolated configurations for different use cases.

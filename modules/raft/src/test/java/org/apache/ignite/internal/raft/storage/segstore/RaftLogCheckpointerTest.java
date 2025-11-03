@@ -18,15 +18,23 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static org.apache.ignite.internal.raft.storage.segstore.RaftLogCheckpointer.MEM_TABLE_QUEUE_SIZE;
+import static org.apache.ignite.internal.raft.storage.segstore.RaftLogCheckpointer.MAX_QUEUE_SIZE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -80,18 +88,71 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     ) {
         var blockFuture = new CompletableFuture<Void>();
 
-        doAnswer(invocation -> blockFuture.join()).when(segmentFile).sync();
+        try {
+            doAnswer(invocation -> blockFuture.join()).when(segmentFile).sync();
 
-        for (int i = 0; i < MEM_TABLE_QUEUE_SIZE; i++) {
-            checkpointer.onRollover(segmentFile, memTable);
+            for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
+                checkpointer.onRollover(segmentFile, memTable);
+            }
+
+            CompletableFuture<Void> addFuture = runAsync(() -> checkpointer.onRollover(segmentFile, memTable), executor);
+
+            assertThat(addFuture, willTimeoutFast());
+
+            blockFuture.complete(null);
+
+            assertThat(addFuture, willCompleteSuccessfully());
+        } finally {
+            blockFuture.complete(null);
+        }
+    }
+
+    @Test
+    void testReadFromQueue() {
+        // Read from empty queue.
+        assertThat(checkpointer.findSegmentPayloadInQueue(0, 0), is(nullValue()));
+
+        var blockFuture = new CompletableFuture<Void>();
+
+        try {
+            var buffer = ByteBuffer.allocate(1);
+
+            for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
+                SegmentFile mockFile = mock(SegmentFile.class);
+
+                doAnswer(invocation -> blockFuture.join()).when(mockFile).sync();
+
+                when(mockFile.buffer()).thenReturn(buffer);
+
+                IndexMemTable mockMemTable = mock(IndexMemTable.class);
+
+                var segmentInfo = new SegmentInfo(i);
+
+                segmentInfo.addOffset(i, 1);
+
+                lenient().when(mockMemTable.segmentInfo(i)).thenReturn(segmentInfo);
+
+                checkpointer.onRollover(mockFile, mockMemTable);
+            }
+
+            for (int groupId = 0; groupId < MAX_QUEUE_SIZE; groupId++) {
+                for (int logIndex = 0; logIndex < MAX_QUEUE_SIZE; logIndex++) {
+                    ByteBuffer payload = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
+
+                    if (groupId == logIndex) {
+                        assertThat(payload, is(notNullValue()));
+                    } else {
+                        assertThat(payload, is(nullValue()));
+                    }
+                }
+            }
+
+            assertThat(checkpointer.findSegmentPayloadInQueue(MAX_QUEUE_SIZE, MAX_QUEUE_SIZE), is(nullValue()));
+        } finally {
+            blockFuture.complete(null);
         }
 
-        CompletableFuture<Void> addFuture = runAsync(() -> checkpointer.onRollover(segmentFile, memTable), executor);
-
-        assertThat(addFuture, willTimeoutFast());
-
-        blockFuture.complete(null);
-
-        assertThat(addFuture, willCompleteSuccessfully());
+        // The queue should eventually become empty again.
+        await().until(() -> checkpointer.findSegmentPayloadInQueue(0, 0), is(nullValue()));
     }
 }

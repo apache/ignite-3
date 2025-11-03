@@ -31,7 +31,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * Describes addition of new columns.
  */
-public class NewColumnsEntry extends UpdateTable implements Fireable {
+public class NewColumnsEntry extends AbstractUpdateTableEntry implements Fireable {
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
 
@@ -77,8 +77,7 @@ public class NewColumnsEntry extends UpdateTable implements Fireable {
         List<CatalogTableColumnDescriptor> updatedTableColumns = CollectionUtils.concat(table.columns(), descriptors);
 
         return table.copyBuilder()
-                .latestSchemaVersion(newSchemaVersion(table))
-                .columns(updatedTableColumns);
+                .newColumns(updatedTableColumns);
     }
 
     @Override

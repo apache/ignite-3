@@ -2,6 +2,14 @@
 
 This document describes the current procedure for preparing an Ignite 3 release.
 
+## Requirements
+
+1. **Docker 19.03+**
+   * Verify docker installation: `docker version`
+   * Verify docker buildx installation: `docker buildx version`
+2. **.NET SDK 8.0.407+**
+   * Verify .NET installation: `dotnet --version`
+
 ## Prerequisites
 
 1. Create a GPG key, upload it to a keyserver, and locate its ID. More details here: https://infra.apache.org/openpgp.html
@@ -64,21 +72,28 @@ For all the commands going forward:
    rm -rf {dist.dev}/{version}-rc{rc}
    mkdir {dist.dev}/{version}-rc{rc}
    ```
-11. Create ZIP, DEB, RPM packages, .NET and C++ client, sign them and create checksums:
+11. Create ZIP, DEB, RPM packages, .NET, Java and C++ client, sign them and create checksums:
    ```
    ./gradlew -PprepareRelease prepareRelease -Pplatforms.enable
    ```
-12. Copy all packages along with checksums and signatures to the development distribution directory:
+12. Create Docker Images:
+    ```
+    ./gradlew :packaging:docker -Ptarget_platform=linux/amd64 -Pplatforms.enable
+    docker save apacheignite/ignite:VERSION -o packaging/build/release/ignite:VERSION-amd64.tar
+    ./gradlew :packaging:docker -Ptarget_platform=linux/arm64 -Pplatforms.enable
+    docker save apacheignite/ignite:VERSION -o packaging/build/release/ignite:VERSION-arm64.tar
+    ```
+13. Copy all packages along with checksums and signatures to the development distribution directory:
    ```
    cp packaging/build/release/* {dist.dev}/{version}-rc{rc}
    ```
-13. Commit ZIP and DEB\RPM packages:
+14. Commit ZIP and DEB\RPM packages:
    ```
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ``` 
-14. Put the release on a vote on the developers mailing list.
+15. Put the release on a vote on the developers mailing list.
 
 ## Finalizing the Release
 
@@ -107,7 +122,8 @@ Perform the following actions ONLY after the vote is successful and closed.
    * .NET: `./gradlew :platforms:aggregateDotnetDocs`
    * C++: `./gradlew :platforms:doxygenCppClient`
    * Push to https://github.com/apache/ignite-website/tree/master/releases
-7. Publish Docker images: `./gradlew :packaging:docker -Pplatforms.enable` (TODO - see [IGNITE-24408](https://issues.apache.org/jira/browse/IGNITE-24408))
+7. Publish Docker images:
+   * `./gradlew :packaging:docker -Ptarget_platform=linux/amd64,linux/arm64 -Pdocker_push -Pplatforms.enable`
 8. Publish NuGet packages:
    * Get API key from https://svn.apache.org/repos/private/pmc/ignite/credentials/nuget.org (PMC only)
    * `for i in *.nupkg; do dotnet nuget push $i -k API_KEY_HERE -s "https://nuget.org/"; done`

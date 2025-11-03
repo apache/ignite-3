@@ -169,6 +169,7 @@ enum class code : underlying_t {
     CONFIG_FILE_CREATE = 0xc0002,
     CONFIG_WRITE = 0xc0003,
     CONFIG_PARSE = 0xc0004,
+    JOIN_DENIED = 0xc0005,
 
     // CodeDeployment group. Group code: 13
     UNIT_NOT_FOUND = 0xd0001,
@@ -176,6 +177,7 @@ enum class code : underlying_t {
     UNIT_CONTENT_READ = 0xd0003,
     UNIT_UNAVAILABLE = 0xd0004,
     UNIT_ZIP = 0xd0005,
+    UNIT_WRITE = 0xd0006,
 
     // GarbageCollector group. Group code: 14
     CLOSED = 0xe0001,
@@ -219,7 +221,8 @@ enum class code : underlying_t {
     NODES_NOT_FOUND = 0x140002,
     PARTITION_STATE = 0x140003,
     CLUSTER_NOT_IDLE = 0x140004,
-    RESTART_WITH_CLEAN_UP = 0x140005,
+    NOT_ENOUGH_ALIVE_NODES = 0x140005,
+    ILLEGAL_NODES_SET = 0x140006,
 
     // Embedded group. Group code: 21
     CLUSTER_NOT_INITIALIZED = 0x150001,

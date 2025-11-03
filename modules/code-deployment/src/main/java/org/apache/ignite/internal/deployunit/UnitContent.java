@@ -86,6 +86,6 @@ public class UnitContent implements Iterable<Entry<String, byte[]>> {
         content.iterator().forEachRemaining(it -> {
             files.put(it.getKey(), new ByteArrayInputStream(it.getValue()));
         });
-        return new FilesDeploymentUnit(files);
+        return new StreamDeploymentUnit(files);
     }
 }

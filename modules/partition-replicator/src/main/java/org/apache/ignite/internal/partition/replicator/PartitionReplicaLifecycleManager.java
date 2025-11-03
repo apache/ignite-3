@@ -686,9 +686,7 @@ public class PartitionReplicaLifecycleManager extends
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
-        RaftGroupEventsListener raftGroupEventsListener = localAssignment.isPeer()
-                ? createRaftGroupEventsListener(zonePartitionId)
-                : RaftGroupEventsListener.noopLsnr;
+        RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zonePartitionId);
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);

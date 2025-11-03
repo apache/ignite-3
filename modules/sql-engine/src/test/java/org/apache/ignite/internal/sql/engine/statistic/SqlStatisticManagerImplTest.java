@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.DEFAULT_TABLE_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -119,6 +122,40 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testEstimationFailure() {
+        int tableId = ThreadLocalRandom.current().nextInt();
+
+        prepareCatalogWithTable(tableId);
+
+        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
+        when(tableViewInternal.internalTable()).thenReturn(internalTable);
+        when(internalTable.estimatedSize()).thenReturn(
+                CompletableFuture.completedFuture(1L),
+                CompletableFuture.completedFuture(2L),
+                CompletableFuture.failedFuture(new IgniteCheckedException(INTERNAL_ERR, "Test exception"))
+        );
+
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        StatisticUpdatesSupplier notifier = mock(StatisticUpdatesSupplier.class);
+        sqlStatisticManager.changesNotifier(notifier);
+        sqlStatisticManager.start();
+
+        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
+
+        // table size 1
+        assertEquals(1L, sqlStatisticManager.tableSize(tableId));
+        verify(notifier, times(1)).accept(anyInt());
+
+        // table size 2
+        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+
+        // exceptionable table size
+        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
+        verify(notifier, times(2)).accept(anyInt());
+        verify(internalTable, times(3)).estimatedSize();
+    }
+
+    @Test
     public void checkModifyTableSize() {
         int tableId = ThreadLocalRandom.current().nextInt();
         long tableSize1 = 999_888_777L;
@@ -164,8 +201,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                     .primaryKeyIndexId(1)
                     .name("")
                     .zoneId(1)
-                    .columns(List.of(pkCol))
-                    .primaryKeyColumns(List.of(pkCol.name()))
+                    .newColumns(List.of(pkCol))
+                    .primaryKeyColumns(IntList.of(0))
                     .storageProfile("")
                     .build());
             catalogDescriptors.add(CatalogTableDescriptor.builder()
@@ -174,8 +211,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                     .primaryKeyIndexId(1)
                     .name("")
                     .zoneId(1)
-                    .columns(List.of(pkCol))
-                    .primaryKeyColumns(List.of(pkCol.name()))
+                    .newColumns(List.of(pkCol))
+                    .primaryKeyColumns(IntList.of(0))
                     .storageProfile("")
                     .build());
 
@@ -273,8 +310,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(1)
                 .name("")
                 .zoneId(1)
-                .columns(List.of(pkCol))
-                .primaryKeyColumns(List.of(pkCol.name()))
+                .newColumns(List.of(pkCol))
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile("")
                 .build();
         tableCreateCapture.getValue().notify(new CreateTableEventParameters(-1, 0, catalogDescriptor));
@@ -342,8 +379,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(1)
                 .name("")
                 .zoneId(1)
-                .columns(List.of(pkCol))
-                .primaryKeyColumns(List.of(pkCol.name()))
+                .newColumns(List.of(pkCol))
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile("")
                 .build();
         when(catalog.tables()).thenReturn(List.of(catalogDescriptor));

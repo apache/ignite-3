@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.TestWrappers;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for disaster recovery tests.
@@ -68,6 +70,15 @@ class DisasterRecoveryTestUtil {
             PartitionGroupId partId,
             Assignments blockedAssignments
     ) {
+        return stableKeySwitchMessage(msg, partId, blockedAssignments, null);
+    }
+
+    static boolean stableKeySwitchMessage(
+            NetworkMessage msg,
+            PartitionGroupId partId,
+            Assignments blockedAssignments,
+            @Nullable AtomicBoolean reached
+    ) {
         if (msg instanceof WriteActionRequest) {
             var writeActionRequest = (WriteActionRequest) msg;
             WriteCommand command = writeActionRequest.deserializedCommand();
@@ -87,7 +98,13 @@ class DisasterRecoveryTestUtil {
                         ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
-                            return blockedAssignments.equals(Assignments.fromBytes(toByteArray(operation.value())));
+                            boolean equals = blockedAssignments.equals(Assignments.fromBytes(toByteArray(operation.value())));
+
+                            if (reached != null && equals) {
+                                reached.set(true);
+                            }
+
+                            return equals;
                         }
                     }
                 }

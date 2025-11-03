@@ -42,6 +42,8 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,8 +59,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -84,13 +88,19 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     private static final String NODE_NAME = "test";
 
+    private final FailureManager failureManager = new NoOpFailureManager();
+
     private SegmentFileManager fileManager;
 
     @BeforeEach
     void setUp() throws IOException {
-        fileManager = new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, new NoOpFailureManager());
+        fileManager = createFileManager();
 
         fileManager.start();
+    }
+
+    private SegmentFileManager createFileManager() throws IOException {
+        return new SegmentFileManager(NODE_NAME, workDir, FILE_SIZE, STRIPES, failureManager);
     }
 
     @AfterEach
@@ -101,8 +111,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     @Test
     void testConstructorInvariants() {
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 0, 1, new NoOpFailureManager()));
-        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 1, 1, new NoOpFailureManager()));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 0, 1, failureManager));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(NODE_NAME, workDir, 1, 1, failureManager));
     }
 
     @Test
@@ -122,7 +132,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     void checkFileNamingAfterRollovers() throws Exception {
         int segmentFilesNum = 10;
 
-        byte[] bytes = new byte[FILE_SIZE - HEADER_RECORD.length - SegmentPayload.overheadSize()];
+        byte[] bytes = new byte[FILE_SIZE - HEADER_RECORD.length - 2 * SegmentPayload.fixedOverheadSize()];
 
         for (int i = 0; i < segmentFilesNum; i++) {
             appendBytes(bytes, i);
@@ -152,8 +162,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> appendBytes(new byte[FILE_SIZE], 0));
 
         String expectedMessage = String.format(
-                "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.",
-                FILE_SIZE + SegmentPayload.overheadSize(),
+                "Segment entry is too big (%d bytes), maximum allowed segment entry size: %d bytes.",
+                FILE_SIZE + SegmentPayload.fixedOverheadSize() + 2, // 2 bytes for index and term.
                 FILE_SIZE - HEADER_RECORD.length
         );
 
@@ -242,7 +252,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         assertThat(segmentFiles, hasSize(greaterThan(1)));
 
-        List<byte[]> actualData = readDataFromSegmentFiles(batchSize, batches.size()).stream()
+        List<byte[]> actualData = readDataFromSegmentFiles().stream()
                 .sorted(comparingLong(DeserializedSegmentPayload::groupId))
                 .map(DeserializedSegmentPayload::payload)
                 .collect(toList());
@@ -321,7 +331,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         assertThat(writtenBatches, is(not(empty())));
         assertThat(exceptions, is(not(empty())));
 
-        List<byte[]> actualData = readDataFromSegmentFiles(batchSize, writtenBatches.size()).stream()
+        List<byte[]> actualData = readDataFromSegmentFiles().stream()
                 .sorted(comparingLong(DeserializedSegmentPayload::groupId))
                 .map(DeserializedSegmentPayload::payload)
                 .collect(toList());
@@ -342,6 +352,221 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
     }
 
+    @Test
+    void testFirstAndLastIndexOnAppend() {
+        int batchSize = FILE_SIZE / 10;
+
+        List<byte[]> batches = randomData(batchSize, 100);
+
+        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
+
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytes(groupId, batches.get(i), i);
+
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(i + 1L));
+            }
+
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is((long) batches.size()));
+        };
+
+        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
+    }
+
+    @Test
+    void truncateRecordIsWrittenOnSuffixTruncate() throws IOException {
+        long groupId = 36;
+
+        long lastLogIndexKept = 42;
+
+        fileManager.truncateSuffix(groupId, lastLogIndexKept);
+
+        Path path = findSoleSegmentFile();
+
+        ByteBuffer expectedTruncateRecord = ByteBuffer.allocate(SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE)
+                .order(SegmentFile.BYTE_ORDER);
+
+        SegmentPayload.writeTruncateSuffixRecordTo(expectedTruncateRecord, groupId, lastLogIndexKept);
+
+        expectedTruncateRecord.rewind();
+
+        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
+            channel.position(HEADER_RECORD.length);
+
+            assertThat(readFully(channel, SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE), is(expectedTruncateRecord));
+        }
+    }
+
+    @Test
+    void testLastIndexAfterTruncateSuffix() {
+        int batchSize = FILE_SIZE / 10;
+
+        List<byte[]> batches = randomData(batchSize, 100);
+
+        IntFunction<RunnableX> writerTaskFactory = groupId -> () -> {
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(-1L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(-1L));
+
+            long curLogIndex = 0;
+
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytes(groupId, batches.get(i), curLogIndex);
+
+                if (i > 0 && i % 10 == 0) {
+                    curLogIndex -= 4;
+
+                    fileManager.truncateSuffix(groupId, curLogIndex);
+                }
+
+                assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+                assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex + 1));
+
+                curLogIndex++;
+            }
+
+            assertThat(fileManager.firstLogIndexInclusive(groupId), is(0L));
+            assertThat(fileManager.lastLogIndexExclusive(groupId), is(curLogIndex));
+        };
+
+        runRace(writerTaskFactory.apply(0), writerTaskFactory.apply(1));
+    }
+
+    @Test
+    void testRecovery() throws Exception {
+        int batchSize = FILE_SIZE / 4;
+
+        List<byte[]> batches = randomData(batchSize, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        List<Path> segmentFiles = segmentFiles();
+
+        assertThat(segmentFiles, hasSize(greaterThan(1)));
+
+        List<Path> indexFiles = await().until(this::indexFiles, hasSize(segmentFiles.size() - 1));
+
+        fileManager.close();
+
+        // Delete an index file. We expect it to be re-created after recovery.
+        Files.delete(indexFiles.get(0));
+
+        fileManager = createFileManager();
+
+        fileManager.start();
+
+        for (int i = 0; i < batches.size(); i++) {
+            byte[] expectedEntry = batches.get(i);
+
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                assertThat(bs, is(expectedEntry));
+
+                return null;
+            });
+        }
+    }
+
+    @Test
+    void testRecoveryWithTmpIndexFiles() throws Exception {
+        List<byte[]> batches = randomData(FILE_SIZE / 4, 3);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        // We need rollover to happen at least once to trigger index file recovery.
+        await().until(this::indexFiles, hasSize(1));
+
+        assertThat(segmentFiles(), hasSize(2));
+
+        // Use a mock memtable that throws an exception to force the index manager to create a temporary index file, but not rename it.
+        ReadModeIndexMemTable mockMemTable = mock(ReadModeIndexMemTable.class);
+
+        when(mockMemTable.iterator()).thenThrow(new RuntimeException("Test exception"));
+
+        // Create two tmp index files: one for the complete segment file and one the incomplete segment file.
+        try {
+            fileManager.indexFileManager().saveIndexMemtable(mockMemTable, 0);
+        } catch (RuntimeException ignored) {
+            // Ignore.
+        }
+
+        try {
+            fileManager.indexFileManager().saveIndexMemtable(mockMemTable, 1);
+        } catch (RuntimeException ignored) {
+            // Ignore.
+        }
+
+        assertThat(tmpIndexFiles(), hasSize(2));
+
+        fileManager.close();
+
+        for (Path indexFile : indexFiles()) {
+            Files.delete(indexFile);
+        }
+
+        fileManager = createFileManager();
+
+        fileManager.start();
+
+        assertThat(tmpIndexFiles(), is(empty()));
+
+        assertThat(indexFiles(), hasSize(1));
+    }
+
+    @Test
+    void testRecoveryWithTruncateSuffix() throws Exception {
+        List<byte[]> batches = randomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(4));
+
+        int lastLogIndexKept = batches.size() / 2;
+
+        fileManager.truncateSuffix(GROUP_ID, lastLogIndexKept);
+
+        // Insert more data in order to have two truncate suffix records: one in a "rollovered" segment file and one in the latest segment
+        // file.
+        for (int i = lastLogIndexKept + 1; i < batches.size(); i++) {
+            appendBytes(batches.get(i), i);
+        }
+
+        fileManager.truncateSuffix(GROUP_ID, lastLogIndexKept);
+
+        fileManager.close();
+
+        for (Path indexFile : indexFiles()) {
+            Files.deleteIfExists(indexFile);
+        }
+
+        fileManager = createFileManager();
+
+        fileManager.start();
+
+        for (int i = 0; i <= lastLogIndexKept; i++) {
+            byte[] expectedEntry = batches.get(i);
+
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                assertThat(bs, is(expectedEntry));
+
+                return null;
+            });
+        }
+
+        for (int i = lastLogIndexKept + 1; i < batches.size(); i++) {
+            fileManager.getEntry(GROUP_ID, i, bs -> {
+                throw new AssertionError("This method should not be called.");
+            });
+        }
+    }
+
     private Path findSoleSegmentFile() throws IOException {
         List<Path> segmentFiles = segmentFiles();
 
@@ -351,21 +576,31 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     private List<Path> segmentFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
+        try (Stream<Path> files = Files.list(fileManager.segmentFilesDir())) {
+            return files.sorted().collect(toList());
+        }
+    }
+
+    private List<Path> indexFiles() throws IOException {
+        try (Stream<Path> files = Files.list(fileManager.indexFilesDir())) {
             return files
-                    .filter(p -> p.getFileName().toString().startsWith("segment"))
+                    .filter(p -> {
+                        String fileName = p.getFileName().toString();
+
+                        return !fileName.endsWith(".tmp");
+                    })
                     .sorted()
                     .collect(toList());
         }
     }
 
-    private List<Path> indexFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
+    private List<Path> tmpIndexFiles() throws IOException {
+        try (Stream<Path> files = Files.list(fileManager.indexFilesDir())) {
             return files
                     .filter(p -> {
                         String fileName = p.getFileName().toString();
 
-                        return fileName.startsWith("index") && !fileName.endsWith(".tmp");
+                        return fileName.endsWith(".tmp");
                     })
                     .sorted()
                     .collect(toList());
@@ -378,10 +613,8 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 .collect(toList());
     }
 
-    private List<DeserializedSegmentPayload> readDataFromSegmentFiles(int batchLength, int numBatches) throws IOException {
-        var result = new ArrayList<DeserializedSegmentPayload>(numBatches);
-
-        int entrySize = batchLength + SegmentPayload.overheadSize();
+    private List<DeserializedSegmentPayload> readDataFromSegmentFiles() throws IOException {
+        var result = new ArrayList<DeserializedSegmentPayload>();
 
         for (Path segmentFile : segmentFiles()) {
             try (SeekableByteChannel channel = Files.newByteChannel(segmentFile)) {
@@ -389,14 +622,19 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
                 int bytesRead = HEADER_RECORD.length;
 
-                while (bytesRead + entrySize < FILE_SIZE && result.size() < numBatches) {
+                while (bytesRead < FILE_SIZE) {
                     long position = channel.position();
 
-                    result.add(DeserializedSegmentPayload.fromByteChannel(channel));
+                    DeserializedSegmentPayload payload = DeserializedSegmentPayload.fromByteChannel(channel);
 
-                    assertThat(channel.position(), is(position + entrySize));
+                    bytesRead += (int) (channel.position() - position);
 
-                    bytesRead += entrySize;
+                    if (payload == null) {
+                        // EOF reached.
+                        break;
+                    }
+
+                    result.add(payload);
                 }
 
                 if (FILE_SIZE - bytesRead >= SWITCH_SEGMENT_RECORD.length) {
@@ -412,7 +650,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         appendBytes(GROUP_ID, serializedEntry, index);
     }
 
-    private void appendBytes(long groupId, byte[] serializedEntry, int index) throws IOException {
+    private void appendBytes(long groupId, byte[] serializedEntry, long index) throws IOException {
         var entry = new LogEntry();
 
         entry.setId(new LogId(index, 0));

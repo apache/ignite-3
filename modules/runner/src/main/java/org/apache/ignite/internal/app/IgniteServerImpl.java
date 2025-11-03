@@ -19,9 +19,7 @@ package org.apache.ignite.internal.app;
 
 import static java.lang.System.lineSeparator;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -228,29 +226,11 @@ public class IgniteServerImpl implements IgniteServer {
 
     @Override
     public CompletableFuture<Void> waitForInitAsync() {
-        IgniteImpl instance = ignite;
-        if (instance == null) {
+        CompletableFuture<Void> joinFuture = this.joinFuture;
+        if (joinFuture == null) {
             throw new NodeNotStartedException();
         }
 
-        CompletableFuture<Void> joinFuture = this.joinFuture;
-        if (joinFuture == null) {
-            try {
-                joinFuture = instance.joinClusterAsync()
-                        .handle((ignite, e) -> {
-                            if (e == null) {
-                                ackSuccessStart();
-
-                                return null;
-                            } else {
-                                throw handleStartException(e);
-                            }
-                        });
-            } catch (Exception e) {
-                throw handleStartException(e);
-            }
-            this.joinFuture = joinFuture;
-        }
         return joinFuture;
     }
 
@@ -401,11 +381,7 @@ public class IgniteServerImpl implements IgniteServer {
 
         ackRemoteManagement();
 
-        return instance.startAsync().handle((result, throwable) -> {
-            if (throwable != null) {
-                return CompletableFuture.<Void>failedFuture(throwable);
-            }
-
+        return instance.startAsync().thenCompose(unused -> {
             synchronized (igniteChangeMutex) {
                 if (shutDown) {
                     LOG.info("A new Ignite instance has started, but a shutdown is requested, so not setting it, stopping it instead "
@@ -414,12 +390,32 @@ public class IgniteServerImpl implements IgniteServer {
                     return instance.stopAsync();
                 }
 
+                LOG.info("Initiating join process [name={}]", nodeName);
+                doWaitForInitAsync(instance);
+
                 LOG.info("Setting Ignite ref to new instance as it has started [name={}]", nodeName);
                 ignite = instance;
             }
 
-            return completedFuture(result);
-        }).thenCompose(identity());
+            return nullCompletedFuture();
+        });
+    }
+
+    private void doWaitForInitAsync(IgniteImpl instance) {
+        try {
+            joinFuture = instance.joinClusterAsync()
+                    .handle((ignite, e) -> {
+                        if (e == null) {
+                            ackSuccessStart();
+
+                            return null;
+                        } else {
+                            throw handleStartException(e);
+                        }
+                    });
+        } catch (Exception e) {
+            throw handleStartException(e);
+        }
     }
 
     @Override

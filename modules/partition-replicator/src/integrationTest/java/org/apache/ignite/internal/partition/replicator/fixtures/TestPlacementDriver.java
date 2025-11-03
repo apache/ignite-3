@@ -127,6 +127,18 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         }
     }
 
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
+            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+        List<TokenizedAssignments> assignments = tokenizedAssignments;
+
+        if (assignments == null) {
+            return failedFuture(new AssertionError("Pre-calculated assignments are not defined in test PlacementDriver yet."));
+        } else {
+            return completedFuture(assignments);
+        }
+    }
+
     private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta(ReplicationGroupId replicationGroupId) {
         if (replicationGroupId instanceof ZonePartitionId && ((ZonePartitionId) replicationGroupId).zoneId() == DEFAULT_ZONE_ID) {
             return nullCompletedFuture();

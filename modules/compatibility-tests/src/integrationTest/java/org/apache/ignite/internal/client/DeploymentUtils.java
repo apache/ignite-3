@@ -22,11 +22,14 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResour
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.netty.util.ResourceLeakDetector;
-import io.netty.util.ResourceLeakDetector.Level;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.internal.IgniteCluster;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -35,8 +38,9 @@ import org.apache.ignite.rest.client.model.DeployMode;
 /**
  * Utility class for deploying jobs.
  */
-class DeploymentUtils {
-    static void deployJobs() {
+public class DeploymentUtils {
+    /** Deploys all jobs in the module. */
+    public static void deployJobs() {
         File jobsJar = Path.of(
                 getResourcePath(ClientCompatibilityTests.class, ""),
                 "../../../libs/ignite-integration-test-jobs-1.0-SNAPSHOT.jar").toFile();
@@ -45,9 +49,6 @@ class DeploymentUtils {
     }
 
     private static void deployUnit(List<File> unitFiles, String unitName, String unitVersion) {
-        // TODO IGNITE-26418 Netty buffer leaks in REST API
-        ResourceLeakDetector.setLevel(Level.DISABLED);
-
         DeployUnitClient deployUnitClient = new DeployUnitClient(new ApiClient());
 
         try {
@@ -55,6 +56,19 @@ class DeploymentUtils {
             assertTrue(deployRes);
         } catch (ApiException e) {
             sneakyThrow(e);
+        }
+    }
+
+    /** Run deployed job. */
+    public static <T, R> R runJob(IgniteCluster cluster, Class<? extends ComputeJob<T, R>> jobClass, T arg) {
+        try (IgniteClient client = cluster.createClient()) {
+            JobDescriptor<T, R> job = JobDescriptor.builder(jobClass)
+                    .units(JOBS_UNIT)
+                    .build();
+
+            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
+
+            return client.compute().execute(jobTarget, job, arg);
         }
     }
 }

@@ -70,8 +70,13 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     HttpClient client;
 
     @BeforeAll
-    public void setUp() {
-        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']", FIRST_ZONE, 3, DEFAULT_AIPERSIST_PROFILE_NAME));
+    public void setUp() throws InterruptedException {
+        sql(String.format(
+                "CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
+                FIRST_ZONE,
+                initialNodes(),
+                DEFAULT_AIPERSIST_PROFILE_NAME
+        ));
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME,
                 FIRST_ZONE));
 
@@ -84,8 +89,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
 
@@ -100,8 +104,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
         assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName.toUpperCase() + "]"));
@@ -111,8 +114,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     void testRestartPartitionsWithCleanupIllegalPartitionNegative() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10));
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
 
@@ -123,8 +125,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     void testRestartPartitionsWithCleanupPartitionsOutOfRange() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT));
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
         assertThat(e.getMessage(), containsString(
@@ -139,33 +140,32 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     void testRestartPartitionsWithCleanupNodesAreCaseSensitive() {
-        Set<String> uppercaseNodeNames = nodeNames(initialNodes() - 1).stream()
-                .map(String::toUpperCase)
-                .collect(toSet());
+        Set<String> uppercaseNodeName = Set.of(CLUSTER.aliveNode().name().toUpperCase());
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
+        MutableHttpRequest<?> post = restartPartitionsRequest(uppercaseNodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 
         assertThat(e.getStatus(), equalTo(HttpStatus.BAD_REQUEST));
-        uppercaseNodeNames.forEach(nodeName -> assertThat(e.getMessage(), containsString(nodeName)));
+        uppercaseNodeName.forEach(nodeName -> assertThat(e.getMessage(), containsString(nodeName)));
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
-    public void testRestartAllPartitionsWithCleanup() {
+    public void testPartitionsWithCleanupEmptySetOfNodes() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpResponse<Void> response = client.toBlocking().exchange(post);
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 
-        assertThat(response.getStatus().getCode(), is(OK.code()));
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+        assertThat(e.getMessage(), containsString("Only one node name should be specified for the operation."));
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
     public void testRestartSpecifiedPartitionsWithCleanup() {
-        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
+        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -173,24 +173,49 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     public void testRestartPartitionsWithCleanupByNodes() {
-        Set<String> nodeNames = nodeNames(initialNodes() - 1);
+        Set<String> nodeNames = nodeNames(initialNodes());
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
-        HttpResponse<Void> response = client.toBlocking().exchange(post);
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 
-        assertThat(response.getStatus().getCode(), is(OK.code()));
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+        assertThat(e.getMessage(), containsString("Only one node name should be specified for the operation."));
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     public void testRestartTablePartitionsWithCleanupByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
         MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
                 new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
+
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+        assertThat(e.getMessage(), containsString("Only one node name should be specified for the operation."));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
+    public void testRestartPartitionsWithCleanupAllPartitions() {
+        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
+
+        HttpResponse<Void> response = client.toBlocking().exchange(post);
+
+        assertThat(response.getStatus().getCode(), is(OK.code()));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
+    public void testRestartTablePartitionsWithCleanupAllPartitions() {
+        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+
+        MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
+                new RestartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 

@@ -270,6 +270,14 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
+     * Returns a row, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
+     *
+     * @param lowerBound Lower bound.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException;
+
+    /**
      * Returns the head of GC queue.
      *
      * @param lowWatermark Upper bound for commit timestamp of GC entry, inclusive.

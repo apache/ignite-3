@@ -14,7 +14,7 @@
 // limitations under the License.
 = Getting Started with SQL
 
-This guide walks you through using Ignite 3 SQL capabilities via the command-line interface. You'll set up a distributed Apache Ignite cluster, create and manipulate the Chinook database (a sample database representing a digital media store), and learn to leverage Ignite's powerful SQL features.
+This guide walks you through using Apache Ignite 3 SQL capabilities via the command-line interface. You'll set up a distributed Apache Ignite cluster, create and manipulate the Chinook database (a sample database representing a digital media store), and learn to leverage Apache Ignite's powerful SQL features.
 
 == Prerequisites
 
@@ -35,9 +35,9 @@ Unpack the archive into a new folder, and place it and the docker compose file i
 
 CAUTION: Without these files, you will be unable to load the sample data needed for the exercises.
 
-== Setting Up a Ignite 3 Cluster
+== Setting Up an Apache Ignite 3 Cluster
 
-Before we can start using SQL, we need to set up a Ignite cluster. We will use Docker Compose to create a three-node cluster.
+Before we can start using SQL, we need to set up an Apache Ignite cluster. We will use Docker Compose to create a three-node cluster.
 
 === Starting the Cluster
 
@@ -83,7 +83,7 @@ In your terminal, run:
 
 [source, bash]
 ----
-docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -v ./sql/:/opt/ignite/downloads/ apacheignite/ignite:3.0.0 cli
+docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -v ./sql/:/opt/ignite/downloads/ apacheignite/ignite:3.1.0 cli
 ----
 
 This starts an interactive CLI container connected to the same Docker network as our cluster and mounts a volume containing the sql files for the Chinook Database. When prompted, connect to the default node. If you refused the connection, you can do it manually with the following command:
@@ -104,7 +104,7 @@ Before we can use the cluster, we need to initialize it:
 
 [source, bash]
 ----
-cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+cluster init --name=ignite3
 ----
 
 NOTE: If the license is not available, make sure the license file was mounted correctly.
@@ -124,13 +124,13 @@ NOTE: If the license is not available, make sure the license file was mounted co
      ####  ##         /___/ \__, //_/ /_//_/ \__/ \___/   /____/
        ##                  /____/
 
-                      Apache Ignite CLI version 3.0.0
+                      Apache Ignite CLI version 3.1.0
 
 
 You appear to have not connected to any node yet. Do you want to connect to the default node http://localhost:10300? [Y/n] y
 Connected to http://localhost:10300
 The cluster is not initialized. Run cluster init command to initialize it.
-[node1]> cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+[node1]> cluster init --name=ignite3
 Cluster was initialized successfully
 [node1]>
 ----
@@ -529,7 +529,6 @@ FROM
 LIMIT 10;
 ----
 
-This complex query uses multiple CTEs to achieve what would typically be done with the RANK() window function. We first count tracks per album, then determine the maximum track count per artist, and finally join these results to identify albums with the most tracks for each artist.
 
 == Data Manipulation in Ignite SQL
 
@@ -789,11 +788,11 @@ One of the key advantages of Ignite is its ability to optimize joins through dat
 
 === Colocated Queries
 
-Let's start by looking at a query where there is a mismatch in the colocation strategy. 
+Let's start by looking at a query where there is a mismatch in the colocation strategy.
 
 [source, sql]
 ----
---This is an example of poorly created table.
+--This is an example of a poorly created table.
 CREATE TABLE InvoiceLine (
     InvoiceLineId INT NOT NULL,
     InvoiceId INT NOT NULL,

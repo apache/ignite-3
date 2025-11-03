@@ -173,7 +173,8 @@ public interface InternalTable extends ManuallyCloseable {
      * @param readTimestamp Read timestamp.
      * @param transactionId Transaction ID (might be {@code null}).
      * @param coordinatorId Ephemeral ID of the transaction coordinator.
-     * @param recipientNode Cluster node that will handle given get request.
+     * @param recipientNode Cluster node that will handle given getAll request. In case if given node is {@code null} then for each
+     *      partition inside of the method recipient node will be calculated separately.
      * @return Future that will return rows with all columns filled from the table. The order of collection elements is
      *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
      *      element at the corresponding index of the resulting collection is {@code null}.
@@ -183,7 +184,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            InternalClusterNode recipientNode
+            @Nullable InternalClusterNode recipientNode
     );
 
     /**

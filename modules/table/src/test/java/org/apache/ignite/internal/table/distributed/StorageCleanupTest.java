@@ -51,6 +51,8 @@ import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
@@ -335,9 +337,10 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         UUID row2Id = UUID.randomUUID();
         UUID row3Id = UUID.randomUUID();
 
-        storageUpdateHandler.handleUpdate(txUuid, row1Id, partitionId, row1, false, null, null, null, null);
-        storageUpdateHandler.handleUpdate(txUuid, row2Id, partitionId, row2, false, null, null, null, null);
-        storageUpdateHandler.handleUpdate(txUuid, row3Id, partitionId, row3, false, null, null, null, null);
+        storageUpdateHandler.handleUpdate(txUuid, row1Id, partitionId, row1, true, null, null, null, null);
+        storageUpdateHandler.handleUpdate(txUuid, row2Id, partitionId, row2, true, null, null, null, null);
+        storageUpdateHandler.handleUpdate(txUuid, row3Id, partitionId, row3, true, null, null, null, null);
+        storageUpdateHandler.eraseVolatileState(txUuid); // simulate the loss of a volatile state.
 
         // Now run cleanup.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
@@ -403,7 +406,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 row3Id, tb3
         );
         // Do not track write intents to simulate the loss of a volatile state.
-        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, false, null, null, null);
+        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null, null);
+        storageUpdateHandler.eraseVolatileState(txUuid);
 
         // Now run cleanup.
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
@@ -460,7 +464,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         HybridTimestamp commitTs = CLOCK.now();
 
-        storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, false, null, null, commitTs, null);
+        storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, true, null, null, commitTs, null);
 
         verify(storage, never()).commitWrite(any(), any(), any());
         verify(storage, never()).abortWrite(any(), any());
@@ -956,7 +960,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
-        // This should lead to an exception
+        // This should lead to an exception.
         HybridTimestamp lastCommitTs = commitTs.subtractPhysicalTime(100);
 
         // Last commit time is before the time of the previously committed value => this should not happen.
@@ -970,4 +974,92 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
+    @Test
+    void testDeleteCommitCleanup() {
+        UUID txUuid = UUID.randomUUID();
+        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+
+        BinaryRow row1 = binaryRow(new TestKey(1, "foo1"), new TestValue(2, "bar"));
+        UUID rowId = UUID.randomUUID();
+        HybridTimestamp commitTs = CLOCK.now();
+
+        storageUpdateHandler.handleUpdate(txUuid, rowId, partitionId, row1, true, null, null, null, null);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
+
+        UUID deleteTx = UUID.randomUUID();
+
+        storageUpdateHandler.handleUpdate(deleteTx, rowId, partitionId, null, true, null, null, null, null);
+
+        storageUpdateHandler.switchWriteIntents(deleteTx, true, CLOCK.now(), null);
+
+        ReadResult finalResult = storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE);
+        assertFalse(finalResult.isWriteIntent());
+        assertNull(finalResult.binaryRow());
+    }
+
+    @Test
+    void testDeleteAbortCleanup() {
+        UUID txUuid = UUID.randomUUID();
+        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+
+        BinaryRow row1 = binaryRow(new TestKey(1, "foo1"), new TestValue(2, "bar"));
+        UUID rowId = UUID.randomUUID();
+        HybridTimestamp commitTs = CLOCK.now();
+
+        storageUpdateHandler.handleUpdate(txUuid, rowId, partitionId, row1, true, null, null, null, null);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
+
+        UUID deleteTx = UUID.randomUUID();
+
+        storageUpdateHandler.handleUpdate(deleteTx, rowId, partitionId, null, true, null, null, null, null);
+
+        storageUpdateHandler.switchWriteIntents(deleteTx, false, null, null);
+
+        ReadResult finalResult = storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE);
+        assertFalse(finalResult.isWriteIntent());
+        assertEquals(row1, finalResult.binaryRow());
+    }
+
+    @Test
+    void testCleanupWithNullLastCommitTsThrowsException() {
+        UUID tx1 = UUID.randomUUID();
+        UUID tx2 = UUID.randomUUID();
+        UUID tx3 = UUID.randomUUID();
+        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+
+        BinaryRow row1 = binaryRow(new TestKey(1, "foo1"), new TestValue(2, "bar"));
+        UUID rowId = UUID.randomUUID();
+
+        storageUpdateHandler.handleUpdate(tx1, rowId, partitionId, row1, true, null, null, null, null);
+        assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
+
+        // add write from tx2 without lastCommitTs.
+        BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
+
+        // When handleUpdate tries to add write and encounters write intent with null lastCommitTs.
+        TxIdMismatchException exception = assertThrows(TxIdMismatchException.class, () ->
+                storageUpdateHandler.handleUpdate(tx2, rowId, partitionId, row2, true, null, null, null, null));
+        assertTrue(exception.getMessage().contains(tx1.toString()));
+        assertTrue(exception.getMessage().contains(tx2.toString()));
+
+        // Verify that no cleanup operations were attempted.
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
+
+        // Verify the original write intent is still there.
+        ReadResult result = storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE);
+        assertTrue(result.isWriteIntent());
+        assertEquals(row1, result.binaryRow());
+
+        // Also check the same logic applies for the committed case.
+        HybridTimestamp commitTs = CLOCK.now();
+        StorageException storageException = assertThrows(StorageException.class, () ->
+                storageUpdateHandler.handleUpdate(tx3, rowId, partitionId, row2, false, null, commitTs, null, null));
+        assertTrue(storageException.getMessage().contains("Write intent exists"));
+
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
+        verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
+    }
 }

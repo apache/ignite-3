@@ -55,7 +55,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         pojo.val = "val";
         pojo.unmapped = "unmapped";
 
-        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, pojo), IllegalArgumentException.class);
+        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, pojo), MarshallerException.class);
         assertEquals(
                 "Fields [unmapped, unmapped2] of type "
                         + "org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$TestPojo2 are not mapped to columns",
@@ -69,7 +69,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         var pojo = new TestPojo();
 
-        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, pojo, pojo), IllegalArgumentException.class);
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, pojo, pojo), MarshallerException.class);
         assertEquals(
                 "Fields [val] of type org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest$TestPojo "
                         + "are not mapped to columns",
@@ -83,7 +83,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         var pojo = new TestPojo();
 
-        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, pojo), IllegalArgumentException.class);
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, pojo), MarshallerException.class);
         assertEquals(
                 "Fields [key] of type org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest$TestPojo "
                         + "are not mapped to columns",
@@ -129,7 +129,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Table table = ignite().tables().table(TABLE_NAME);
         var pojoView = table.recordView(MissingFieldPojo.class);
 
-        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, new MissingFieldPojo()), IllegalArgumentException.class);
+        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, new MissingFieldPojo()), MarshallerException.class);
         assertEquals("No mapped object field found for column 'KEY'", ex.getMessage());
     }
 
@@ -138,7 +138,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Table table = ignite().tables().table(TABLE_NAME);
         var kvPojoView = table.keyValueView(MissingFieldPojo.class, String.class);
 
-        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, new MissingFieldPojo(), ""), IllegalArgumentException.class);
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, new MissingFieldPojo(), ""), MarshallerException.class);
         assertEquals("No mapped object field found for column 'KEY'", ex.getMessage());
     }
 

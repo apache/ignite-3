@@ -12,7 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-= How to Start a Ignite 3 Cluster in Docker
+= How to Start an Ignite 3 Cluster in Docker
 
 This guide walks you through the process of setting up and running an Apache Ignite 3 cluster using Docker containers. Follow these steps to get a three-node cluster up and running quickly.
 
@@ -31,7 +31,7 @@ This guide walks you through the process of setting up and running an Apache Ign
 name: ignite3
 
 x-ignite-def: &ignite-def
-  image: apacheignite/ignite:3.0.0
+  image: apacheignite/ignite:3.1.0
   environment:
     JVM_MAX_MEM: "4g"
     JVM_MIN_MEM: "4g"
@@ -93,9 +93,9 @@ Here is how the command output may look:
 [source, text]
 ----
 NAME              IMAGE                       COMMAND                  SERVICE   CREATED          STATUS          PORTS
-ignite3-node1-1   apacheignite/ignite:3.0.0   "docker-entrypoint.s…"   node1     13 seconds ago   Up 10 seconds   0.0.0.0:10300->10300/tcp, 3344/tcp, 0.0.0.0:10800->10800/tcp
-ignite3-node2-1   apacheignite/ignite:3.0.0   "docker-entrypoint.s…"   node2     13 seconds ago   Up 10 seconds   3344/tcp, 0.0.0.0:10301->10300/tcp, 0.0.0.0:10801->10800/tcp
-ignite3-node3-1   apacheignite/ignite:3.0.0   "docker-entrypoint.s…"   node3     13 seconds ago   Up 10 seconds   3344/tcp, 0.0.0.0:10302->10300/tcp, 0.0.0.0:10802->10800/tcp
+ignite3-node1-1   apacheignite/ignite:3.1.0   "docker-entrypoint.s…"   node1     13 seconds ago   Up 10 seconds   0.0.0.0:10300->10300/tcp, 3344/tcp, 0.0.0.0:10800->10800/tcp
+ignite3-node2-1   apacheignite/ignite:3.1.0   "docker-entrypoint.s…"   node2     13 seconds ago   Up 10 seconds   3344/tcp, 0.0.0.0:10301->10300/tcp, 0.0.0.0:10801->10800/tcp
+ignite3-node3-1   apacheignite/ignite:3.1.0   "docker-entrypoint.s…"   node3     13 seconds ago   Up 10 seconds   3344/tcp, 0.0.0.0:10302->10300/tcp, 0.0.0.0:10802->10800/tcp
 ----
 
 Your nodes are now running, but the cluster is not initialized.
@@ -106,7 +106,7 @@ Your nodes are now running, but the cluster is not initialized.
 +
 [source, text]
 ----
-docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.0.0 cli
+docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.1.0 cli
 ----
 +
 . Inside the CLI, connect to one of the nodes:
@@ -118,11 +118,11 @@ connect http://localhost:10300
 +
 . Confirm the connection to the default node in the CLI tool.
 +
-. Initialize the cluster with a name and the metastorage group of all nodes:
+. Initialize the cluster:
 +
 [source, bash]
 ----
-cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+cluster init --name=ignite3
 ----
 
 The output from this step should be similar to this:
@@ -142,13 +142,13 @@ The output from this step should be similar to this:
      ####  ##         /___/ \__, //_/ /_//_/ \__/ \___/   /____/
        ##                  /____/
 
-                      Apache Ignite CLI version 3.0.0
+                      Apache Ignite CLI version 3.1.0
 
 
 You appear to have not connected to any node yet. Do you want to connect to the default node http://localhost:10300? [Y/n] y
 Connected to http://localhost:10300
 The cluster is not initialized. Run cluster init command to initialize it.
-[node1]> cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+[node1]> cluster init --name=ignite3
 Cluster was initialized successfully
 ----
 

@@ -330,7 +330,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     Runnable::run,
                     mock(MetricManager.class),
                     zoneId -> completedFuture(Set.of()),
-                    id -> null
+                    zoneId -> null
             );
 
             res.add(new Node(

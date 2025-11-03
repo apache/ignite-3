@@ -17,231 +17,53 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.raft.jraft.entity.LogEntry;
-import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
-import org.apache.ignite.raft.jraft.option.LogStorageOptions;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.BaseLogStorageTest;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.Disabled;
 
-@ExtendWith(MockitoExtension.class)
-class SegstoreLogStorageTest extends IgniteAbstractTest {
-    private static final int SEGMENT_SIZE = 1024;
+class SegstoreLogStorageTest extends BaseLogStorageTest {
+    private static final int SEGMENT_SIZE = 512 * 1024; // Same as in JRaft tests.
 
     private static final long GROUP_ID = 1000;
 
     private static final String NODE_NAME = "test";
 
-    private SegstoreLogStorage logStorage;
-
     private SegmentFileManager segmentFileManager;
-
-    @Mock
-    private LogEntryEncoder encoder;
-
-    @BeforeEach
-    void setUp() throws IOException {
-        segmentFileManager = new SegmentFileManager(NODE_NAME, workDir, SEGMENT_SIZE, 1, new NoOpFailureManager());
-
-        logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
-
-        var opts = new LogStorageOptions();
-
-        opts.setLogEntryCodecFactory(new LogEntryCodecFactory() {
-            @Override
-            public LogEntryEncoder encoder() {
-                return encoder;
-            }
-
-            @Override
-            public LogEntryDecoder decoder() {
-                return fail("Should not be called.");
-            }
-        });
-
-        segmentFileManager.start();
-
-        logStorage.init(opts);
-    }
 
     @AfterEach
     void tearDown() throws Exception {
-        closeAllManually(
-                logStorage == null ? null : logStorage::shutdown,
-                segmentFileManager
-        );
+        closeAllManually(segmentFileManager);
     }
 
-    @Test
-    void testAppendEntry() throws IOException {
-        byte[] payload = {1, 2, 3, 4, 5};
+    @Override
+    protected LogStorage newLogStorage() {
+        try {
+            segmentFileManager = new SegmentFileManager(NODE_NAME, path, SEGMENT_SIZE, 1, new NoOpFailureManager());
 
-        doAnswer(invocation -> {
-            ByteBuffer buffer = invocation.getArgument(0);
+            logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
 
-            buffer.put(payload);
-
-            return null;
-        }).when(encoder).encode(any(), any());
-
-        when(encoder.size(any())).thenAnswer(invocation -> payload.length);
-
-        logStorage.appendEntry(new LogEntry());
-
-        List<Path> segmentFiles = segmentFiles();
-
-        assertThat(segmentFiles, hasSize(1));
-
-        try (SeekableByteChannel channel = Files.newByteChannel(segmentFiles.get(0))) {
-            // Skip header.
-            channel.position(channel.position() + SegmentFileManager.HEADER_RECORD.length);
-
-            DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromByteChannel(channel);
-
-            assertThat(entry, is(notNullValue()));
-            assertThat(entry.groupId(), is(GROUP_ID));
-            assertThat(entry.payload(), is(payload));
+            segmentFileManager.start();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
+
+        return logStorage;
     }
 
-    @Test
-    void testAppendEntries() throws IOException {
-        List<byte[]> payloads = generateRandomData();
-
-        var iteratorEncoder = new LogEntryEncoder() {
-            private final Iterator<byte[]> payloadsIterator = payloads.iterator();
-
-            private byte[] nextPayload;
-
-            @Override
-            public byte[] encode(LogEntry log) {
-                return fail("Should not be called.");
-            }
-
-            @Override
-            public void encode(ByteBuffer buffer, LogEntry log) {
-                buffer.put(nextPayload);
-            }
-
-            @Override
-            public int size(LogEntry logEntry) {
-                nextPayload = payloadsIterator.next();
-
-                return nextPayload.length;
-            }
-        };
-
-        doAnswer(invocation -> {
-            iteratorEncoder.encode(invocation.getArgument(0), invocation.getArgument(1));
-
-            return null;
-        }).when(encoder).encode(any(), any());
-
-        when(encoder.size(any())).thenAnswer(invocation -> iteratorEncoder.size(invocation.getArgument(0)));
-
-        List<LogEntry> entries = IntStream.range(0, payloads.size())
-                .mapToObj(i -> {
-                    var entry = new LogEntry();
-
-                    entry.setId(new LogId(i, 0));
-
-                    return entry;
-                })
-                .collect(toList());
-
-        assertThat(logStorage.appendEntries(entries), is(payloads.size()));
-
-        var actualEntries = new ArrayList<DeserializedSegmentPayload>(payloads.size());
-
-        for (Path segmentFile : segmentFiles()) {
-            try (SeekableByteChannel channel = Files.newByteChannel(segmentFile)) {
-                // Skip header.
-                channel.position(channel.position() + SegmentFileManager.HEADER_RECORD.length);
-
-                long bytesRead = SegmentFileManager.HEADER_RECORD.length;
-
-                while (bytesRead < SEGMENT_SIZE - SWITCH_SEGMENT_RECORD.length) {
-                    DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromByteChannel(channel);
-
-                    if (entry == null) {
-                        // EOF reached.
-                        break;
-                    }
-
-                    actualEntries.add(entry);
-
-                    bytesRead += entry.size();
-                }
-            }
-        }
-
-        for (int i = 0; i < actualEntries.size(); i++) {
-            assertThat(actualEntries.get(i).groupId(), is(GROUP_ID));
-            assertThat(actualEntries.get(i).payload(), is(payloads.get(i)));
-        }
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26286")
+    @Override
+    public void testReset() {
+        super.testReset();
     }
 
-    private List<Path> segmentFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
-            return files
-                    .filter(p -> p.getFileName().toString().startsWith("segment"))
-                    .sorted()
-                    .collect(toList());
-        }
-    }
-
-    private static List<byte[]> generateRandomData() {
-        int bytesToGenerate = SEGMENT_SIZE * 3;
-
-        int maxPayloadSize = 100;
-
-        var payloads = new ArrayList<byte[]>();
-
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-
-        while (bytesToGenerate > 0) {
-            int payloadSize = random.nextInt(maxPayloadSize);
-
-            var payload = new byte[payloadSize];
-
-            random.nextBytes(payload);
-
-            payloads.add(payload);
-
-            bytesToGenerate -= payloadSize;
-        }
-
-        return payloads;
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26285")
+    @Override
+    public void testTruncatePrefix() {
+        super.testTruncatePrefix();
     }
 }

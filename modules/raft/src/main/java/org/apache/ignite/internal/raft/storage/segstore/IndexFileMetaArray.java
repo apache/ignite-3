@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import java.util.Arrays;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An array of {@link IndexFileMeta}.
@@ -44,10 +45,10 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray add(IndexFileMeta indexFileMeta) {
-        assert indexFileMeta.firstLogIndex() == array[size - 1].lastLogIndex() + 1 :
+        assert indexFileMeta.firstLogIndexInclusive() == array[size - 1].lastLogIndexExclusive() :
                 String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
-                        array[size - 1].lastLogIndex() + 1,
-                        indexFileMeta.firstLogIndex()
+                        array[size - 1].lastLogIndexExclusive(),
+                        indexFileMeta.firstLogIndexInclusive()
                 );
 
         // The array can be shared between multiple instances, but since it always grows and we read at most "size" elements,
@@ -71,10 +72,27 @@ class IndexFileMetaArray {
         return size;
     }
 
+    long firstLogIndexInclusive() {
+        IndexFileMeta firstMeta = array[0];
+        IndexFileMeta lastMeta = array[size - 1];
+
+        if (firstMeta.firstLogIndexInclusive() >= lastMeta.lastLogIndexExclusive()) {
+            // Log for this group has been truncated.
+            return -1;
+        }
+
+        return firstMeta.firstLogIndexInclusive();
+    }
+
+    long lastLogIndexExclusive() {
+        return array[size - 1].lastLogIndexExclusive();
+    }
+
     /**
-     * Returns the array index of the {@link IndexFileMeta} containing the given Raft log index or {@code -1} if no such meta exists.
+     * Returns the {@link IndexFileMeta} containing the given Raft log index or {@code null} if no such meta exists.
      */
-    int find(long logIndex) {
+    @Nullable
+    IndexFileMeta find(long logIndex) {
         int lowArrayIndex = 0;
         int highArrayIndex = size - 1;
 
@@ -83,15 +101,15 @@ class IndexFileMetaArray {
 
             IndexFileMeta midValue = array[middleArrayIndex];
 
-            if (logIndex < midValue.firstLogIndex()) {
+            if (logIndex < midValue.firstLogIndexInclusive()) {
                 highArrayIndex = middleArrayIndex - 1;
-            } else if (logIndex > midValue.lastLogIndex()) {
+            } else if (logIndex >= midValue.lastLogIndexExclusive()) {
                 lowArrayIndex = middleArrayIndex + 1;
             } else {
-                return middleArrayIndex;
+                return midValue;
             }
         }
 
-        return -1;
+        return null;
     }
 }

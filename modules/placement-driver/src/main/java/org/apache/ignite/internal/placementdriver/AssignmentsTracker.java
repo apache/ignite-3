@@ -17,11 +17,19 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
+import static org.apache.ignite.internal.placementdriver.Utils.extractZoneIdFromGroupId;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCompletionThrowable;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -31,9 +39,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -55,6 +66,7 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class tracks assignment of all replication groups.
@@ -87,6 +99,14 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Pending assignment Meta storage watch listener. */
     private final WatchListener pendingAssignmentsListener;
 
+    /** Map replication group id to futures that are created when assignments are empty. */
+    private final Map<ReplicationGroupId, CompletableFuture<TokenizedAssignments>> nonEmptyAssignmentsFutures = new ConcurrentHashMap<>();
+
+    private final Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider;
+
+    /** Resolver of zone id by table id (result may be {@code null}). */
+    private final Function<Integer, Integer> zoneIdByTableIdResolver;
+
     /**
      * The constructor.
      *
@@ -97,7 +117,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     public AssignmentsTracker(
             MetaStorageManager msManager,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider,
+            Function<Integer, Integer> zoneIdByTableIdResolver
     ) {
         this.msManager = msManager;
         this.failureProcessor = failureProcessor;
@@ -108,6 +130,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
         this.groupPendingAssignments = new ConcurrentHashMap<>();
         this.pendingAssignmentsListener = createPendingAssignmentsListener();
+
+        this.currentDataNodesProvider = currentDataNodesProvider;
+        this.zoneIdByTableIdResolver = zoneIdByTableIdResolver;
     }
 
     /**
@@ -119,10 +144,10 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
             handleRecoveryAssignments(recoveryRevisions, pendingAssignmentsQueuePrefixBytes(), groupPendingAssignments,
-                    bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
+                    bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes(), false
             );
             handleRecoveryAssignments(recoveryRevisions, stableAssignmentsPrefixBytes(), groupStableAssignments,
-                    bytes -> Assignments.fromBytes(bytes).nodes()
+                    bytes -> Assignments.fromBytes(bytes).nodes(), true
             );
         }).whenComplete((res, ex) -> {
             if (ex != null) {
@@ -161,6 +186,122 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 }));
     }
 
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            HybridTimestamp clusterTimeToAwait,
+            long timeoutMillis
+    ) {
+        return msManager
+                .clusterTime()
+                .waitFor(clusterTimeToAwait)
+                .thenCompose(ignored -> inBusyLock(busyLock, () -> {
+                    long now = coarseCurrentTimeMillis();
+                    return awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, now, timeoutMillis);
+                }))
+                .thenApply(identity());
+    }
+
+    private CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignmentsWithCheckMostRecent(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long startTime,
+            long timeoutMillis
+    ) {
+        Map<ReplicationGroupId, TokenizedAssignments> assignmentsMap = stableAssignments();
+
+        Map<Integer, CompletableFuture<TokenizedAssignments>> futures = new HashMap<>();
+        List<TokenizedAssignments> result = new ArrayList<>(replicationGroupIds.size());
+
+        for (int i = 0; i < replicationGroupIds.size(); i++) {
+            ReplicationGroupId groupId = replicationGroupIds.get(i);
+
+            TokenizedAssignments a = assignmentsMap.get(groupId);
+
+            if (a == null || a.nodes().isEmpty()) {
+                if (timeoutMillis > 0) {
+                    futures.put(i, nonEmptyAssignmentFuture(groupId, timeoutMillis));
+                } else {
+                    // If timeout is zero or less, then this group is failed, the correct exception will be thrown
+                    // in #checkEmptyAssignmentsReason().
+                    futures.put(i, failedFuture(new TimeoutException()));
+                }
+            } else {
+                result.add(a);
+            }
+        }
+
+        if (futures.isEmpty()) {
+            return completedFuture(result);
+        } else {
+            return allOf(futures.values())
+                    .handle((unused, e) -> {
+                        CompletableFuture<List<TokenizedAssignments>> r;
+                        Throwable cause = unwrapCompletionThrowable(e);
+
+                        if (cause == null) {
+                            // Get the most recent assignments after the waiting.
+                            long now = System.currentTimeMillis();
+                            long newTimeoutMillis = timeoutMillis - (now - startTime);
+                            r = awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, startTime, newTimeoutMillis);
+                        } else if (cause instanceof EmptyAssignmentsException) {
+                            r = checkEmptyAssignmentsReason((EmptyAssignmentsException) cause);
+                        } else {
+                            r = failedFuture(cause);
+                        }
+
+                        return r;
+                    })
+                    .thenCompose(identity());
+        }
+    }
+
+    private CompletableFuture<List<TokenizedAssignments>> checkEmptyAssignmentsReason(EmptyAssignmentsException ex) {
+        Integer zoneId = extractZoneIdFromGroupId(
+                ex.groupId(),
+                nodeProperties.colocationEnabled(),
+                zoneIdByTableIdResolver
+        );
+
+        if (zoneId == null) {
+            return failedFuture(ex);
+        } else {
+            return currentDataNodesProvider.apply(zoneId)
+                    .thenApply(dataNodes -> {
+                        if (dataNodes.isEmpty()) {
+                            throw new EmptyAssignmentsException(ex.groupId(), new EmptyDataNodesException(zoneId));
+                        } else {
+                            sneakyThrow(ex);
+                            return null;
+                        }
+                    });
+        }
+    }
+
+    private CompletableFuture<TokenizedAssignments> nonEmptyAssignmentFuture(ReplicationGroupId groupId, long futureTimeoutMillis) {
+        CompletableFuture<TokenizedAssignments> result = nonEmptyAssignmentsFutures.computeIfAbsent(groupId, k ->
+                new CompletableFuture<TokenizedAssignments>()
+                        .orTimeout(futureTimeoutMillis, TimeUnit.MILLISECONDS)
+                        .handle((v, e) -> {
+                            if (e instanceof TimeoutException) {
+                                throw new EmptyAssignmentsException(groupId, e);
+                            } else if (e != null) {
+                                sneakyThrow(e);
+                                return null;
+                            } else {
+                                return v;
+                            }
+                        })
+        );
+
+        TokenizedAssignments assignments = groupStableAssignments.get(groupId);
+        if (assignments != null && !assignments.nodes().isEmpty()) {
+            nonEmptyAssignmentsFutures.remove(groupId, result);
+            result.complete(assignments);
+        }
+
+        return result;
+    }
+
     /**
      * Gets stable assignments.
      *
@@ -186,7 +327,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             }
 
             handleReceivedAssignments(event, stableAssignmentsPrefixBytes(), groupStableAssignments,
-                    bytes -> Assignments.fromBytes(bytes).nodes()
+                    bytes -> Assignments.fromBytes(bytes).nodes(), true
             );
 
             return nullCompletedFuture();
@@ -200,7 +341,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             }
 
             handleReceivedAssignments(event, pendingAssignmentsQueuePrefixBytes(), groupPendingAssignments,
-                    bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes()
+                    bytes -> AssignmentsQueue.fromBytes(bytes).poll().nodes(), false
             );
 
             return nullCompletedFuture();
@@ -211,7 +352,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             WatchEvent event,
             byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
-            Function<byte[], Set<Assignment>> deserializer
+            Function<byte[], Set<Assignment>> deserializer,
+            boolean isStable
     ) {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
@@ -220,8 +362,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
             if (entry.tombstone()) {
                 groupIdToAssignmentsMap.remove(grpId);
+                completeNonEmptyAssignmentsFutureIfExists(grpId, null);
             } else {
-                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer);
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer, isStable);
             }
         }
     }
@@ -230,7 +373,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             Revisions recoveryRevisions,
             byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
-            Function<byte[], Set<Assignment>> deserializer
+            Function<byte[], Set<Assignment>> deserializer,
+            boolean isStable
     ) {
         var prefix = new ByteArray(assignmentsMetastoreKeyPrefix);
 
@@ -244,16 +388,17 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
                 ReplicationGroupId grpId = extractReplicationGroupPartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
-                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer);
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry, deserializer, isStable);
             }
         }
     }
 
-    private static void updateGroupAssignments(
+    private void updateGroupAssignments(
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
             ReplicationGroupId grpId,
             Entry entry,
-            Function<byte[], Set<Assignment>> deserializer
+            Function<byte[], Set<Assignment>> deserializer,
+            boolean isStable
     ) {
         byte[] value = entry.value();
 
@@ -262,7 +407,21 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
         Set<Assignment> assignmentNodes = deserializer.apply(value);
 
-        groupIdToAssignmentsMap.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
+        var assignments = new TokenizedAssignmentsImpl(assignmentNodes, entry.revision());
+
+        groupIdToAssignmentsMap.put(grpId, assignments);
+
+        if (isStable && !assignments.nodes().isEmpty()) {
+            completeNonEmptyAssignmentsFutureIfExists(grpId, assignments);
+        }
+    }
+
+    private void completeNonEmptyAssignmentsFutureIfExists(ReplicationGroupId grpId, @Nullable TokenizedAssignments assignments) {
+        CompletableFuture<TokenizedAssignments> fut = nonEmptyAssignmentsFutures.remove(grpId);
+
+        if (fut != null) {
+            fut.complete(assignments);
+        }
     }
 
     private static String collectKeysFromEventAsString(WatchEvent event) {

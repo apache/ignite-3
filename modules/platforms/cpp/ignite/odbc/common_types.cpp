@@ -245,6 +245,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CONFIG_FILE_CREATE:
         case error::code::CONFIG_WRITE:
         case error::code::CONFIG_PARSE:
+        case error::code::JOIN_DENIED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // CodeDeployment group. Group code: 13
@@ -253,6 +254,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNIT_CONTENT_READ:
         case error::code::UNIT_UNAVAILABLE:
         case error::code::UNIT_ZIP:
+        case error::code::UNIT_WRITE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // GarbageCollector group. Group code: 14
@@ -304,7 +306,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
         case error::code::CLUSTER_NOT_IDLE:
-        case error::code::RESTART_WITH_CLEAN_UP:
+        case error::code::NOT_ENOUGH_ALIVE_NODES:
+        case error::code::ILLEGAL_NODES_SET:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCompletionThrowable;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.compute.loader.JobContext;
@@ -38,7 +40,7 @@ class ClassLoaderExceptionsMapper {
     ) {
         return future.handle((v, e) -> {
             if (e instanceof Exception) {
-                throw new CompletionException(mapException(unwrapCompletionException((Exception) e), jobClassName));
+                throw new CompletionException(mapException((Exception) unwrapCompletionThrowable((Exception) e), jobClassName));
             } else {
                 return v;
             }
@@ -68,14 +70,6 @@ class ClassLoaderExceptionsMapper {
             );
         } else {
             return e;
-        }
-    }
-
-    private static Exception unwrapCompletionException(Exception exception) {
-        if (exception instanceof CompletionException) {
-            return (Exception) exception.getCause();
-        } else {
-            return exception;
         }
     }
 }

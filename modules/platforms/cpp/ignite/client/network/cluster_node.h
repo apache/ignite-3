@@ -25,7 +25,7 @@
 namespace ignite {
 
 /**
- * Ignite cluster node.
+ * @brief Abstraction for Ignite cluster node.
  */
 class cluster_node {
 public:

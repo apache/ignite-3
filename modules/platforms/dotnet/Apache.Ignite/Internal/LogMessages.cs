@@ -226,4 +226,11 @@ internal static partial class LogMessages
         EventId = 1030)]
     internal static partial void LogFailedTableOpDebug(
         this ILogger logger, Exception e, ClientOp op);
+
+    [LoggerMessage(
+        Message = "Failed to dispose socket",
+        Level = LogLevel.Warning,
+        EventId = 1031)]
+    internal static partial void LogFailedSocketDispose(
+        this ILogger logger, Exception e);
 }

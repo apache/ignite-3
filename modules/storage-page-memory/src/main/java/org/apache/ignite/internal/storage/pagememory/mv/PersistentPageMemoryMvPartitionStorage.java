@@ -555,6 +555,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return meta.estimatedSize();
     }
 
+    /**
+     * Returns a total number of allocated pages for the storage, including pages that are not in the memory currently.
+     */
+    public int pageCount() {
+        return meta.pageCount();
+    }
+
     @Override
     public void incrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.incrementEstimatedSize(lastCheckpointId));

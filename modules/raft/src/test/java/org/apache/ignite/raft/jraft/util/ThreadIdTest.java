@@ -16,6 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,11 +30,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 public class ThreadIdTest extends BaseIgniteAbstractTest implements ThreadId.OnError {
     private ThreadId id;
     private volatile int errorCode = -1;
@@ -38,7 +38,6 @@ public class ThreadIdTest extends BaseIgniteAbstractTest implements ThreadId.OnE
     public void onError(final ThreadId id, final Object data, final int errorCode) {
         assertSame(id, this.id);
         this.errorCode = errorCode;
-        id.unlock();
     }
 
     @BeforeEach
@@ -75,7 +74,6 @@ public class ThreadIdTest extends BaseIgniteAbstractTest implements ThreadId.OnE
     public void testSetError() throws Exception {
         this.id.setError(100);
         assertEquals(100, this.errorCode);
-        this.id.lock();
         CountDownLatch latch = new CountDownLatch(1);
         Thread t = new Thread(() -> {
             ThreadIdTest.this.id.setError(99);
@@ -84,10 +82,6 @@ public class ThreadIdTest extends BaseIgniteAbstractTest implements ThreadId.OnE
         try {
             t.start();
             latch.await();
-            //just go into pending errors.
-            assertEquals(100, this.errorCode);
-            //invoke onError when unlock
-            this.id.unlock();
             assertEquals(99, this.errorCode);
         } finally {
             t.join();

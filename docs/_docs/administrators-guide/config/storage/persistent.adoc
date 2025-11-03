@@ -16,14 +16,14 @@
 
 == Overview
 
-Ignite Persistence is designed to provide a quick and responsive persistent storage.
-When using the persistent storage, Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
+Apache Ignite Persistence is designed to provide a quick and responsive persistent storage.
+When using the persistent storage, Apache Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
 
-When persistence is enabled, Ignite stores each partition in a separate file on disk. In addition to data partitions, Ignite stores indexes and metadata.
+When persistence is enabled, Apache Ignite stores each partition in a separate file on disk. In addition to data partitions, Apache Ignite stores indexes and metadata.
 
 == Profile Configuration
 
-Each Ignite storage engine can have several storage profiles.
+Each Apache Ignite storage engine can have several storage profiles.
 
 == Checkpointing
 
@@ -35,32 +35,14 @@ Checkpointing is designed to ensure durability of data and recovery in case of a
 
 This process helps you utilize disk space frugally by keeping pages in the most up-to-date state on disk.
 
+== Write Throttling
+
+If a dirty page, scheduled for checkpointing, is updated before being written to disk, its previous state is copied to a special region called a checkpointing buffer. If the buffer overflows, Apache Ignite would have to stop processing all updates until the <<Checkpointing>> is over. As a result, write performance would drop to zero until the checkpointing cycle is completed.
+
+To avoid the scenario where all updates are stopped, Apache Ignite always performs write throttling once the checkpoint buffer is two-thirds full. Once the threshold is reached, checkpoint writer priority is increased, and more priority is given to checkpointing over new updates as the buffer fills more. This prevents buffer overflow while also slowing down update rate.
+
+In most cases, write throttling is caused by a slow drive, or a high update rate, and should not be a part of normal node operation.
+
 == Storage Configuration
 
-In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node. The example below shows sample Ignite cluster configuration with persistence and checkpoints:
-
-[source, json]
-----
-{
-  "ignite" : {
-    "storage" : {
-      "engines" : {
-        "aipersist" : {
-          "checkpoint" : {
-            "checkpointDelayMillis" : 100
-          }
-        }
-      },
-      "profiles:" : [
-        {
-          "name" : "clock_aipersist",
-          "engine": "aipersist",
-          "replacementMode" : "CLOCK"
-        }
-      ]
-    }
-  }
-}
-----
-
-You can then use the profile (in this case, `clock_aipersist`) in your distribution zone configuration.
+In Apache Ignite 3, all storage configuration is consolidated under the `ignite.storage` node configuration. For more information on how storage is configured, see Storage Profiles and Engines documentation.

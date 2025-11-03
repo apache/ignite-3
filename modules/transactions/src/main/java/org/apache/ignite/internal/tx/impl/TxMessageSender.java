@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -207,18 +208,18 @@ public class TxMessageSender {
     /**
      * Send TxStateCoordinatorRequest.
      *
-     * @param primaryConsistentId Node id to send the request to.
+     * @param coordinatorClusterNode Node to send the request to.
      * @param txId Transaction id.
      * @param timestamp Timestamp to pass to target node.
      * @return Completable future of {@link TxStateResponse}.
      */
     public CompletableFuture<TxStateResponse> resolveTxStateFromCoordinator(
-            String primaryConsistentId,
+            InternalClusterNode coordinatorClusterNode,
             UUID txId,
             HybridTimestamp timestamp
     ) {
         return messagingService.invoke(
-                        primaryConsistentId,
+                        coordinatorClusterNode,
                         TX_MESSAGES_FACTORY.txStateCoordinatorRequest()
                                 .readTimestamp(timestamp)
                                 .txId(txId)

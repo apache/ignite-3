@@ -556,7 +556,7 @@ public class Node {
                 Runnable::run,
                 metricManager,
                 zoneId -> completedFuture(Set.of()),
-                id -> null
+                zoneId -> null
         );
 
         var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
@@ -705,6 +705,7 @@ public class Node {
 
         distributionZoneManager = new DistributionZoneManager(
                 name,
+                () -> clusterService.topologyService().localMember().id(),
                 registry,
                 metaStorageManager,
                 logicalTopologyService,
@@ -857,7 +858,8 @@ public class Node {
                 clockService,
                 failureManager,
                 nodeProperties,
-                lowWatermark
+                lowWatermark,
+                txManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);

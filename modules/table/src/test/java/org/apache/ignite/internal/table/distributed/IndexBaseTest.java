@@ -201,7 +201,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime, null);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, lastCommitTime, null);
     }
 
     static BinaryRow defaultRow() {

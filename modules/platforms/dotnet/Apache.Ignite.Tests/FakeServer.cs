@@ -36,6 +36,8 @@ namespace Apache.Ignite.Tests
     using Internal.Proto.BinaryTuple;
     using Internal.Proto.MsgPack;
     using MessagePack;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
     using Network;
 
     /// <summary>
@@ -143,10 +145,19 @@ namespace Apache.Ignite.Tests
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
-            cfg ??= new IgniteClientConfiguration();
+            cfg ??= new IgniteClientConfiguration
+            {
+                OperationTimeout = TimeSpan.FromSeconds(2),
+                SocketTimeout = TimeSpan.FromSeconds(2)
+            };
 
             cfg.Endpoints.Clear();
             cfg.Endpoints.Add(Endpoint);
+
+            if (cfg.LoggerFactory is NullLoggerFactory)
+            {
+                cfg.LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+            }
 
             return await IgniteClient.StartAsync(cfg);
         }

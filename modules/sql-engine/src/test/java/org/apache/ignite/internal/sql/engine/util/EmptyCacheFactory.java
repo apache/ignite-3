@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.time.Duration;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -81,6 +83,11 @@ public class EmptyCacheFactory implements CacheFactory {
         @Override
         public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return remappingFunction.apply(key, null);
+        }
+
+        @Override
+        public Set<Entry<K, V>> entrySet() {
+            return Set.of();
         }
 
         @Override

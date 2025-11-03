@@ -77,6 +77,21 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
         this.group = group;
     }
 
+    /**
+     * Base constructor for all metric source implementations.
+     *
+     * @param name Metric source name.
+     * @param description Description.
+     * @param group Optional group name.
+     * @param holder Metric instances holder.
+     */
+    protected AbstractMetricSource(String name, @Nullable String description, @Nullable String group, @Nullable T holder) {
+        this.name = name;
+        this.description = description;
+        this.group = group;
+        this.holder = holder;
+    }
+
     @Override
     public final String name() {
         return name;

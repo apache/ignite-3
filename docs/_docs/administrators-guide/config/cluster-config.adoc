@@ -269,8 +269,7 @@ bin/ignite3 cluster config show > cluster-config.txt
       "planner" : {
         "estimatedNumberOfQueries" : 1024,
         "maxPlanningTimeMillis" : 15000
-      },
-      "statementMemoryQuota" : "100%"
+      }
     }
   }
 }
@@ -281,16 +280,6 @@ bin/ignite3 cluster config show > cluster-config.txt
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 |planner.estimatedNumberOfQueries|1024|The estimated number of unique queries that are planned to be executed in the cluster in a certain period of time. Used to optimize internal caches and processes. Optional.| Yes | Yes | 0 - Integer.MAX_VALUE
 |planner.maxPlanningTimeMillis|15000|Query planning timeout in milliseconds. Plan optimization process stops when the timeout is reached. "0" means no timeout.| Yes | Yes | 0 - Long.MAX_VALUE
-|statementMemoryQuota|100% a|The amount of memory that can be used by a single SQL statement. A number with a dimension identifier:
-
-* % - percentage of the node's heap memory
-* k - Kb
-* m - Mb
-* g - Gb
-
-"0" with any of he dimension identifiers turns the memory tracking off. | Yes | No a|  * 0-100%
-
-* 0-9223372036854775807k/m/g
 |======
 
 === Transactions Configuration
@@ -316,7 +305,7 @@ bin/ignite3 cluster config show > cluster-config.txt
 
 |======
 
-== System Configuration
+=== System Configuration
 
 This section describes internal properties, which are used by a number of Ignite components. Although you can edit these properties in the same way you edit all others - using the `node config update` CLI command - we suggest that you discuss the proposed changes with the Ignite support team. The properties can apply to the cluster as a whole - see below - or to a link:administrators-guide/config/node-config#system-configuration[specific node].
 

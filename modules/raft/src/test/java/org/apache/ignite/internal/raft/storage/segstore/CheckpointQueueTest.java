@@ -182,7 +182,11 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
             for (int i = 0; i < numEntries; i++) {
                 ReadModeIndexMemTable mockTable = mock(ReadModeIndexMemTable.class);
 
-                when(mockTable.getSegmentFileOffset(anyLong(), anyLong())).thenReturn(i);
+                var segmentInfo = new SegmentInfo(0);
+
+                segmentInfo.addOffset(0, i);
+
+                when(mockTable.segmentInfo(anyLong())).thenReturn(segmentInfo);
 
                 queue.add(segmentFile, mockTable);
             }
@@ -192,7 +196,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
             for (int i = 0; i < numEntries; i++) {
                 Entry entry = queue.peekHead();
 
-                assertThat(entry.memTable().getSegmentFileOffset(0, 0), is(i));
+                assertThat(entry.memTable().segmentInfo(0).getOffset(0), is(i));
 
                 queue.removeHead();
             }
@@ -211,7 +215,11 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
             for (int i = 0; i < numEntries; i++) {
                 ReadModeIndexMemTable mockTable = mock(ReadModeIndexMemTable.class);
 
-                when(mockTable.getSegmentFileOffset(anyLong(), anyLong())).thenReturn(i);
+                var segmentInfo = new SegmentInfo(0);
+
+                segmentInfo.addOffset(0, i);
+
+                when(mockTable.segmentInfo(anyLong())).thenReturn(segmentInfo);
 
                 queue.add(segmentFile, mockTable);
             }
@@ -221,7 +229,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
             for (int i = 0; i < numEntries; i++) {
                 Entry entry = queue.peekHead();
 
-                assertThat(entry.memTable().getSegmentFileOffset(0, 0), is(i));
+                assertThat(entry.memTable().segmentInfo(0).getOffset(0), is(i));
 
                 queue.removeHead();
             }
@@ -238,7 +246,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
                 while (iterator.hasNext()) {
                     Entry entry = iterator.next();
 
-                    int offset = entry.memTable().getSegmentFileOffset(0, 0);
+                    int offset = entry.memTable().segmentInfo(0).getOffset(0);
 
                     // Offsets must be in sequential decreasing order.
                     if (prevOffset != 0) {

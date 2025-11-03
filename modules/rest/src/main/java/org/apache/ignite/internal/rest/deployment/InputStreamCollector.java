@@ -31,7 +31,7 @@ import org.apache.ignite.internal.deployunit.DeploymentUnit;
  * handlers, and other scenarios where deployment content is received in stream format and
  * needs to be converted into deployment units for processing.
  */
-public interface InputStreamCollector extends AutoCloseable {
+public interface InputStreamCollector {
     /**
      * Adds an input stream with the specified filename to the collection.
      * 
@@ -60,4 +60,6 @@ public interface InputStreamCollector extends AutoCloseable {
      * @return a deployment unit containing all collected input streams; never {@code null}.
      */
     DeploymentUnit toDeploymentUnit();
+
+    void rollback() throws Exception;
 }

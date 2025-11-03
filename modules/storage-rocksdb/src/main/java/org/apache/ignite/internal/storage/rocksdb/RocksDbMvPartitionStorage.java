@@ -72,6 +72,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.RowMeta;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
@@ -1107,6 +1108,48 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 it.key(keyBuf);
 
                 return getRowId(keyBuf);
+            } catch (RocksDBException e) {
+                throw new IgniteRocksDbException("Error finding closest Row ID", e);
+            }
+        });
+    }
+
+    @Override
+    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            ByteBuffer keyBuf = prepareDirectDataIdKeyBuf(lowerBound)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
+
+            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
+                it.seek(keyBuf);
+
+                if (!it.isValid()) {
+                    it.status();
+
+                    return null;
+                }
+
+                keyBuf.rewind();
+                int keyLength = it.key(keyBuf);
+                boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
+
+                RowId rowId = getRowId(keyBuf);
+
+                if (isWriteIntent) {
+                    ByteBuffer transactionState = ByteBuffer.wrap(it.value());
+
+                    readDataIdFromTxState(transactionState);
+                    UUID txId = new UUID(transactionState.getLong(), transactionState.getLong());
+                    int commitTableId = transactionState.getInt();
+                    int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
+
+                    return new RowMeta(rowId, txId, commitTableId, commitPartitionId);
+                } else {
+                    return RowMeta.withoutWriteIntent(rowId);
+                }
             } catch (RocksDBException e) {
                 throw new IgniteRocksDbException("Error finding closest Row ID", e);
             }

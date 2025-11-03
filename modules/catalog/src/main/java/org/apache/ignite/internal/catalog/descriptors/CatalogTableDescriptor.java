@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.resolveColumnNames;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,18 +54,20 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     private final CatalogTableSchemaVersions schemaVersions;
 
     @IgniteToStringInclude
-    private final List<CatalogTableColumnDescriptor> columns;
+    private final IntList primaryKeyColumns;
 
     @IgniteToStringInclude
-    private final List<String> primaryKeyColumns;
-
-    @IgniteToStringInclude
-    private final List<String> colocationColumns;
+    private final IntList colocationColumns;
 
     @IgniteToStringExclude
-    private final Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnsMap;
+    private final Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnsByName;
+
+    @IgniteToStringExclude
+    private final Int2ObjectMap<Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnsById;
 
     private final String storageProfile;
+
+    private final CatalogTableProperties properties;
 
     /**
      * Internal constructor.
@@ -71,7 +76,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
      * @param pkIndexId Primary key index ID.
      * @param name Table name.
      * @param zoneId Distribution zone ID.
-     * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
      * @param storageProfile Storage profile.
      * @param timestamp Token of the update of the descriptor.
@@ -82,31 +86,45 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
             int pkIndexId,
             String name,
             int zoneId,
-            List<CatalogTableColumnDescriptor> columns,
-            List<String> pkCols,
-            @Nullable List<String> colocationCols,
+            IntList pkCols,
+            @Nullable IntList colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
-            HybridTimestamp timestamp
+            HybridTimestamp timestamp,
+            CatalogTableProperties properties
     ) {
         super(id, Type.TABLE, name, timestamp);
 
         this.schemaId = schemaId;
         this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;
-        this.columns = columns;
         this.primaryKeyColumns = pkCols;
 
-        Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
-        for (int i = 0; i < columns.size(); i++) {
-            CatalogTableColumnDescriptor column = columns.get(i);
-            columnMap.put(column.name(), new BasicEntry<>(i, column));
+        List<CatalogTableColumnDescriptor> columns = schemaVersions.latestVersionColumns();
+        {
+            Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnByName = IgniteUtils.newHashMap(columns.size());
+            for (int i = 0; i < columns.size(); i++) {
+                CatalogTableColumnDescriptor column = columns.get(i);
+                columnByName.put(column.name(), new BasicEntry<>(i, column));
+            }
+
+            this.columnsByName = columnByName;
         }
 
-        this.columnsMap = columnMap;
+        {
+            Int2ObjectMap<Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnById = new Int2ObjectOpenHashMap<>();
+            for (int i = 0; i < columns.size(); i++) {
+                CatalogTableColumnDescriptor column = columns.get(i);
+                columnById.put(column.id(), new BasicEntry<>(i, column));
+            }
+
+            this.columnsById = columnById;
+        }
+
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
+        this.properties = properties;
     }
 
     /**
@@ -123,10 +141,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 .schemaId(schemaId())
                 .primaryKeyIndexId(primaryKeyIndexId())
                 .schemaVersions(schemaVersions)
-                .columns(columns)
-                .primaryKeyColumns(primaryKeyColumns())
-                .colocationColumns(colocationColumns())
-                .storageProfile(storageProfile());
+                .primaryKeyColumns(primaryKeyColumns)
+                .colocationColumns(colocationColumns)
+                .storageProfile(storageProfile())
+                .staleRowsFraction(properties.staleRowsFraction())
+                .minStaleRowsCount(properties.minStaleRowsCount());
     }
 
     public static Builder builder() {
@@ -171,26 +190,38 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     /**
      * Returns a list primary key column names.
      */
-    public List<String> primaryKeyColumns() {
-        return primaryKeyColumns;
+    public List<String> primaryKeyColumnNames() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26840
+        return resolveColumnNames(this, primaryKeyColumns);
     }
 
     /**
      * Returns a list colocation key column names.
      */
-    public List<String> colocationColumns() {
-        return colocationColumns;
+    public List<String> colocationColumnNames() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26840
+        return resolveColumnNames(this, colocationColumns);
     }
 
     /** {@inheritDoc} */
     @Override
     public List<CatalogTableColumnDescriptor> columns() {
-        return columns;
+        return schemaVersions.latestVersionColumns();
     }
 
     /** Returns a column descriptor for column with given name, {@code null} if absent. */
     public @Nullable CatalogTableColumnDescriptor column(String name) {
-        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsByName.get(name);
+        if (column != null) {
+            return column.getValue();
+        } else {
+            return null;
+        }
+    }
+
+    /** Returns a column descriptor for column with given id, {@code null} if absent. */
+    public @Nullable CatalogTableColumnDescriptor columnById(int columnId) {
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsById.get(columnId);
         if (column != null) {
             return column.getValue();
         } else {
@@ -202,7 +233,19 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
      * Returns an index of a column with the given name, or {@code -1} if such column does not exist.
      */
     public int columnIndex(String name) {
-        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsByName.get(name);
+        if (column != null) {
+            return column.getIntKey();
+        } else {
+            return -1;
+        }
+    }
+
+    /**
+     * Returns an index of a column with the given id, or {@code -1} if such column does not exist.
+     */
+    public int columnIndexById(int columnId) {
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsById.get(columnId);
         if (column != null) {
             return column.getIntKey();
         } else {
@@ -214,14 +257,18 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
      * Returns {@code true} if this the given column is a part of the primary key.
      */
     public boolean isPrimaryKeyColumn(String name) {
-        return primaryKeyColumns.contains(name);
+        CatalogTableColumnDescriptor column = column(name);
+
+        return column != null && primaryKeyColumns.contains(column.id());
     }
 
     /**
      * Returns {@code true} if this the given column is a part of colocation key.
      */
     public boolean isColocationColumn(String name) {
-        return colocationColumns.contains(name);
+        CatalogTableColumnDescriptor column = column(name);
+
+        return column != null && colocationColumns.contains(column.id());
     }
 
     @Override
@@ -241,6 +288,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         return storageProfile;
     }
 
+    /** Returns holder for table-related properties. */
+    public CatalogTableProperties properties() {
+        return properties;
+    }
+
     /**
      * {@code CatalogTableDescriptor} builder static inner class.
      */
@@ -251,12 +303,13 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         private int schemaId;
         private int pkIndexId;
         private CatalogTableSchemaVersions schemaVersions;
-        private List<CatalogTableColumnDescriptor> columns;
-        private List<String> primaryKeyColumns;
-        @Nullable private List<String> colocationColumns;
+        private @Nullable List<CatalogTableColumnDescriptor> columns;
+        private IntList primaryKeyColumns;
+        private @Nullable IntList colocationColumns;
         private String storageProfile;
         private HybridTimestamp timestamp = INITIAL_TIMESTAMP;
-        private int latestSchemaVersion = 0;
+        private double staleRowsFraction;
+        private long minStaleRowsCount;
 
         /**
          * Sets the {@code id} and returns a reference to this Builder enabling method chaining.
@@ -341,7 +394,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          * @param columns the {@code columns} to set
          * @return a reference to this Builder
          */
-        public Builder columns(List<CatalogTableColumnDescriptor> columns) {
+        public Builder newColumns(List<CatalogTableColumnDescriptor> columns) {
             this.columns = columns;
             return this;
         }
@@ -352,7 +405,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          * @param primaryKeyColumns the {@code primaryKeyColumns} to set
          * @return a reference to this Builder
          */
-        public Builder primaryKeyColumns(List<String> primaryKeyColumns) {
+        public Builder primaryKeyColumns(IntList primaryKeyColumns) {
             this.primaryKeyColumns = primaryKeyColumns;
             return this;
         }
@@ -363,7 +416,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          * @param colocationColumns the {@code colocationColumns} to set
          * @return a reference to this Builder
          */
-        public Builder colocationColumns(@Nullable List<String> colocationColumns) {
+        public Builder colocationColumns(@Nullable IntList colocationColumns) {
             this.colocationColumns = colocationColumns;
             return this;
         }
@@ -380,13 +433,26 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         }
 
         /**
-         * Sets the {@code latestSchemaVersion} and returns a reference to this Builder enabling method chaining.
+         * Sets the {@code minStaleRowsCount} and returns a reference to this Builder enabling method chaining.
          *
-         * @param latestSchemaVersion the {@code latestSchemaVersion} to set.
-         * @return a reference to this Builder.
+         * @param minStaleRowsCount The {@code minStaleRowsCount} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableProperties#minStaleRowsCount()
          */
-        public Builder latestSchemaVersion(int latestSchemaVersion) {
-            this.latestSchemaVersion = latestSchemaVersion;
+        public Builder minStaleRowsCount(long minStaleRowsCount) {
+            this.minStaleRowsCount = minStaleRowsCount;
+            return this;
+        }
+
+        /**
+         * Sets the {@code staleRowsFraction} and returns a reference to this Builder enabling method chaining.
+         *
+         * @param staleRowsFraction The {@code staleRowsFraction} to set.
+         * @return A reference to this Builder.
+         * @see CatalogTableProperties#staleRowsFraction()
+         */
+        public Builder staleRowsFraction(double staleRowsFraction) {
+            this.staleRowsFraction = staleRowsFraction;
             return this;
         }
 
@@ -396,9 +462,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
          * @return a {@code CatalogTableDescriptor} built with parameters of this {@code CatalogTableDescriptor.Builder}
          */
         public CatalogTableDescriptor build() {
-            Objects.requireNonNull(columns, "No columns defined.");
-            if (columns.isEmpty()) {
-                throw new IllegalArgumentException("No columns defined.");
+            if (schemaVersions == null && nullOrEmpty(columns)) {
+                throw new IllegalArgumentException("Neither columns nor schemaVersions are defined.");
             }
 
             Objects.requireNonNull(primaryKeyColumns, "No primary key columns.");
@@ -406,37 +471,16 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                 throw new IllegalArgumentException("No primary key columns.");
             }
 
-            if (schemaVersions == null) {
-                // in case we are creating a new table from scratch, if schema version is not defined we make a default one
-                schemaVersions = new CatalogTableSchemaVersions(new TableVersion(columns));
-            }
+            CatalogTableSchemaVersions newSchemaVersions = schemaVersions;
+            if (!nullOrEmpty(columns)) {
+                TableVersion version = new TableVersion(columns);
 
-            if (latestSchemaVersion == 0) {
-                latestSchemaVersion = schemaVersions.latestVersion();
-            } else if (latestSchemaVersion < schemaVersions.latestVersion()) {
-                throw new IllegalArgumentException(format(
-                        "Latest schema version {} should not be less than a previous version {}.",
-                        latestSchemaVersion,
-                        schemaVersions.latestVersion()
-                ));
-            }
-
-            if (latestSchemaVersion == schemaVersions.latestVersion()) {
-                TableVersion latestTableVersion = Objects.requireNonNull(schemaVersions.get(schemaVersions.latestVersion()));
-                if (!Objects.equals(latestTableVersion.columns(), columns)) {
-                    throw new IllegalArgumentException(format(
-                            "Latest schema version columns do not match descriptor definition columns. "
-                                    + "Schema columns: {}, table columns: {}.",
-                            latestTableVersion.columns(),
-                            columns
-                    ));
+                if (schemaVersions == null) {
+                    newSchemaVersions = new CatalogTableSchemaVersions(version);
+                } else {
+                    newSchemaVersions = schemaVersions.append(version);
                 }
             }
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-26501
-            CatalogTableSchemaVersions newSchemaVersions = latestSchemaVersion == schemaVersions.latestVersion()
-                    ? schemaVersions
-                    : schemaVersions.append(new TableVersion(columns), latestSchemaVersion);
 
             return new CatalogTableDescriptor(
                     id,
@@ -444,12 +488,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
                     pkIndexId,
                     name,
                     zoneId,
-                    columns,
                     primaryKeyColumns,
                     colocationColumns,
                     newSchemaVersions,
                     storageProfile,
-                    timestamp
+                    timestamp,
+                    new CatalogTableProperties(staleRowsFraction, minStaleRowsCount)
             );
         }
     }

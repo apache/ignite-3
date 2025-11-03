@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface representing a deployment unit in the Apache Ignite code deployment system.
@@ -45,10 +45,9 @@ public interface DeploymentUnit extends AutoCloseable {
      *
      *
      * @param <T> the type of argument passed to the processor
+     * @param <R> the type of result
      * @param processor the processor that will handle the deployment unit content
-     * @param unitFolder the argument to be passed to the processor during processing
-     * @throws IOException if an I/O error occurs during processing, such as issues reading
-     *                     deployment unit content or writing processed results.
+     * @param arg the argument to be passed to the processor during processing
      */
-    <T> void process(DeploymentUnitProcessor<T> processor, T unitFolder) throws IOException;
+    <T, R> CompletableFuture<R> process(DeploymentUnitProcessor<T, R> processor, T arg);
 }

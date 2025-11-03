@@ -433,7 +433,7 @@ public class IgniteImpl implements Ignite {
     /** Metric messaging. */
     private final MetricMessaging metricMessaging;
 
-    private final IgniteDeployment deploymentManager;
+    private final DeploymentManagerImpl deploymentManager;
 
     private final DistributionZoneManager distributionZoneManager;
 
@@ -993,6 +993,7 @@ public class IgniteImpl implements Ignite {
 
         distributionZoneManager = new DistributionZoneManager(
                 name,
+                () -> clusterSvc.topologyService().localMember().id(),
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,
@@ -1197,7 +1198,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 failureManager,
                 nodeProperties,
-                lowWatermark
+                lowWatermark,
+                txManager
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -1408,7 +1410,8 @@ public class IgniteImpl implements Ignite {
                 new JdbcPortProviderImpl(nodeCfgMgr.configurationRegistry()));
         Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
-        Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
+        Supplier<RestFactory> deploymentCodeRestFactory =
+                () -> new CodeDeploymentRestFactory(deploymentManager, deploymentManager.tempStorageProvider());
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
         Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
@@ -1646,6 +1649,10 @@ public class IgniteImpl implements Ignite {
 
                         // Enable REST component on start complete.
                         restComponent.enable();
+
+                        // Enable compute messages handling
+                        computeComponent.enable();
+
                         // Transfer the node to the STARTED state.
                         lifecycleManager.onStartComplete();
                     } catch (NodeStoppingException e) {

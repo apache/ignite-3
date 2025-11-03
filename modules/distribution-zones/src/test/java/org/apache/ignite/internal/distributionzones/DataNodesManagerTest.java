@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -138,15 +139,19 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
 
+        UUID nodeId = UUID.randomUUID();
+
         dataNodesManager = new DataNodesManager(
                 NODE_NAME,
+                () -> nodeId,
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 catalogManager,
                 clockService,
                 new NoOpFailureManager(),
                 partitionResetClosure,
-                () -> 1
+                () -> 1,
+                Collections::emptySet
         );
 
         currentTopology = new HashSet<>(Set.of(A, B));

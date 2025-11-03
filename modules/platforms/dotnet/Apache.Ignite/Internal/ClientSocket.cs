@@ -298,6 +298,7 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         public void Dispose()
         {
+            // There is no finalizer because _heartbeatTimer holds a reference to this instance.
             Dispose(null);
         }
 
@@ -998,17 +999,43 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Disposes this socket and completes active requests with the specified exception.
         /// </summary>
-        /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
+        /// <param name="ex">Exception that caused this socket to close. Null when the socket is closed by the user.</param>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed.")]
         private void Dispose(Exception? ex)
         {
             lock (_disposeLock)
             {
+                // State check.
                 if (_disposeTokenSource.IsCancellationRequested)
                 {
                     return;
                 }
 
                 _disposeTokenSource.Cancel();
+
+                // Actual dispose.
+                try
+                {
+                    _heartbeatTimer.Dispose();
+                }
+                catch (Exception e)
+                {
+                    _logger.LogFailedSocketDispose(e);
+                }
+
+                try
+                {
+                    _stream.Dispose();
+                }
+                catch (Exception e)
+                {
+                    _logger.LogFailedSocketDispose(e);
+                }
+
+                // Metrics and logging.
+                _exception = ex;
+
+                Metrics.ConnectionsActiveDecrement();
 
                 if (ex != null)
                 {
@@ -1025,10 +1052,6 @@ namespace Apache.Ignite.Internal
                 {
                     _logger.LogConnectionClosedGracefullyDebug(ConnectionContext.ClusterNode.Address);
                 }
-
-                _heartbeatTimer.Dispose();
-                _exception = ex;
-                _stream.Dispose();
 
                 ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
 
@@ -1054,8 +1077,6 @@ namespace Apache.Ignite.Internal
                         }
                     }
                 }
-
-                Metrics.ConnectionsActiveDecrement();
 
                 if (ComputeJobExecutor.IgniteComputeExecutorId != null)
                 {

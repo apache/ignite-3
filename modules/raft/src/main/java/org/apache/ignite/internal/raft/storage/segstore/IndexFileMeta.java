@@ -17,36 +17,49 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import org.apache.ignite.internal.tostring.S;
+
 /**
  * Meta information about a payload in an index file.
  *
  * @see IndexFileManager
  */
 class IndexFileMeta {
-    private final long firstLogIndex;
+    private final long firstLogIndexInclusive;
 
-    private final long lastLogIndex;
+    private final long lastLogIndexExclusive;
 
     private final int indexFilePayloadOffset;
 
-    IndexFileMeta(long firstLogIndex, long lastLogIndex, int indexFilePayloadOffset) {
-        this.firstLogIndex = firstLogIndex;
-        this.lastLogIndex = lastLogIndex;
+    private final int indexFileOrdinal;
+
+    IndexFileMeta(long firstLogIndexInclusive, long lastLogIndexExclusive, int indexFilePayloadOffset, int indexFileOrdinal) {
+        if (lastLogIndexExclusive < firstLogIndexInclusive) {
+            throw new IllegalArgumentException("Invalid log index range: [" + firstLogIndexInclusive + ", " + lastLogIndexExclusive + ").");
+        }
+
+        if (indexFileOrdinal < 0) {
+            throw new IllegalArgumentException("Invalid index file ordinal: " + indexFileOrdinal);
+        }
+
+        this.firstLogIndexInclusive = firstLogIndexInclusive;
+        this.lastLogIndexExclusive = lastLogIndexExclusive;
         this.indexFilePayloadOffset = indexFilePayloadOffset;
+        this.indexFileOrdinal = indexFileOrdinal;
     }
 
     /**
      * Returns the inclusive lower bound of log indices stored in the index file for the Raft Group.
      */
-    long firstLogIndex() {
-        return firstLogIndex;
+    long firstLogIndexInclusive() {
+        return firstLogIndexInclusive;
     }
 
     /**
-     * Returns the inclusive upper bound of log indices stored in the index file for the Raft Group.
+     * Returns the exclusive upper bound of log indices stored in the index file for the Raft Group.
      */
-    long lastLogIndex() {
-        return lastLogIndex;
+    long lastLogIndexExclusive() {
+        return lastLogIndexExclusive;
     }
 
     /**
@@ -56,22 +69,44 @@ class IndexFileMeta {
         return indexFilePayloadOffset;
     }
 
+    /**
+     * Returns the ordinal of the index file.
+     */
+    int indexFileOrdinal() {
+        return indexFileOrdinal;
+    }
+
+    /**
+     * Returns {@code true} if the index meta is empty. This happens if some data was inserted but then the log suffix got truncated,
+     * completely wiping it out.
+     */
+    boolean isEmpty() {
+        return firstLogIndexInclusive == lastLogIndexExclusive;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
-        IndexFileMeta fileMeta = (IndexFileMeta) o;
-        return firstLogIndex == fileMeta.firstLogIndex && lastLogIndex == fileMeta.lastLogIndex
-                && indexFilePayloadOffset == fileMeta.indexFilePayloadOffset;
+        IndexFileMeta that = (IndexFileMeta) o;
+        return firstLogIndexInclusive == that.firstLogIndexInclusive && lastLogIndexExclusive == that.lastLogIndexExclusive
+                && indexFilePayloadOffset == that.indexFilePayloadOffset
+                && indexFileOrdinal == that.indexFileOrdinal;
     }
 
     @Override
     public int hashCode() {
-        int result = Long.hashCode(firstLogIndex);
-        result = 31 * result + Long.hashCode(lastLogIndex);
+        int result = Long.hashCode(firstLogIndexInclusive);
+        result = 31 * result + Long.hashCode(lastLogIndexExclusive);
         result = 31 * result + indexFilePayloadOffset;
+        result = 31 * result + indexFileOrdinal;
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

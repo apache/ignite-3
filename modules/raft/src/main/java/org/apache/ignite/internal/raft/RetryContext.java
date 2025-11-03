@@ -48,7 +48,7 @@ class RetryContext {
 
     private Peer targetPeer;
 
-    private final Supplier<String> originDescription;
+    private final Supplier<@Nullable String> originDescription;
 
     private final Function<Peer, ? extends NetworkMessage> requestFactory;
 
@@ -92,6 +92,8 @@ class RetryContext {
 
     private long attemptStartTime;
 
+    private final long responseTimeoutMillis;
+
     /**
      * Creates a context.
      *
@@ -101,13 +103,16 @@ class RetryContext {
      *         this request is independent.
      * @param requestFactory Factory for creating requests to the target peer.
      * @param stopTime Timestamp that denotes the point in time up to which retry attempts will be made.
+     * @param responseTimeoutMillis Response timeout for each attempt (up to {@code stopTime}) in milliseconds, {@code -1} if using
+     *      {@link ThrottlingContextHolder#peerRequestTimeoutMillis} (default).
      */
     RetryContext(
             String groupId,
             Peer targetPeer,
-            Supplier<String> originDescription,
+            Supplier<@Nullable String> originDescription,
             Function<Peer, ? extends NetworkMessage> requestFactory,
-            long stopTime
+            long stopTime,
+            long responseTimeoutMillis
     ) {
         this.groupId = groupId;
         this.targetPeer = targetPeer;
@@ -118,6 +123,7 @@ class RetryContext {
         this.startTime = System.currentTimeMillis();
         this.attemptScheduleTime = this.startTime;
         this.attemptStartTime = this.startTime;
+        this.responseTimeoutMillis = responseTimeoutMillis;
     }
 
     Peer targetPeer() {
@@ -240,5 +246,13 @@ class RetryContext {
             // Purposefully make it shorter than "S.toString".
             return "[time=" + timestamp + ", msg=" + reason + "]";
         }
+    }
+
+    /**
+     * Returns response timeout for each attempt (up to {@code stopTime}) in milliseconds, {@code -1} if using
+     * {@link ThrottlingContextHolder#peerRequestTimeoutMillis} (default).
+     */
+    long responseTimeoutMillis() {
+        return responseTimeoutMillis;
     }
 }

@@ -19,63 +19,119 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents in-memory meta information about a particular Raft group stored in an index file.
  */
 class GroupIndexMeta {
-    private static final VarHandle FILE_METAS_VH;
+    private static class IndexMetaArrayHolder {
+        private static final VarHandle FILE_METAS_VH;
 
-    static {
-        try {
-            FILE_METAS_VH = MethodHandles.lookup().findVarHandle(GroupIndexMeta.class, "fileMetas", IndexFileMetaArray.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
+        static {
+            try {
+                FILE_METAS_VH = MethodHandles.lookup().findVarHandle(IndexMetaArrayHolder.class, "fileMetas", IndexFileMetaArray.class);
+            } catch (ReflectiveOperationException e) {
+                throw new ExceptionInInitializerError(e);
+            }
+        }
+
+        @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
+        volatile IndexFileMetaArray fileMetas;
+
+        IndexMetaArrayHolder(IndexFileMeta startFileMeta) {
+            this.fileMetas = new IndexFileMetaArray(startFileMeta);
+        }
+
+        void addIndexMeta(IndexFileMeta indexFileMeta) {
+            IndexFileMetaArray fileMetas = this.fileMetas;
+
+            IndexFileMetaArray newFileMetas = fileMetas.add(indexFileMeta);
+
+            // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
+            // this invariant, just in case.
+            boolean updated = FILE_METAS_VH.compareAndSet(this, fileMetas, newFileMetas);
+
+            assert updated : "Concurrent writes detected";
         }
     }
 
-    /**
-     * Ordinal number of the first index file in the group.
-     */
-    private final int startFileOrdinal;
+    private final Deque<IndexMetaArrayHolder> fileMetaDeque = new ConcurrentLinkedDeque<>();
 
-    @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
-    private volatile IndexFileMetaArray fileMetas;
-
-    GroupIndexMeta(int startFileOrdinal, IndexFileMeta startFileMeta) {
-        this.startFileOrdinal = startFileOrdinal;
-        this.fileMetas = new IndexFileMetaArray(startFileMeta);
+    GroupIndexMeta(IndexFileMeta startFileMeta) {
+        fileMetaDeque.add(new IndexMetaArrayHolder(startFileMeta));
     }
 
     void addIndexMeta(IndexFileMeta indexFileMeta) {
-        IndexFileMetaArray fileMetas = this.fileMetas;
+        IndexMetaArrayHolder curFileMetas = fileMetaDeque.getLast();
 
-        IndexFileMetaArray newFileMetas = fileMetas.add(indexFileMeta);
+        long curLastLogIndex = curFileMetas.fileMetas.lastLogIndexExclusive();
 
-        // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
-        // this invariant, just in case.
-        boolean updated = FILE_METAS_VH.compareAndSet(this, fileMetas, newFileMetas);
+        long newFirstLogIndex = indexFileMeta.firstLogIndexInclusive();
 
-        assert updated : "Concurrent writes detected";
+        assert newFirstLogIndex <= curLastLogIndex :
+                String.format(
+                        "Gaps between Index File Metas are not allowed. Last log index: %d, new log index: %d",
+                        curLastLogIndex, newFirstLogIndex
+                );
+
+        // Merge consecutive index metas into a single meta block. If there's an overlap (e.g. due to log truncation), start a new block,
+        // which will override the previous one during search.
+        if (curLastLogIndex == newFirstLogIndex) {
+            curFileMetas.addIndexMeta(indexFileMeta);
+        } else {
+            fileMetaDeque.add(new IndexMetaArrayHolder(indexFileMeta));
+        }
     }
 
     /**
-     * Returns a file pointer that uniquely identifies the index file for the given log index. Returns {@code null} if the given log index
+     * Returns index file meta that uniquely identifies the index file for the given log index. Returns {@code null} if the given log index
      * is not found in any of the index files in this group.
      */
     @Nullable
-    IndexFilePointer indexFilePointer(long logIndex) {
-        IndexFileMetaArray fileMetas = this.fileMetas;
+    IndexFileMeta indexMeta(long logIndex) {
+        Iterator<IndexMetaArrayHolder> it = fileMetaDeque.descendingIterator();
 
-        int arrayIndex = fileMetas.find(logIndex);
+        while (it.hasNext()) {
+            IndexFileMetaArray fileMetas = it.next().fileMetas;
 
-        if (arrayIndex < 0) {
-            return null;
+            // Log suffix might have been truncated, so we can have an entry on the top of the queue that cuts off part of the search range.
+            if (logIndex >= fileMetas.lastLogIndexExclusive()) {
+                return null;
+            }
+
+            if (logIndex < fileMetas.firstLogIndexInclusive()) {
+                continue;
+            }
+
+            IndexFileMeta indexMeta = fileMetas.find(logIndex);
+
+            if (indexMeta != null) {
+                return indexMeta;
+            }
         }
 
-        IndexFileMeta meta = fileMetas.get(arrayIndex);
+        return null;
+    }
 
-        return new IndexFilePointer(startFileOrdinal + arrayIndex, meta);
+    long firstLogIndexInclusive() {
+        for (IndexMetaArrayHolder indexMetaArrayHolder : fileMetaDeque) {
+            long firstLogIndex = indexMetaArrayHolder.fileMetas.firstLogIndexInclusive();
+
+            // "firstLogIndexInclusive" can return -1 of the index file does not contain any entries for this group, only the truncation
+            // record.
+            if (firstLogIndex >= 0) {
+                return firstLogIndex;
+            }
+        }
+
+        return -1;
+    }
+
+    long lastLogIndexExclusive() {
+        return fileMetaDeque.getLast().fileMetas.lastLogIndexExclusive();
     }
 }

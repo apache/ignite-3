@@ -14,23 +14,23 @@
 // limitations under the License.
 = Performing Transactions
 
-All queries in Ignite 3 are transactional. You can provide an explicit transaction as a first argument of any Table and SQL API call. If you do not provide an explicit transaction, an implicit one will be created for every call.
+All queries in Apache Ignite are transactional. You can provide an explicit transaction as a first argument of any Table and SQL API call. If you do not provide an explicit transaction, an implicit one will be created for every call.
 
 == Transaction Lifecycle
 
-When the transaction is created, the node that the transaction was started from is chosen as *transaction coordinator*. The coordinator finds the required link:administrators-guide/data-partitions[partitions] and sends the read or write requests to the nodes holding primary partitions. For correct transaction operation, all nodes in cluster must have similar time, that can be different by no more than `schemaSync.maxClockSkewMillis`.
+When the transaction is created, the node that the transaction was started from is chosen as *transaction coordinator*. The coordinator finds the required link:administrators-guide/storage/data-partitions[partitions] and sends the read or write requests to the nodes holding primary partitions. For correct transaction operation, all nodes in cluster must have similar time, that can be different by no more than `schemaSync.maxClockSkewMillis`.
 
 If the key is not locked by a different transaction, the node gets the locks on the involved keys, and attempts to apply the changes in the transaction. When the operation finishes, the lock is removed. This way, several transactions can work on the same partition, while changing separate keys. Additionally, some operations may perform *short-term* locks on the keys in advance, to ensure operations proceed correctly.
 
-If the node with primary replica of the partition involved in the transaction fail, the transaction is eventually automatically rolled back. Ignite will return `TransactionException` on commit attempt.
+If the node with the primary replica of a partition involved in the transaction fails, the transaction is eventually automatically rolled back. Apache Ignite will return `TransactionException` on commit attempt.
 
 == Transaction Isolation and Concurrency
 
-All read-write transactions in Ignite acquire locks during the first read or write access, and hold the lock until the transaction is committed or rolled back. All read-write transactions are `SERIALIZABLE`, so as long as the lock persists, no other transaction can make changes to locked data, however data can still be read by <<Read-Only Transactions>>.
+All read-write transactions in Apache Ignite acquire locks during the first read or write access, and hold the lock until the transaction is committed or rolled back. All read-write transactions are `SERIALIZABLE`, so as long as the lock persists, no other transaction can make changes to locked data, however data can still be read by <<Read-Only Transactions>>.
 
 === Deadlock Prevention
 
-Ignite 3 uses the `WAIT_DIE` deadlock prevention algorithm. When a newer transaction requests data that is already locked by a different transaction, it is cancelled and the transaction operation is retried with the same timestamp. If the transaction is older, it is not cancelled and is allowed to wait for the lock to be freed.
+Apache Ignite uses the `WAIT_DIE` deadlock prevention algorithm. When a newer transaction requests data that is already locked by a different transaction, it is cancelled and the transaction operation is retried with the same timestamp. If the transaction is older, it is not cancelled and is allowed to wait for the lock to be freed.
 
 == Executing Transactions
 
@@ -117,39 +117,59 @@ assert(accounts.get(&tx, {42})->balance == 16'000);
 
 == Transaction Management
 
-You can also manage transactions by using the `runInTransaction` class. When using it, the following will be done automatically:
+You can also manage transactions by using the `runInTransaction` method. When using it, the following will be done automatically:
 
 - The transaction is started and substituted to the closure.
 - The transaction is committed if no exceptions were thrown during the closure.
 - The transaction will be retried in case of recoverable error. Closure must be purely functional - not causing side effects.
 
-Here is the example of a transaction that transfers money from one account to another, and handles a possible overdraft:
+You can run transactions both synchronously and asynchronously.
+
+This example shows how to update an account's balance synchronously:
 
 [tabs]
 --
 tab:Java[]
 [source,java]
 ----
-igniteTransactions.runInTransaction(tx -> {
-    CompletableFuture<Tuple> fut1 = view.getAsync(tx, Tuple.create().set("accountId", 1));
-    CompletableFuture<Tuple> fut2 = view.getAsync(tx, Tuple.create().set("accountId", 2)); // Read second balance concurrently
-    if (fut1.join().doubleValue("balance") - amount < 0) {
-        tx.rollback();
-        return;
+client.transactions().runInTransaction(tx -> {
+    Account acct = accounts.get(tx, key);
+    if (acct != null) {
+        acct.balance += 200.0d;
     }
-
-    view.upsert(tx, Tuple.create().set("accountId", 1).set("balance", fut1.join().doubleValue("balance") - amount));
-    view.upsert(tx, Tuple.create().set("accountId", 2).set("balance", fut2.join().doubleValue("balance") + amount);
+    accounts.put(tx, key, acct);
 });
+
+----
+--
+
+And this example performs the same logic in an asynchronous manner:
+
+[tabs]
+--
+tab:Java[]
+[source,java]
+----
+CompletableFuture<Void> future = client.transactions().runInTransactionAsync(tx ->
+        accounts.getAsync(tx, key)
+                .thenCompose(acct -> {
+                    acct.balance += 300.0d;
+                    return accounts.putAsync(tx, key, acct);
+                })
+);
+future.join();
 ----
 --
 
 == Read-Only Transactions
 
-When starting a transaction, you can configure the transaction as a *read-only* transaction. In these transactions, no data modification can be performed, but they also do not secure locks and can be performed on non-primary link:administrators-guide/data-partitions[partitions], further improving their performance. Read-only transactions always check the data for the moment they were started, even if new data was written to the database.
+When starting a transaction, you can configure the transaction as a *read-only* transaction. In these transactions, no data modification can be performed, but they also do not secure locks and can be performed on non-primary link:administrators-guide/storage/data-partitions[partitions], further improving their performance. Read-only transactions always check the data for the moment they were started, even if new data was written to the database.
 
 Here is how you can make a read-only transaction:
 
+[tabs]
+--
+tab:Java[]
 [source, java]
 ----
 var tx = client.transactions().begin(new TransactionOptions().readOnly(true));
@@ -157,4 +177,72 @@ int balance = accounts.get(tx, 42).balance;
 tx.commit();
 ----
 
-NOTE: Read-only transactions read data at a specific time. If new data was written since, old data will still be stored in link:administrators-guide/data-partitions#version-storage[Version Storage] and will be available until low watermark. If low watermark is reached during the transaction, data will be kept available until it is over.
+tab:.NET[]
+[source, csharp]
+----
+await using var tx = await client.Transactions.BeginAsync(
+    new TransactionOptions { ReadOnly = true });
+var account = await accounts.GetAsync(tx, 42);
+int balance = account.Value.Balance;
+await tx.CommitAsync();
+----
+
+tab:C++[]
+[source, cpp]
+----
+auto tx_opts = transaction_options()
+        .set_read_only(true);
+
+auto tx = m_client.get_transactions().begin(tx_opts);
+
+record_view.get(&tx, 42);
+
+tx.commit();
+----
+--
+
+NOTE: Read-only transactions read data at a specific time. If new data was written since, old data will still be stored in link:administrators-guide/storage/data-partitions#version-storage[Version Storage] and will be available until low watermark. If low watermark is reached during the transaction, data will be kept available until it is over.
+
+== Transaction Timeout
+
+In certain scenarios, it is preferable to drop the transaction if it is taking too long. When the timeout is reached, the transaction is automatically rolled back.
+
+Here is how you can configure transaction timeout:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+KeyValueView<Long, Account> accounts =
+  table.keyValueView(Mapper.of(Long.class), Mapper.of(Account.class));
+
+var tx = client.transactions().begin(new TransactionOptions().timeoutMillis(10000));
+accounts.put(tx, 42, account);
+tx.commit();
+----
+
+tab:.NET[]
+[source, csharp]
+----
+await using var tx = await Client.Transactions.BeginAsync(
+    new TransactionOptions { TimeoutMillis = 10_000 });
+await accounts.PutAsync(tx, 42, account);
+await tx.CommitAsync();
+----
+
+tab:C++[]
+[source, cpp]
+----
+auto accounts = table.get_key_value_view<account, account>();
+
+auto tx_opts = transaction_options()
+       .set_timeout_millis(10000);
+
+auto tx = m_client.get_transactions().begin(tx_opts);
+
+record_view.insert(&tx, 42);
+
+tx.commit();
+----
+--

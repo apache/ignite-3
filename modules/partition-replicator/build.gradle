@@ -57,6 +57,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-transactions'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
+    testImplementation testFixtures(project(':ignite-raft'))
 
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-core'))

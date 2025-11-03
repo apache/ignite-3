@@ -18,7 +18,7 @@ Create a Docker Compose file to run a three-node Ignite cluster:
 name: ignite3
 
 x-ignite-def: &ignite-def
-  image: apacheignite/ignite:3.0.0
+  image: apacheignite/ignite:3.1.0
   environment:
     JVM_MAX_MEM: "4g"
     JVM_MIN_MEM: "4g"
@@ -70,14 +70,14 @@ docker compose up -d
 +
 [source, bash]
 ----
-docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.0.0 cli
+docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.1.0 cli
 ----
 3. Inside the CLI, confirm the connection to the default node.
 4. Initialize the cluster:
 +
 [source, bash]
 ----
-cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+cluster init --name=ignite3
 ----
 +
 5. Enter the SQL mode:
@@ -131,7 +131,7 @@ Include the Ignite client dependency in your `pom.xml` file:
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-client</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 </dependencies>
 ----
@@ -144,7 +144,7 @@ Now, let's create a Java application that connects to our Ignite cluster and per
 
 Create a `Main.java` file with the following code:
 
-TIP: See the structure example above for the expected file location. This examples contains the full class file.
+TIP: See the structure example above for the expected file location. This example contains the full class file.
 
 [source, java]
 ----
@@ -311,7 +311,7 @@ Person2: Joe
 
 == Understanding Table Views in Ignite 3
 
-Ignite 3 provides multiple view patterns for interacting with tables on top of providing a robust SQL API. Examples below showcase how you can work with Ignite tables from your project without SQL. For examples of working with SQL, see the link:get-started/explore-sql[Getting Started with SQL] tutorial.
+Ignite 3 provides multiple view patterns for interacting with tables on top of providing a robust SQL API. Examples below showcase how you can work with Ignite tables from your project without SQL. For examples of working with SQL, see the link:quick-start/explore-sql[Getting Started with SQL] tutorial.
 
 === RecordView Pattern
 

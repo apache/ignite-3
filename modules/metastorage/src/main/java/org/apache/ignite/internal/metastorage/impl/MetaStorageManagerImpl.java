@@ -76,6 +76,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -839,6 +840,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public long appliedRevision() {
         return appliedRevision;
+    }
+
+    @Override
+    public CompletableFuture<Long> currentRevision() {
+        return metaStorageSvcFut.thenCompose(MetaStorageService::currentRevisions)
+                .thenApply(RevisionsInfo::revision);
     }
 
     @Override

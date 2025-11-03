@@ -52,6 +52,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Random;
@@ -351,7 +352,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                List.of(new CatalogIndexColumnDescriptor(catalogTableDescriptor.column("STRKEY").id(), ASC_NULLS_LAST)),
                 true
         );
 
@@ -361,7 +362,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                List.of(new CatalogIndexColumnDescriptor(catalogTableDescriptor.column("STRKEY").id(), ASC_NULLS_LAST)),
                 true
         );
 
@@ -405,7 +406,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY"),
+                IntList.of(catalogTableDescriptor.column("STRKEY").id()),
                 true
         );
 
@@ -415,7 +416,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY"),
+                IntList.of(catalogTableDescriptor.column("STRKEY").id()),
                 true
         );
 
@@ -607,6 +608,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
         assertThrows(StorageDestroyedException.class, () -> storage.scanVersions(rowId));
 
         assertThrows(StorageDestroyedException.class, () -> storage.closestRowId(rowId));
+        assertThrows(StorageDestroyedException.class, () -> storage.closestRow(rowId));
     }
 
     @Test
@@ -1558,6 +1560,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
             assertThrows(StorageRebalanceException.class, () -> storage.scanVersions(rowId));
             assertThrows(StorageRebalanceException.class, () -> storage.scan(clock.now()));
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
+            assertThrows(StorageRebalanceException.class, () -> storage.closestRow(rowId));
 
             return null;
         });

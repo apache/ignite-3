@@ -72,6 +72,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     boolean isLeader();
 
     /**
+     * Returns true when the node is a learner.
+     */
+    boolean isLearner();
+
+    /**
      * Returns true when the node is leader.
      *
      * @param blocking if true, will be blocked until the node finish it's state change
