@@ -20,16 +20,11 @@ package org.apache.ignite.internal.util;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 
 /**
  * Provides access to fast (low-latency), but coarse-grained timestamps.
  */
 public class FastTimestamps {
-    private static final IgniteLogger LOG = Loggers.forClass(FastTimestamps.class);
-
     private static volatile long coarseCurrentTimeMillis = System.currentTimeMillis();
 
     /** The interval in milliseconds for updating a timestamp cache. */
@@ -43,7 +38,6 @@ public class FastTimestamps {
         ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "FastTimestamps updater");
             t.setDaemon(true);
-            t.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
             return t;
         });
 
