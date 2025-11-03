@@ -53,7 +53,7 @@ public class DdlBatchingHelper {
                 || batchGroup == DdlBatchGroup.DROP;
     }
 
-    /** Returns command kind or {@code null} if command is not batch aware. */
+    /** Returns command kind or {@code null} if command is not {@link DdlBatchAware batch aware}. */
     public static @Nullable DdlBatchGroup extractDdlBatchGroup(SqlNode node) {
         DdlBatchAware batchAwareAnnotation = node.getClass().getDeclaredAnnotation(DdlBatchAware.class);
 
