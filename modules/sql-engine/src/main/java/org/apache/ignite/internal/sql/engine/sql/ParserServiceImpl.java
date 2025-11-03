@@ -170,7 +170,7 @@ public class ParserServiceImpl implements ParserService {
         private final String normalizedQuery;
         private final int dynamicParamCount;
         private final Supplier<SqlNode> parsedTreeSupplier;
-        private final DdlBatchGroup ddlBatchGroup;
+        private final @Nullable DdlBatchGroup ddlBatchGroup;
 
         private ParsedResultImpl(
                 SqlQueryType queryType,
