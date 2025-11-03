@@ -218,7 +218,7 @@ public class ParserServiceImpl implements ParserService {
 
         /** {@inheritDoc} */
         @Override
-        public DdlBatchGroup ddlBatchGroup() {
+        public @Nullable DdlBatchGroup ddlBatchGroup() {
             return ddlBatchGroup;
         }
 
