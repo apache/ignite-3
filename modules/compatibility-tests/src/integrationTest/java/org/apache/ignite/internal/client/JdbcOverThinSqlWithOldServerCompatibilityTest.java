@@ -39,7 +39,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ParameterizedClass
 @MethodSource("serverVersions")
-public class JdbcOverThinSqlWithOldServerCompatibilityTest extends CompatibilityTestBase { // implements ClientCompatibilityTests
+public class JdbcOverThinSqlWithOldServerCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         // No-op.
@@ -57,7 +57,7 @@ public class JdbcOverThinSqlWithOldServerCompatibilityTest extends Compatibility
     }
 
     private static List<String> serverVersions() {
-        return List.of("3.0.0");
+        return List.of("3.0.0", "3.1.0");
     }
 
     @Test

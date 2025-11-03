@@ -282,7 +282,7 @@ public class IgniteJdbcDriver implements Driver {
         return instance != null;
     }
 
-    private static TcpIgniteClient createIgniteClient(
+    private TcpIgniteClient createIgniteClient(
             ConnectionProperties connectionProperties,
             HybridTimestampTracker observableTimeTracker
     ) {
@@ -317,8 +317,9 @@ public class IgniteJdbcDriver implements Driver {
                         CONNECTION_ERR,
                         IgniteStringFormatter.format("Connection to node aborted, because the node does not support "
                                 + "the feature required by the driver being used. Please refer to the documentation and use a compatible "
-                                + "version of the JDBC driver to connect to this node [name={}, address={}, productVersion={}]",
-                                node.name(), node.address(), ctx.productVersion()),
+                                + "version of the JDBC driver to connect to this node "
+                                + "[name={}, address={}, productVersion={}, driverVersion={}.{}]",
+                                node.name(), node.address(), ctx.productVersion(), getMajorVersion(), getMinorVersion()),
                         null
                 );
             }
