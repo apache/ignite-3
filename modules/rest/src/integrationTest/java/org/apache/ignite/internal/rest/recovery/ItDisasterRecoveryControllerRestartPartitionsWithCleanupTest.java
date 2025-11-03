@@ -46,7 +46,6 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -161,9 +160,10 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
-    public void testRestartSpecifiedPartitionsWithCleanup() {
-        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+    public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of(0, 1));
+
+        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 
@@ -198,9 +198,10 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
-    public void testRestartPartitionsWithCleanupAllPartitions() {
-        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+    public void testRestartPartitionsWithCleanupAllPartitions() throws InterruptedException {
+        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
+
+        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
@@ -210,9 +211,10 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
-    public void testRestartTablePartitionsWithCleanupAllPartitions() {
-        Set<String> nodeName = Set.of(CLUSTER.aliveNode().name());
+    public void testRestartTablePartitionsWithCleanupAllPartitions() throws InterruptedException {
+        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
+
+        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
         MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
                 new RestartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
