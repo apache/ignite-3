@@ -19,6 +19,7 @@ package org.apache.ignite.internal.disaster.system;
 
 import java.io.IOException;
 import java.util.List;
+import okhttp3.OkHttpClient.Builder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
@@ -93,6 +94,12 @@ class SystemDisasterRecoveryClient {
     }
 
     private static ApiClient createApiClient(String httpHost, int httpPort) {
-        return new ApiClient().setBasePath("http://" + httpHost + ":" + httpPort);
+        Builder builder = new Builder();
+
+        // There is evidence (IGNITE 24671) that sometimes POST requests get duplicated if this is true, hence turning it off
+        // for safety.
+        builder.retryOnConnectionFailure(false);
+
+        return new ApiClient(builder.build()).setBasePath("http://" + httpHost + ":" + httpPort);
     }
 }
