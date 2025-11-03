@@ -306,7 +306,7 @@ public class IgniteJdbcDriver implements Driver {
                 false,
                 extractAuthenticationConfiguration(connectionProperties),
                 IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
-                IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
+                connectionProperties.getPartitionAwarenessMetadataCacheSize()
         );
 
         ChannelValidator channelValidator = ctx -> {
