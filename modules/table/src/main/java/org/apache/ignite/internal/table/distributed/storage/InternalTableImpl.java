@@ -547,7 +547,6 @@ public class InternalTableImpl implements InternalTable {
      * @param lowerBound Lower search bound.
      * @param upperBound Upper search bound.
      * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
-     * @param columnsToInclude Row projection.
      * @return Batch of retrieved rows.
      */
     private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
@@ -559,8 +558,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
+            int flags
     ) {
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
@@ -580,7 +578,6 @@ public class InternalTableImpl implements InternalTable {
                         .lowerBoundPrefix(binaryTupleMessage(lowerBound))
                         .upperBoundPrefix(binaryTupleMessage(upperBound))
                         .flags(flags)
-                        .columnsToInclude(columnsToInclude)
                         .full(tx.implicit()) // Intent for one phase commit.
                         .batchSize(batchSize)
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
@@ -1578,7 +1575,6 @@ public class InternalTableImpl implements InternalTable {
                     recipientNode,
                     null,
                     null,
-                    null,
                     operationContext
             );
         } else {
@@ -1606,17 +1602,16 @@ public class InternalTableImpl implements InternalTable {
             return readOnlyScan(
                     partId,
                     recipientNode,
-                    null,
-                    null,
-                    null,
+                    indexId,
+                    criteria,
                     operationContext
             );
         } else {
             return readWriteScan(
                     partId,
                     recipientNode,
-                    null,
-                    null,
+                    indexId,
+                    criteria,
                     operationContext
             );
         }
@@ -1658,7 +1653,6 @@ public class InternalTableImpl implements InternalTable {
             InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable IndexScanCriteria criteria,
-            @Nullable BitSet columnsToInclude,
             OperationContext opCtx
     ) {
         assert opCtx.txContext().isReadOnly();
@@ -1691,7 +1685,6 @@ public class InternalTableImpl implements InternalTable {
                         .lowerBoundPrefix(binaryTupleMessage(lowerBound))
                         .upperBoundPrefix(binaryTupleMessage(upperBound))
                         .flags(flags)
-                        .columnsToInclude(columnsToInclude)
                         .build();
 
                 return replicaSvc.invoke(recipientNode, request);
@@ -1747,8 +1740,7 @@ public class InternalTableImpl implements InternalTable {
                         null,
                         lowerBound,
                         upperBound,
-                        flags,
-                        null
+                        flags
                 );
             }
 
