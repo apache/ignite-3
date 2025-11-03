@@ -26,12 +26,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DdlBatchingHelper {
     /**
-     * Returns {@code true} if given statement is compatible with script statement.
+     * Returns {@code true} if that statement is compatible with this statement.
      * Node: the operation is not commutative.
      */
-    static boolean isCompatible(ParsedResult scriptStatement, ParsedResult statement) {
-        @Nullable DdlBatchGroup batchGroup = scriptStatement.ddlBatchGroup();
-        @Nullable DdlBatchGroup statementGroup = statement.ddlBatchGroup();
+    static boolean isCompatible(ParsedResult thisStatement, ParsedResult thatStatement) {
+        @Nullable DdlBatchGroup batchGroup = thisStatement.ddlBatchGroup();
+        @Nullable DdlBatchGroup statementGroup = thatStatement.ddlBatchGroup();
 
         if (batchGroup == null || statementGroup == null) {
             // Actually, we should never get here, but If we missed smth, it is always safe to fallback to non-batched execution.
@@ -44,13 +44,13 @@ public class DdlBatchingHelper {
     }
 
     /**
-     * Returns {@code true} if node group is compatible with batch group
+     * Returns {@code true} if that group is compatible with this group
      * Node: the operation is not commutative.
      */
-    static boolean isCompatible(DdlBatchGroup batchGroup, DdlBatchGroup nodeGroup) {
-        return (batchGroup != DdlBatchGroup.OTHER // OTHER group doesn't support batching.
-                && batchGroup == nodeGroup) // Groups matched.
-                || batchGroup == DdlBatchGroup.DROP;
+    static boolean isCompatible(DdlBatchGroup thisGroup, DdlBatchGroup thatGroup) {
+        return (thisGroup != DdlBatchGroup.OTHER // OTHER group doesn't support batching.
+                && thisGroup == thatGroup) // Groups matched.
+                || thisGroup == DdlBatchGroup.DROP;
     }
 
     /** Returns command kind or {@code null} if command is not {@link DdlBatchAware batch aware}. */
