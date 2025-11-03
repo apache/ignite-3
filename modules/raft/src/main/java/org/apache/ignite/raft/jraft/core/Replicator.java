@@ -1240,12 +1240,14 @@ public class Replicator implements ThreadId.OnError {
                 return;
             }
             if (!response.success()) {
-                 long term = this.options.getLogManager().getTerm(response.lastLogIndex());
-                 if (term < r.options.getTerm()) {
-                      LOG.info("Heartbeat to nodeId {}, groupId {} failure with outdated term, try to send a probe request.", r.options.getNode().getNodeId(), r.options.getGroupId());
-                      r.sendProbeRequest();
-                      r.startHeartbeatTimer(startTimeMs);
-                      return;
+                long term = this.options.getLogManager().getTerm(response.lastLogIndex());
+                if (term < r.options.getTerm()) {
+                    LOG.info("Heartbeat to nodeId {}, groupId {} failure with outdated term, try to send a probe request.",
+                    r.options.getNode().getNodeId(), r.options.getGroupId());
+                    doUnlock = false;
+                    r.sendProbeRequest();
+                    r.startHeartbeatTimer(startTimeMs);
+                    return;
                  }
             }
             if (isLogDebugEnabled) {

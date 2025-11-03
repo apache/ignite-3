@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
+import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -170,7 +171,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testRestartAllPartitionsWithCleanup() throws InterruptedException {
-        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
+        awaitPartitionsToBeHealthy(ZONE, TABLE_NAME, Set.of());
 
         String nodeName = CLUSTER.aliveNode().name();
 
@@ -187,7 +188,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
-        awaitPartitionToBeHealthy(ZONE, TABLE_NAME, DEFAULT_PARTITION_COUNT);
+        awaitPartitionsToBeHealthy(ZONE, TABLE_NAME, Set.of());
 
         String nodeName = CLUSTER.aliveNode().name();
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -26,7 +25,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
@@ -57,10 +55,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -195,44 +194,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     /**
-     * Waits for all partitions in the specified zone to reach the HEALTHY state across all cluster nodes.
-     *
-     * @param zone The name of the distribution zone to check.
-     * @param tableName The name of the table (currently unused by the implementation, reserved for future use).
-     * @param partitionsCount The number of partitions to check (currently unused by the implementation, reserved for future use).
-     * @throws InterruptedException If the thread is interrupted while waiting.
-     * @throws AssertionError If partitions do not become healthy within the timeout period.
-     */
-    protected void awaitPartitionToBeHealthy(String zone, String tableName, int partitionsCount) throws InterruptedException {
-        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 10_000));
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
-
-        assertTrue(waitForCondition(() -> {
-                    CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
-                            node.disasterRecoveryManager().localPartitionStates(Set.of(zone), emptySet(), emptySet());
-
-                    MatcherAssert.assertThat(localStateTableFuture, willCompleteSuccessfully());
-
-                    Map<ZonePartitionId, LocalPartitionStateByNode> localState;
-                    try {
-                        localState = localStateTableFuture.get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    return localState.entrySet().size() == partitionsCount && localState.values()
-                            .stream()
-                            .allMatch(partitionStateByNodes ->
-                                    partitionStateByNodes.entrySet().stream()
-                                            .filter(nodePartitionState -> nodePartitionState.getValue().state == HEALTHY)
-                                            .count() == initialNodes()
-                            );
-                },
-                30_000
-        ));
-    }
-
-    /**
      * After all.
      */
     @AfterAll
@@ -255,6 +216,45 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         if (!dropTablesScript.isEmpty()) {
             sqlScript(dropTablesScript);
         }
+    }
+
+    /**
+     * Waits for the specified partitionIds in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param zone The name of the distribution zone to check.
+     * @param tableName The name of the table (currently unused by the implementation, reserved for future use).
+     * @param  partitionIds The specified set of partitions.
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitionIds do not become healthy within the timeout period.
+     */
+    protected static void awaitPartitionsToBeHealthy(
+            String zone,
+            String tableName,
+            Set<Integer> partitionIds) throws InterruptedException {
+        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == CLUSTER.nodes().size(), 10_000));
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> globalTablePartitionStates =
+                            node.disasterRecoveryManager().globalTablePartitionStates(Set.of(zone), partitionIds);
+
+                    MatcherAssert.assertThat(globalTablePartitionStates, willCompleteSuccessfully());
+
+                    Map<TablePartitionId, GlobalTablePartitionState> globalStateStates;
+                    try {
+                        globalStateStates = globalTablePartitionStates.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    return globalStateStates.entrySet()
+                            .stream()
+                            .allMatch(partitionStateByNodes ->
+                                            partitionStateByNodes.getValue().state == GlobalPartitionStateEnum.AVAILABLE
+                            );
+                },
+                30_000
+        ));
     }
 
     /** Drops all non-system schemas. */
