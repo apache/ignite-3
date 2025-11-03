@@ -171,7 +171,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testRestartAllPartitionsWithCleanup() throws InterruptedException {
-        awaitPartitionsToBeHealthy(ZONE, TABLE_NAME, Set.of());
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
 
         String nodeName = CLUSTER.aliveNode().name();
 
@@ -188,7 +188,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
-        awaitPartitionsToBeHealthy(ZONE, TABLE_NAME, Set.of());
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
 
         String nodeName = CLUSTER.aliveNode().name();
 

@@ -161,7 +161,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
-        awaitPartitionsToBeHealthy(FIRST_ZONE, TABLE_NAME, Set.of(0, 1));
+        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of(0, 1));
 
         Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
@@ -199,7 +199,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     public void testRestartPartitionsWithCleanupAllPartitions() throws InterruptedException {
-        awaitPartitionsToBeHealthy(FIRST_ZONE, TABLE_NAME, Set.of());
+        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
 
         Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
@@ -212,7 +212,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     public void testRestartTablePartitionsWithCleanupAllPartitions() throws InterruptedException {
-        awaitPartitionsToBeHealthy(FIRST_ZONE, TABLE_NAME, Set.of());
+        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
 
         Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
