@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NA
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.ints.IntList;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -840,5 +842,31 @@ public class CatalogUtils {
             return min(replicas, 2);
         }
         return 3;
+    }
+
+    /**
+     * Resolves column names from their corresponding column IDs within a catalog table.
+     *
+     * <p>This method takes a list of column IDs and maps each ID to its corresponding column name
+     * by looking up the column descriptor in the provided table. The order of column names in the
+     * returned list matches the order of column IDs in the input list.
+     *
+     * @param table The catalog table descriptor containing the column definitions to search within.
+     * @param columnIds The list of column IDs to resolve into column names.
+     * @return A list of column names corresponding to the provided column IDs, in the same order.
+     * @throws IllegalArgumentException if any column ID in the list does not exist in the table
+     */
+    public static List<String> resolveColumnNames(CatalogTableDescriptor table, IntList columnIds) {
+        List<String> names = new ArrayList<>(columnIds.size());
+        for (int columnId : columnIds) {
+            CatalogTableColumnDescriptor column = table.columnById(columnId);
+            if (column == null) {
+                throw new IllegalArgumentException("Column with id=" + columnId + " not found in table " + table);
+            }
+
+            names.add(column.name());
+        }
+
+        return names;
     }
 }

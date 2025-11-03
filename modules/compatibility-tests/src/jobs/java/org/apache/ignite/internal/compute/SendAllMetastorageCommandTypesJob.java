@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
@@ -36,12 +36,14 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that runs different MetastorageWriteCommands. */
-class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
+// TODO IGNITE-26874 Add a check that all write commands are covered.
+public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
         try {
+            IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+
             byte[] value = "value".getBytes();
 
             MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
@@ -53,10 +55,11 @@ class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
                     metastorage.removeAll(Set.of(ByteArray.fromString("removeAll"))),
                     metastorage.removeByPrefix(ByteArray.fromString("removeByPrefix")),
                     metastorage.invoke(exists(ByteArray.fromString("key")), noop(), noop()),
-                    metastorage.invoke(iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
+                    metastorage.invoke(
+                            iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
                     metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
                     sendCompactionCommand(metastorage)
-            );
+            ).thenCompose((v) -> metastorage.storage().flush());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

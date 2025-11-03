@@ -28,6 +28,8 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -37,6 +39,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
@@ -429,7 +434,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return catalogSystemViewProvider.systemViews();
     }
 
-    class OnUpdateHandlerImpl implements OnUpdateHandler {
+    private class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
         public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             if (event instanceof SnapshotEntry) {
@@ -440,7 +445,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         }
 
         private CompletableFuture<Void> handle(SnapshotEntry event) {
-            Catalog catalog = event.snapshot();
+            Catalog catalog = upgradeCatalog(event.snapshot());
+
             // On recovery phase, we must register catalog from the snapshot.
             // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
             registerCatalog(catalog);
@@ -498,6 +504,48 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         }
                     });
         }
+    }
+
+    private static Catalog upgradeCatalog(Catalog snapshot) {
+        List<CatalogSchemaDescriptor> upgradedSchemas = new ArrayList<>(snapshot.schemas().size());
+        for (CatalogSchemaDescriptor schema : snapshot.schemas()) {
+            CatalogIndexDescriptor[] upgradedIndexes = upgradeIndexes(schema.tables(), schema.indexes());
+
+            upgradedSchemas.add(new CatalogSchemaDescriptor(
+                    schema.id(), schema.name(), schema.tables(), upgradedIndexes, schema.systemViews(), schema.updateTimestamp()
+            ));
+        }
+
+        return new Catalog(
+                snapshot.version(),
+                snapshot.time(),
+                snapshot.objectIdGenState(),
+                snapshot.zones(),
+                upgradedSchemas,
+                defaultZoneIdOpt(snapshot)
+        );
+    }
+
+    private static CatalogIndexDescriptor[] upgradeIndexes(
+            CatalogTableDescriptor[] tables,
+            CatalogIndexDescriptor[] indexes
+    ) {
+        Int2ObjectMap<CatalogTableDescriptor> tablesById = new Int2ObjectOpenHashMap<>();
+        for (CatalogTableDescriptor table : tables) {
+            tablesById.put(table.id(), table);
+        }
+
+        CatalogIndexDescriptor[] upgradedIndexes = new CatalogIndexDescriptor[indexes.length];
+        for (int i = 0; i < indexes.length; i++) {
+            CatalogIndexDescriptor index = indexes[i];
+            CatalogTableDescriptor table = tablesById.get(index.tableId());
+
+            assert table != null;
+
+            upgradedIndexes[i] = index.upgradeIfNeeded(table);
+        }
+
+        return upgradedIndexes;
     }
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {

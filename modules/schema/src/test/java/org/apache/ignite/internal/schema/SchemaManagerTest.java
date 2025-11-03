@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -35,6 +34,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -126,8 +126,8 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(-1)
                 .name(TABLE_NAME)
                 .zoneId(0)
-                .columns(columns)
-                .primaryKeyColumns(List.of("k1", "k2"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0, 1))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
 
@@ -170,12 +170,12 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(-1)
                 .name(TABLE_NAME)
                 .zoneId(0)
-                .columns(columns)
-                .primaryKeyColumns(List.of("k1", "k2"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0, 1))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
         return catalogTableDescriptor.copyBuilder()
-                .latestSchemaVersion(INITIAL_TABLE_VERSION + 1)
+                .newColumns(columns)
                 .build();
     }
 

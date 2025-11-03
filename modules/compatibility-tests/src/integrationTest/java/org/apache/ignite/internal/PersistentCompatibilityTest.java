@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.client.ClientCompatibilityTests.JOBS_UNIT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -27,7 +28,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.DeploymentUtils;
+import org.apache.ignite.internal.compute.CheckpointJob;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.tx.Transaction;
@@ -97,7 +99,7 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         try {
-            deployCheckpointJob();
+            DeploymentUtils.deployJobs();
 
             createAndPopulateTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
             createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
@@ -176,16 +178,13 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private void doCheckpoint(boolean cancelCompaction) {
         try (IgniteClient client = cluster.createClient()) {
             JobDescriptor<Boolean, Void> job = JobDescriptor.builder(CheckpointJob.class)
-                    .units(new DeploymentUnit(CheckpointJob.class.getName(), "1.0.0")).build();
+                    .units(JOBS_UNIT)
+                    .build();
 
             JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
 
             client.compute().execute(jobTarget, job, cancelCompaction);
         }
-    }
-
-    private <T, R> void deployCheckpointJob() throws IOException {
-        CompatibilityTestCommon.deployJob(CheckpointJob.class, workDir, deploymentClient);
     }
 
     private static void insertRow(Ignite baseIgnite, String tableName, int id, String name) {

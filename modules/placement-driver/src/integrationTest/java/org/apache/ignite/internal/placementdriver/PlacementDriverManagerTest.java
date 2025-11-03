@@ -570,9 +570,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         assertFalse(leaseExpirationMap.get(groupIds.get(0)).get());
         assertFalse(leaseExpirationMap.get(groupIds.get(1)).get());
 
-        metaStorageManager.remove(
+        assertThat(metaStorageManager.remove(
                 fromString((enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX) + groupIds.get(0))
-        );
+        ), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);

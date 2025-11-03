@@ -53,8 +53,11 @@ dependencies {
     integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-jdbc')
+    integrationTestImplementation project(':ignite-network-api')
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
 
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.http.client
 
@@ -70,7 +73,7 @@ dependencies {
     testFixturesImplementation libs.cytodynamics.nucleus
     testFixturesImplementation libs.japicmp
     testFixturesImplementation libs.micronaut.http.client
-
+    testFixturesImplementation libs.typesafe.config
 
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
@@ -196,5 +199,6 @@ tasks.register('postRelease', Copy) {
 
         versionsFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(versionsJson))
                 .replace('    ', '  ') // dirty hack to make the indent 2 spaces instead of 4
+        versionsFile.append(System.lineSeparator())
     }
 }

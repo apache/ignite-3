@@ -17,25 +17,22 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.client.DeploymentUtils.runJob;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.DeploymentUtils;
+import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -46,8 +43,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
-// Old version node starts with disabled colocation. New version nodes that start from scratch would fail to join cluster.
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected boolean restartWithCurrentEmbeddedVersion() {
@@ -61,17 +56,13 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
+        DeploymentUtils.deployJobs();
+
         createDefaultTables(baseIgnite);
 
         Path nodeWorkDir = cluster.runnerNodeWorkDir(0);
 
-        try {
-            deploySendAllMetastorageCommandTypesJob();
-
-            runSendAllMetastorageCommandTypesJob();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        runSendAllMetastorageCommandTypesJob();
 
         cluster.stop();
 
@@ -95,6 +86,8 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     void testStreamToFollower() throws InterruptedException {
         cluster.startEmbedded(2);
 
+        awaitAssignmentsStabilization(node(0), TABLE_NAME_TEST);
+
         checkMetastorage();
 
         MetaStorageManager newNodeMetastorage = unwrapIgniteImpl(cluster.node(1)).metaStorageManager();
@@ -117,18 +110,7 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
         assertTrue(IgniteUtils.deleteIfExists(metastorageDbDir));
     }
 
-    private <T, R> void deploySendAllMetastorageCommandTypesJob() throws IOException {
-        CompatibilityTestCommon.deployJob(SendAllMetastorageCommandTypesJob.class, workDir, deploymentClient);
-    }
-
     private void runSendAllMetastorageCommandTypesJob() {
-        try (IgniteClient client = cluster.createClient()) {
-            JobDescriptor<String, Void> job = JobDescriptor.builder(SendAllMetastorageCommandTypesJob.class)
-                    .units(new DeploymentUnit(SendAllMetastorageCommandTypesJob.class.getName(), "1.0.0")).build();
-
-            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
-
-            client.compute().execute(jobTarget, job, "");
-        }
+        runJob(cluster, SendAllMetastorageCommandTypesJob.class, "");
     }
 }

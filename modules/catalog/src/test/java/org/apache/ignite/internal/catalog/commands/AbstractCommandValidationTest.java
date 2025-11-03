@@ -28,6 +28,7 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -304,8 +305,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(pkIndexId)
                 .name("TEST_TABLE")
                 .zoneId(zoneId)
-                .columns(List.of(tableColumn(columnName)))
-                .primaryKeyColumns(List.of(columnName))
+                .newColumns(List.of(tableColumn(columnName)))
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile(DEFAULT_STORAGE_PROFILE)
                 .build();
     }

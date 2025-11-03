@@ -23,10 +23,17 @@
       url: installation/deb-rpm
     - title: Installing Docker
       url: installation/installing-using-docker
-    - title: Installing to Kubernetes
-      url: installation/installing-to-k8s
+    - title: Migration From Ignite 3.1
+      url: installation/migration-from-ai3-1
     - title: Migration From Ignite 2
       url: installation/migration-from-ai2/overview
+      items:
+        - title: Configuration Migration
+          url: installation/migration-from-ai2/config
+        - title: Persistent Data Migration
+          url: installation/migration-from-ai2/persistent-migration
+        - title: SQL Function Comparison
+          url: installation/migration-from-ai2/ai2-functions
 - title: Getting Started
   url: quick-start/getting-started-guide
   items:
@@ -77,19 +84,14 @@
           url: developers-guide/sql/sql-api
         - title: JDBC Driver
           url: developers-guide/sql/jdbc-driver
-        - title: System Views
-          url: developers-guide/sql/system-views
         - title: ODBC Driver
           url: developers-guide/sql/odbc/odbc-driver
-          items:
-            - title: ODBC Driver
-              url: developers-guide/sql/odbc/odbc-driver
-            - title: Connection String
-              url: developers-guide/sql/odbc/connection-string
-            - title: Querying and Modifying Data
-              url: developers-guide/sql/odbc/querying-modifying-data
-            - title: Standard Conformance
-              url: developers-guide/sql/odbc/specification
+        - title: ODBC Connection String
+          url: developers-guide/sql/odbc/connection-string
+        - title: Querying and Modifying Data
+          url: developers-guide/sql/odbc/querying-modifying-data
+        - title: Standard Conformance
+          url: developers-guide/sql/odbc/specification
     - title: Tables from Java Classes
       url: developers-guide/java-to-tables
     - title: Distributed Computing
@@ -126,32 +128,26 @@
           url: administrators-guide/config/cluster-config
         - title: CLI Configuration
           url: administrators-guide/config/cli-config
-    - title: Storage Configuration
+    - title: Distributed Storage
       url: administrators-guide/storage/storage-overview
       items:
         - title: Storage Overview
           url: administrators-guide/storage/storage-overview
         - title: Storage Profiles
           url: administrators-guide/storage/storage-profiles
-        - title: Storage Engines
-          url: administrators-guide/storage/engines/storage-engines
-          items:
-            - title: Storage Engines Overview
-              url: administrators-guide/storage/engines/storage-engines
-            - title: AIPersist Engine
-              url: administrators-guide/storage/engines/aipersist
-            - title: RocksDB Engine
-              url: administrators-guide/storage/engines/rocksdb
-            - title: AIMem Engine
-              url: administrators-guide/storage/engines/aimem
         - title: Data Partitions
           url: administrators-guide/storage/data-partitions
-        - title: Native Persistent Storage
-          url: administrators-guide/config/storage/persistent
-        - title: RocksDB Persistent Storage
-          url: administrators-guide/config/storage/rocksdb
-        - title: Volatile Storage
-          url: administrators-guide/config/storage/volatile
+    - title: Storage Engines
+      url: administrators-guide/storage/engines/storage-engines
+      items:
+        - title: Storage Engines Overview
+          url: administrators-guide/storage/engines/storage-engines
+        - title: AIPersist Engine
+          url: administrators-guide/storage/engines/aipersist
+        - title: RocksDB Engine
+          url: administrators-guide/storage/engines/rocksdb
+        - title: AIMem Engine
+          url: administrators-guide/storage/engines/aimem
     - title: Cluster Lifecycle
       url: administrators-guide/lifecycle
     - title: Data Colocation
@@ -176,7 +172,7 @@
           url: administrators-guide/metrics/configuring-metrics
         - title: Metrics List
           url: administrators-guide/metrics/metrics-list
-        - title: Metrics System Views
+        - title: System Views
           url: administrators-guide/metrics/system-views
     - title: Handling Exceptions
       url: administrators-guide/handling-exceptions

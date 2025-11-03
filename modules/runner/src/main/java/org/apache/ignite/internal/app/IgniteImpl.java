@@ -1648,6 +1648,10 @@ public class IgniteImpl implements Ignite {
 
                         // Enable REST component on start complete.
                         restComponent.enable();
+
+                        // Enable compute messages handling
+                        computeComponent.enable();
+
                         // Transfer the node to the STARTED state.
                         lifecycleManager.onStartComplete();
                     } catch (NodeStoppingException e) {

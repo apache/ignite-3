@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,7 +57,9 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -79,6 +82,7 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartition
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -273,6 +277,30 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         IgniteImpl nodeToCleanup = findNodeConformingOptions(tableName, primaryReplica, raftLeader);
 
+        AtomicBoolean stop = new AtomicBoolean();
+
+        CompletableFuture<Void> msLoadFut =  CompletableFuture.runAsync(() -> {
+            MetaStorageManager msMng = node.metaStorageManager();
+
+            var msPutFuts = new ArrayList<CompletableFuture<Void>>();
+
+            int i = 0;
+
+            while (!stop.get()) {
+                msPutFuts.add(msMng.put(ByteArray.fromString("test_key_" + i++), new byte[0]));
+
+                if (i % 1000 == 0) {
+                    assertThat(CompletableFutures.allOf(msPutFuts), willCompleteSuccessfully());
+
+                    msPutFuts.clear();
+
+                    log.info("MS entries loaded {}", i);
+                }
+            }
+
+            assertThat(CompletableFutures.allOf(msPutFuts), willCompleteSuccessfully());
+        });
+
         CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
                 Set.of(nodeToCleanup.name()),
                 testZone,
@@ -282,6 +310,10 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         );
 
         assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
+
+        stop.set(true);
+
+        assertThat(msLoadFut, willCompleteSuccessfully());
 
         insert(1, 1, tableName);
 

@@ -25,6 +25,7 @@
 #include <functional>
 #include <iostream>
 #include <thread>
+#include <random>
 
 namespace ignite {
 
@@ -97,6 +98,37 @@ std::filesystem::path resolve_test_dir() {
         return test_path;
 
     throw ignite_error("Can not find a 'tests' directory in the current Ignite Home: " + home);
+}
+
+std::filesystem::path resolve_temp_dir(std::string_view subDir, std::string_view prefix) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 15);
+
+    std::stringstream ss;
+
+    if (!prefix.empty()) {
+        ss << prefix << "_";
+    }
+
+
+    for (int i = 0; i < 16; ++i) {
+        int num = dis(gen);
+
+        if (num <= 9) {
+            ss << num;
+        } else {
+            ss << static_cast<char>('a' + (num - 10));
+        }
+    }
+
+    auto path = std::filesystem::temp_directory_path();
+
+    if (!subDir.empty()) {
+        path /= subDir;
+    }
+
+    return path / ss.str();
 }
 
 bool check_test_node_connectable(std::chrono::seconds timeout) {

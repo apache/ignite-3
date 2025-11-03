@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.awaitility.Awaitility.await;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -121,6 +123,10 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         try (IgniteClient client = cluster.createClient()) {
             setupBaseVersion(client);
         }
+
+        boolean shouldEnableColocation = Version.parseVersion(baseVersion).compareTo(Version.parseVersion("3.1")) >= 0;
+
+        System.setProperty(COLOCATION_FEATURE_FLAG, String.valueOf(shouldEnableColocation));
 
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();

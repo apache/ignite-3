@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.HASH_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_MARKER;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -25,15 +27,24 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
+import org.apache.ignite.internal.raft.util.VarlenEncoder;
+import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * File manager responsible for allocating and maintaining a pointer to the current segment file.
@@ -60,9 +71,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Binary representation of each entry is as follows:
  * <pre>
- * +-------------------------+--------------------------+-------------------+---------------------+---------+----------------+
- * | Raft Group ID (8 bytes) | Payload Length (4 bytes) | Term (1-10 bytes) | Index (1-10 bytes)  | Payload | Hash (4 bytes) |
- * +-------------------------+--------------------------+-------------------+---------------------+---------+----------------+
+ * +-------------------------+--------------------------+--------------------+-------------------+---------+----------------+
+ * | Raft Group ID (8 bytes) | Payload Length (4 bytes) | Index (1-10 bytes) | Term (1-10 bytes) | Payload | Hash (4 bytes) |
+ * +-------------------------+--------------------------+--------------------+-------------------+---------+----------------+
  * </pre>
  *
  * <p>Log Entry Index and Term are stored as variable-length integers (varints), hence the non-fixed size in bytes. They are treated as
@@ -76,6 +87,8 @@ import org.jetbrains.annotations.Nullable;
  * written at the end of the file. If there are less than 8 bytes left, no switch records are written.
  */
 class SegmentFileManager implements ManuallyCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(SegmentFileManager.class);
+
     private static final int ROLLOVER_WAIT_TIMEOUT_MS = 30_000;
 
     private static final int MAGIC_NUMBER = 0x56E0B526;
@@ -83,6 +96,8 @@ class SegmentFileManager implements ManuallyCloseable {
     private static final int FORMAT_VERSION = 1;
 
     private static final String SEGMENT_FILE_NAME_FORMAT = "segment-%010d-%010d.bin";
+
+    private static final Pattern SEGMENT_FILE_NAME_PATTERN = Pattern.compile("segment-(?<ordinal>\\d{10})-(?<generation>\\d{10})\\.bin");
 
     /**
      * Byte sequence that is written at the beginning of every segment file.
@@ -121,10 +136,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
     /**
      * Current segment file ordinal (used to generate segment file names).
-     *
-     * <p>Must always be accessed under the {@link #rolloverLock}.
      */
-    private int curSegmentFileOrdinal;
+    private volatile int curSegmentFileOrdinal;
 
     /**
      * Flag indicating whether the file manager has been stopped.
@@ -150,10 +163,52 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     void start() throws IOException {
-        checkpointer.start();
+        LOG.info("Starting segment file manager [segmentFilesDir={}, fileSize={}].", segmentFilesDir, fileSize);
 
-        // TODO: implement recovery, see https://issues.apache.org/jira/browse/IGNITE-26283.
-        currentSegmentFile.set(allocateNewSegmentFile(0));
+        indexFileManager.cleanupTmpFiles();
+
+        Path lastSegmentFilePath = null;
+
+        try (Stream<Path> segmentFiles = Files.list(segmentFilesDir)) {
+            Iterator<Path> it = segmentFiles.sorted().iterator();
+
+            while (it.hasNext()) {
+                Path segmentFilePath = it.next();
+
+                if (!it.hasNext()) {
+                    // Last segment file is treated differently.
+                    lastSegmentFilePath = segmentFilePath;
+                } else {
+                    // Create missing index files.
+                    int segmentFileOrdinal = segmentFileOrdinal(segmentFilePath);
+
+                    if (!indexFileManager.indexFileExists(segmentFileOrdinal)) {
+                        LOG.info("Creating missing index file for segment file {}.", segmentFilePath);
+
+                        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath);
+
+                        WriteModeIndexMemTable memTable = recoverMemtable(segmentFile, segmentFilePath);
+
+                        indexFileManager.saveIndexMemtable(memTable.transitionToReadMode(), segmentFileOrdinal);
+                    }
+                }
+            }
+        }
+
+        if (lastSegmentFilePath == null) {
+            currentSegmentFile.set(allocateNewSegmentFile(0));
+        } else {
+            curSegmentFileOrdinal = segmentFileOrdinal(lastSegmentFilePath);
+
+            currentSegmentFile.set(recoverLatestSegmentFile(lastSegmentFilePath));
+        }
+
+        LOG.info("Segment file manager recovery completed. Current segment file: {}.", lastSegmentFilePath);
+
+        // Index File Manager must be started strictly before the checkpointer.
+        indexFileManager.start();
+
+        checkpointer.start();
     }
 
     Path segmentFilesDir() {
@@ -164,6 +219,11 @@ class SegmentFileManager implements ManuallyCloseable {
         return indexFileManager.indexFilesDir();
     }
 
+    @TestOnly
+    IndexFileManager indexFileManager() {
+        return indexFileManager;
+    }
+
     private SegmentFileWithMemtable allocateNewSegmentFile(int fileOrdinal) throws IOException {
         Path path = segmentFilesDir.resolve(segmentFileName(fileOrdinal, 0));
 
@@ -172,6 +232,12 @@ class SegmentFileManager implements ManuallyCloseable {
         writeHeader(segmentFile);
 
         return new SegmentFileWithMemtable(segmentFile, new IndexMemTable(stripes), false);
+    }
+
+    private SegmentFileWithMemtable recoverLatestSegmentFile(Path segmentFilePath) throws IOException {
+        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath);
+
+        return new SegmentFileWithMemtable(segmentFile, recoverLatestMemtable(segmentFile, segmentFilePath), false);
     }
 
     private static String segmentFileName(int fileOrdinal, int generation) {
@@ -200,7 +266,7 @@ class SegmentFileManager implements ManuallyCloseable {
             SegmentPayload.writeTo(segmentBuffer, groupId, segmentEntrySize, entry, encoder);
 
             // Append to memtable before write buffer is released to avoid races with checkpoint on rollover.
-            writeBufferWithMemtable.memtable.appendSegmentFileOffset(groupId, entry.getId().getIndex(), segmentOffset);
+            writeBufferWithMemtable.memtable().appendSegmentFileOffset(groupId, entry.getId().getIndex(), segmentOffset);
         }
     }
 
@@ -244,7 +310,7 @@ class SegmentFileManager implements ManuallyCloseable {
             SegmentPayload.writeTruncateSuffixRecordTo(segmentBuffer, groupId, lastLogIndexKept);
 
             // Modify the memtable before write buffer is released to avoid races with checkpoint on rollover.
-            writeBufferWithMemtable.memtable.truncateSuffix(groupId, lastLogIndexKept);
+            writeBufferWithMemtable.memtable().truncateSuffix(groupId, lastLogIndexKept);
         }
     }
 
@@ -393,7 +459,10 @@ class SegmentFileManager implements ManuallyCloseable {
 
             SegmentFileWithMemtable segmentFile = currentSegmentFile.get();
 
-            segmentFile.segmentFile().close();
+            // This should usually not happen but can happen on an abrupt node stop.
+            if (segmentFile != null) {
+                segmentFile.segmentFile().close();
+            }
 
             rolloverLock.notifyAll();
         }
@@ -429,23 +498,132 @@ class SegmentFileManager implements ManuallyCloseable {
         return segmentFile.buffer().position(segmentFilePointer.payloadOffset());
     }
 
-    private static class WriteBufferWithMemtable implements AutoCloseable {
-        final WriteBuffer writeBuffer;
+    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        ByteBuffer buffer = segmentFile.buffer();
 
-        final WriteModeIndexMemTable memtable;
+        validateSegmentFileHeader(buffer, segmentFilePath);
 
-        WriteBufferWithMemtable(WriteBuffer writeBuffer, WriteModeIndexMemTable memtable) {
-            this.writeBuffer = writeBuffer;
-            this.memtable = memtable;
+        var memtable = new IndexMemTable(stripes);
+
+        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
+            int segmentFilePayloadOffset = buffer.position();
+
+            long groupId = buffer.getLong();
+
+            int payloadLength = buffer.getInt();
+
+            if (payloadLength == TRUNCATE_SUFFIX_RECORD_MARKER) {
+                long lastLogIndexKept = buffer.getLong();
+
+                memtable.truncateSuffix(groupId, lastLogIndexKept);
+
+                buffer.position(buffer.position() + HASH_SIZE_BYTES);
+            } else {
+                int endOfRecordPosition = buffer.position() + payloadLength + HASH_SIZE_BYTES;
+
+                long index = VarlenEncoder.readLong(buffer);
+
+                memtable.appendSegmentFileOffset(groupId, index, segmentFilePayloadOffset);
+
+                buffer.position(endOfRecordPosition);
+            }
         }
 
-        ByteBuffer buffer() {
-            return writeBuffer.buffer();
+        return memtable;
+    }
+
+    /**
+     * Creates an index memtable from the given segment file. Unlike {@link #recoverMemtable} which is expected to only be called on
+     * "complete" segment files (i.e. those that has experienced a rollover), this method is expected to be called on the most recent,
+     * possibly incomplete segment file.
+     */
+    private WriteModeIndexMemTable recoverLatestMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        ByteBuffer buffer = segmentFile.buffer();
+
+        validateSegmentFileHeader(buffer, segmentFilePath);
+
+        var memtable = new IndexMemTable(stripes);
+
+        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
+            int segmentFilePayloadOffset = buffer.position();
+
+            long groupId = buffer.getLong();
+
+            int payloadLength = buffer.getInt();
+
+            int crcPosition;
+
+            if (payloadLength == TRUNCATE_SUFFIX_RECORD_MARKER) {
+                long lastLogIndexKept = buffer.getLong();
+
+                crcPosition = buffer.position();
+
+                buffer.position(segmentFilePayloadOffset);
+
+                // CRC violation signals the end of meaningful data in the segment file.
+                if (!isCrcValid(buffer, crcPosition)) {
+                    break;
+                }
+
+                memtable.truncateSuffix(groupId, lastLogIndexKept);
+            } else {
+                crcPosition = buffer.position() + payloadLength;
+
+                long index = VarlenEncoder.readLong(buffer);
+
+                buffer.position(segmentFilePayloadOffset);
+
+                // CRC violation signals the end of meaningful data in the segment file.
+                if (!isCrcValid(buffer, crcPosition)) {
+                    break;
+                }
+
+                memtable.appendSegmentFileOffset(groupId, index, segmentFilePayloadOffset);
+            }
+
+            buffer.position(crcPosition + HASH_SIZE_BYTES);
         }
 
-        @Override
-        public void close() {
-            writeBuffer.close();
+        return memtable;
+    }
+
+    private static boolean isCrcValid(ByteBuffer buffer, int crcPosition) {
+        int originalPosition = buffer.position();
+
+        int crc = buffer.getInt(crcPosition);
+
+        int expectedCrc = FastCrc.calcCrc(buffer, crcPosition - buffer.position());
+
+        buffer.position(originalPosition);
+
+        return crc == expectedCrc;
+    }
+
+    private static void validateSegmentFileHeader(ByteBuffer buffer, Path segmentFilePath) {
+        int magicNumber = buffer.getInt();
+
+        if (magicNumber != MAGIC_NUMBER) {
+            throw new IllegalStateException(String.format("Invalid magic number in segment file %s: %d.", segmentFilePath, magicNumber));
         }
+
+        int formatVersion = buffer.getInt();
+
+        if (formatVersion > FORMAT_VERSION) {
+            throw new IllegalStateException(String.format(
+                    "Unsupported format version in segment file %s: %d.", segmentFilePath, formatVersion
+            ));
+        }
+    }
+
+    private static int segmentFileOrdinal(Path segmentFile) {
+        String fileName = segmentFile.getFileName().toString();
+
+        Matcher matcher = SEGMENT_FILE_NAME_PATTERN.matcher(fileName);
+
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException(String.format("Invalid segment file name format: %s.", segmentFile));
+        }
+
+        return Integer.parseInt(matcher.group("ordinal"));
     }
 }

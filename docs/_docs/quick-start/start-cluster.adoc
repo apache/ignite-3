@@ -118,11 +118,11 @@ connect http://localhost:10300
 +
 . Confirm the connection to the default node in the CLI tool.
 +
-. Initialize the cluster with a name and the metastorage group of all nodes:
+. Initialize the cluster:
 +
 [source, bash]
 ----
-cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+cluster init --name=ignite3
 ----
 
 The output from this step should be similar to this:
@@ -148,7 +148,7 @@ The output from this step should be similar to this:
 You appear to have not connected to any node yet. Do you want to connect to the default node http://localhost:10300? [Y/n] y
 Connected to http://localhost:10300
 The cluster is not initialized. Run cluster init command to initialize it.
-[node1]> cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+[node1]> cluster init --name=ignite3
 Cluster was initialized successfully
 ----
 

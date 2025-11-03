@@ -24,7 +24,7 @@
 namespace ignite {
 
 /**
- * Basic authenticator with username and password.
+ * @brief Basic authenticator with username and password.
  *
  * Credentials are sent to the server in plain text, unless SSL/TLS is enabled.
  */

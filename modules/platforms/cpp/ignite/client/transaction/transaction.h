@@ -30,7 +30,7 @@ class transactions_impl;
 }
 
 /**
- * Ignite transaction.
+ * @brief Ignite transaction.
  */
 class transaction {
     friend class detail::sql_impl;
