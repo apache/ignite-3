@@ -41,6 +41,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
+import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
@@ -49,6 +50,7 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.jdbc2.JdbcConnection2;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -976,6 +978,28 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                     assertEquals("unknown", rs.getString(1));
                 }
             }
+        }
+    }
+
+    @Test
+    public void testChangePartitionAwarenessCacheSize() throws SQLException {
+        String urlPrefix = URL + "?partitionAwarenessMetadataCacheSize";
+
+        assertInvalid(urlPrefix + "=A",
+                "Failed to parse int property [name=partitionAwarenessMetadataCacheSize, value=A]");
+
+        assertInvalid(urlPrefix + "=-1",
+                "Property cannot be lower than 0 [name=partitionAwarenessMetadataCacheSize, value=-1]");
+
+        assertInvalid(urlPrefix + "=2147483648",
+                "Failed to parse int property [name=partitionAwarenessMetadataCacheSize, value=2147483648]");
+
+        try (JdbcConnection2 conn = (JdbcConnection2) DriverManager.getConnection(urlPrefix + "=2147483647")) {
+            assertEquals(Integer.MAX_VALUE, conn.properties().getPartitionAwarenessMetadataCacheSize());
+        }
+
+        try (JdbcConnection2 conn = (JdbcConnection2) DriverManager.getConnection(urlPrefix + "=0")) {
+            assertEquals(0, conn.properties().getPartitionAwarenessMetadataCacheSize());
         }
     }
 }
