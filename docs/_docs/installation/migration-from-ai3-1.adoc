@@ -57,7 +57,14 @@ Connect to your Apache Ignite 3.0 cluster using the CLI tool:
 [source,bash]
 ----
 cd ignite3-cli-3.0.0/bin
-./ignite3 cli
+./ignite3
+----
+
+Once connected, enter sql execution mode:
+
+[source,bash]
+----
+sql
 ----
 
 === Step 1.2: Document All Schemas
