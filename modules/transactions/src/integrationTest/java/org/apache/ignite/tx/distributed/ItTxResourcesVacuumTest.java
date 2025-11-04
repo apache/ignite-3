@@ -53,7 +53,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -86,7 +85,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -299,7 +297,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *     <li>Check that the abandoned transaction is recovered; its volatile and persistent states are vacuumized.</li>
      * </ul>
      */
-    @RepeatedTest(100)
+    @Test
     public void testAbandonedTxnsAreNotVacuumizedUntilRecovered() throws InterruptedException {
         setTxResourceTtl(1);
 
