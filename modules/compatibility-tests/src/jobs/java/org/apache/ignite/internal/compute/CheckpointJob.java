@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.lang.Thread.sleep;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
+import static org.awaitility.Awaitility.await;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BooleanSupplier;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -73,13 +72,8 @@ public class CheckpointJob implements ComputeJob<Boolean, Void> {
 
         FilePageStoreManager pageStoreManager = (FilePageStoreManager) filePageStoreManagerField.get(checkpointManager);
 
-        boolean compacted = waitForCondition(
-                () -> pageStoreManager.allPageStores()
-                        .allMatch(pageStore -> pageStore.pageStore().deltaFileCount() == 0),
-                10_000
-        );
-
-        assert compacted;
+        await().until(() -> pageStoreManager.allPageStores()
+                .allMatch(pageStore -> pageStore.pageStore().deltaFileCount() == 0));
     }
 
     private static CheckpointManager checkpointManager(IgniteImpl igniteImpl) throws Exception {
@@ -102,19 +96,5 @@ public class CheckpointJob implements ComputeJob<Boolean, Void> {
         }
 
         return checkpointManager;
-    }
-
-    @SuppressWarnings("BusyWait")
-    private static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
-        long stop = System.currentTimeMillis() + timeoutMillis;
-
-        while (System.currentTimeMillis() < stop) {
-            if (cond.getAsBoolean()) {
-                return true;
-            }
-            sleep(10);
-        }
-
-        return false;
     }
 }
