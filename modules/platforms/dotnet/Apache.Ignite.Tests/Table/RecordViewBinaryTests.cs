@@ -602,6 +602,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        [Platform("Linux")]
         public async Task TestUpsertAllMany()
         {
             int count = 25_000;
