@@ -81,7 +81,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -89,6 +88,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.PartitionResetClosure;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -127,7 +127,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  * It is used by {@link DistributionZoneManager} to calculate data nodes, see {@link #dataNodes(int, HybridTimestamp)}.
  * Data nodes are stored in meta storage as {@link DataNodesHistory} for each zone, also for each zone there are scale up and
  * scale down timers, stored as {@link DistributionZoneTimer}. Partition reset timer is calculated on the node recovery according
- * to the scale down timer state, see {@link #restorePartitionResetTimer(int, DistributionZoneTimer, long)}.
+ * to the scale down timer state, see {@link #restorePartitionResetTimer(CatalogZoneDescriptor, DistributionZoneTimer, long)}.
  * <br>
  * Data nodes history is appended on topology changes, on zone filter changes and on zone auto adjust alterations (i.e. alterations of
  * scale up and scale down timer configuration), see {@link #onTopologyChange}, {@link #onZoneFilterChange} and
@@ -168,7 +168,7 @@ public class DataNodesManager {
 
     private final Map<Integer, DataNodesHistory> dataNodesHistoryVolatile = new ConcurrentHashMap<>();
 
-    private final BiConsumer<Long, Integer> partitionResetClosure;
+    private final PartitionResetClosure partitionResetClosure;
 
     private final IntSupplier partitionDistributionResetTimeoutSupplier;
 
@@ -196,7 +196,7 @@ public class DataNodesManager {
             CatalogManager catalogManager,
             ClockService clockService,
             FailureProcessor failureProcessor,
-            BiConsumer<Long, Integer> partitionResetClosure,
+            PartitionResetClosure partitionResetClosure,
             IntSupplier partitionDistributionResetTimeoutSupplier,
             Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider
     ) {
@@ -282,10 +282,11 @@ public class DataNodesManager {
 
                         DistributionZoneTimer scaleUpTimer = DistributionZoneTimerSerializer.deserialize(scaleUpEntry.value());
                         DistributionZoneTimer scaleDownTimer = DistributionZoneTimerSerializer.deserialize(scaleDownEntry.value());
+                        DistributionZoneTimer resetTimer = DistributionZoneTimerSerializer.deserialize(partitionResetEntry.value());
 
                         onScaleUpTimerChange(zone, scaleUpTimer);
                         onScaleDownTimerChange(zone, scaleDownTimer);
-                        restorePartitionResetTimer(zone.id(), scaleDownTimer, recoveryRevision);
+                        restorePartitionResetTimer(zone, resetTimer, recoveryRevision);
                     }
                 })
                 .thenCompose(unused -> allOf(legacyInitFutures)
@@ -418,7 +419,7 @@ public class DataNodesManager {
         if (!removedNodes.isEmpty()
                 && zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY
                 && partitionResetDelay != INFINITE_TIMER_VALUE) {
-            reschedulePartitionReset(partitionResetDelay, () -> partitionResetClosure.accept(revision, zoneId), zoneId);
+            reschedulePartitionReset(partitionResetDelay, () -> partitionResetClosure.run(revision, zoneDescriptor), zoneId);
         }
 
         DistributionZoneTimer mergedScaleUpTimer = mergeTimerOnTopologyChange(zoneDescriptor, timestamp,
@@ -791,12 +792,12 @@ public class DataNodesManager {
         timer.init(scaleDownTimer);
     }
 
-    private void restorePartitionResetTimer(int zoneId, DistributionZoneTimer scaleDownTimer, long revision) {
-        if (!scaleDownTimer.equals(DEFAULT_TIMER)) {
+    private void restorePartitionResetTimer(CatalogZoneDescriptor zone, DistributionZoneTimer partitionResetTimer, long revision) {
+        if (!partitionResetTimer.equals(DEFAULT_TIMER)) {
             reschedulePartitionReset(
                     partitionDistributionResetTimeoutSupplier.getAsInt(),
-                    () -> partitionResetClosure.accept(revision, zoneId),
-                    zoneId
+                    () -> partitionResetClosure.run(revision, zone),
+                    zone.id()
             );
         }
     }
