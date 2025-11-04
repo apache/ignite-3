@@ -20,6 +20,7 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import com.google.auto.service.AutoService;
 import java.sql.Connection;
@@ -34,10 +35,14 @@ import java.util.logging.Logger;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
+import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
@@ -45,6 +50,8 @@ import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.JdbcClientQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc2.JdbcConnection2;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -275,7 +282,7 @@ public class IgniteJdbcDriver implements Driver {
         return instance != null;
     }
 
-    private static TcpIgniteClient createIgniteClient(
+    private TcpIgniteClient createIgniteClient(
             ConnectionProperties connectionProperties,
             HybridTimestampTracker observableTimeTracker
     ) {
@@ -293,7 +300,7 @@ public class IgniteJdbcDriver implements Driver {
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                null,
+                new RetryLimitPolicy(),
                 null,
                 extractSslConfiguration(connectionProperties),
                 false,
@@ -302,7 +309,24 @@ public class IgniteJdbcDriver implements Driver {
                 connectionProperties.getPartitionAwarenessMetadataCacheSize()
         );
 
-        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
+        ChannelValidator channelValidator = ctx -> {
+            if (!ctx.isFeatureSupported(ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT)) {
+                ClusterNode node = ctx.clusterNode();
+
+                throw new IgniteClientConnectionException(
+                        CONNECTION_ERR,
+                        IgniteStringFormatter.format("Connection to node aborted, because the node does not support "
+                                + "the feature required by the driver being used. Please refer to the documentation and use a compatible "
+                                + "version of the JDBC driver to connect to this node "
+                                + "[name={}, address={}, productVersion={}, driverVersion={}.{}]",
+                                node.name(), node.address(), ctx.productVersion(), getMajorVersion(), getMinorVersion()),
+                        null
+                );
+            }
+        };
+
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(
+                cfg, observableTimeTracker, channelValidator));
     }
 
     private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {

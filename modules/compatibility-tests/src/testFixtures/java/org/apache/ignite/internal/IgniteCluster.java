@@ -246,7 +246,7 @@ public class IgniteCluster {
      * @return Ignite client instance.
      */
     public IgniteClient createClient() {
-        return IgniteClient.builder().addresses("localhost:" + clusterConfiguration.baseClientPort()).build();
+        return IgniteClient.builder().addresses("localhost:" + clientPort()).build();
     }
 
     /**
@@ -267,6 +267,11 @@ public class IgniteCluster {
      */
     public String nodeName(int nodeIndex) {
         return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
+    }
+
+    /** Returns base client port number from cluster configuration. */
+    public int clientPort() {
+        return clusterConfiguration.baseClientPort();
     }
 
     private ServerRegistration startEmbeddedNode(int nodeIndex) {

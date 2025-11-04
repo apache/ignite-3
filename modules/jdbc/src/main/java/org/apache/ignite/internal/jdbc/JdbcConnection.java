@@ -190,7 +190,7 @@ public class JdbcConnection implements Connection {
                 IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
         );
 
-        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker, null));
     }
 
     /**

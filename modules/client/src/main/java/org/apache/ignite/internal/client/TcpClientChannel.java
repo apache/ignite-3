@@ -66,6 +66,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
@@ -733,11 +734,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             long observableTimestamp = unpacker.unpackLong();
             observableTimestampListener.accept(observableTimestamp);
 
-            unpacker.unpackByte(); // cluster version major
-            unpacker.unpackByte(); // cluster version minor
-            unpacker.unpackByte(); // cluster version maintenance
-            unpacker.unpackByteNullable(); // cluster version patch
-            unpacker.unpackStringNullable(); // cluster version pre release
+            byte major = unpacker.unpackByte(); // cluster version major
+            byte minor = unpacker.unpackByte(); // cluster version minor
+            byte maintenance = unpacker.unpackByte(); // cluster version maintenance
+            Byte patch = unpacker.unpackByteNullable(); // cluster version patch
+            String preRelease = unpacker.unpackStringNullable(); // cluster version pre release
+
+            IgniteProductVersion nodeProductVersion = new IgniteProductVersion(major, minor, maintenance, patch, preRelease);
 
             BitSet serverFeatures = HandshakeUtils.unpackFeatures(unpacker);
             HandshakeUtils.unpackExtensions(unpacker);
@@ -745,7 +748,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(SUPPORTED_FEATURES, serverFeatures);
             EnumSet<ProtocolBitmaskFeature> features = ProtocolBitmaskFeature.enumSet(mutuallySupportedFeatures);
 
-            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName);
+            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName,
+                    nodeProductVersion);
 
             return null;
         } catch (Throwable e) {
