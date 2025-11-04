@@ -605,7 +605,7 @@ public class LeaseUpdater {
                 for (Map.Entry<ReplicationGroupId, LeaseAgreement> entry : toBeNegotiated.entrySet()) {
                     leaseNegotiator.negotiate(entry.getValue());
                 }
-            }).thenApply(unused -> null);
+            });
         }
 
         private void chooseCandidateAndCreateNewLease(
