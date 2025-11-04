@@ -614,6 +614,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        [Platform("Linux")]
         public void TestUpsertAllBufferOverflow()
         {
             int count = 25;
