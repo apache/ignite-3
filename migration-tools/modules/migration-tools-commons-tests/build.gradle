@@ -34,7 +34,6 @@ dependencies {
     implementation libs.assertj.core
     implementation libs.junit5.api
     implementation libs.log4j.api
-    implementation libs.awaitility
 
     implementation files(layout.buildDirectory.dir("generated/unpackClassesFromDependencies"))
 

@@ -25,7 +25,6 @@ import java.nio.file.Path;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import org.apache.ignite.migrationtools.tests.clusters.FullSampleCluster;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -43,12 +42,7 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
         this.targetPath = targetPath;
     }
 
-    /**
-     * TODO: Copied from IgniteTestUtils should reuse this.
-     *
-     * <p>This method is deprecated in favor of the Awaitility library; use {@link Awaitility#await()} instead.
-     */
-    @Deprecated
+    /** TODO: Copied from IgniteTestUtils should reuse this. */
     public static boolean waitForCondition(BooleanSupplier cond, long sleepMillis, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
 

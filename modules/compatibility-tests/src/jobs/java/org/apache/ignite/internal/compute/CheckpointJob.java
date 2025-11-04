@@ -33,7 +33,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.wrapper.Wrappers;
-import org.awaitility.Awaitility;
 
 /** A job that forces a checkpoint and optionally cancels the compaction process on the node. */
 public class CheckpointJob implements ComputeJob<Boolean, Void> {
@@ -105,10 +104,6 @@ public class CheckpointJob implements ComputeJob<Boolean, Void> {
         return checkpointManager;
     }
 
-    /**
-     * This method is deprecated in favor of the Awaitility library; use {@link Awaitility#await()} instead.
-     */
-    @Deprecated
     @SuppressWarnings("BusyWait")
     private static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
