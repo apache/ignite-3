@@ -193,7 +193,7 @@ public class JdbcConnection implements Connection {
                 "jdbc_client_" + GLOBAL_CONN_ID_GEN.getAndIncrement() // Use underscores for JMX compat.
         );
 
-        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker, null));
     }
 
     /**
