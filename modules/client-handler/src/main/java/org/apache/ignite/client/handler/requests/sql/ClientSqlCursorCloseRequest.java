@@ -47,6 +47,7 @@ public class ClientSqlCursorCloseRequest {
         try {
             resource = resources.remove(resourceId);
         } catch (IgniteInternalCheckedException | IgniteInternalException ignored) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26927 Do not completely ignore "resource not found" exception
             // Ignore: either resource was already removed during asynchronous data fetch request, or registry is closing.
             return CompletableFutures.nullCompletedFuture();
         }

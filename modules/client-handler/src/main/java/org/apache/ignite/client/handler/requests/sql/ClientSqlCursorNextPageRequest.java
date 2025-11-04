@@ -53,6 +53,7 @@ public class ClientSqlCursorNextPageRequest {
                         try {
                             resources.remove(resourceId);
                         } catch (IgniteInternalCheckedException | IgniteInternalException ignored) {
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-26927 Handle "resource not found" exception properly
                             // Ignore: either resource already removed by concurrent close operation, or registry is closing.
                         }
 
