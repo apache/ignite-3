@@ -77,6 +77,7 @@ import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -393,9 +394,6 @@ public class LeaseUpdater {
         private int activeLeaseCount;
         private int leaseWithoutCandidateCount;
 
-        /** Previous meta storage update future. */
-        private CompletableFuture<Void> previousMsUpdate =  completedFuture(null);
-
         @Override
         public void run() {
             while (active() && !Thread.interrupted()) {
@@ -429,12 +427,6 @@ public class LeaseUpdater {
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
             HybridTimestamp currentTime = clockService.current();
-
-            if (!previousMsUpdate.isDone()) {
-                LOG.warn("Previous lease update is still in progress, skipping this round.");
-
-                return;
-            }
 
             long leaseExpirationInterval = replicationConfiguration.leaseExpirationIntervalMillis().value();
 
@@ -584,11 +576,18 @@ public class LeaseUpdater {
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
-            previousMsUpdate = msManager.invoke(
+            msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()
             ).whenComplete((success, e) -> {
+                long duration = FastTimestamps.coarseCurrentTimeMillis() - currentTime.getPhysical();
+
+                if (duration > leaseExpirationInterval) {
+                    LOG.warn("Lease update invocation took longer than lease interval [duration={}, leaseInterval={}].",
+                            duration, leaseExpirationInterval);
+                }
+
                 if (e != null) {
                     if (!hasCause(e, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));

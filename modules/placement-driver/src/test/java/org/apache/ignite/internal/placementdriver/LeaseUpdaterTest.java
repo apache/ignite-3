@@ -46,13 +46,12 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -111,12 +110,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
-    private static final String SKIPPING_THIS_ROUND = "Previous lease update is still in progress, skipping this round.";
+    private static final String LEASE_UPDATE_TOO_LONG = "Lease update invocation took longer than lease interval";
+    private static final long TEST_LEASE_INTERVAL_MILLIS = 100L;
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster nodes. */
     private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
     private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
+
+    @InjectConfiguration("mock.leaseExpirationIntervalMillis = " + TEST_LEASE_INTERVAL_MILLIS)
+    private ReplicationConfiguration replicationConfiguration;
 
     @Mock
     private LogicalTopologyService topologyService;
@@ -130,7 +133,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private AssignmentsTracker assignmentsTracker;
 
     /** Closure to get a lease that is passed in Meta storage. */
-    private volatile Function<Lease, CompletableFuture<Boolean>> renewLeaseConsumer = null;
+    private volatile Consumer<Lease> renewLeaseConsumer = null;
 
     private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
@@ -152,8 +155,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     void setUp(
             @Mock ClusterService clusterService,
             @Mock LeaseTracker leaseTracker,
-            @Mock MessagingService messagingService,
-            @InjectConfiguration ReplicationConfiguration replicationConfiguration
+            @Mock MessagingService messagingService
     ) {
         mockStableAssignments(Set.of(Assignment.forPeer(stableNode.name())));
         mockPendingAssignments(Set.of(Assignment.forPeer(pendingNode.name())));
@@ -172,7 +174,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         lenient().when(metaStorageManager.invoke(any(Condition.class), any(Operation.class), any(Operation.class)))
                 .thenAnswer(invocation -> {
-                    Function<Lease, CompletableFuture<Boolean>> leaseConsumer = renewLeaseConsumer;
+                    Consumer<Lease> leaseConsumer = renewLeaseConsumer;
 
                     if (leaseConsumer != null) {
                         OperationImpl op = invocation.getArgument(1);
@@ -180,7 +182,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                         Lease lease = LeaseBatch.fromBytes(toByteArray(op.value())).leases().iterator()
                                 .next();
 
-                        return leaseConsumer.apply(lease);
+                        leaseConsumer.accept(lease);
                     }
 
                     return trueCompletedFuture();
@@ -220,36 +222,37 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testSkipUpdateRoundWhenMsTooSlow() throws Exception {
+    public void testLeaseUpdateTooLong() throws Exception {
         initAndActivateLeaseUpdater();
 
         LogInspector logInspector = LogInspector.create(LeaseUpdater.class, true);
 
-        CompletableFuture<Boolean> longMsOpFut = new CompletableFuture<>();
-
         try {
             AtomicInteger counter = new AtomicInteger(0);
 
-            logInspector.addHandler(evt -> SKIPPING_THIS_ROUND.equals(evt.getMessage().getFormattedMessage()), counter::incrementAndGet);
+            logInspector.addHandler(
+                    evt -> evt.getMessage().getFormattedMessage().startsWith(LEASE_UPDATE_TOO_LONG),
+                    counter::incrementAndGet
+            );
 
             Lease lease = awaitForLease(true);
 
             assertEquals(0, counter.get());
 
             renewLeaseConsumer = plonogedLease -> {
-                log.info("Simulating slow Meta storage...");
+                try {
+                    log.info("Explicitly wait for longer than the lease interval to ensure that the lease updater logs the warning.");
 
-                return longMsOpFut;
+                    Thread.sleep(TEST_LEASE_INTERVAL_MILLIS + 50);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             };
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> counter.get() >= 1, 10_000));
 
-            longMsOpFut.complete(true);
-
             awaitForLease(true, lease, 10_000);
         } finally {
-            longMsOpFut.complete(true);
-
             logInspector.stop();
         }
     }
@@ -476,18 +479,16 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         renewLeaseConsumer = lease -> {
             if (needAccepted && !lease.isAccepted()) {
-                return trueCompletedFuture();
+                return;
             }
 
             if (previousLease != null && previousLease.getExpirationTime().equals(lease.getExpirationTime())) {
-                return trueCompletedFuture();
+                return;
             }
 
             renewedLease.set(lease);
 
             renewLeaseConsumer = null;
-
-            return trueCompletedFuture();
         };
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> renewedLease.get() != null, timeoutMillis));
