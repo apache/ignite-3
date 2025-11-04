@@ -84,6 +84,8 @@ dependencies {
     testFixturesImplementation project(':ignite-metastorage-api')
     testFixturesImplementation project(':ignite-rest-api')
     testFixturesImplementation project(':ignite-runner')
+    testFixturesImplementation project(':ignite-cli')
+    testFixturesImplementation project(':ignite-rest-api')
 }
 
 private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {

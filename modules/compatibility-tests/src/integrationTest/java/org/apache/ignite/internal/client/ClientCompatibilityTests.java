@@ -83,8 +83,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings({"resource", "DataFlowIssue"})
 public interface ClientCompatibilityTests {
-    DeploymentUnit JOBS_UNIT = new DeploymentUnit("compat-test-jobs", "1.0");
-
     IgniteClient client();
 
     AtomicInteger idGen();
