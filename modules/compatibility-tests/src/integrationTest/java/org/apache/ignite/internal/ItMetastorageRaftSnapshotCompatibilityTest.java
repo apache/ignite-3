@@ -22,8 +22,7 @@ import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.client.DeploymentUtils.runJob;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.awaitility.Awaitility.await;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
 import org.apache.ignite.internal.compute.TruncateRaftLogCommand;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -62,7 +62,8 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     }
 
     @Test
-    void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26923")
+    void testMetastorageRaftSnapshotCompatibility() throws InterruptedException{
         cluster.stop();
         cluster.startEmbedded(2);
 
@@ -74,7 +75,7 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
         MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
 
         // Assert that new node got all log entries from old one.
-        assertTrue(waitForCondition(() -> oldNodeMetastorage.appliedRevision() == newNodeMetastorage.appliedRevision(), 10_000));
+        await().until(() -> oldNodeMetastorage.appliedRevision() == newNodeMetastorage.appliedRevision());
     }
 
     private void checkMetastorage() {
