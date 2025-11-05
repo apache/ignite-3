@@ -129,6 +129,16 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     int latestCatalogVersion();
 
     /**
+     * Returns the latest registered catalog. Effectively returns a catalog with version from {@link #latestCatalogVersion}. See
+     * the last method's note about it's guarantees.
+     *
+     * @return The latest registered catalog
+     */
+    default Catalog latestCatalog() {
+        return catalog(latestCatalogVersion());
+    }
+
+    /**
      * Returns a future, which completes, when catalog of given version will be available.
      *
      * <p>Note: The future completeness guarantees all components have seen and processed the requested version. However, no guarantee

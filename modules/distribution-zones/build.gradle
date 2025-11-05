@@ -76,6 +76,7 @@ dependencies {
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-metastorage'))
 

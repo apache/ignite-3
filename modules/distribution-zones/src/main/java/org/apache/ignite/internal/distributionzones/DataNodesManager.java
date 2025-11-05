@@ -916,10 +916,10 @@ public class DataNodesManager {
     }
 
     /**
-     * Unlike {@link #dataNodes} this method recalculates the data nodes, writes it to metastorage and history, and returns them.
+     * Unlike {@link #dataNodes} this method data nodes for given zone and writes them to metastorage.
      *
      * @param zoneName Zone name.
-     * @return Recalculated data nodes for the given zone.
+     * @return The future with recalculated data nodes for the given zone.
      */
     public CompletableFuture<Set<String>> recalculateDataNodes(String zoneName) {
         int catalogVersion = catalogManager.latestCatalogVersion();
@@ -928,24 +928,6 @@ public class DataNodesManager {
 
         if (zoneDescriptor == null) {
             return failedFuture(new DistributionZoneNotFoundException(zoneName));
-        }
-
-        return recalculateDataNodes(zoneDescriptor);
-    }
-
-    /**
-     * Unlike {@link #dataNodes} this method recalculates the data nodes, writes it to metastorage and history, and returns them.
-     *
-     * @param zoneId Zone ID.
-     * @return Recalculated data nodes for the given zone.
-     */
-    public CompletableFuture<Set<String>> recalculateDataNodes(int zoneId) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneId);
-
-        if (zoneDescriptor == null) {
-            return failedFuture(new DistributionZoneNotFoundException(zoneId));
         }
 
         return recalculateDataNodes(zoneDescriptor);

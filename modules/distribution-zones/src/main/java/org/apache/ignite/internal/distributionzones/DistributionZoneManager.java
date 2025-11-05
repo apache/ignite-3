@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterZonesForOperations;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
@@ -86,6 +87,7 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZonesNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -377,6 +379,25 @@ public class DistributionZoneManager extends
 
     public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
         return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
+    }
+
+    /**
+     * Recalculates data nodes for given zone and writes them to metastorage.
+     *
+     * @param zoneNames Zone names set. If is empty then the recalculation will be performed against all known zones
+     *      at the moment.
+     * @return The future with recalculated data nodes for the given zone.
+     */
+    @SuppressWarnings("rawtypes")
+    public CompletableFuture<Void> recalculateDataNodes(Set<String> zoneNames) throws DistributionZonesNotFoundException {
+        Collection<CatalogZoneDescriptor> zones = catalogManager.latestCatalog().zones();
+
+        CompletableFuture[] recalculationFutures = filterZonesForOperations(zoneNames, zones)
+                .stream()
+                .map(zoneDesc -> dataNodesManager.recalculateDataNodes(zoneDesc.name()))
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(recalculationFutures);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {

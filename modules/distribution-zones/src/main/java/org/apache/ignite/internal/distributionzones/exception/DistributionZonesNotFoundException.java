@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster.exceptions;
+package org.apache.ignite.internal.distributionzones.exception;
 
 import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
-import java.util.Set;
+import java.util.Collection;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /** Exception is thrown when appropriate zones can`t be found. */
-public class ZonesNotFoundException extends DisasterRecoveryException {
+public class DistributionZonesNotFoundException extends IgniteInternalException {
     private static final long serialVersionUID = -8475588176132321568L;
 
-    public ZonesNotFoundException(Set<String> missingZoneNames) {
+    public DistributionZonesNotFoundException(Collection<String> missingZoneNames) {
         super(ZONE_NOT_FOUND_ERR, "Some distribution zones are missing: " + missingZoneNames);
     }
 }
