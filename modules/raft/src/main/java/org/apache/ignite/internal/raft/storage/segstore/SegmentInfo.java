@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.lang.Math.toIntExact;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
@@ -56,13 +58,23 @@ class SegmentInfo {
             return new ArrayWithSize(array, size + 1);
         }
 
-        ArrayWithSize truncate(int newSize) {
+        ArrayWithSize truncateSuffix(int newSize) {
+            return truncate(0, newSize);
+        }
+
+        ArrayWithSize truncatePrefix(int newSize) {
+            int srcPos = size - newSize;
+
+            return truncate(srcPos, newSize);
+        }
+
+        private ArrayWithSize truncate(int srcPos, int newSize) {
             assert newSize <= size
                     : String.format("Array must shrink on truncation, current size: %d, size after truncation: %d", size, newSize);
 
-            int[] newArray = new int[size];
+            int[] newArray = new int[array.length];
 
-            System.arraycopy(array, 0, newArray, 0, newSize);
+            System.arraycopy(array, srcPos, newArray, 0, newSize);
 
             return new ArrayWithSize(newArray, newSize);
         }
@@ -96,10 +108,15 @@ class SegmentInfo {
      * Offsets in a segment file.
      */
     @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
-    private volatile ArrayWithSize segmentFileOffsets = new ArrayWithSize();
+    private volatile ArrayWithSize segmentFileOffsets;
 
     SegmentInfo(long logIndexBase) {
+        this(logIndexBase, new ArrayWithSize());
+    }
+
+    private SegmentInfo(long logIndexBase, ArrayWithSize segmentFileOffsets) {
         this.logIndexBase = logIndexBase;
+        this.segmentFileOffsets = segmentFileOffsets;
     }
 
     /**
@@ -113,13 +130,7 @@ class SegmentInfo {
                 String.format("Log indexes are not monotonically increasing [logIndex=%d, expectedLogIndex=%d].",
                         logIndex, logIndexBase + segmentFileOffsets.size());
 
-        ArrayWithSize newSegmentFileOffsets = segmentFileOffsets.add(segmentFileOffset);
-
-        // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
-        // this invariant, just in case.
-        boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, segmentFileOffsets, newSegmentFileOffsets);
-
-        assert updated : "Concurrent writes detected";
+        setSegmentFileOffsets(segmentFileOffsets, segmentFileOffsets.add(segmentFileOffset));
     }
 
     /**
@@ -174,23 +185,53 @@ class SegmentInfo {
     /**
      * Removes all data which log indices are strictly greater than {@code lastLogIndexKept}.
      */
-    void truncateSuffix(long lastLogIndexKept) {
+    SegmentInfo truncateSuffix(long lastLogIndexKept) {
         assert lastLogIndexKept >= logIndexBase : String.format("logIndexBase=%d, lastLogIndexKept=%d", logIndexBase, lastLogIndexKept);
 
         ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
 
-        long newSize = lastLogIndexKept - logIndexBase + 1;
+        long lastLogIndexExclusive = logIndexBase + segmentFileOffsets.size();
 
         // Not using an assertion here, because this value comes doesn't come from the storage code.
-        if (newSize > segmentFileOffsets.size()) {
+        if (lastLogIndexKept >= lastLogIndexExclusive) {
             throw new IllegalArgumentException(String.format(
                     "lastLogIndexKept is too large. Last index in memtable: %d, lastLogIndexKept: %d",
-                    logIndexBase + segmentFileOffsets.size() - 1, lastLogIndexKept
+                    lastLogIndexExclusive - 1, lastLogIndexKept
             ));
         }
 
-        ArrayWithSize newSegmentFileOffsets = segmentFileOffsets.truncate((int) newSize);
+        int newSize = toIntExact(lastLogIndexKept - logIndexBase + 1);
 
+        setSegmentFileOffsets(segmentFileOffsets, segmentFileOffsets.truncateSuffix(newSize));
+
+        // This could have been a "void" method, but this way it looks consistent with "truncatePrefix".
+        return this;
+    }
+
+    /**
+     * Removes all data which log indices are strictly smaller than {@code firstIndexKept}.
+     */
+    SegmentInfo truncatePrefix(long firstIndexKept) {
+        assert firstIndexKept >= logIndexBase : String.format("logIndexBase=%d, firstIndexKept=%d", logIndexBase, firstIndexKept);
+
+        ArrayWithSize segmentFileOffsets = this.segmentFileOffsets;
+
+        long lastLogIndexExclusive = logIndexBase + segmentFileOffsets.size();
+
+        // Not using an assertion here, because this value comes doesn't come from the storage code.
+        if (firstIndexKept >= lastLogIndexExclusive) {
+            throw new IllegalArgumentException(String.format(
+                    "firstIndexKept is too large. Last index in memtable: %d, firstIndexKept: %d",
+                    lastLogIndexExclusive - 1, firstIndexKept
+            ));
+        }
+
+        int newSize = toIntExact(lastLogIndexExclusive - firstIndexKept);
+
+        return new SegmentInfo(firstIndexKept, segmentFileOffsets.truncatePrefix(newSize));
+    }
+
+    private void setSegmentFileOffsets(ArrayWithSize segmentFileOffsets, ArrayWithSize newSegmentFileOffsets) {
         // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
         // this invariant, just in case.
         boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, segmentFileOffsets, newSegmentFileOffsets);

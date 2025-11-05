@@ -44,7 +44,16 @@ class SegmentPayload {
      */
     static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE_BYTES;
 
+    /**
+     * Length of the byte sequence that is written when prefix truncation happens.
+     *
+     * <p>Format: {@code groupId, -1 (special length value), first kept index, crc}
+     */
+    static final int TRUNCATE_PREFIX_RECORD_SIZE = TRUNCATE_SUFFIX_RECORD_SIZE;
+
     static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
+
+    static final int TRUNCATE_PREFIX_RECORD_MARKER = -1;
 
     static void writeTo(
             ByteBuffer buffer,
@@ -68,26 +77,31 @@ class SegmentPayload {
 
         int dataSize = buffer.position() - originalPos;
 
-        // Rewind the position for CRC calculation.
-        buffer.position(originalPos);
-
-        int crc = FastCrc.calcCrc(buffer, dataSize);
-
-        // After CRC calculation the position will be at the provided end of the buffer.
-        buffer.putInt(crc);
+        writeCrc(buffer, dataSize);
     }
 
     static void writeTruncateSuffixRecordTo(ByteBuffer buffer, long groupId, long lastLogIndexKept) {
-        int originalPos = buffer.position();
-
         buffer
                 .putLong(groupId)
                 .putInt(TRUNCATE_SUFFIX_RECORD_MARKER)
                 .putLong(lastLogIndexKept);
 
-        buffer.position(originalPos);
+        writeCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE);
+    }
 
-        int crc = FastCrc.calcCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - HASH_SIZE_BYTES);
+    static void writeTruncatePrefixRecordTo(ByteBuffer buffer, long groupId, long firstIndexKept) {
+        buffer
+                .putLong(groupId)
+                .putInt(TRUNCATE_PREFIX_RECORD_MARKER)
+                .putLong(firstIndexKept);
+
+        writeCrc(buffer, TRUNCATE_PREFIX_RECORD_SIZE);
+    }
+
+    private static void writeCrc(ByteBuffer buffer, int recordSize) {
+        buffer.position(buffer.position() - recordSize);
+
+        int crc = FastCrc.calcCrc(buffer, recordSize - HASH_SIZE_BYTES);
 
         buffer.putInt(crc);
     }

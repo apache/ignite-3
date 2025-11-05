@@ -49,8 +49,24 @@ class GroupIndexMeta {
         void addIndexMeta(IndexFileMeta indexFileMeta) {
             IndexFileMetaArray fileMetas = this.fileMetas;
 
-            IndexFileMetaArray newFileMetas = fileMetas.add(indexFileMeta);
+            setFileMetas(fileMetas, fileMetas.add(indexFileMeta));
+        }
 
+        long firstLogIndexInclusive() {
+            return fileMetas.firstLogIndexInclusive();
+        }
+
+        long lastLogIndexExclusive() {
+            return fileMetas.lastLogIndexExclusive();
+        }
+
+        void truncateIndicesSmallerThan(long firstLogIndexKept) {
+            IndexFileMetaArray fileMetas = this.fileMetas;
+
+            setFileMetas(fileMetas, fileMetas.truncateIndicesSmallerThan(firstLogIndexKept));
+        }
+
+        private void setFileMetas(IndexFileMetaArray fileMetas, IndexFileMetaArray newFileMetas) {
             // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
             // this invariant, just in case.
             boolean updated = FILE_METAS_VH.compareAndSet(this, fileMetas, newFileMetas);
@@ -68,7 +84,7 @@ class GroupIndexMeta {
     void addIndexMeta(IndexFileMeta indexFileMeta) {
         IndexMetaArrayHolder curFileMetas = fileMetaDeque.getLast();
 
-        long curLastLogIndex = curFileMetas.fileMetas.lastLogIndexExclusive();
+        long curLastLogIndex = curFileMetas.lastLogIndexExclusive();
 
         long newFirstLogIndex = indexFileMeta.firstLogIndexInclusive();
 
@@ -117,9 +133,37 @@ class GroupIndexMeta {
         return null;
     }
 
+    void truncatePrefix(long firstLogIndexKept) {
+        Iterator<IndexMetaArrayHolder> it = fileMetaDeque.descendingIterator();
+
+        // Find the most recent entry, which first index is smaller than firstLogIndexKept.
+        while (it.hasNext()) {
+            IndexMetaArrayHolder holder = it.next();
+
+            long firstLogIndex = holder.firstLogIndexInclusive();
+
+            if (firstLogIndex == firstLogIndexKept) {
+                // We are right on the edge of meta range, keep this entry and simply drop everything older.
+                break;
+            }
+
+            if (firstLogIndex < firstLogIndexKept) {
+                holder.truncateIndicesSmallerThan(firstLogIndexKept);
+
+                break;
+            }
+        }
+
+        // Remove all remaining entries.
+        while (it.hasNext()) {
+            it.next();
+            it.remove();
+        }
+    }
+
     long firstLogIndexInclusive() {
         for (IndexMetaArrayHolder indexMetaArrayHolder : fileMetaDeque) {
-            long firstLogIndex = indexMetaArrayHolder.fileMetas.firstLogIndexInclusive();
+            long firstLogIndex = indexMetaArrayHolder.firstLogIndexInclusive();
 
             // "firstLogIndexInclusive" can return -1 of the index file does not contain any entries for this group, only the truncation
             // record.
@@ -132,6 +176,6 @@ class GroupIndexMeta {
     }
 
     long lastLogIndexExclusive() {
-        return fileMetaDeque.getLast().fileMetas.lastLogIndexExclusive();
+        return fileMetaDeque.getLast().lastLogIndexExclusive();
     }
 }

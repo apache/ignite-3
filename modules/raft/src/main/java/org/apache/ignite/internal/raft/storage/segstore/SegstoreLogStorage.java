@@ -115,7 +115,13 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public boolean truncatePrefix(long firstIndexKept) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.truncatePrefix(groupId, firstIndexKept);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        return true;
     }
 
     @Override

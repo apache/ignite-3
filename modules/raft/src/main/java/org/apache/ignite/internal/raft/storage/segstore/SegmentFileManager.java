@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.HASH_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_MARKER;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_MARKER;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_SIZE;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -305,13 +307,22 @@ class SegmentFileManager implements ManuallyCloseable {
 
     void truncateSuffix(long groupId, long lastLogIndexKept) throws IOException {
         try (WriteBufferWithMemtable writeBufferWithMemtable = reserveBytesWithRollover(TRUNCATE_SUFFIX_RECORD_SIZE)) {
-            ByteBuffer segmentBuffer = writeBufferWithMemtable.buffer();
-
-            SegmentPayload.writeTruncateSuffixRecordTo(segmentBuffer, groupId, lastLogIndexKept);
+            SegmentPayload.writeTruncateSuffixRecordTo(writeBufferWithMemtable.buffer(), groupId, lastLogIndexKept);
 
             // Modify the memtable before write buffer is released to avoid races with checkpoint on rollover.
             writeBufferWithMemtable.memtable().truncateSuffix(groupId, lastLogIndexKept);
         }
+    }
+
+    void truncatePrefix(long groupId, long firstLogIndexKept) throws IOException {
+        try (WriteBufferWithMemtable writeBufferWithMemtable = reserveBytesWithRollover(TRUNCATE_PREFIX_RECORD_SIZE)) {
+            SegmentPayload.writeTruncatePrefixRecordTo(writeBufferWithMemtable.buffer(), groupId, firstLogIndexKept);
+
+            // Modify the memtable before write buffer is released to avoid races with checkpoint on rollover.
+            writeBufferWithMemtable.memtable().truncatePrefix(groupId, firstLogIndexKept);
+        }
+
+        indexFileManager.truncatePrefix(groupId, firstLogIndexKept);
     }
 
     private WriteBufferWithMemtable reserveBytesWithRollover(int size) throws IOException {
@@ -498,46 +509,20 @@ class SegmentFileManager implements ManuallyCloseable {
         return segmentFile.buffer().position(segmentFilePointer.payloadOffset());
     }
 
-    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath) {
-        ByteBuffer buffer = segmentFile.buffer();
-
-        validateSegmentFileHeader(buffer, segmentFilePath);
-
-        var memtable = new IndexMemTable(stripes);
-
-        while (buffer.remaining() > SWITCH_SEGMENT_RECORD.length) {
-            int segmentFilePayloadOffset = buffer.position();
-
-            long groupId = buffer.getLong();
-
-            int payloadLength = buffer.getInt();
-
-            if (payloadLength == TRUNCATE_SUFFIX_RECORD_MARKER) {
-                long lastLogIndexKept = buffer.getLong();
-
-                memtable.truncateSuffix(groupId, lastLogIndexKept);
-
-                buffer.position(buffer.position() + HASH_SIZE_BYTES);
-            } else {
-                int endOfRecordPosition = buffer.position() + payloadLength + HASH_SIZE_BYTES;
-
-                long index = VarlenEncoder.readLong(buffer);
-
-                memtable.appendSegmentFileOffset(groupId, index, segmentFilePayloadOffset);
-
-                buffer.position(endOfRecordPosition);
-            }
-        }
-
-        return memtable;
-    }
-
     /**
      * Creates an index memtable from the given segment file. Unlike {@link #recoverMemtable} which is expected to only be called on
      * "complete" segment files (i.e. those that has experienced a rollover), this method is expected to be called on the most recent,
      * possibly incomplete segment file.
      */
     private WriteModeIndexMemTable recoverLatestMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        return recoverMemtable(segmentFile, segmentFilePath, true);
+    }
+
+    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath) {
+        return recoverMemtable(segmentFile, segmentFilePath, false);
+    }
+
+    private WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath, boolean validateCrc) {
         ByteBuffer buffer = segmentFile.buffer();
 
         validateSegmentFileHeader(buffer, segmentFilePath);
@@ -561,11 +546,24 @@ class SegmentFileManager implements ManuallyCloseable {
                 buffer.position(segmentFilePayloadOffset);
 
                 // CRC violation signals the end of meaningful data in the segment file.
-                if (!isCrcValid(buffer, crcPosition)) {
+                if (validateCrc && !isCrcValid(buffer, crcPosition)) {
                     break;
                 }
 
                 memtable.truncateSuffix(groupId, lastLogIndexKept);
+            } else if (payloadLength == TRUNCATE_PREFIX_RECORD_MARKER) {
+                long firstLogIndexKept = buffer.getLong();
+
+                crcPosition = buffer.position();
+
+                buffer.position(segmentFilePayloadOffset);
+
+                // CRC violation signals the end of meaningful data in the segment file.
+                if (validateCrc && !isCrcValid(buffer, crcPosition)) {
+                    break;
+                }
+
+                memtable.truncatePrefix(groupId, firstLogIndexKept);
             } else {
                 crcPosition = buffer.position() + payloadLength;
 
@@ -574,7 +572,7 @@ class SegmentFileManager implements ManuallyCloseable {
                 buffer.position(segmentFilePayloadOffset);
 
                 // CRC violation signals the end of meaningful data in the segment file.
-                if (!isCrcValid(buffer, crcPosition)) {
+                if (validateCrc && !isCrcValid(buffer, crcPosition)) {
                     break;
                 }
 
