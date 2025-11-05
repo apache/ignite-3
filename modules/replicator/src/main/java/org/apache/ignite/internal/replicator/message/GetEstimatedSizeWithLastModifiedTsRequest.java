@@ -24,6 +24,6 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 /** A message that queries a partition estimate size and last modification ts. */
 @Transferable(ReplicaMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST)
 public interface GetEstimatedSizeWithLastModifiedTsRequest extends NetworkMessage {
-    /** ID of the table. */
+    /** Table id`s to request estimated size for. */
     Collection<Integer> tables();
 }
