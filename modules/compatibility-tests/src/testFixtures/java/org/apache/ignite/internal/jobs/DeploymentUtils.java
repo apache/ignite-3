@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.jobs;
 
+import static org.apache.ignite.internal.jobs.Jobs.JOBS_UNIT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,7 +37,6 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.IgniteCluster;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.rest.client.api.DeploymentApi;
@@ -50,8 +50,6 @@ import org.apache.ignite.rest.client.model.UnitStatus;
  * Utility class for deploying jobs.
  */
 public class DeploymentUtils {
-    public static final DeploymentUnit JOBS_UNIT = new DeploymentUnit("compat-test-jobs", "1.0");
-
     /** Deploys all jobs in the module. */
     public static void deployJobs() {
         try {
@@ -79,28 +77,32 @@ public class DeploymentUtils {
             assertTrue(deployRes);
 
             await().until(() -> ensureAllNodesDeployedUnit(unitName, unitVersion));
-
         } catch (ApiException e) {
             sneakyThrow(e);
         }
     }
 
-    private static boolean ensureAllNodesDeployedUnit(String unitName, String unitVersion) throws ApiException {
-        DeploymentApi api = new DeploymentApi(new ApiClient());
+    private static boolean ensureAllNodesDeployedUnit(String unitName, String unitVersion) {
+        try {
+            DeploymentApi api = new DeploymentApi(new ApiClient());
 
-        List<DeploymentStatus> statuses = Arrays.asList(DeploymentStatus.values());
-        List<UnitStatus> unitStatuses = Stream.concat(
-                api.listNodeStatusesByUnit(unitName, unitVersion, statuses).stream(),
-                api.listClusterStatusesByUnit(unitName, unitVersion, statuses).stream()
-        ).collect(Collectors.toList());
+            List<DeploymentStatus> statuses = Arrays.asList(DeploymentStatus.values());
+            List<UnitStatus> unitStatuses = Stream.concat(
+                    api.listNodeStatusesByUnit(unitName, unitVersion, statuses).stream(),
+                    api.listClusterStatusesByUnit(unitName, unitVersion, statuses).stream()
+            ).collect(Collectors.toList());
 
-        return unitStatuses.stream()
-                .allMatch(unitStatus -> unitStatus.getVersionToStatus()
-                        .stream()
-                        .allMatch(vts ->
-                                Objects.equals(vts.getVersion(), unitVersion)
-                                        && vts.getStatus() == DeploymentStatus.DEPLOYED)
-                );
+            return unitStatuses.stream()
+                    .allMatch(unitStatus -> unitStatus.getVersionToStatus()
+                            .stream()
+                            .allMatch(vts ->
+                                    Objects.equals(vts.getVersion(), unitVersion)
+                                            && vts.getStatus() == DeploymentStatus.DEPLOYED)
+                    );
+        } catch (Exception e) {
+            sneakyThrow(e);
+            return false;
+        }
     }
 
     /** Run deployed job. */
