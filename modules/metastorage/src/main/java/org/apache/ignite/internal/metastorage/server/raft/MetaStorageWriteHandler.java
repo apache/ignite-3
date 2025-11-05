@@ -127,8 +127,12 @@ public class MetaStorageWriteHandler {
             if (cachedResult != null) {
                 Serializable commandResult = cachedResult.commandResult;
 
-                // For MultiInvokeCommand, a boolean result must be wrapped in a StatementResult,
-                // because the closure expects a StatementResult in this case.
+                // For MultiInvokeCommand, represent boolean results as 0/1 wrapped in a StatementResult,
+                // because the closure for this command type expects a StatementResult.
+                // Rationale: when restoring the idempotent-command cache from a snapshot, single-byte values (0/1)
+                // are read as booleans, while StatementResult persists raw bytes (0 or 1) and exposes them via its API
+                // (for example, getAsBoolean()).
+                // This maintains backward compatibility.
                 if (commandResult instanceof Boolean && command instanceof MultiInvokeCommand) {
                     var booleanResult = (Boolean) commandResult;
 
@@ -412,8 +416,10 @@ public class MetaStorageWriteHandler {
 
                     assert entryValue != null;
 
-                    // Byte arrays of length 1 are not exclusively booleans,
-                    // so this check prevents misinterpreting non-boolean values as booleans.
+                    // A single-byte array is not guaranteed to represent a boolean.
+                    // This guard avoids treating arbitrary 1-byte values as booleans.
+                    // We apply it uniformly (including for StatementResult) to keep backward compatibility.
+                    // When reading from the cache, boolean results are normalized to 0/1 so a correct StatementResult can be rebuilt.
                     if (entryValue.length == 1 && (entryValue[0] | 1) == 1) {
                         result = byteToBoolean(entryValue[0]);
                     } else {
