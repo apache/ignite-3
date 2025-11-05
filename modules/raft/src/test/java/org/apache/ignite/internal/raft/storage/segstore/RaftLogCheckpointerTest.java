@@ -137,12 +137,12 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
             for (int groupId = 0; groupId < MAX_QUEUE_SIZE; groupId++) {
                 for (int logIndex = 0; logIndex < MAX_QUEUE_SIZE; logIndex++) {
-                    ByteBuffer payload = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
+                    EntrySearchResult searchResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
 
                     if (groupId == logIndex) {
-                        assertThat(payload, is(notNullValue()));
+                        assertThat(searchResult != null && !searchResult.isEmpty(), is(true));
                     } else {
-                        assertThat(payload, is(nullValue()));
+                        assertThat(searchResult == null || searchResult.isEmpty(), is(true));
                     }
                 }
             }
@@ -154,5 +154,65 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
         // The queue should eventually become empty again.
         await().until(() -> checkpointer.findSegmentPayloadInQueue(0, 0), is(nullValue()));
+    }
+
+    @Test
+    void testFindSegmentPayloadReturnsBufferWhenOffsetPresent(@Mock SegmentFile mockFile, @Mock IndexMemTable mockMemTable) {
+        var blockFuture = new CompletableFuture<Void>();
+
+        try {
+            doAnswer(invocation -> blockFuture.join()).when(mockFile).sync();
+
+            ByteBuffer buffer = ByteBuffer.allocate(16);
+
+            when(mockFile.buffer()).thenReturn(buffer);
+
+            long groupId = 2;
+            long logIndex = 5;
+
+            SegmentInfo mockSegmentInfo = mock(SegmentInfo.class);
+
+            when(mockMemTable.segmentInfo(groupId)).thenReturn(mockSegmentInfo);
+            when(mockSegmentInfo.lastLogIndexExclusive()).thenReturn(10L);
+            when(mockSegmentInfo.firstIndexKept()).thenReturn(0L);
+            when(mockSegmentInfo.getOffset(logIndex)).thenReturn(2);
+
+            checkpointer.onRollover(mockFile, mockMemTable);
+
+            EntrySearchResult res = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
+
+            assertThat(res, is(notNullValue()));
+            assertThat(res.isEmpty(), is(false));
+            assertThat(res.entryBuffer(), is(buffer));
+        } finally {
+            blockFuture.complete(null);
+        }
+    }
+
+    @Test
+    void testFindSegmentPayloadReturnsEmptyWhenPrefixTombstoneCutsOff(@Mock SegmentFile mockFile, @Mock IndexMemTable mockMemTable) {
+        var blockFuture = new CompletableFuture<Void>();
+
+        try {
+            doAnswer(invocation -> blockFuture.join()).when(mockFile).sync();
+
+            long groupId = 2;
+
+            SegmentInfo mockSegmentInfo = mock(SegmentInfo.class);
+
+            when(mockMemTable.segmentInfo(groupId)).thenReturn(mockSegmentInfo);
+            when(mockSegmentInfo.lastLogIndexExclusive()).thenReturn(20L);
+            // Emulate prefix truncation from index 10.
+            when(mockSegmentInfo.firstIndexKept()).thenReturn(10L);
+
+            checkpointer.onRollover(mockFile, mockMemTable);
+
+            EntrySearchResult res = checkpointer.findSegmentPayloadInQueue(groupId, 5);
+
+            assertThat(res, is(notNullValue()));
+            assertThat(res.isEmpty(), is(true));
+        } finally {
+            blockFuture.complete(null);
+        }
     }
 }
