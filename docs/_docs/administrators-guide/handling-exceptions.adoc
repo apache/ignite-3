@@ -182,6 +182,7 @@ When the exception happens, Apache Ignite provides a UUID of the specific except
 |`IGN-NODECFG-2`|Failed to create a configuration file.|Check if the node has write permissions to the folder where configuration is.
 |`IGN-NODECFG-3`|Failed to write configuration.|Check if the node has write permissions to the folder where configuration is.
 |`IGN-NODECFG-4`|Failed to parse configuration.|Make sure the configuration file is correct.
+|`IGN-NODECFG-5`|Node was unable to pass the validation step.|Fix the invalid or mismatched configuration and retry joining the cluster.
 |===
 
 
