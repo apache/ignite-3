@@ -34,11 +34,14 @@ import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.SqlWriter.FrameTypeEnum;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Parse tree for {@code CREATE ZONE} statement with Ignite specific features.
  */
+@DdlBatchAware(group = DdlBatchGroup.CREATE)
 public class IgniteSqlCreateZone extends SqlCreate {
     private static final String STORAGE_PROFILES_OPTION_NAME = "STORAGE_PROFILES";
     private static final Pattern STORAGE_PROFILES_SPLIT_PATTERN = Pattern.compile("\\s*,\\s*");

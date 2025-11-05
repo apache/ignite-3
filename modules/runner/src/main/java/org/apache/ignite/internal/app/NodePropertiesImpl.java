@@ -90,8 +90,8 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
             );
         }
         if (!colocationEnabled) {
-            LOG.warn("Zone based replication is disabled, this mode is deprecated and will be removed in version 3.2. "
-                    + "Consider migrating to zone based replication (which is default now).");
+            LOG.warn("Zone based replication is disabled, so table based replication is used. This mode is deprecated and will be removed "
+                    + "in version 3.2. Consider migrating to zone based replication (which is default now).");
         }
     }
 
