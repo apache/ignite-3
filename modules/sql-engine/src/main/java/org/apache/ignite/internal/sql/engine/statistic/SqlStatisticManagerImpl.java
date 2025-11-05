@@ -57,7 +57,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
-    public static final long DEFAULT_TABLE_SIZE = 1L;
+    static final long DEFAULT_TABLE_SIZE = 1L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, Long.MIN_VALUE);
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
@@ -78,7 +78,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     /* Contains all known table id's with statistics. */
     final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
 
-    /* Contain dropped tables, can`t update statistic for such case. */
+    /* Contain dropped tables, can`t update statistic for such a case. */
     Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;

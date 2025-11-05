@@ -98,11 +98,6 @@ public class StorageUpdateHandler {
         return partitionId;
     }
 
-    /** Returns last milestone of modification observer. */
-    public HybridTimestamp lastModificationCounterMilestone() {
-        return modificationCounter.lastMilestoneTimestamp();
-    }
-
     /**
      * Handles single update.
      *
