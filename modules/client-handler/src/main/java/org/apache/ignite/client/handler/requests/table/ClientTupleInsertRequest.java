@@ -17,12 +17,14 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static java.util.EnumSet.noneOf;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -53,7 +55,7 @@ public class ClientTupleInsertRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false)
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, notificationSender, tsTracker, noneOf(ReadOptions.class))
                 .thenCompose(req -> req.table().recordView().insertAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);
