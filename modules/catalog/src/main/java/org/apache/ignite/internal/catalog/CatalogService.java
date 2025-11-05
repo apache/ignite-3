@@ -127,7 +127,9 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @return The latest registered version of the catalog.
      * @see #catalogReadyFuture(int)
      */
-    int latestCatalogVersion();
+    default int latestCatalogVersion() {
+        return latestCatalog().version();
+    }
 
     /**
      * Returns the latest registered catalog. Effectively returns a catalog with version from {@link #latestCatalogVersion}. See
@@ -136,9 +138,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @return The latest registered catalog
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26939
-    default Catalog latestCatalog() {
-        return catalog(latestCatalogVersion());
-    }
+    Catalog latestCatalog();
 
     /**
      * Returns a future, which completes, when catalog of given version will be available.
