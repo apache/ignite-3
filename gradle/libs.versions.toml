@@ -94,6 +94,7 @@ testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
 protobuf = "4.32.0"
 cytodynamics = "0.2.0"
+hikariCP = "7.0.2"
 
 #Tools
 pmdTool = "7.13.0"
@@ -277,6 +278,8 @@ auto-service = { module = "com.google.auto.service:auto-service", version.ref = 
 auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "autoService" }
 
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+
+hikariCP = { module = "com.zaxxer:HikariCP", version.ref="hikariCP"}
 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
