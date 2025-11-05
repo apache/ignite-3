@@ -126,6 +126,9 @@ public class MetaStorageWriteHandler {
 
             if (cachedResult != null) {
                 Serializable commandResult = cachedResult.commandResult;
+
+                // A command result that is a single boolean must be serialized separately and wrapped into StatementResult,
+                // because the closure expects a StatementResult.
                 if (commandResult instanceof Boolean && command instanceof MultiInvokeCommand) {
                     var booleanResult = (Boolean) commandResult;
 
@@ -409,6 +412,8 @@ public class MetaStorageWriteHandler {
 
                     assert entryValue != null;
 
+                    // We can have byte arrays of length 1 not only for boolean values, so we must parse them correctly
+                    // to prevent potential ClassCastException.
                     if (entryValue.length == 1 && (entryValue[0] | 1) == 1) {
                         result = byteToBoolean(entryValue[0]);
                     } else {
