@@ -33,7 +33,7 @@ For all the commands going forward:
 * Replace `{dist.dev}` with the local path to the development distribution directory.
 * Replace `{dist.release}` with the local path to the release distribution directory.
 
-4. Collect all release important unresolved issues and label them with smth. like: `release-{version}-blocker`, inform community that all further critical release issues need to be labeled appropriate. It is not necessary, but it will allow not to miss important issues.
+4. Collect all release important unresolved issues and label them `release-{version}-blocker`, inform the community that all further critical release issues need to be labeled appropriately. It is not necessary, but it allows don't to miss important issues.
 5. Check license criteria for [all dependencies](https://www.apache.org/legal/resolved.html) run `./gradlew :packaging:generateLicenseReport` and check report `./packaging/build/reports/dependency-license`.
 
 ## Preparing the Release
@@ -111,7 +111,7 @@ For all the commands going forward:
    svn commit -m “Apache Ignite {version} RC{rc}”
    ``` 
 17. Put the release on a vote on the developers mailing list.
-18. If vote is passed - send appropriate message for dev-list, otherwise apply appropriate changes, don\`t forget to move `git tag` if there are code related changes.
+18. If vote is passed - send appropriate message for dev-list, otherwise apply appropriate changes, don't forget to move `git tag` if there are code related changes `git tag -d {version}-rc{rc}; git tag -a {version}-rc{rc} -m '{version}-rc{rc}'; git push --tags`.
 
 ## Finalizing the Release
 
