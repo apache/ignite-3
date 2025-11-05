@@ -56,6 +56,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.awaitility.Awaitility;
@@ -152,6 +153,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 node2.catalogCompactionRunner()
         );
 
+        debug.recordGlobalTxState("init");
         debug.recordCatalogState("init");
         debug.recordMinTxTimesState("init");
 
@@ -381,6 +383,21 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             }
         }
 
+        void recordGlobalTxState(String contextMessage) {
+            buffer.nl();
+
+            buffer.app("System transactions state (").app(contextMessage).app(')').nl();
+
+            for (IgniteImpl node : nodes) {
+                TxManager txManager = node.txManager();
+
+                buffer.app("  ").app(node.name())
+                        .app(": pending=").app(txManager.pending())
+                        .app(", finished=").app(txManager.finished())
+                        .nl();
+            }
+        }
+
         void recordTransactionsState() {
             // Sort by start time.
             transactions.sort(Comparator.comparing(t -> beginTimestamp(t.id())));
@@ -427,6 +444,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         }
 
         String dumpDebugInfo(String messageHeader) {
+            recordGlobalTxState("onFailure");
             recordCatalogState("onFailure");
             recordMinTxTimesState("onFailure");
             recordTransactionsState();
