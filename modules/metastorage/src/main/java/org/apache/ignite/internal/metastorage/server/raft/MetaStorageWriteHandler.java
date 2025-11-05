@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorage.INVOKE_RESULT_FALSE_BYTES;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorage.INVOKE_RESULT_TRUE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
@@ -123,7 +125,17 @@ public class MetaStorageWriteHandler {
             CommandResultAndTimestamp cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
-                clo.result(cachedResult.commandResult);
+                Serializable commandResult = cachedResult.commandResult;
+                if (commandResult instanceof Boolean && command instanceof MultiInvokeCommand) {
+                    var booleanResult = (Boolean) commandResult;
+
+                    clo.result(MSG_FACTORY.statementResult()
+                            .result(ByteBuffer.wrap(booleanResult ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES))
+                            .build()
+                    );
+                } else {
+                    clo.result(commandResult);
+                }
 
                 return;
             } else {
@@ -392,10 +404,15 @@ public class MetaStorageWriteHandler {
                     CommandId commandId = CommandId.fromString(commandIdString);
 
                     Serializable result;
-                    if (entry.value().length == 1) {
-                        result = byteToBoolean(entry.value()[0]);
+
+                    byte[] entryValue = entry.value();
+
+                    assert entryValue != null;
+
+                    if (entryValue.length == 1 && (entryValue[0] | 1) == 1) {
+                        result = byteToBoolean(entryValue[0]);
                     } else {
-                        result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
+                        result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entryValue)).build();
                     }
 
                     idempotentCommandCache.put(commandId, new CommandResultAndTimestamp(result, entry.timestamp()));
