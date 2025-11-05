@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.KEY_ONLY;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -52,7 +54,7 @@ public class ClientTupleGetAndDeleteRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, true)
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, notificationSender, tsTracker, of(KEY_ONLY))
                 .thenCompose(req -> req.table().recordView().getAndDeleteAsync(req.tx(), req.tuple())
                         .thenApply(resTuple -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

@@ -20,8 +20,12 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.KEY_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.READ_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.READ_SECOND_TUPLE;
 
 import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
@@ -74,17 +78,10 @@ class ClientTupleRequestBase {
         return tuple2;
     }
 
-    public static CompletableFuture<ClientTupleRequestBase> readAsync(
-            ClientMessageUnpacker in,
-            IgniteTables tables,
-            ClientResourceRegistry resources,
-            @Nullable TxManager txManager,
-            boolean txReadOnly,
-            @Nullable NotificationSender notificationSender,
-            @Nullable HybridTimestampTracker tsTracker,
-            boolean keyOnly
-    ) {
-        return readAsync(in, tables, resources, txManager, txReadOnly, notificationSender, tsTracker, keyOnly, false);
+    enum ReadOptions {
+        READ_ONLY,
+        KEY_ONLY,
+        READ_SECOND_TUPLE
     }
 
     public static CompletableFuture<ClientTupleRequestBase> readAsync(
@@ -92,11 +89,9 @@ class ClientTupleRequestBase {
             IgniteTables tables,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
-            boolean txReadOnly,
             @Nullable NotificationSender notificationSender,
             @Nullable HybridTimestampTracker tsTracker,
-            boolean keyOnly,
-            boolean readSecondTuple
+            EnumSet<ReadOptions> readOptions
     ) {
         assert (txManager != null) == (tsTracker != null) : "txManager and tsTracker must be both null or not null";
 
@@ -106,21 +101,22 @@ class ClientTupleRequestBase {
 
         InternalTransaction tx = txManager == null
                 ? null
-                : readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender, resIdHolder);
+                : readOrStartImplicitTx(in, tsTracker, resources, txManager, readOptions.contains(READ_ONLY), notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
 
-        BitSet noValueSet2 = readSecondTuple ? in.unpackBitSet() : null;
-        byte[] tupleBytes2 = readSecondTuple ? in.readBinary() : null;
+        BitSet noValueSet2 = readOptions.contains(READ_SECOND_TUPLE) ? in.unpackBitSet() : null;
+        byte[] tupleBytes2 = readOptions.contains(READ_SECOND_TUPLE) ? in.readBinary() : null;
 
         return readTableAsync(tableId, tables)
                 .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
                         .thenApply(schema -> {
-                            var tuple = readTuple(noValueSet, tupleBytes, keyOnly, schema);
-                            var tuple2 = readSecondTuple ? readTuple(noValueSet2, tupleBytes2, keyOnly, schema) : null;
+                            var tuple = readTuple(noValueSet, tupleBytes, readOptions.contains(KEY_ONLY), schema);
+                            var tuple2 = readOptions.contains(READ_SECOND_TUPLE) ?
+                                    readTuple(noValueSet2, tupleBytes2, readOptions.contains(KEY_ONLY), schema) : null;
 
                             return new ClientTupleRequestBase(tx, table, tuple, tuple2, resIdHolder[0]);
                         }));
