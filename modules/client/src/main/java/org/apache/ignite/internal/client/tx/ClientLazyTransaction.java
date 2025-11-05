@@ -39,11 +39,14 @@ public class ClientLazyTransaction implements Transaction {
 
     private final @Nullable TransactionOptions options;
 
+    private final boolean implicit;
+
     private volatile CompletableFuture<ClientTransaction> tx;
 
-    ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
+    public ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options, boolean implicit) {
         this.observableTimestamp = observableTimestamp.getLong();
         this.options = options;
+        this.implicit = implicit;
     }
 
     @Override
@@ -203,5 +206,9 @@ public class ClientLazyTransaction implements Transaction {
 
     public long observableTimestamp() {
         return observableTimestamp;
+    }
+
+    public boolean implicit() {
+        return implicit;
     }
 }

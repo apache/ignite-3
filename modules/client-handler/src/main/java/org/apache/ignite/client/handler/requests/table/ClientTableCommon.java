@@ -408,13 +408,15 @@ public class ClientTableCommon {
                 // This is first mapping request, which piggybacks transaction creation.
                 boolean readOnly = in.unpackBoolean();
                 long timeoutMillis = in.unpackLong();
+                boolean implicit = in.unpackBoolean();
 
                 InternalTxOptions txOptions = InternalTxOptions.builder()
                         .timeoutMillis(timeoutMillis)
                         .build();
 
-                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly,
-                        txOptions);
+                var tx = implicit ? startImplicitTx(tsUpdater, txManager, readOnly) :
+                        startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly,
+                                txOptions);
 
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));

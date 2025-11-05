@@ -64,6 +64,8 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     LongAdder fails = new LongAdder();
 
+    LongAdder readOps = new LongAdder();
+
     LongAdder readFails = new LongAdder();
 
     AtomicBoolean stop = new AtomicBoolean();
@@ -119,7 +121,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             readThreads[i].start();
         }
 
-        Thread.sleep(duration);
+        Thread.sleep(duration * 1000);
 
         stop.set(true);
 
@@ -160,7 +162,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         Ignite node = node(0);
         Table accounts = node.tables().table("accounts");
 
-        log.info("After test ops={} fails={} readFails={}", ops.sum(), fails.sum(), readFails.sum());
+        log.info("After test ops={} fails={} readOps={} readFails={}", ops.sum(), fails.sum(), readOps.sum(), readFails.sum());
 
         double total0 = 0;
 
@@ -211,11 +213,10 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 //                    tx.commit();
 //
 //                    ops.increment();
-//                } catch (Exception e) {
+//                } catch (IgniteException e) {
 //                    assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
 //
-//                    tx.rollback(); // TODO don't need ?
-//
+//                    // Don't need to rollback manually if got IgniteException.
 //                    fails.increment();
 //                }
 //            }
@@ -257,6 +258,8 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                     }
 
                     assertEquals(total, sum);
+
+                    readOps.increment();
                 } catch (Exception e) {
                     assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
 

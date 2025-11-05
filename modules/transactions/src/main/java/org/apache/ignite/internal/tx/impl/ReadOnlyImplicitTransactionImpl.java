@@ -154,7 +154,8 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
             boolean full,
             boolean timeoutExceeded
     ) {
-        // TODO why do we need this ?
+        // TODO why do we need this ? read only implicit txns always read up to date data.
+        // TODO use timeouts for lock based approach.
         observableTsTracker.update(executionTimestamp);
 
         return nullCompletedFuture();
