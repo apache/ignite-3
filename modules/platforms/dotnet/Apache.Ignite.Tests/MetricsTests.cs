@@ -458,15 +458,15 @@ public class MetricsTests
             {
                 var newVal = Convert.ToInt64(measurement);
 
-                Console.WriteLine($"{_name} measurement: {instrument.Name} = {newVal}");
-
                 if (instrument.IsObservable)
                 {
                     _metrics[instrument.Name] = newVal;
+                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {newVal}");
                 }
                 else
                 {
-                    _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                    var res = _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {res - newVal} + {newVal} = {res}");
 
                     var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
                     _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);

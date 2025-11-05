@@ -77,6 +77,7 @@ import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -580,6 +581,13 @@ public class LeaseUpdater {
                     put(key, renewedValue),
                     noop()
             ).whenComplete((success, e) -> {
+                long duration = FastTimestamps.coarseCurrentTimeMillis() - currentTime.getPhysical();
+
+                if (duration > leaseExpirationInterval) {
+                    LOG.warn("Lease update invocation took longer than lease interval [duration={}, leaseInterval={}].",
+                            duration, leaseExpirationInterval);
+                }
+
                 if (e != null) {
                     if (!hasCause(e, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));

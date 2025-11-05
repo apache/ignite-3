@@ -39,10 +39,10 @@ Script execution of SQL statements is not supported in current release.
 To install Python DB API driver, download it from pip.
 
 ----
-pip install pyignite3_dbapi
+pip install pyignite_dbapi
 ----
 
-After this, you can import `pyignite3_dbapi` into your project and use it.
+After this, you can import `pyignite_dbapi` into your project and use it.
 
 == Connecting to Cluster
 
