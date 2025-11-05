@@ -52,7 +52,7 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
 
     @ParameterizedTest
     @EnumSource(KnownSystemView.class)
-    public void systemViewWithGivenNameExists(KnownSystemView view) {
+    void systemViewWithGivenNameExists(KnownSystemView view) {
         assertQuery(format("SELECT count(*) FROM {}", view.canonicalName()))
                 // for this test it's enough to check presence of the row,
                 // because we are interested in whether the view is available for
@@ -63,7 +63,7 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
 
     @ParameterizedTest
     @EnumSource(KnownSystemView.class)
-    public void systemViewWithGivenNamePresentedInSystemViewsView(KnownSystemView view) {
+    void systemViewWithGivenNamePresentedInSystemViewsView(KnownSystemView view) {
         assertQuery(format("SELECT * FROM {} WHERE schema = ? AND name = ?", SYSTEM_VIEWS.canonicalName()))
                 .withParams(view.schema, view.name)
                 .returnSomething()
@@ -121,6 +121,13 @@ public class ItSystemViewsTest extends AbstractSystemViewTest {
         assertQuery(format("SELECT * FROM known_views kv JOIN {} sv"
                 + " ON kv.view_id = sv.id WHERE sv.name = ?", view.canonicalName()))
                 .withParam(view.name)
+                .returnSomething()
+                .check();
+    }
+
+    @Test
+    void aggregatedQueryOverSystemViewDoesntThrow() {
+        assertQuery("SELECT COUNT(*) FROM system.system_view_columns WHERE view_name LIKE '%' GROUP BY view_id")
                 .returnSomething()
                 .check();
     }
