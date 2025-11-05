@@ -27,6 +27,8 @@ import org.jetbrains.annotations.Nullable;
 public class InternalTxOptions {
     private static final InternalTxOptions DEFAULT_OPTIONS = builder().build();
 
+    private static final InternalTxOptions DEFAULT_LOW_PRIORITY_OPTIONS = builder().priority(TxPriority.LOW).build();
+
     /**
      * Transaction priority. The priority is used to resolve conflicts between transactions. The higher priority is
      * the more likely the transaction will win the conflict.
@@ -55,6 +57,10 @@ public class InternalTxOptions {
 
     public static InternalTxOptions defaults() {
         return DEFAULT_OPTIONS;
+    }
+
+    public static InternalTxOptions lowPriority() {
+        return DEFAULT_LOW_PRIORITY_OPTIONS;
     }
 
     public static InternalTxOptions defaultsWithPriority(TxPriority priority) {

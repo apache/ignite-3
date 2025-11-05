@@ -131,6 +131,7 @@ public class DirectTxUtils {
                     out.out().packLong(tx0.observableTimestamp());
                     out.out().packBoolean(tx.isReadOnly());
                     out.out().packLong(tx0.timeout());
+                    out.out().packBoolean(tx0.implicit()); // TODO compat
                 } else {
                     ClientTransaction tx0 = ClientTransaction.get(tx);
                     out.out().packLong(TX_ID_DIRECT);

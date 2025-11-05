@@ -25,10 +25,12 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -111,22 +113,26 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyMapCompletedFuture();
         }
 
+        List<Transaction> txns = new ArrayList<>();
+
         BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Map<Tuple, Tuple>>> clo = (batch, provider) -> {
+            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns);
+
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
-                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    (s, w, n) -> ser.writeTuples(tx0, batch, s, w, n, true),
                     (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
                     Collections.emptyMap(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        return tbl.split(tx, keys, clo, new HashMap<>(),
+        return tbl.splitAndRun(tx, keys, clo, new HashMap<>(),
                 (agg, cur) -> {
                     agg.putAll(cur);
                     return agg;
                 },
-                ClientTupleSerializer::getColocationHash);
+                ClientTupleSerializer::getColocationHash, txns);
     }
 
     /** {@inheritDoc} */
@@ -218,7 +224,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
         }
 
-        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */
@@ -274,7 +280,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(pairs.keySet().iterator().next()));
         }
 
-        return tbl.split(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
+        return tbl.splitAndRun(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
                 (schema, entry) -> ClientTupleSerializer.getColocationHash(schema, entry.getKey()));
     }
 
@@ -415,7 +421,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
         }
 
-        return tbl.split(tx, keys, clo, new HashSet<>(),
+        return tbl.splitAndRun(tx, keys, clo, new HashSet<>(),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;

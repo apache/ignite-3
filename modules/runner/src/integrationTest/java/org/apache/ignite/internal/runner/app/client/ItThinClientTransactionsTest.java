@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -531,6 +532,32 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         return keys;
     }
 
+    static List<Tuple> generateKeysForPartition(
+            int start,
+            int count,
+            Map<Partition, ClusterNode> map,
+            int partId,
+            Table table
+    ) {
+        List<Tuple> keys = new ArrayList<>();
+        PartitionManager partitionManager = table.partitionManager();
+
+        int k = start;
+        while (keys.size() != count) {
+            k++;
+            Tuple t = key(k);
+
+            Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
+            HashPartition hashPart = (HashPartition) part;
+
+            if (hashPart.partitionId() == partId) {
+                keys.add(t);
+            }
+        }
+
+        return keys;
+    }
+
     private static Integer partitions(Collection<Tuple> keys, Table table) {
         PartitionManager partitionManager = table.partitionManager();
 
@@ -864,8 +891,11 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(600, 50, map, server0.cluster().localNode(), table);
-        List<Tuple> tuples1 = generateKeysForNode(610, 50, map, server1.cluster().localNode(), table);
+        List<Tuple> tuples0 = generateKeysForNode(600, 1, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples1 = generateKeysForNode(610, 1, map, server1.cluster().localNode(), table);
+
+        assertEquals(1, tuples0.size());
+        assertEquals(1, tuples1.size());
 
         Map<Tuple, Tuple> batch = new HashMap<>();
 
@@ -881,6 +911,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         view.putAll(null, batch);
 
         assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
+
+        view.put(null, tuples0.get(0), val("newval0"));
+        view.put(null, tuples1.get(0), val("newval1"));
     }
 
     @Test
@@ -1032,6 +1065,11 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         tx1.commit();
         tx0.commit();
+    }
+
+    @Test
+    void testDirectTransaction() {
+        fail("TODO");
     }
 
     @ParameterizedTest

@@ -27,5 +27,4 @@ import org.apache.ignite.internal.replicator.message.TableAware;
  */
 @Transferable(PartitionReplicationMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST)
 public interface ReadOnlyDirectMultiRowReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest, TableAware {
-    boolean full();
 }

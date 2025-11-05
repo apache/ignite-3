@@ -99,17 +99,21 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
+        List<Transaction> txns = new ArrayList<>();
+
         BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<List<Tuple>>> clo = (batch, provider) -> {
+            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns);
+
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
-                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    (s, w, n) -> ser.writeTuples(tx0, batch, s, w, n, true),
                     (s, r) -> ClientTupleSerializer.readTuplesNullable(s, r.in()),
                     Collections.emptyList(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        return tbl.split(tx, keyRecs, clo, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(keyRecs, clo, ClientTupleSerializer::getColocationHash, txns);
     }
 
     /** {@inheritDoc} */
@@ -159,7 +163,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
         }
 
-        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */
@@ -209,7 +213,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()));
         }
 
-        return tbl.split(tx, recs, clo, null, (agg, cur) -> null, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(tx, recs, clo, null, (agg, cur) -> null, ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */
@@ -280,7 +284,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()));
         }
 
-        return tbl.split(tx, recs, clo, new ArrayList<>(recs.size()),
+        return tbl.splitAndRun(tx, recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -442,7 +446,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return clo.apply(keyRecs, getPartitionAwarenessProvider(keyRecs.iterator().next()));
         }
 
-        return tbl.split(tx, keyRecs, clo, new ArrayList<>(keyRecs.size()),
+        return tbl.splitAndRun(tx, keyRecs, clo, new ArrayList<>(keyRecs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -484,7 +488,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()));
         }
 
-        return tbl.split(tx, recs, clo, new ArrayList<>(recs.size()),
+        return tbl.splitAndRun(tx, recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;

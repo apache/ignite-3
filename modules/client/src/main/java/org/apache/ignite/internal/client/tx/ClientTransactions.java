@@ -61,7 +61,7 @@ public class ClientTransactions implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-        return completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options));
+        return completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options, false));
     }
 
     /**

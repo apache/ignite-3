@@ -85,8 +85,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
@@ -828,32 +826,22 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Evaluates the multi-row request to the cluster for a read-only single-partition implicit transaction.
      *
-     * @param keyRows Rows with keys.
+     * @param rows Rows.
+     * @param op Replica requests factory.
      * @param <R> Result type.
      * @return The future.
      */
-    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(Collection<BinaryRowEx> keyRows, boolean full) {
+    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            Collection<BinaryRowEx> rows,
+            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
+    ) {
         InternalTransaction actualTx = txManager.beginImplicitRo(observableTimestampTracker);
 
-        Iterator<BinaryRowEx> iterator = keyRows.iterator();
-        int partId = partitionId(iterator.next());
-
-        while (iterator.hasNext()) {
-            assert partId == partitionId(iterator.next());
-        }
+        int partId = partitionId(rows.iterator().next());
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
-        return sendReadOnlyToPrimaryReplica(actualTx, replicationGroupId,
-                (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
-                        .groupId(serializeReplicationGroupId(groupId))
-                        .tableId(tableId)
-                        .enlistmentConsistencyToken(consistencyToken)
-                        .schemaVersion(keyRows.iterator().next().schemaVersion())
-                        .primaryKeys(serializeBinaryTuples(keyRows))
-                        .requestType(RO_GET_ALL)
-                        .full(full)
-                        .build());
+        return sendReadOnlyToPrimaryReplica(actualTx, replicationGroupId, op);
     }
 
     /**
@@ -1031,18 +1019,21 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx == null && isSinglePartitionBatch(keyRows)) {
-            // Embedded batch request.
-            return evaluateReadOnlyPrimaryNode(keyRows, true);
+            return evaluateReadOnlyPrimaryNode(
+                    keyRows,
+                    (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
+                            .groupId(serializeReplicationGroupId(groupId))
+                            .tableId(tableId)
+                            .enlistmentConsistencyToken(consistencyToken)
+                            .schemaVersion(keyRows.iterator().next().schemaVersion())
+                            .primaryKeys(serializeBinaryTuples(keyRows))
+                            .requestType(RO_GET_ALL)
+                            .build()
+            );
         }
 
-        // TODO make sure timeouts are used.
         if (tx != null && tx.isReadOnly()) {
-            if (tx.implicit()) {
-                // KV batch read request.
-                // TODO validate batch in partition
-                // TODO support embedded.
-                return evaluateReadOnlyPrimaryNode(keyRows, false);
-            }
+            assert !tx.implicit() : "implicit RO getAll not supported";
 
             return getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), null);
         }

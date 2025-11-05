@@ -30,12 +30,14 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -192,20 +194,24 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyMapCompletedFuture();
         }
 
+        List<Transaction> txns = new ArrayList<>();
+
         BiFunction<Collection<K>, PartitionAwarenessProvider, CompletableFuture<Map<K, V>>> clo = (batch, provider) -> {
+            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns);
+
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
-                    (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
+                    (s, w, n) -> keySer.writeRecs(tx0, batch, s, w, n, TuplePart.KEY),
                     this::readGetAllResponse,
                     Collections.emptyMap(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        return tbl.split(tx, keys, clo, new HashMap<>(), (agg, cur) -> {
+        return tbl.splitAndRun(tx, keys, clo, new HashMap<>(), (agg, cur) -> {
             agg.putAll(cur);
             return agg;
-        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
+        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry), txns);
     }
 
     /** {@inheritDoc} */
@@ -255,7 +261,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
         }
 
-        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
+        return tbl.splitAndRun(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
     }
 
@@ -320,7 +326,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(keySer.mapper(), pairs.keySet().iterator().next()));
         }
 
-        return tbl.split(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
+        return tbl.splitAndRun(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry.getKey()));
     }
 
@@ -481,7 +487,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return batchFunc.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
         }
 
-        return tbl.split(tx, keys, batchFunc, new HashSet<>(), (agg, cur) -> {
+        return tbl.splitAndRun(tx, keys, batchFunc, new HashSet<>(), (agg, cur) -> {
             agg.addAll(cur);
             return agg;
         }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));

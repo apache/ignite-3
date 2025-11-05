@@ -51,7 +51,7 @@ public class ClientTupleGetAllRequest {
             ClockService clockService,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, true, null, tsTracker, true)
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().getAllAsync(req.tx(), req.tuples())
                         .thenApply(resTuples -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

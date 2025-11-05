@@ -107,21 +107,21 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
+        List<Transaction> txns = new ArrayList<>();
+
         BiFunction<Collection<R>, PartitionAwarenessProvider, CompletableFuture<List<R>>> clo = (batch, provider) -> {
+            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns);
+
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
-                    (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
+                    (s, w, n) -> ser.writeRecs(tx0, batch, s, w, n, TuplePart.KEY, true),
                     (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
                     Collections.emptyList(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        if (tx == null) {
-            return clo.apply(keyRecs, getPartitionAwarenessProvider(ser.mapper(), keyRecs.iterator().next()));
-        }
-
-        return tbl.split(tx, keyRecs, clo, (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
+        return tbl.splitAndRun(keyRecs, clo, (schema, entry) -> getColocationHash(schema, ser.mapper(), entry), txns);
     }
 
     /** {@inheritDoc} */
@@ -171,7 +171,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return clo.apply(keys, getPartitionAwarenessProvider(ser.mapper(), keys.iterator().next()));
         }
 
-        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
+        return tbl.splitAndRun(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
@@ -222,7 +222,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return clo.apply(recs, getPartitionAwarenessProvider(ser.mapper(), recs.iterator().next()));
         }
 
-        return tbl.split(tx, recs, clo, null, (agg, cur) -> null,
+        return tbl.splitAndRun(tx, recs, clo, null, (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
@@ -294,7 +294,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return clo.apply(recs, getPartitionAwarenessProvider(ser.mapper(), recs.iterator().next()));
         }
 
-        return tbl.split(tx, recs, clo, new ArrayList<>(recs.size()),
+        return tbl.splitAndRun(tx, recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -453,7 +453,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return clo.apply(keyRecs, getPartitionAwarenessProvider(ser.mapper(), keyRecs.iterator().next()));
         }
 
-        return tbl.split(tx, keyRecs, clo, new ArrayList<>(keyRecs.size()),
+        return tbl.splitAndRun(tx, keyRecs, clo, new ArrayList<>(keyRecs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -495,7 +495,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return clo.apply(recs, getPartitionAwarenessProvider(ser.mapper(), recs.iterator().next()));
         }
 
-        return tbl.split(tx, recs, clo, new ArrayList<>(recs.size()),
+        return tbl.splitAndRun(tx, recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;

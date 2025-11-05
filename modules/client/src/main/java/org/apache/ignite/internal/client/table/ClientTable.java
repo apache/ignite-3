@@ -51,6 +51,7 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.api.PublicApiClientKeyValueView;
 import org.apache.ignite.internal.client.table.api.PublicApiClientRecordView;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.DirectTxUtils;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -70,6 +71,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -739,6 +741,19 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
+    public Transaction startImplicitTxIfNeeded(@Nullable Transaction tx, List<Transaction> txns) {
+        if (tx != null) {
+            return tx;
+        }
+
+        // TODO timeout
+        ClientLazyTransaction tx0 = new ClientLazyTransaction(channel().observableTimestamp(), new TransactionOptions(), true);
+
+        txns.add(tx0);
+
+        return tx0;
+    }
+
     /**
      * Batch with indexes.
      *
@@ -762,13 +777,25 @@ public class ClientTable implements Table {
         }
     }
 
-    <R, E> CompletableFuture<R> split(
+    <R, E> CompletableFuture<R> splitAndRun(
             Transaction tx,
             Collection<E> keys,
             BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
+    ) {
+        return splitAndRun(tx, keys, fun, initialValue, reducer, hashFunc, List.of());
+    }
+
+    <R, E> CompletableFuture<R> splitAndRun(
+            Transaction tx,
+            Collection<E> keys,
+            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
+            @Nullable R initialValue,
+            Reducer<R> reducer,
+            BiFunction<ClientSchema, E, Integer> hashFunc,
+            List<Transaction> txns
     ) {
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
@@ -795,11 +822,25 @@ public class ClientTable implements Table {
                         res.add(fun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey())));
                     }
 
-                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
+                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).handle((ignored, err) -> {
+                        if (err != null) {
+                            for (Transaction txn : txns) {
+                                txn.rollbackAsync(); // TODO log error
+                            }
+
+                            sneakyThrow(err);
+
+                            return null;
+                        }
+
                         R in = initialValue;
 
                         for (CompletableFuture<R> val : res) {
                             in = reducer.reduce(in, val.getNow(null));
+                        }
+
+                        for (Transaction txn : txns) {
+                            txn.commitAsync(); // TODO log error
                         }
 
                         return in;
@@ -807,11 +848,11 @@ public class ClientTable implements Table {
                 });
     }
 
-    <E> CompletableFuture<List<E>> split(
-            Transaction tx,
+    <E> CompletableFuture<List<E>> splitAndRun(
             Collection<E> keys,
             BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<List<E>>> fun,
-            BiFunction<ClientSchema, E, Integer> hashFunc
+            BiFunction<ClientSchema, E, Integer> hashFunc,
+            List<Transaction> txns
     ) {
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
@@ -843,12 +884,26 @@ public class ClientTable implements Table {
                         batches.add(entry.getValue());
                     }
 
-                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
+                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).handle((ignored, err) -> {
+                        if (err != null) {
+                            for (Transaction txn : txns) {
+                                txn.rollbackAsync(); // TODO log error
+                            }
+
+                            sneakyThrow(err);
+
+                            return null;
+                        }
+
                         var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
 
                         for (int i = 0; i < res.size(); i++) {
                             CompletableFuture<List<E>> f = res.get(i);
                             reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
+                        }
+
+                        for (Transaction txn : txns) {
+                            txn.commitAsync(); // TODO log error
                         }
 
                         return in;
