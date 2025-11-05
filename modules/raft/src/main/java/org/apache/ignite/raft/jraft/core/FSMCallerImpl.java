@@ -517,7 +517,7 @@ public class FSMCallerImpl implements FSMCaller {
                         ConfigurationEntry configurationEntry = new ConfigurationEntry(
                                 logId.copy(),
                                 new Configuration(logEntry.getPeers(), logEntry.getLearners(), logEntry.getSequenceToken()),
-                                new Configuration()
+                                new Configuration(logEntry.getOldSequenceToken())
                         );
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             configurationEntry.setOldConf(
@@ -714,7 +714,7 @@ public class FSMCallerImpl implements FSMCaller {
                             meta.learnersList().stream().map(PeerId::parsePeer).collect(toList()),
                             meta.sequenceToken()
                     ),
-                    new Configuration()
+                    new Configuration(meta.oldSequenceToken())
             );
             if (meta.oldPeersList() != null && !meta.oldPeersList().isEmpty()) {
                 configurationEntry.setOldConf(new Configuration(
@@ -729,7 +729,7 @@ public class FSMCallerImpl implements FSMCaller {
 
         if (meta.oldPeersList() == null) {
             // Joint stage is not supposed to be noticeable by end users.
-            final Configuration conf = new Configuration();
+            final Configuration conf = new Configuration(meta.sequenceToken());
             if (meta.peersList() != null) {
                 for (String metaPeer : meta.peersList()) {
                     final PeerId peer = new PeerId();

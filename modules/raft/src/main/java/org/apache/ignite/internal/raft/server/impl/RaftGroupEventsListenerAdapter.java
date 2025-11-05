@@ -67,7 +67,8 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
             long configurationTerm,
             long configurationIndex,
             Collection<PeerId> peers,
-            Collection<PeerId> learners
+            Collection<PeerId> learners,
+            long sequenceToken
     ) {
         serviceEventInterceptor.onLeaderElected(grpId, term);
 
@@ -75,7 +76,8 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
                 term,
                 configurationTerm,
                 configurationIndex,
-                configuration(peers, learners)
+                configuration(peers, learners),
+                sequenceToken
         );
     }
 

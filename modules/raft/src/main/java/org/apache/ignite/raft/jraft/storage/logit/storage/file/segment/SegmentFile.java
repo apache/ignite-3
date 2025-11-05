@@ -19,12 +19,11 @@ package org.apache.ignite.raft.jraft.storage.logit.storage.file.segment;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
+import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
@@ -212,7 +211,7 @@ public class SegmentFile extends AbstractFile {
         buffer.position(recoverPosition);
         final byte[] data = lookupData(recoverPosition);
         if (data != null) {
-            final LogEntry lastEntry = LogEntryV1CodecFactory.getInstance().decoder().decode(data);
+            final LogEntry lastEntry = DefaultLogEntryCodecFactory.getInstance().decoder().decode(data);
             if (lastEntry != null) {
                 setLastLogIndex(lastEntry.getId().getIndex());
             }

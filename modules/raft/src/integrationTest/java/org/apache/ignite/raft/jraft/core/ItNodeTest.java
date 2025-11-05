@@ -3792,7 +3792,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyList(),
-                anyList()
+                anyList(),
+                anyLong()
         );
 
         cluster.stop(cluster.getLeader().getLeaderId());
@@ -3804,7 +3805,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyList(),
-                anyList()
+                anyList(),
+                anyLong()
         );
 
         cluster.stop(cluster.getLeader().getLeaderId());
@@ -3816,7 +3818,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyList(),
-                anyList()
+                anyList(),
+                anyLong()
         );
     }
 

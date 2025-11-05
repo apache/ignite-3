@@ -33,13 +33,15 @@ public interface JraftGroupEventsListener {
      * @param configurationIndex Index on which the current configuration was applied.
      * @param peers Collection of peers at the moment of leader election.
      * @param learners Collection of learners at the moment of leader election.
+     * @param sequenceToken Sequence token of this change.
      */
     void onLeaderElected(
             long term,
             long configurationTerm,
             long configurationIndex,
             Collection<PeerId> peers,
-            Collection<PeerId> learners
+            Collection<PeerId> learners,
+            long sequenceToken
     );
 
     /**

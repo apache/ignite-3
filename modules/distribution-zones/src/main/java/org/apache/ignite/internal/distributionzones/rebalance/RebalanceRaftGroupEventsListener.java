@@ -173,7 +173,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     ) {
        // no-op
     }

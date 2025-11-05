@@ -178,7 +178,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     ) {
         if (!busyLock.enterBusy()) {
             return;
@@ -197,7 +198,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     // First of all, it's required to reread pending assignments and recheck whether it's still needed to perform the
                     // rebalance. Worth mentioning that one of legitimate cases of metaStorageMgr.get() timeout is MG unavailability
                     // in that cases it's required to retry the request. However it's important to handle local node stopping intent,
-                    // meaning that busyLock should be handled properly with though of a throttle to provide an ability for node to stop.
+                    // meaning that busyLock should be handled properly with thought of a throttle to provide the ability for node to stop.
 
                     // It's required to read pending assignments from MS leader instead of local MS in order not to catch-up stale pending
                     // ones:
