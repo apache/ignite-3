@@ -20,13 +20,17 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.KEY_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.READ_ONLY;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -70,30 +74,16 @@ class ClientTuplesRequestBase {
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            boolean txReadOnly,
             @Nullable NotificationSender notificationSender,
             HybridTimestampTracker tsTracker,
-            boolean keyOnly
-    ) {
-        return readAsync(in, tables, resources, txManager, txReadOnly, notificationSender, tsTracker, keyOnly, false);
-    }
-
-    public static CompletableFuture<ClientTuplesRequestBase> readAsync(
-            ClientMessageUnpacker in,
-            IgniteTables tables,
-            ClientResourceRegistry resources,
-            TxManager txManager,
-            boolean txReadOnly,
-            @Nullable NotificationSender notificationSender,
-            HybridTimestampTracker tsTracker,
-            boolean keyOnly,
-            boolean readSecondTuple
+            EnumSet<ReadOptions> options
     ) {
         int tableId = in.unpackInt();
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender, resIdHolder);
+        InternalTransaction tx =
+                readOrStartImplicitTx(in, tsTracker, resources, txManager, options.contains(READ_ONLY), notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
@@ -113,7 +103,7 @@ class ClientTuplesRequestBase {
                             var tuples = new ArrayList<Tuple>(count);
 
                             for (int i = 0; i < count; i++) {
-                                tuples.add(readTuple(noValueSet[i], tupleBytes[i], keyOnly, schema));
+                                tuples.add(readTuple(noValueSet[i], tupleBytes[i], options.contains(KEY_ONLY), schema));
                             }
 
                             return new ClientTuplesRequestBase(tx, table, tuples, resIdHolder[0]);

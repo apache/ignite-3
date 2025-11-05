@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.KEY_ONLY;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -49,8 +51,7 @@ public class ClientTupleContainsAllKeysRequest {
             ClockService clockService,
             HybridTimestampTracker tsTracker
     ) {
-        // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, true)
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(KEY_ONLY))
                 .thenCompose(req -> req.table().recordView().containsAllAsync(req.tx(), req.tuples())
                         .thenApply(containsAll -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

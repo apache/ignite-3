@@ -91,7 +91,7 @@ class ClientTupleRequestBase {
             @Nullable TxManager txManager,
             @Nullable NotificationSender notificationSender,
             @Nullable HybridTimestampTracker tsTracker,
-            EnumSet<ReadOptions> readOptions
+            EnumSet<ReadOptions> options
     ) {
         assert (txManager != null) == (tsTracker != null) : "txManager and tsTracker must be both null or not null";
 
@@ -101,22 +101,22 @@ class ClientTupleRequestBase {
 
         InternalTransaction tx = txManager == null
                 ? null
-                : readOrStartImplicitTx(in, tsTracker, resources, txManager, readOptions.contains(READ_ONLY), notificationSender, resIdHolder);
+                : readOrStartImplicitTx(in, tsTracker, resources, txManager, options.contains(READ_ONLY), notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
 
-        BitSet noValueSet2 = readOptions.contains(READ_SECOND_TUPLE) ? in.unpackBitSet() : null;
-        byte[] tupleBytes2 = readOptions.contains(READ_SECOND_TUPLE) ? in.readBinary() : null;
+        BitSet noValueSet2 = options.contains(READ_SECOND_TUPLE) ? in.unpackBitSet() : null;
+        byte[] tupleBytes2 = options.contains(READ_SECOND_TUPLE) ? in.readBinary() : null;
 
         return readTableAsync(tableId, tables)
                 .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
                         .thenApply(schema -> {
-                            var tuple = readTuple(noValueSet, tupleBytes, readOptions.contains(KEY_ONLY), schema);
-                            var tuple2 = readOptions.contains(READ_SECOND_TUPLE) ?
-                                    readTuple(noValueSet2, tupleBytes2, readOptions.contains(KEY_ONLY), schema) : null;
+                            var tuple = readTuple(noValueSet, tupleBytes, options.contains(KEY_ONLY), schema);
+                            var tuple2 = options.contains(READ_SECOND_TUPLE) ?
+                                    readTuple(noValueSet2, tupleBytes2, options.contains(KEY_ONLY), schema) : null;
 
                             return new ClientTupleRequestBase(tx, table, tuple, tuple2, resIdHolder[0]);
                         }));
