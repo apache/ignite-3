@@ -34,13 +34,11 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
@@ -314,13 +312,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
     }
 
     private void checkNoPendingQueries() {
-        List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
-
-        for (Ignite node : nodes) {
-            SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
-
-            SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(0));
-        }
+        SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, is(0));
     }
 
     private static void verifyQueryInfo(
