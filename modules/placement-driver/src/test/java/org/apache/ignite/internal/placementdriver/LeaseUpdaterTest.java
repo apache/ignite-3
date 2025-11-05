@@ -49,6 +49,7 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -108,11 +110,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+    private static final String LEASE_UPDATE_TOO_LONG = "Lease update invocation took longer than lease interval";
+    private static final long TEST_LEASE_INTERVAL_MILLIS = 100L;
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster nodes. */
     private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
     private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
+
+    @InjectConfiguration("mock.leaseExpirationIntervalMillis = " + TEST_LEASE_INTERVAL_MILLIS)
+    private ReplicationConfiguration replicationConfiguration;
 
     @Mock
     private LogicalTopologyService topologyService;
@@ -148,8 +155,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     void setUp(
             @Mock ClusterService clusterService,
             @Mock LeaseTracker leaseTracker,
-            @Mock MessagingService messagingService,
-            @InjectConfiguration ReplicationConfiguration replicationConfiguration
+            @Mock MessagingService messagingService
     ) {
         mockStableAssignments(Set.of(Assignment.forPeer(stableNode.name())));
         mockPendingAssignments(Set.of(Assignment.forPeer(pendingNode.name())));
@@ -213,6 +219,42 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         leaseUpdater.deactivate();
         leaseUpdater = null;
+    }
+
+    @Test
+    public void testLeaseUpdateTooLong() throws Exception {
+        initAndActivateLeaseUpdater();
+
+        LogInspector logInspector = LogInspector.create(LeaseUpdater.class, true);
+
+        try {
+            AtomicInteger counter = new AtomicInteger(0);
+
+            logInspector.addHandler(
+                    evt -> evt.getMessage().getFormattedMessage().startsWith(LEASE_UPDATE_TOO_LONG),
+                    counter::incrementAndGet
+            );
+
+            Lease lease = awaitForLease(true);
+
+            assertEquals(0, counter.get());
+
+            renewLeaseConsumer = plonogedLease -> {
+                try {
+                    log.info("Explicitly wait for longer than the lease interval to ensure that the lease updater logs the warning.");
+
+                    Thread.sleep(TEST_LEASE_INTERVAL_MILLIS + 50);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+
+            assertTrue(IgniteTestUtils.waitForCondition(() -> counter.get() >= 1, 10_000));
+
+            awaitForLease(true, lease, 10_000);
+        } finally {
+            logInspector.stop();
+        }
     }
 
     @Test
