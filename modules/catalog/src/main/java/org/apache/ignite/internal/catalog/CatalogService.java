@@ -75,6 +75,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @return The catalog for the specified version.
      * @throws CatalogNotFoundException If the catalog of requested version was not found.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26940
     Catalog catalog(int catalogVersion);
 
     /**
@@ -134,6 +135,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      *
      * @return The latest registered catalog
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26939
     default Catalog latestCatalog() {
         return catalog(latestCatalogVersion());
     }
