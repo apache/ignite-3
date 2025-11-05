@@ -34,6 +34,7 @@ For all the commands going forward:
 * Replace `{dist.release}` with the local path to the release distribution directory.
 
 4. Collect all release important unresolved issues and label them with smth. like: `release-{version}-blocker`, inform community that all further critical release issues need to be labeled appropriate. It is not necessary, but it will allow not to miss important issues.
+5. Check license criteria for [all dependencies](https://www.apache.org/legal/resolved.html) run `./gradlew :packaging:generateLicenseReport` and check report `./packaging/build/reports/dependency-license`.
 
 ## Preparing the Release
 
