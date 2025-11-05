@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,7 +32,11 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -50,8 +52,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -67,6 +72,7 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.hamcrest.MatcherAssert;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -89,36 +95,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Default partition count for tests. */
     protected static final int DEFAULT_PARTITION_COUNT = 25;
-
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for tests that may not have some storage engines enabled. */
-    protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
 
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
@@ -207,6 +183,43 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         if (!dropTablesScript.isEmpty()) {
             sqlScript(dropTablesScript);
         }
+    }
+
+    /**
+     * Waits for the specified partitionIds in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param zone The name of the distribution zone to check.
+     * @param  partitionIds The specified set of partitions.
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitionIds do not become healthy within the timeout period.
+     */
+    protected static void awaitPartitionsToBeHealthy(
+            String zone,
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> globalPartitionStates =
+                            node.disasterRecoveryManager().globalPartitionStates(Set.of(zone), partitionIds);
+
+                    MatcherAssert.assertThat(globalPartitionStates, willCompleteSuccessfully());
+
+                    Map<ZonePartitionId, GlobalPartitionState> globalStateStates;
+                    try {
+                        globalStateStates = globalPartitionStates.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    return globalStateStates.entrySet()
+                            .stream()
+                            .allMatch(partitionStateByNodes ->
+                                            partitionStateByNodes.getValue().state == GlobalPartitionStateEnum.AVAILABLE
+                            );
+                },
+                30_000
+        ));
     }
 
     /** Drops all non-system schemas. */

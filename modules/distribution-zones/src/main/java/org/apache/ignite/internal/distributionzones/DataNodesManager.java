@@ -570,40 +570,12 @@ public class DataNodesManager {
             Set<NodeWithAttributes> logicalTopology,
             DataNodesHistoryContext dataNodesHistoryContext
     ) {
-        assert dataNodesHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
-
-        DataNodesHistory dataNodesHistory = dataNodesHistoryContext.dataNodesHistory();
-
-        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
-            return null;
-        }
-
-        int zoneId = zoneDescriptor.id();
-
-        LOG.debug("Distribution zone filter changed [zoneId={}, timestamp={}, logicalTopology={}, descriptor={}].", zoneId,
+        LOG.debug("Distribution zone filter changed [zoneId={}, timestamp={}, logicalTopology={}, descriptor={}].", zoneDescriptor.id(),
                 timestamp, nodeNames(logicalTopology), zoneDescriptor);
 
-        stopAllTimers(zoneId);
+        Set<NodeWithAttributes> filteredDataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
 
-        Set<NodeWithAttributes> dataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
-
-        return DataNodesHistoryMetaStorageOperation.builder()
-                .zoneId(zoneId)
-                .condition(dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory))
-                .operations(operations(
-                        addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
-                        clearTimer(zoneScaleUpTimerKey(zoneId)),
-                        clearTimer(zoneScaleDownTimerKey(zoneId)),
-                        clearTimer(zonePartitionResetTimerKey(zoneId))
-                ))
-                .operationName("distribution zone filter change")
-                .currentDataNodesHistory(dataNodesHistory)
-                .currentTimestamp(timestamp)
-                .historyEntryTimestamp(timestamp)
-                .historyEntryNodes(dataNodes)
-                .scaleUpTimer(DEFAULT_TIMER)
-                .scaleDownTimer(DEFAULT_TIMER)
-                .build();
+        return recalculateAndApplyDataNodesToMetastoreImmediately(zoneDescriptor, filteredDataNodes, timestamp, dataNodesHistoryContext);
     }
 
     /**
@@ -941,6 +913,99 @@ public class DataNodesManager {
                     return entry.dataNodes();
                 }))
                 .thenApply(DistributionZonesUtil::nodeNames);
+    }
+
+    /**
+     * Unlike {@link #dataNodes} this method recalculates the data nodes, writes it to metastorage and history, and returns them.
+     *
+     * @param zoneName Zone name.
+     * @return Recalculated data nodes for the given zone.
+     */
+    public CompletableFuture<Set<String>> recalculateDataNodes(String zoneName) {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneName);
+
+        if (zoneDescriptor == null) {
+            return failedFuture(new DistributionZoneNotFoundException(zoneName));
+        }
+
+        return recalculateDataNodes(zoneDescriptor);
+    }
+
+    /**
+     * Unlike {@link #dataNodes} this method recalculates the data nodes, writes it to metastorage and history, and returns them.
+     *
+     * @param zoneId Zone ID.
+     * @return Recalculated data nodes for the given zone.
+     */
+    public CompletableFuture<Set<String>> recalculateDataNodes(int zoneId) {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneId);
+
+        if (zoneDescriptor == null) {
+            return failedFuture(new DistributionZoneNotFoundException(zoneId));
+        }
+
+        return recalculateDataNodes(zoneDescriptor);
+    }
+
+    private CompletableFuture<Set<String>> recalculateDataNodes(CatalogZoneDescriptor zoneDescriptor) {
+        int zoneId = zoneDescriptor.id();
+
+        Set<NodeWithAttributes> currentLogicalTopology = topologyNodes();
+
+        Set<NodeWithAttributes> filteredDataNodes = filterDataNodes(currentLogicalTopology, zoneDescriptor);
+
+        return doOperation(
+                zoneDescriptor,
+                List.of(zoneDataNodesHistoryKey(zoneId)),
+                dataNodesHistoryContext -> completedFuture(recalculateAndApplyDataNodesToMetastoreImmediately(
+                        zoneDescriptor,
+                        filteredDataNodes,
+                        clockService.now(),
+                        dataNodesHistoryContext
+                )),
+                true
+        ).thenApply(v -> nodeNames(filteredDataNodes));
+    }
+
+    private @Nullable DataNodesHistoryMetaStorageOperation recalculateAndApplyDataNodesToMetastoreImmediately(
+            CatalogZoneDescriptor zoneDescriptor,
+            Set<NodeWithAttributes> filteredDataNodes,
+            HybridTimestamp timestamp,
+            DataNodesHistoryContext dataNodesHistoryContext
+    ) {
+        assert dataNodesHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
+
+        DataNodesHistory dataNodesHistory = dataNodesHistoryContext.dataNodesHistory();
+
+        if (dataNodesHistory.entryIsPresentAtExactTimestamp(timestamp)) {
+            return null;
+        }
+
+        int zoneId = zoneDescriptor.id();
+
+        stopAllTimers(zoneId);
+
+        return DataNodesHistoryMetaStorageOperation.builder()
+                .zoneId(zoneId)
+                .condition(dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory))
+                .operations(operations(
+                        addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, filteredDataNodes),
+                        clearTimer(zoneScaleUpTimerKey(zoneId)),
+                        clearTimer(zoneScaleDownTimerKey(zoneId)),
+                        clearTimer(zonePartitionResetTimerKey(zoneId))
+                ))
+                .operationName("distribution zone filter change")
+                .currentDataNodesHistory(dataNodesHistory)
+                .currentTimestamp(timestamp)
+                .historyEntryTimestamp(timestamp)
+                .historyEntryNodes(filteredDataNodes)
+                .scaleUpTimer(DEFAULT_TIMER)
+                .scaleDownTimer(DEFAULT_TIMER)
+                .build();
     }
 
     private Set<NodeWithAttributes> topologyNodes() {

@@ -28,12 +28,13 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -54,14 +55,13 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         PendingTxPartitionEnlistment enlistment =
                 tx.enlistedPartition(targetReplicationGroupId(zoneId, part));
 
-        PrimaryReplica recipient = new PrimaryReplica(
-                clusterNodeResolver.getByConsistentId(enlistment.primaryNodeConsistentId()),
-                enlistment.consistencyToken()
-        );
+        InternalClusterNode primaryNode = clusterNodeResolver.getByConsistentId(enlistment.primaryNodeConsistentId());
+
+        TxContext txContext = TxContext.readWrite(tx, enlistment.consistencyToken());
 
         return new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTbl.scan(part, tx.id(), tx.commitPartition(), tx.coordinatorId(), recipient, null, null, null, 0, null)
+                internalTbl.scan(part, primaryNode, OperationContext.create(txContext))
         );
     }
 

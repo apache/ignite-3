@@ -27,6 +27,8 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.jetbrains.annotations.Nullable;
@@ -48,7 +50,7 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
         InternalClusterNode node = mock(InternalClusterNode.class);
         lenient().when(node.name()).thenReturn("node");
 
-        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), node, tx.coordinatorId());
+        return internalTbl.scan(part, node, OperationContext.create(TxContext.readOnly(tx)));
     }
 
     @Override

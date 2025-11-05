@@ -325,7 +325,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private IgniteDistribution createDistribution(
             CatalogTableDescriptor descriptor, Object2IntMap<String> columnToIndex, String schemaName, String zoneName
     ) {
-        List<Integer> colocationColumns = descriptor.colocationColumns().stream()
+        List<Integer> colocationColumns = descriptor.colocationColumnNames().stream()
                 .map(columnToIndex::getInt)
                 .collect(Collectors.toList());
 
