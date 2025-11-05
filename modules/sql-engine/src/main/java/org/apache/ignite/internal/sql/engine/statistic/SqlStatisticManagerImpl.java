@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -81,7 +82,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     Set<Integer> droppedTables = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final ScheduledExecutorService scheduler;
-    private final StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> statSupplier;
+    private final StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> statSupplier;
 
     static final long INITIAL_DELAY = 15_000;
     static final long REFRESH_PERIOD = 15_000;
@@ -92,7 +93,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
             CatalogService catalogService,
             LowWatermark lowWatermark,
             ScheduledExecutorService scheduler,
-            StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> statSupplier
+            StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> statSupplier
     ) {
         this.tableManager = tableManager;
         this.catalogService = catalogService;
@@ -165,8 +166,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
 
         CompletableFuture<Void> updateResult = statSupplier.estimatedSizeWithLastUpdate(tables)
                 .handle((infos, err) -> {
-                    for (Map.Entry<Integer, PartitionModificationInfo> ent : infos.entrySet()) {
-                        int tableId = ent.getKey();
+                    for (Int2ObjectMap.Entry<PartitionModificationInfo> ent : infos.int2ObjectEntrySet()) {
+                        int tableId = ent.getIntKey();
                         PartitionModificationInfo info = ent.getValue();
 
                         if (err != null) {
@@ -224,7 +225,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
         events.forEach(event -> droppedTables.remove(event.tableId()));
     }
 
-    /** Timestamped size. */
+    /** Size with modification counter. */
     static class ActualSize {
         long modificationCounter;
         long size;

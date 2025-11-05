@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMap.entry;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.DEFAULT_TABLE_SIZE;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.REFRESH_PERIOD;
@@ -30,10 +31,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -120,7 +121,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
-                .thenReturn(CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE))));
+                .thenReturn(CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE)))));
 
         SqlStatisticManagerImpl sqlStatisticManager =
                 new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
@@ -154,8 +156,10 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
                 .thenReturn(
-                        CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize1, time1.longValue()))),
-                        CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize2, time2.longValue())))
+                        CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                                entry(tableId, new PartitionModificationInfo(tableSize1, time1.longValue())))),
+                        CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                                entry(tableId, new PartitionModificationInfo(tableSize2, time2.longValue()))))
                 );
 
         SqlStatisticManagerImpl sqlStatisticManager =
@@ -218,7 +222,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(tableManager.cachedTable(anyInt())).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        Map<Integer, PartitionModificationInfo> modifications = new HashMap<>();
+        Int2ObjectMap<PartitionModificationInfo> modifications = new Int2ObjectOpenHashMap<>();
         for (int i = minimumCatalogVersion; i <= maximumCatalogVersion + 1; ++i) {
             modifications.put(i, new PartitionModificationInfo(tableSize, Long.MAX_VALUE));
         }
@@ -263,7 +267,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
-                .thenReturn(CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE))));
+                .thenReturn(CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE)))));
 
         SqlStatisticManagerImpl sqlStatisticManager =
                 new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
@@ -308,7 +313,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
-                .thenReturn(CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE))));
+                .thenReturn(CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE)))));
 
         SqlStatisticManagerImpl sqlStatisticManager =
                 new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
@@ -350,9 +356,11 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable))).thenReturn(
                 // stale result goes first
-                CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize1, time1.longValue()))),
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize1, time1.longValue())))),
                 CompletableFuture.failedFuture(new RuntimeException("smth wrong")),
-                CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize2, time2.longValue())))
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize2, time2.longValue()))))
         );
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
@@ -395,8 +403,10 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable))).thenReturn(
                 // stale result goes first
-                CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize1, time1.longValue()))),
-                CompletableFuture.completedFuture(Map.of(tableId, new PartitionModificationInfo(tableSize2, time2.longValue())))
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize1, time1.longValue())))),
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize2, time2.longValue()))))
         );
 
         SqlStatisticManagerImpl sqlStatisticManager =

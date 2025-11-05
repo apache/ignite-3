@@ -19,7 +19,6 @@ package org.apache.ignite.internal.replicator;
 
 /** Partition modification information holder. */
 public class PartitionModificationInfo {
-    static PartitionModificationInfo DEFAULT_INFO = new PartitionModificationInfo(0, Long.MIN_VALUE);
     private final long estimatedSize;
     private final long lastModificationCounter;
 

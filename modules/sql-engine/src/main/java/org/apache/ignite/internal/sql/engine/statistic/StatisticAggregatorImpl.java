@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Statistic aggregator. */
 public class StatisticAggregatorImpl implements
-        StatisticAggregator<Collection<InternalTable>, CompletableFuture<Map<Integer, PartitionModificationInfo>>> {
+        StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> {
     private static final IgniteLogger LOG = Loggers.forClass(StatisticAggregatorImpl.class);
     private final Supplier<Set<LogicalNode>> clusterNodes;
     private final MessagingService messagingService;
@@ -105,10 +107,10 @@ public class StatisticAggregatorImpl implements
      * Returns future with map<<em>last modification timestamp</em>, <em>estimated size</em>> for input tables.
      */
     @Override
-    public CompletableFuture<Map<Integer, PartitionModificationInfo>> estimatedSizeWithLastUpdate(Collection<InternalTable> tables) {
+    public CompletableFuture<Int2ObjectMap<PartitionModificationInfo>> estimatedSizeWithLastUpdate(Collection<InternalTable> tables) {
         // some requests are in progress
         if (requestsCompletion.get() != null) {
-            return completedFuture(Map.of());
+            return completedFuture(Int2ObjectMaps.emptyMap());
         }
 
         Collection<Integer> tablesId = tables.stream().map(InternalTable::tableId).collect(Collectors.toList());
@@ -138,7 +140,7 @@ public class StatisticAggregatorImpl implements
 
         CompletableFuture<Void> allRequests = allOf(requests);
 
-        Map<Integer, PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
+        Int2ObjectMap<PartitionModificationInfo> summary = new Int2ObjectOpenHashMap<>();
 
         for (InternalTable t : tables) {
             Map<TablePartitionId, CompletableFuture<Object>> tableResponses = new HashMap<>();
@@ -186,7 +188,7 @@ public class StatisticAggregatorImpl implements
         return allRequests.handle((ret, ex) -> {
             if (ex != null) {
                 LOG.debug("Exception during tables size estimation.", ex);
-                return Map.of();
+                return Int2ObjectMaps.emptyMap();
             }
 
             requestsCompletion.set(null);
