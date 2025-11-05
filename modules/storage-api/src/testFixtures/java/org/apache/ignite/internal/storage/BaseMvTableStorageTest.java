@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -144,10 +145,8 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
         int hashIndexId = id++;
         int pkIndexId = id++;
 
-        String pkColumnName = "INTKEY";
-
         List<CatalogTableColumnDescriptor> columns = List.of(
-                CatalogUtils.fromParams(ColumnParams.builder().name(pkColumnName).type(INT32).build()),
+                CatalogUtils.fromParams(ColumnParams.builder().name("INTKEY").type(INT32).build()),
                 CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").length(100).type(STRING).build()),
                 CatalogUtils.fromParams(ColumnParams.builder().name("INTVAL").type(INT32).build()),
                 CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
@@ -158,8 +157,8 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 .primaryKeyIndexId(pkIndexId)
                 .name(TABLE_NAME)
                 .zoneId(zoneId)
-                .columns(columns)
-                .primaryKeyColumns(List.of(pkColumnName))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
 
@@ -169,7 +168,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                List.of(new CatalogIndexColumnDescriptor(1, ASC_NULLS_LAST)),
                 false
         );
 
@@ -179,7 +178,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of("STRKEY"),
+                IntList.of(1),
                 false
         );
 
@@ -189,7 +188,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of(pkColumnName),
+                IntList.of(0),
                 true
         );
 

@@ -29,7 +29,10 @@ import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchingHelper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An implementation of {@link ParserService} that, apart of parsing, introduces cache of parsed results.
@@ -85,13 +88,15 @@ public class ParserServiceImpl implements ParserService {
                     originalQuery,
                     normalizedQuery,
                     result.dynamicParamsCount(),
-                    () -> {
-                        if (queryType != SqlQueryType.TX_CONTROL && !used.compareAndSet(false, true)) {
-                            throw new IllegalStateException("Parsed result of script is not reusable.");
-                        }
+                    DdlBatchingHelper.extractDdlBatchGroup(parsedTree),
+                    queryType == SqlQueryType.TX_CONTROL ? () -> parsedTree
+                            : () -> {
+                                if (!used.compareAndSet(false, true)) {
+                                    throw new IllegalStateException("Parsed result of script is not reusable.");
+                                }
 
-                        return parsedTree;
-                    }
+                                return parsedTree;
+                            }
             ));
         }
 
@@ -141,6 +146,7 @@ public class ParserServiceImpl implements ParserService {
                 originalQuery,
                 normalizedQuery,
                 dynamicParamsCount,
+                DdlBatchingHelper.extractDdlBatchGroup(parsedTree),
                 () -> {
                     // Descendants of SqlNode class are mutable, thus we must use every
                     // syntax node only once to avoid problem. But we already parsed the
@@ -164,12 +170,14 @@ public class ParserServiceImpl implements ParserService {
         private final String normalizedQuery;
         private final int dynamicParamCount;
         private final Supplier<SqlNode> parsedTreeSupplier;
+        private final @Nullable DdlBatchGroup ddlBatchGroup;
 
         private ParsedResultImpl(
                 SqlQueryType queryType,
                 String originalQuery,
                 String normalizedQuery,
                 int dynamicParamCount,
+                @Nullable DdlBatchGroup ddlBatchGroup,
                 Supplier<SqlNode> parsedTreeSupplier
         ) {
             this.queryType = queryType;
@@ -177,6 +185,11 @@ public class ParserServiceImpl implements ParserService {
             this.normalizedQuery = normalizedQuery;
             this.dynamicParamCount = dynamicParamCount;
             this.parsedTreeSupplier = parsedTreeSupplier;
+            this.ddlBatchGroup = ddlBatchGroup;
+
+            // Here we ensure that DDL batch group is set for DDL queries.
+            // For the case the one missed adding DDL operation to the Multi-statement test.
+            assert queryType != SqlQueryType.DDL || ddlBatchGroup != null : "DDL query without batch group";
         }
 
         /** {@inheritDoc} */
@@ -201,6 +214,12 @@ public class ParserServiceImpl implements ParserService {
         @Override
         public int dynamicParamsCount() {
             return dynamicParamCount;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable DdlBatchGroup ddlBatchGroup() {
+            return ddlBatchGroup;
         }
 
         /** {@inheritDoc} */

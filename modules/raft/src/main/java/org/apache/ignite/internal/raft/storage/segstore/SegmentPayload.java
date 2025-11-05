@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static org.apache.ignite.internal.raft.util.VarlenEncoder.readLong;
-import static org.apache.ignite.internal.raft.util.VarlenEncoder.sizeInBytes;
-import static org.apache.ignite.internal.raft.util.VarlenEncoder.writeLong;
-
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.util.VarlenEncoder;
 import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -38,16 +35,16 @@ class SegmentPayload {
 
     static final int LENGTH_SIZE_BYTES = Integer.BYTES;
 
-    static final int HASH_SIZE = Integer.BYTES;
+    static final int HASH_SIZE_BYTES = Integer.BYTES;
 
     /**
      * Length of the byte sequence that is written when suffix truncation happens.
      *
      * <p>Format: {@code groupId, 0 (special length value), last kept index, crc}
      */
-    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE;
+    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + HASH_SIZE_BYTES;
 
-    private static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
+    static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
 
     static void writeTo(
             ByteBuffer buffer,
@@ -64,8 +61,8 @@ class SegmentPayload {
 
         LogId logId = logEntry.getId();
 
-        writeLong(logId.getIndex(), buffer);
-        writeLong(logId.getTerm(), buffer);
+        VarlenEncoder.writeLong(logId.getIndex(), buffer);
+        VarlenEncoder.writeLong(logId.getTerm(), buffer);
 
         logEntryEncoder.encode(buffer, logEntry);
 
@@ -90,7 +87,7 @@ class SegmentPayload {
 
         buffer.position(originalPos);
 
-        int crc = FastCrc.calcCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - HASH_SIZE);
+        int crc = FastCrc.calcCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - HASH_SIZE_BYTES);
 
         buffer.putInt(crc);
     }
@@ -104,8 +101,8 @@ class SegmentPayload {
 
         int payloadPosition = buffer.position();
 
-        readLong(buffer); // Skip log entry index.
-        readLong(buffer); // Skip log entry term.
+        VarlenEncoder.readLong(buffer); // Skip log entry index.
+        VarlenEncoder.readLong(buffer); // Skip log entry term.
 
         int logEntryPosition = buffer.position();
 
@@ -129,7 +126,7 @@ class SegmentPayload {
         buffer.get(entryBytes);
 
         // Move the position as if we have read the whole payload.
-        buffer.position(buffer.position() + HASH_SIZE);
+        buffer.position(buffer.position() + HASH_SIZE_BYTES);
 
         return logEntryDecoder.decode(entryBytes);
     }
@@ -139,10 +136,10 @@ class SegmentPayload {
 
         LogId logId = logEntry.getId();
 
-        return fixedOverheadSize() + sizeInBytes(logId.getIndex()) + sizeInBytes(logId.getTerm()) + entrySize;
+        return fixedOverheadSize() + VarlenEncoder.sizeInBytes(logId.getIndex()) + VarlenEncoder.sizeInBytes(logId.getTerm()) + entrySize;
     }
 
     static int fixedOverheadSize() {
-        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE;
+        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE_BYTES;
     }
 }

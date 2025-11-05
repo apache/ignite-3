@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.stream.Collectors.toMap;
+import static java.util.Comparator.comparing;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
  * POJO with ignite versions data from the {@code igniteVersions.json}. Contains a list of artifact names and a list of versions with
@@ -39,7 +41,7 @@ public class IgniteVersions {
     private List<String> artifacts;
     private Map<String, String> configOverrides;
     private Map<String, String> storageProfilesOverrides;
-    private Map<String, Version> versions;
+    private final Map<String, Version> versions = new LinkedHashMap<>();
 
     public IgniteVersions() {
     }
@@ -62,7 +64,11 @@ public class IgniteVersions {
         this.artifacts = artifacts;
         this.configOverrides = configOverrides;
         this.storageProfilesOverrides = storageProfilesOverrides;
-        this.versions = versions.stream().collect(toMap(Version::version, Function.identity()));
+
+        // Add versions to the linked hash map after sorting by the version
+        versions.stream()
+                .sorted(comparing(version -> IgniteProductVersion.fromString(version.version())))
+                .forEach(version -> this.versions.put(version.version(), version));
     }
 
     public List<String> artifacts() {

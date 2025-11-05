@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 import java.io.IOException;
@@ -100,6 +101,8 @@ import org.junit.jupiter.params.support.ParameterDeclarations;
  * successfully unmarshalled back by the same version of serializer.
  */
 public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
+    private static final int MOST_RECENT_VERSION = Integer.MAX_VALUE;
+
     private static final long SEED = System.nanoTime();
 
     private static final Random RND = new Random(SEED);
@@ -209,8 +212,12 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     @ParameterizedTest(name = "serializerVersion={0}")
     @MarshallableEntryTypeSource(MarshallableEntryType.NEW_INDEX)
     void newIndexEntry(int serializerVersion) {
-        CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
-        CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
+        CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor(
+                "idx1", serializerVersion == 1 ? 1 : MOST_RECENT_VERSION
+        );
+        CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor(
+                "idx2", serializerVersion == 1 ? 1 : MOST_RECENT_VERSION
+        );
 
         checkSerialization(serializerVersion, new NewIndexEntry(sortedIndexDescriptor));
         checkSerialization(serializerVersion, new NewIndexEntry(hashIndexDescriptor));
@@ -248,10 +255,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         List<CatalogTableColumnDescriptor> columns = List.of(col1, col2, col3, col4);
 
-        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null)));
-        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of())));
-        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2"))));
-        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1"))));
+        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, IntList.of(1, 2), null)));
+        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, IntList.of(1, 2), IntList.of())));
+        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, IntList.of(1, 2), IntList.of(2))));
+        checkSerialization(serializerVersion, new NewTableEntry(newTableDescriptor("Table1", columns, IntList.of(1, 2), IntList.of(1))));
     }
 
     @ParameterizedTest(name = "serializerVersion={0}")
@@ -284,8 +291,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         };
 
         CatalogIndexDescriptor[] indexes = {
-                newSortedIndexDescriptor("idx1"),
-                newHashIndexDescriptor("idx2")
+                newSortedIndexDescriptor("idx1", serializerVersion == 1 ? 1 : MOST_RECENT_VERSION),
+                newHashIndexDescriptor("idx2", serializerVersion == 1 ? 1 : MOST_RECENT_VERSION)
         };
 
         CatalogSystemViewDescriptor[] views = {
@@ -322,7 +329,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         VersionedUpdate entry = new VersionedUpdate(2, 321, List.of(
                 new NewTableEntry(newTableDescriptor("Table1", columns)),
-                new NewIndexEntry(newSortedIndexDescriptor("idx1")),
+                new NewIndexEntry(newSortedIndexDescriptor("idx1", serializerVersion == 1 ? 1 : MOST_RECENT_VERSION)),
                 new NewZoneEntry(newCatalogZoneDescriptor("zone1", profiles))
         ));
 
@@ -349,7 +356,9 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
             ignoreDifferenceInUpdateTime();
         }
 
-        checkSerialization(serializerVersion, new NewSchemaEntry(newSchemaDescriptor("PUBLIC")));
+        checkSerialization(serializerVersion, new NewSchemaEntry(newSchemaDescriptor(
+                serializerVersion == 1 ? 1 : MOST_RECENT_VERSION, "PUBLIC"
+        )));
     }
 
     @ParameterizedTest(name = "serializerVersion={0}")
@@ -361,13 +370,13 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     @ParameterizedTest(name = "serializerVersion={0}")
     @MarshallableEntryTypeSource(MarshallableEntryType.DESCRIPTOR_HASH_INDEX)
     void descriptorHashIndex(int serializerVersion) {
-        checkSerialization(serializerVersion, newHashIndexDescriptor("foo"));
+        checkSerialization(serializerVersion, newHashIndexDescriptor("foo", serializerVersion));
     }
 
     @ParameterizedTest(name = "serializerVersion={0}")
     @MarshallableEntryTypeSource(MarshallableEntryType.DESCRIPTOR_SORTED_INDEX)
     void descriptorSortedIndex(int serializerVersion) {
-        checkSerialization(serializerVersion, newSortedIndexDescriptor("foo"));
+        checkSerialization(serializerVersion, newSortedIndexDescriptor("foo", serializerVersion));
     }
 
     @ParameterizedTest(name = "serializerVersion={0}")
@@ -377,7 +386,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
             ignoreDifferenceInUpdateTime();
         }
 
-        checkSerialization(serializerVersion, newSchemaDescriptor("my_schema1"));
+        checkSerialization(serializerVersion, newSchemaDescriptor(serializerVersion, "my_schema1"));
     }
 
     @ParameterizedTest(name = "serializerVersion={0}")
@@ -428,12 +437,16 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     @ParameterizedTest(name = "serializerVersion={0}")
     @MarshallableEntryTypeSource(MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS)
     void descriptorTableSchemaVersions(int serializerVersion) {
-        TableVersion ver1 = new TableVersion(List.of(newCatalogTableColumnDescriptor("column1", null)));
-        TableVersion ver2 = new TableVersion(List.of(
+        CatalogTableSchemaVersions versions = new CatalogTableSchemaVersions(
+                new TableVersion(List.of(newCatalogTableColumnDescriptor("column1", null)))
+        );
+
+        versions = versions.append(new TableVersion(List.of(
                 newCatalogTableColumnDescriptor("column1", null),
                 newCatalogTableColumnDescriptor("column2", null)
-        ));
-        checkSerialization(serializerVersion, new CatalogTableSchemaVersions(ver1, ver2));
+        )));
+
+        checkSerialization(serializerVersion, versions);
     }
 
     @ParameterizedTest(name = "serializerVersion={0}")
@@ -593,30 +606,59 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         return new CatalogTableColumnDescriptor(name, ColumnType.STRING, false, 10, 5, 127, defaultValue);
     }
 
-    private static CatalogSortedIndexDescriptor newSortedIndexDescriptor(String name) {
-        CatalogIndexColumnDescriptor idxCol1 = new CatalogIndexColumnDescriptor("C1", CatalogColumnCollation.ASC_NULLS_FIRST);
-        CatalogIndexColumnDescriptor idxCol2 = new CatalogIndexColumnDescriptor("C2", CatalogColumnCollation.DESC_NULLS_LAST);
-        CatalogIndexColumnDescriptor idxCol3 = new CatalogIndexColumnDescriptor("C3", CatalogColumnCollation.DESC_NULLS_FIRST);
-        CatalogIndexColumnDescriptor idxCol4 = new CatalogIndexColumnDescriptor("C4", CatalogColumnCollation.ASC_NULLS_LAST);
+    @SuppressWarnings("removal")
+    private static CatalogSortedIndexDescriptor newSortedIndexDescriptor(String name, int indexSerializerVersion) {
+        List<CatalogIndexColumnDescriptor> columns;
+        switch (indexSerializerVersion) {
+            case 1:
+            case 2: {
+                CatalogIndexColumnDescriptor idxCol1 = new CatalogIndexColumnDescriptor("c1", CatalogColumnCollation.ASC_NULLS_FIRST);
+                CatalogIndexColumnDescriptor idxCol2 = new CatalogIndexColumnDescriptor("c2", CatalogColumnCollation.DESC_NULLS_LAST);
+                CatalogIndexColumnDescriptor idxCol3 = new CatalogIndexColumnDescriptor("c3", CatalogColumnCollation.DESC_NULLS_FIRST);
+                CatalogIndexColumnDescriptor idxCol4 = new CatalogIndexColumnDescriptor("c4", CatalogColumnCollation.ASC_NULLS_LAST);
+
+                columns = List.of(idxCol1, idxCol2, idxCol3, idxCol4);
+
+                break;
+            }
+            default: // the most recent version
+                CatalogIndexColumnDescriptor idxCol1 = new CatalogIndexColumnDescriptor(1, CatalogColumnCollation.ASC_NULLS_FIRST);
+                CatalogIndexColumnDescriptor idxCol2 = new CatalogIndexColumnDescriptor(3, CatalogColumnCollation.DESC_NULLS_LAST);
+                CatalogIndexColumnDescriptor idxCol3 = new CatalogIndexColumnDescriptor(5, CatalogColumnCollation.DESC_NULLS_FIRST);
+                CatalogIndexColumnDescriptor idxCol4 = new CatalogIndexColumnDescriptor(7, CatalogColumnCollation.ASC_NULLS_LAST);
+
+                columns = List.of(idxCol1, idxCol2, idxCol3, idxCol4);
+        }
 
         return new CatalogSortedIndexDescriptor(
-                1, name, 12, false, CatalogIndexStatus.AVAILABLE, List.of(idxCol1, idxCol2, idxCol3, idxCol4), true);
+                1, name, 12, false, CatalogIndexStatus.AVAILABLE, columns, true
+        );
     }
 
-    private static CatalogHashIndexDescriptor newHashIndexDescriptor(String name) {
-        return new CatalogHashIndexDescriptor(
-                1, name, 12, true, CatalogIndexStatus.REGISTERED, List.of("C1", "C2"), true);
+    private static CatalogHashIndexDescriptor newHashIndexDescriptor(String name, int indexSerializerVersion) {
+        switch (indexSerializerVersion) {
+            case 1:
+            case 2:
+                //noinspection removal
+                return new CatalogHashIndexDescriptor(
+                        1, name, 12, true, CatalogIndexStatus.REGISTERED, List.of("c1", "c2"), true
+                );
+            default: // the most recent version
+                return new CatalogHashIndexDescriptor(
+                        1, name, 12, true, CatalogIndexStatus.REGISTERED, IntList.of(1, 2), true
+                );
+        }
     }
 
     private static CatalogTableDescriptor newTableDescriptor(String name, List<CatalogTableColumnDescriptor> columns) {
-        return newTableDescriptor(name, columns, List.of(columns.get(0).name()), null);
+        return newTableDescriptor(name, columns, IntList.of(0), null);
     }
 
     private static CatalogTableDescriptor newTableDescriptor(
             String name,
             List<CatalogTableColumnDescriptor> columns,
-            List<String> pkCols,
-            @Nullable List<String> colCols
+            IntList pkCols,
+            @Nullable IntList colCols
     ) {
         return CatalogTableDescriptor.builder()
                 .id(1)
@@ -624,7 +666,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(1)
                 .name(name)
                 .zoneId(17)
-                .columns(columns)
+                .newColumns(columns)
                 .primaryKeyColumns(pkCols)
                 .colocationColumns(colCols)
                 .storageProfile("default")
@@ -632,10 +674,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    private static CatalogSchemaDescriptor newSchemaDescriptor(String name) {
+    private static CatalogSchemaDescriptor newSchemaDescriptor(int schemaSerializerVersion, String name) {
         CatalogIndexDescriptor[] indexes = {
-                newSortedIndexDescriptor("idx11"),
-                newHashIndexDescriptor("idx21")
+                newSortedIndexDescriptor("idx11", schemaSerializerVersion == 1 ? 1 : MOST_RECENT_VERSION),
+                newHashIndexDescriptor("idx21", schemaSerializerVersion == 1 ? 1 : MOST_RECENT_VERSION)
         };
 
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);

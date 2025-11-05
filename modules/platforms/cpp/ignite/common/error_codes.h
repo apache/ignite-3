@@ -169,6 +169,7 @@ enum class code : underlying_t {
     CONFIG_FILE_CREATE = 0xc0002,
     CONFIG_WRITE = 0xc0003,
     CONFIG_PARSE = 0xc0004,
+    JOIN_DENIED = 0xc0005,
 
     // CodeDeployment group. Group code: 13
     UNIT_NOT_FOUND = 0xd0001,

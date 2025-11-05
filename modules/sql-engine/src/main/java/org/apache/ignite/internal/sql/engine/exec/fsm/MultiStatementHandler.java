@@ -177,6 +177,10 @@ class MultiStatementHandler {
                         break;
                     }
 
+                    if (!DdlBatchingHelper.isCompatible(scriptStatement.parsedResult, statement.parsedResult)) {
+                        break;
+                    }
+
                     scriptStatement = statement;
 
                     statements.poll();

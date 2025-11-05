@@ -79,8 +79,10 @@ import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaR
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -1085,7 +1087,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                     node(0).cluster().nodes().stream().filter(node -> node.name().equals(primary)).findAny().get()
             );
 
-            publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
+            OperationContext operationContext = OperationContext.create(TxContext.readOnly(tx));
+
+            publisher = tbl.internalTable().scan(PART_ID, primaryNode, operationContext);
         } else {
             publisher = tbl.internalTable().scan(PART_ID, tx);
         }

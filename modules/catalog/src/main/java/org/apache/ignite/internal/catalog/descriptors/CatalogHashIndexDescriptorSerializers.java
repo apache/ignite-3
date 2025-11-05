@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +59,9 @@ public class CatalogHashIndexDescriptorSerializers {
             List<String> columns = readStringCollection(input, ArrayList::new);
 
             // Here we use the initial timestamp because it's old storage.
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, INITIAL_TIMESTAMP, isCreatedWithTable);
+            return new CatalogHashIndexDescriptor(
+                    id, name, tableId, unique, status, columns, null, INITIAL_TIMESTAMP, isCreatedWithTable
+            );
         }
 
         @Override
@@ -88,7 +91,9 @@ public class CatalogHashIndexDescriptorSerializers {
             boolean isCreatedWithTable = input.readBoolean();
             List<String> columns = input.readObjectCollection(IgniteUnsafeDataInput::readUTF, ArrayList::new);
 
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateTimestamp, isCreatedWithTable);
+            return new CatalogHashIndexDescriptor(
+                    id, name, tableId, unique, status, columns, null, updateTimestamp, isCreatedWithTable
+            );
         }
 
         @Override
@@ -101,6 +106,40 @@ public class CatalogHashIndexDescriptorSerializers {
             output.writeByte(value.status().id());
             output.writeBoolean(value.isCreatedWithTable());
             output.writeObjectCollection(IgniteUnsafeDataOutput::writeUTF, value.columns());
+        }
+    }
+
+    @CatalogSerializer(version = 3, since = "3.2.0")
+    static class HashIndexDescriptorSerializerV3 implements CatalogObjectSerializer<CatalogHashIndexDescriptor> {
+        @Override
+        public CatalogHashIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
+            int id = input.readVarIntAsInt();
+            String name = input.readUTF();
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
+            int tableId = input.readVarIntAsInt();
+            boolean unique = input.readBoolean();
+            CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
+            boolean isCreatedWithTable = input.readBoolean();
+            int size = input.readVarIntAsInt();
+            int[] columnIds = input.readIntArray(size);
+
+            return new CatalogHashIndexDescriptor(
+                    id, name, tableId, unique, status, null, IntList.of(columnIds), updateTimestamp, isCreatedWithTable
+            );
+        }
+
+        @Override
+        public void writeTo(CatalogHashIndexDescriptor value, CatalogObjectDataOutput output) throws IOException {
+            output.writeVarInt(value.id());
+            output.writeUTF(value.name());
+            output.writeVarInt(value.updateTimestamp().longValue());
+            output.writeVarInt(value.tableId());
+            output.writeBoolean(value.unique());
+            output.writeByte(value.status().id());
+            output.writeBoolean(value.isCreatedWithTable());
+            output.writeVarInt(value.columnIds().size());
+            output.writeIntArray(value.columnIds().toIntArray());
         }
     }
 }
