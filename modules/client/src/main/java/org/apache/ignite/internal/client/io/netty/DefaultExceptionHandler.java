@@ -41,7 +41,6 @@ class DefaultExceptionHandler extends ChannelInboundHandlerAdapter {
         this.log = ClientUtils.logger(clientCfg, DefaultExceptionHandler.class);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.warn("Unhandled exception in channel {}: {}", ctx.channel(), cause.getMessage(), cause);

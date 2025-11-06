@@ -34,7 +34,6 @@ public class DefaultExceptionHandler extends ChannelInboundHandlerAdapter {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DefaultExceptionHandler.class);
 
-    /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         LOG.warn("Unhandled exception in channel {}: {}", ctx.channel(), cause.getMessage(), cause);
