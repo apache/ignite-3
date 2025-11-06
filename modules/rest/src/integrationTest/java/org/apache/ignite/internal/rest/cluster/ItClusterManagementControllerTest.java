@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
-import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.is;
 import io.micronaut.http.HttpStatus;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.rest.AbstractRestTestBase;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.junit.jupiter.api.Test;
 
@@ -42,11 +41,9 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
 
         // When
         HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", givenInvalidBody));
-        Problem initProblem = getProblem(initResponse);
 
         // Then
-        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(initProblem, isProblem()
+        assertThat(initResponse, isProblemResponse()
                 .withStatus(HttpStatus.BAD_REQUEST.getCode())
                 .withTitle(HttpStatus.BAD_REQUEST.getReason())
                 .withDetail("Node \"nodename\" is not present in the physical topology")
@@ -69,11 +66,9 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
     void testInitAlreadyInitializedWithAnotherNodes() throws Exception {
         // Given cluster is not initialized
         HttpResponse<String> stateResponseBeforeInit = send(get("/management/v1/cluster/state"));
-        Problem beforeInitProblem = getProblem(stateResponseBeforeInit);
 
         // Then status is 409: Cluster is not initialized
-        assertThat(stateResponseBeforeInit.statusCode(), is(HttpStatus.CONFLICT.getCode()));
-        assertThat(beforeInitProblem, isProblem()
+        assertThat(stateResponseBeforeInit, isProblemResponse()
                 .withStatus(HttpStatus.CONFLICT.getCode())
                 .withTitle("Cluster is not initialized")
                 .withDetail("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
@@ -116,11 +111,9 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
 
         // When
         HttpResponse<String> secondInitResponse = send(post("/management/v1/cluster/init", givenSecondRequestBody));
-        Problem secondInitProblem = getProblem(secondInitResponse);
 
         // Then
-        assertThat(secondInitResponse.statusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR.getCode()));
-        assertThat(secondInitProblem, isProblem()
+        assertThat(secondInitResponse, isProblemResponse()
                 .withStatus(HttpStatus.INTERNAL_SERVER_ERROR.getCode())
                 .withTitle(HttpStatus.INTERNAL_SERVER_ERROR.getReason())
                 .withDetail(containsString("Init CMG request denied, reason: CMG node names do not match."))
