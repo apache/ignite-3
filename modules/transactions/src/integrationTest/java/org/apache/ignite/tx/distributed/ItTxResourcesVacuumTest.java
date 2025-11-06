@@ -124,6 +124,11 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             IgniteThreadFactory.create("test", "tx-state-storage-test-pool-itrvt", log, ThreadOperation.STORAGE_READ)
     );
 
+    @Override
+    protected int[] cmgMetastoreNodes() {
+        return new int[]{0, 1, 2};
+    }
+
     @BeforeEach
     public void setup() {
         String zoneSql = "create zone test_zone (partitions 20, replicas " + REPLICAS
@@ -296,15 +301,19 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxnsAreNotVacuumizedUntilRecovered() throws InterruptedException {
         setTxResourceTtl(1);
 
-        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(0));
-
-        Tuple tuple = findTupleToBeHostedOnNode(leaseholder, TABLE_NAME, null, INITIAL_TUPLE, NEXT_TUPLE, true);
+        Tuple tuple = INITIAL_TUPLE;
 
         int partId = partitionIdForTuple(anyNode(), TABLE_NAME, tuple, null);
 
         PartitionGroupId groupId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(anyNode(), TABLE_NAME), partId)
                 : new TablePartitionId(tableId(anyNode(), TABLE_NAME), partId);
+
+        ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(anyNode(), groupId);
+        assertNotNull(replicaMeta);
+        assertNotNull(replicaMeta.getLeaseholder());
+
+        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(cluster.nodeIndex(replicaMeta.getLeaseholder())));
 
         Set<String> txNodes = partitionAssignment(anyNode(), groupId);
 
