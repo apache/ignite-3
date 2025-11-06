@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
-import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -33,7 +33,6 @@ import com.typesafe.config.ConfigFactory;
 import io.micronaut.http.HttpStatus;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -135,10 +134,8 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // Then.
         HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
-        Problem initProblem = getProblem(initResponse);
 
-        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(initProblem, isProblem()
+        assertThat(initResponse, isProblemResponse()
                 .withStatus(HttpStatus.BAD_REQUEST.getCode())
                 .withTitle(HttpStatus.BAD_REQUEST.getReason())
                 .withDetail(containsString("Key 'qwe123' may not be followed"))
@@ -165,10 +162,8 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // Then.
         HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
-        Problem initProblem = getProblem(initResponse);
 
-        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(initProblem, isProblem()
+        assertThat(initResponse, isProblemResponse()
                 .withStatus(HttpStatus.BAD_REQUEST.getCode())
                 .withTitle(HttpStatus.BAD_REQUEST.getReason())
                 .withDetail(containsString("'boolean' is expected as a type for the 'ignite.security.enabled' configuration value"))

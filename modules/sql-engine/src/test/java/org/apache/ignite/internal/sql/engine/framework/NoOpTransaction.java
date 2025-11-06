@@ -32,6 +32,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
@@ -41,7 +42,7 @@ import org.apache.ignite.tx.TransactionException;
  */
 public final class NoOpTransaction implements InternalTransaction {
 
-    private final UUID id = randomUUID();
+    private final UUID id;
 
     private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1)
             .addPhysicalTime(System.currentTimeMillis());
@@ -94,6 +95,8 @@ public final class NoOpTransaction implements InternalTransaction {
         this.enlistment = new PendingTxPartitionEnlistment(enlistmentNode.name(), 1L, groupId.tableId());
         this.implicit = implicit;
         this.readOnly = readOnly;
+
+        this.id = readOnly ?  randomUUID() : TransactionIds.transactionId(hybridTimestamp, enlistmentNode.name().hashCode());
     }
 
     /** Node at which this transaction was start. */

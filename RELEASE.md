@@ -9,6 +9,7 @@ This document describes the current procedure for preparing an Ignite 3 release.
    * Verify docker buildx installation: `docker buildx version`
 2. **.NET SDK 8.0.407+**
    * Verify .NET installation: `dotnet --version`
+3. * Also some specific packages like: `doxygen`, no need to list them all, it`s easy enough to understand it from possible output errors.
 
 ## Prerequisites
 
@@ -31,6 +32,9 @@ For all the commands going forward:
 * Replace `{gpg}` with your GPG key ID.
 * Replace `{dist.dev}` with the local path to the development distribution directory.
 * Replace `{dist.release}` with the local path to the release distribution directory.
+
+4. Collect all release important unresolved issues and label them `release-{version}-blocker`, inform the community that all further critical release issues need to be labeled appropriately. It is not necessary, but it allows don't to miss important issues.
+5. Check license criteria for [all dependencies](https://www.apache.org/legal/resolved.html) run `./gradlew :packaging:generateLicenseReport` and check report `./packaging/build/reports/dependency-license`.
 
 ## Preparing the Release
 
@@ -79,21 +83,35 @@ For all the commands going forward:
 12. Create Docker Images:
     ```
     ./gradlew :packaging:docker -Ptarget_platform=linux/amd64 -Pplatforms.enable
-    docker save apacheignite/ignite:VERSION -o packaging/build/release/ignite:VERSION-amd64.tar
+    docker save apacheignite/ignite:{version} -o packaging/build/release/ignite:{version}-amd64.tar
     ./gradlew :packaging:docker -Ptarget_platform=linux/arm64 -Pplatforms.enable
-    docker save apacheignite/ignite:VERSION -o packaging/build/release/ignite:VERSION-arm64.tar
+    docker save apacheignite/ignite:{version} -o packaging/build/release/ignite:{version}-arm64.tar
     ```
-13. Copy all packages along with checksums and signatures to the development distribution directory:
+    Probably you will need some steps from [multi-platform](https://docs.docker.com/build/building/multi-platform) doc.
+    Minimal steps during first release:
+    ```
+    docker buildx build --load -t linux/arm64 --builder=container .
+    docker run --privileged --rm tonistiigi/binfmt --install all
+    ```
+13. ODBC: run appropriate TC suites:
+    ```
+    https://ci.ignite.apache.org/buildConfiguration/ApacheIgnite3xGradle_Release_Build_OdbcRpmPackage
+    https://ci.ignite.apache.org/buildConfiguration/ApacheIgnite3xGradle_Release_Build_7odbcDebPackage
+    ```
+    download artifacts, remove zip and sign all files with gpg key. After - copy into `{dist.dev}/{version}-rc{rc}`
+14. Copy all packages along with checksums and signatures to the development distribution directory:
    ```
    cp packaging/build/release/* {dist.dev}/{version}-rc{rc}
    ```
-14. Commit ZIP and DEB\RPM packages:
+15. Check for ignite.version.full (TODO [IGNITE-IGNITE-26834](https://issues.apache.org/jira/browse/IGNITE-26834)), remove this step if it will be done automatically through gradle task.
+16. Commit ZIP and DEB\RPM packages:
    ```
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ``` 
-15. Put the release on a vote on the developers mailing list.
+17. Put the release on a vote on the developers mailing list.
+18. If vote is passed - send appropriate message for dev-list, otherwise apply appropriate changes, don't forget to move `git tag` if there are code related changes `git tag -d {version}-rc{rc}; git tag -a {version}-rc{rc} -m '{version}-rc{rc}'; git push --tags`.
 
 ## Finalizing the Release
 
@@ -124,11 +142,17 @@ Perform the following actions ONLY after the vote is successful and closed.
    * Push to https://github.com/apache/ignite-website/tree/master/releases
 7. Publish Docker images:
    * `./gradlew :packaging:docker -Ptarget_platform=linux/amd64,linux/arm64 -Pdocker_push -Pplatforms.enable`
+     (PMC only) otherwise you need to request credentials from PMC-only area in SVN
 8. Publish NuGet packages:
    * Get API key from https://svn.apache.org/repos/private/pmc/ignite/credentials/nuget.org (PMC only)
    * `for i in *.nupkg; do dotnet nuget push $i -k API_KEY_HERE -s "https://nuget.org/"; done`
+   (PMC only) otherwise you need to request credentials from PMC-only area in SVN
 9. Publish Python packages (TODO [IGNITE-24327](https://issues.apache.org/jira/browse/IGNITE-24327))
-10. Update https://ignite.apache.org/download.cgi page - see https://cwiki.apache.org/confluence/display/IGNITE/Website+Development
+10. Update https://ignite.apache.org/download.cgi page - see https://cwiki.apache.org/confluence/display/IGNITE/Website+Development, https://cwiki.apache.org/confluence/display/IGNITE/How+to+Document
+11. https://github.com/apache/ignite-website/blob/master/docs/ignite3/available-versions.txt new version need to be first
+12. https://github.com/apache/ignite-website/blob/master/docs/ignite3/latest need to contain new version
+13. Update [download links](https://ignite.apache.org/download.cgi) `_src/_components/download-binary.pug` and `_src/_components/download-source.pug` (and others if any were added). Copy the +downloadRow section and edit appropriately.
+14. Write a [blog post](https://ignite.apache.org/blog/) announcing the release and listing the major changes and improvements. Add a new `.pug` file in `_src/_blog`.
 
 ## Post Release steps
 

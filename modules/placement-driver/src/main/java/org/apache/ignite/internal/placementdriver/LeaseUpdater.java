@@ -71,12 +71,12 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
-import org.apache.ignite.internal.placementdriver.metrics.PlacementDriverMetricSource;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -120,8 +120,6 @@ public class LeaseUpdater {
 
     /** Cluster clock. */
     private final ClockService clockService;
-
-    private final PlacementDriverMetricSource placementDriverMetrics;
 
     /** Closure to update leases. */
     private final Updater updater;
@@ -173,13 +171,6 @@ public class LeaseUpdater {
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
         this.throttledLogExecutor = throttledLogExecutor;
-
-        this.placementDriverMetrics = new PlacementDriverMetricSource(
-                updater::activeLeaseCount,
-                updater::leaseWithoutCandidatesCount,
-                () -> assignmentsTracker.stableAssignments().size(),
-                () -> assignmentsTracker.pendingAssignments().size()
-        );
 
         clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, new PlacementDriverActorMessageHandler());
     }
@@ -384,10 +375,6 @@ public class LeaseUpdater {
         return active.get();
     }
 
-    PlacementDriverMetricSource placementDriverMetricSource() {
-        return placementDriverMetrics;
-    }
-
     /** Runnable to update lease in Meta storage. */
     private class Updater implements Runnable {
         private int activeLeaseCount;
@@ -580,6 +567,13 @@ public class LeaseUpdater {
                     put(key, renewedValue),
                     noop()
             ).whenComplete((success, e) -> {
+                long duration = FastTimestamps.coarseCurrentTimeMillis() - currentTime.getPhysical();
+
+                if (duration > leaseExpirationInterval) {
+                    LOG.warn("Lease update invocation took longer than lease interval [duration={}, leaseInterval={}].",
+                            duration, leaseExpirationInterval);
+                }
+
                 if (e != null) {
                     if (!hasCause(e, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));
@@ -658,8 +652,6 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
-            placementDriverMetrics.onLeaseCreate();
-
             return renewedLease;
         }
 
@@ -674,8 +666,6 @@ public class LeaseUpdater {
                 Lease lease,
                 HybridTimestamp newExpirationTimestamp
         ) {
-            placementDriverMetrics.onLeaseProlong();
-
             return lease.prolongLease(newExpirationTimestamp);
         }
 
@@ -697,8 +687,6 @@ public class LeaseUpdater {
             Lease renewedLease = lease.acceptLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
-
-            placementDriverMetrics.onLeasePublish();
         }
 
         /**
