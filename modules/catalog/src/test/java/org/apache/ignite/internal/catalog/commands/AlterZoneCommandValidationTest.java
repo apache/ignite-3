@@ -223,13 +223,6 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         alterZoneBuilder().filter(DEFAULT_FILTER).build();
     }
 
-    private static CatalogCommand alterZoneParams(@Nullable Integer scaleUp, @Nullable Integer scaleDown) {
-        return alterZoneBuilder()
-                .dataNodesAutoAdjustScaleUp(scaleUp)
-                .dataNodesAutoAdjustScaleDown(scaleDown)
-                .build();
-    }
-
     private static AlterZoneCommandBuilder alterZoneBuilder() {
         return CatalogTestUtils.alterZoneBuilder(ZONE_NAME);
     }

@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
@@ -186,7 +187,7 @@ public class CreateTableCommand extends AbstractTableCommand {
                 zone = catalog.defaultZone();
             }
         } else {
-            zone = zone(catalog, zoneName, true);
+            zone = zoneOrThrow(catalog, zoneName);
         }
 
         assert zone != null;

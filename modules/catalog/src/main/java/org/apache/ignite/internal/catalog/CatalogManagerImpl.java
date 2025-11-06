@@ -73,7 +73,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
  */
 public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters>
         implements CatalogManager, SystemViewProvider {
-    /** Default zone name. */
     private static final int MAX_RETRY_COUNT = 10;
 
     /** The logger. */

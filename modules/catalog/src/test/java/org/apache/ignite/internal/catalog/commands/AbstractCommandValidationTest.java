@@ -162,13 +162,6 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    static Catalog catalogWithZonesWithoutDefaultZone(String zone1, String zone2) {
-        return catalogWithoutDefaultZone(
-                createZoneCommand(zone1),
-                createZoneCommand(zone2)
-        );
-    }
-
     static Catalog catalogWithIndex(String name) {
         return catalogWithDefaultZone(
                 createTableCommand(TABLE_NAME),
@@ -259,42 +252,6 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         INITIAL_TIMESTAMP
                 )),
                 DEFAULT_ZONE.id()
-        );
-    }
-
-    static Catalog catalogWithoutDefaultZone(CatalogCommand... commandsToApply) {
-        return applyCommandsToCatalog(catalogWithoutDefaultZone(), commandsToApply);
-    }
-
-    static Catalog catalogWithoutDefaultZone() {
-        return catalogWithoutDefaultZone(
-                1,
-                new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0]
-        );
-    }
-
-    static Catalog catalogWithoutDefaultZone(
-            int version,
-            CatalogTableDescriptor[] tables,
-            CatalogIndexDescriptor[] indexes,
-            CatalogSystemViewDescriptor[] systemViews
-    ) {
-        return new Catalog(
-                version,
-                0L,
-                1,
-                List.of(),
-                List.of(new CatalogSchemaDescriptor(
-                        0,
-                        SCHEMA_NAME,
-                        tables,
-                        indexes,
-                        systemViews,
-                        INITIAL_TIMESTAMP
-                )),
-                null
         );
     }
 
