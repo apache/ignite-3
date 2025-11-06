@@ -94,7 +94,10 @@ testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
 protobuf = "4.32.0"
 cytodynamics = "0.2.0"
+
+# JDBC connection pools (for testing purposes)
 hikariCP = "7.0.2"
+c3p0 = "0.11.2"
 
 #Tools
 pmdTool = "7.13.0"
@@ -280,6 +283,7 @@ auto-service-annotations = { module = "com.google.auto.service:auto-service-anno
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
 hikariCP = { module = "com.zaxxer:HikariCP", version.ref="hikariCP"}
+c3p0 = { module = "com.mchange:c3p0", version.ref="c3p0"}
 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 

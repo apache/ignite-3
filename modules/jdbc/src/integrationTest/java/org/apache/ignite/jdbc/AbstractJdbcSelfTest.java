@@ -55,11 +55,6 @@ public class AbstractJdbcSelfTest extends ClusterPerClassIntegrationTest {
     /** Statement. */
     protected Statement stmt;
 
-    @Override
-    protected int initialNodes() {
-        return 3;
-    }
-
     /**
      * Opens the connection.
 
