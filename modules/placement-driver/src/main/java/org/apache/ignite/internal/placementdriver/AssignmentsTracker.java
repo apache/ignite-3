@@ -307,7 +307,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      *
      * @return Map replication group id to its stable assignments.
      */
-    Map<ReplicationGroupId, TokenizedAssignments> stableAssignments() {
+    public Map<ReplicationGroupId, TokenizedAssignments> stableAssignments() {
         return groupStableAssignments;
     }
 

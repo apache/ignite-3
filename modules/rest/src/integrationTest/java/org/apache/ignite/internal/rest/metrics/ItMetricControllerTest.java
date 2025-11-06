@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.metrics;
 import static io.micronaut.core.type.Argument.listOf;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.POST;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.MediaType.TEXT_PLAIN_TYPE;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
@@ -165,8 +166,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
     void nodeNonExistingMetrics() {
         assertThrowsProblem(
                 () -> node0Client.toBlocking().exchange(POST("disable", "no.such.metric").contentType(TEXT_PLAIN_TYPE)),
-                HttpStatus.NOT_FOUND,
-                isProblem().withDetail("Metrics source with given name doesn't exist: no.such.metric")
+                isProblem().withStatus(NOT_FOUND).withDetail("Metrics source with given name doesn't exist: no.such.metric")
         );
     }
 
@@ -174,8 +174,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
     void clusterNonExistingMetrics() {
         assertThrowsProblem(
                 () -> clusterClient.toBlocking().exchange(POST("disable", "no.such.metric").contentType(TEXT_PLAIN_TYPE)),
-                HttpStatus.NOT_FOUND,
-                isProblem().withDetail("Metrics source with given name doesn't exist: no.such.metric")
+                isProblem().withStatus(NOT_FOUND).withDetail("Metrics source with given name doesn't exist: no.such.metric")
         );
     }
 

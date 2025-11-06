@@ -43,6 +43,7 @@ dependencies {
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.junit.testkit
+    testFixturesImplementation libs.awaitility
 }
 
 test {

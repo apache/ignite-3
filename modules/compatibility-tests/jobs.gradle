@@ -45,6 +45,8 @@ dependencies {
     jobsImplementation project(':ignite-page-memory')
     jobsImplementation project(':ignite-storage-api')
     jobsImplementation project(':ignite-storage-page-memory')
+    jobsImplementation project(':ignite-raft')
+    jobsImplementation project(':ignite-raft-api')
 
     integrationTestImplementation sourceSets.jobs.output
 }

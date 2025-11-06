@@ -85,6 +85,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -427,7 +428,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         DELETE_ALL((table, tx) -> table.deleteAll(List.of(createBinaryRow()), tx)),
         DELETE_ALL_EXACT((table, tx) -> table.deleteAllExact(List.of(createBinaryRow()), tx)),
         SCAN_MV_STORAGE(adaptScan((table, tx) -> table.scan(0, tx))),
-        SCAN_INDEX(adaptScan((table, tx) -> table.scan(0, tx, 1, null, null, 0, null)));
+        SCAN_INDEX(adaptScan((table, tx) -> table.scan(0, tx, 1, IndexScanCriteria.unbounded())));
 
         private final BiFunction<InternalTable, InternalTransaction, CompletableFuture<?>> action;
 

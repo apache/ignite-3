@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
+import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -170,8 +171,10 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
-    public void testRestartAllPartitionsWithCleanup() {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26918")
+    public void testRestartAllPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         String nodeName = CLUSTER.aliveNode().name();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
@@ -186,8 +189,9 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26638")
-    public void testRestartSpecifiedPartitionsWithCleanup() {
+    public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         String nodeName = CLUSTER.aliveNode().name();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,

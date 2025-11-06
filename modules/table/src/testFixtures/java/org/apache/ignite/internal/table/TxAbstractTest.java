@@ -73,6 +73,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
@@ -118,6 +119,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -1465,15 +1467,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 ?
                 internalTable.scan(
                         0,
-                        internalTx.id(),
-                        internalTx.readTimestamp(),
                         ReplicaTestUtils.leaderAssignment(
                                 txTestCluster.replicaManagers().get(txTestCluster.localNodeName()),
                                 txTestCluster.clusterServices().get(txTestCluster.localNodeName()).topologyService(),
                                 colocationEnabled() ? internalTable.zoneId() : internalTable.tableId(),
                                 0
                         ),
-                        internalTx.coordinatorId()
+                        OperationContext.create(TxContext.readOnly(internalTx))
                 )
                 : internalTable.scan(0, internalTx);
 
@@ -2106,10 +2106,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertThrowsTxFinishedException(() -> {
             Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
                     0,
-                    internalTx.id(),
-                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
-                    internalTx.coordinatorId()
+                    OperationContext.create(TxContext.readOnly(internalTx))
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -2122,16 +2120,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         });
 
         assertThrowsTxFinishedException(() -> {
-            Flow.Publisher<BinaryRow> pub = accounts.internalTable().lookup(
+            Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
                     0,
-                    internalTx.id(),
-                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
                     0,
-                    // Binary tuple is null for testing purposes, assuming that it wouldn't be processed anyway.
-                    null,
-                    null,
-                    internalTx.coordinatorId()
+                    // We assume that BinaryTuple will never be accessed.
+                    IndexScanCriteria.lookup(Mockito.mock(BinaryTuple.class)),
+                    OperationContext.create(TxContext.readOnly(internalTx))
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
