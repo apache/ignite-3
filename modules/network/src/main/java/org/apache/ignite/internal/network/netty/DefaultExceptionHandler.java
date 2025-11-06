@@ -27,7 +27,7 @@ import org.apache.ignite.internal.logger.Loggers;
  *
  * <p>Intended to be the last inbound handler in a channel pipeline.
  */
-public class DefaultExceptionHandler extends ChannelInboundHandlerAdapter {
+class DefaultExceptionHandler extends ChannelInboundHandlerAdapter {
     /** Handler name. */
     public static final String NAME = "default-exception-handler";
 
