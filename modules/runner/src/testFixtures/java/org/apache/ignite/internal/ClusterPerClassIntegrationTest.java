@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
@@ -52,10 +53,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -200,23 +199,32 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         assertTrue(waitForCondition(() -> {
-                    CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> globalPartitionStates =
-                            node.disasterRecoveryManager().globalPartitionStates(Set.of(zone), partitionIds);
+                    CompletableFuture<Map<?, GlobalPartitionStateEnum>> globalPartitionStates;
+
+                    if (colocationEnabled()) {
+                        globalPartitionStates = node.disasterRecoveryManager()
+                                .globalPartitionStates(Set.of(zone), partitionIds)
+                                .thenApply(map -> map.entrySet().stream()
+                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
+                    } else {
+                        globalPartitionStates = node.disasterRecoveryManager()
+                                .globalTablePartitionStates(Set.of(zone), partitionIds)
+                                .thenApply(map -> map.entrySet().stream()
+                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
+                    }
 
                     MatcherAssert.assertThat(globalPartitionStates, willCompleteSuccessfully());
 
-                    Map<ZonePartitionId, GlobalPartitionState> globalStateStates;
+                    Map<?, GlobalPartitionStateEnum> globalStateStates;
                     try {
                         globalStateStates = globalPartitionStates.get();
                     } catch (InterruptedException | ExecutionException e) {
                         throw new RuntimeException(e);
                     }
 
-                    return globalStateStates.entrySet()
+                    return globalStateStates.values()
                             .stream()
-                            .allMatch(partitionStateByNodes ->
-                                            partitionStateByNodes.getValue().state == GlobalPartitionStateEnum.AVAILABLE
-                            );
+                            .allMatch(state -> state == GlobalPartitionStateEnum.AVAILABLE);
                 },
                 30_000
         ));
