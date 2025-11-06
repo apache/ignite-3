@@ -64,7 +64,7 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26923")
-    void testMetastorageRaftSnapshotCompatibility() throws InterruptedException{
+    void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
         cluster.stop();
         cluster.startEmbedded(2);
 
@@ -76,7 +76,8 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
         MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
 
         // Assert that new node got all log entries from old one.
-        await().until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));;
+        await().until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
+        ;
     }
 
     private void checkMetastorage() {
