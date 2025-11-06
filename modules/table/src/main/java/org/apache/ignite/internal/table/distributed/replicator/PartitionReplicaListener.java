@@ -530,7 +530,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             if (rwMultiRowPkReq.requestType() == RW_UPSERT_ALL) {
                 long duration = FastTimestamps.coarseCurrentTimeMillis() - rwMultiRowPkReq.startTs();
 
-                if (duration > 0) {
+                if (duration > 100) {
                     LOG.warn(
                             "PVD:: Processing of RW_UPSERT_ALL request with {} rows took {} ms, "
                                     + "which is longer than the threshold of 100 ms. "
