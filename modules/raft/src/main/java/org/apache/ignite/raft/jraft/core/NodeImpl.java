@@ -3616,7 +3616,7 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.info("Node {} received stale configuration for peer {}, existing is {}, new {}.",
                 getNodeId(), peer, this.conf.getConf().getSequenceToken(), sequenceToken);
 
-                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+                Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
@@ -3640,7 +3640,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(this.conf.getConf().contains(peer), "Peer not found in current configuration");
 
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
-                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+                Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
@@ -3676,7 +3676,7 @@ public class NodeImpl implements Node, RaftServerService {
             if (this.conf.getConf().getSequenceToken() > newPeersAndLearners.getSequenceToken()) {
                  LOG.info("Node {} received stale configuration for conf {}, existing is {}, new {}.",
                         getNodeId(), newPeersAndLearners, this.conf.getConf().getSequenceToken(),  newPeersAndLearners.getSequenceToken());
-                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+                Status status = staleConfiguration(newPeersAndLearners.getSequenceToken());
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
@@ -3712,7 +3712,7 @@ public class NodeImpl implements Node, RaftServerService {
             if (this.conf.getConf().getSequenceToken() > newConf.getSequenceToken()) {
                 LOG.info("Node {} received stale configuration for conf {}, existing is {}, new {}.",
                                         getNodeId(), newConf, this.conf.getConf().getSequenceToken(),  newConf.getSequenceToken());
-                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+                Status status = staleConfiguration(newConf.getSequenceToken());
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
@@ -3726,6 +3726,15 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.writeLock.unlock();
         }
+    }
+
+    private Status staleConfiguration(long newConfSeqToken) {
+        return new Status(
+                RaftError.ESTALE,
+                "Provided configuration is stale [current token=%d, request token=%d].",
+                this.conf.getConf().getSequenceToken(),
+                newConfSeqToken
+        );
     }
 
     @Override
@@ -3761,7 +3770,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             if (this.conf.getConf().getSequenceToken() > newPeers.getSequenceToken()) {
-                return new Status(RaftError.ESTALE, "Provided configuration is stale");
+                return staleConfiguration(newPeers.getSequenceToken());
             }
 
             // check equal, maybe retry direct return
@@ -3787,7 +3796,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         try {
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
-                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+                Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
@@ -3820,7 +3829,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         try {
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
-                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+                Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
@@ -3844,7 +3853,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         try {
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
-                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+                Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
