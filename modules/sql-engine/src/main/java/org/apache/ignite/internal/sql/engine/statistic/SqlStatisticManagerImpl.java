@@ -169,17 +169,17 @@ public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChan
                         if (err != null) {
                             LOG.debug("Failed to update table statistics for [tableId={}].", err, tableId);
                         } else {
-                            ActualSize estimatedTableSize = new ActualSize(Math.max(info.getEstimatedSize(), DEFAULT_TABLE_SIZE),
+                            ActualSize updatedSize = new ActualSize(Math.max(info.getEstimatedSize(), DEFAULT_TABLE_SIZE),
                                     info.lastModificationCounter());
-                            ActualSize prevSize = tableSizeMap.get(tableId);
+                            ActualSize currentSize = tableSizeMap.get(tableId);
                             // the table can be concurrently dropped and we shouldn't put new value in this case.
                             tableSizeMap.compute(tableId, (k, v) -> {
                                 return v != null && v.modificationCounter() > info.lastModificationCounter()
                                         ? v
-                                        : estimatedTableSize; // Save initial or replace stale state.
+                                        : updatedSize; // Save initial or replace stale state.
                             });
 
-                            if (estimatedTableSize.getSize() != prevSize.getSize()) {
+                            if (updatedSize.modificationCounter() >= currentSize.modificationCounter()) {
                                 fireEvent(STATISTIC_CHANGED, new StatisticEventParameters(tableId));
                             }
                         }
