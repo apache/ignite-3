@@ -72,6 +72,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public InternalTransaction beginImplicitNoWrites(HybridTimestampTracker timestampTracker) {
+        return begin(timestampTracker, true, false, InternalTxOptions.defaults());
+    }
+
+    @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
         return begin(timestampTracker, false, readOnly, txOptions);
     }
@@ -159,7 +164,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public boolean implicit() {
-                return false;
+                return implicit;
             }
 
             @Override

@@ -26,10 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -40,6 +39,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,7 +56,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     static final int accountsCount = WRITE_PARALLELISM * 10;
     static final double initial = 1000;
     static final double total = accountsCount * initial;
-    static final int duration = 5000;
+    static final int durationMillis = 15000;
 
     CyclicBarrier startBar = new CyclicBarrier(WRITE_PARALLELISM + READ_PARALLELISM, () -> log.info("Before test"));
 
@@ -121,7 +121,17 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             readThreads[i].start();
         }
 
-        Thread.sleep(duration * 1000);
+        long cur = System.currentTimeMillis();
+
+        while(cur + durationMillis > System.currentTimeMillis()) {
+            Thread.sleep(1000);
+
+            log.info("Waiting...");
+
+            if (firstErr.get() != null) {
+                throw new IgniteException(INTERNAL_ERR, firstErr.get());
+            }
+        }
 
         stop.set(true);
 
@@ -185,41 +195,49 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
             logger().info("Starting writer: workerId=" + workerId);
 
-//            while (!stop.get() && firstErr.get() == null) {
-//                Ignite node = assignNodeForIteration(workerId);
-//                Transaction tx = node.transactions().begin();
-//
-//                var view = node.tables().table("accounts").recordView();
-//
-//                try {
-//                    long acc1 = r.nextInt(accountsCount);
-//
-//                    double amount = 100 + r.nextInt(500);
-//
-//                    double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
-//
-//                    long acc2 = acc1;
-//
-//                    while (acc1 == acc2) {
-//                        acc2 = r.nextInt(accountsCount);
-//                    }
-//
-//                    double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
-//
-//                    view.upsert(tx, makeValue(acc1, val0 - amount));
-//
-//                    view.upsert(tx, makeValue(acc2, val1 + amount));
-//
-//                    tx.commit();
-//
-//                    ops.increment();
-//                } catch (IgniteException e) {
-//                    assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
-//
-//                    // Don't need to rollback manually if got IgniteException.
-//                    fails.increment();
-//                }
-//            }
+            while (!stop.get() && firstErr.get() == null) {
+                Ignite node = assignNodeForIteration(workerId);
+                Transaction tx = node.transactions().begin();
+
+                var view = node.tables().table("accounts").recordView();
+
+                try {
+                    long acc1 = r.nextInt(accountsCount);
+
+                    double amount = 100 + r.nextInt(500);
+
+                    double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
+
+                    long acc2 = acc1;
+
+                    while (acc1 == acc2) {
+                        acc2 = r.nextInt(accountsCount);
+                    }
+
+                    double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
+
+                    view.upsert(tx, makeValue(acc1, val0 - amount));
+
+                    view.upsert(tx, makeValue(acc2, val1 + amount));
+
+                    tx.commit();
+
+                    ops.increment();
+                } catch (IgniteException e) {
+                    assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
+
+                    // Don't need to rollback manually if got IgniteException.
+                    fails.increment();
+                } catch (CompletionException ce) {
+                    Throwable cause = ce.getCause();
+
+                    assertTrue(cause instanceof TransactionException);
+                    assertTrue(cause.getMessage().contains("Failed to acquire a lock"), cause.getMessage());
+
+                    // Don't need to rollback manually if got IgniteException.
+                    fails.increment();
+                }
+            }
         };
     }
 

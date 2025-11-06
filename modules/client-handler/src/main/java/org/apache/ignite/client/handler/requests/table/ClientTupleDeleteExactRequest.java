@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
-import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -53,7 +53,7 @@ public class ClientTupleDeleteExactRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, notificationSender, tsTracker, noneOf(ReadOptions.class))
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, notificationSender, tsTracker, noneOf(RequestOptions.class))
                 .thenCompose(req -> req.table().recordView().deleteExactAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

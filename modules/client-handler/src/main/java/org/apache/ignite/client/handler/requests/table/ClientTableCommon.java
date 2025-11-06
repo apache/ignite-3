@@ -26,11 +26,13 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -396,6 +398,28 @@ public class ClientTableCommon {
             @Nullable TxManager txManager,
             @Nullable NotificationSender notificationSender,
             long[] resourceIdHolder) {
+        return readTx(in, tsUpdater, resources, txManager, notificationSender, resourceIdHolder, EnumSet.noneOf(RequestOptions.class));
+    }
+
+    /**
+     * Reads transaction.
+     *
+     * @param in Unpacker.
+     * @param tsUpdater Packer.
+     * @param resources Resource registry.
+     * @param txManager Tx manager.
+     * @param notificationSender Notification sender.
+     * @param resourceIdHolder Resource id holder.
+     * @return Transaction, if present, or null.
+     */
+    public static @Nullable InternalTransaction readTx(
+            ClientMessageUnpacker in,
+            HybridTimestampTracker tsUpdater,
+            ClientResourceRegistry resources,
+            @Nullable TxManager txManager,
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder,
+            EnumSet<RequestOptions> options) {
         if (in.tryUnpackNil()) {
             return null;
         }
@@ -414,7 +438,7 @@ public class ClientTableCommon {
                         .timeoutMillis(timeoutMillis)
                         .build();
 
-                var tx = implicit ? startImplicitTx(tsUpdater, txManager, readOnly) :
+                var tx = implicit ? startImplicitTx(tsUpdater, txManager, readOnly, options.contains(RequestOptions.NO_WRITES)) :
                         startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly,
                                 txOptions);
 
@@ -460,20 +484,20 @@ public class ClientTableCommon {
         }
     }
 
-    static InternalTransaction readOrStartImplicitTx(
+    static InternalTransaction readOrStartImplicitTx( // TODO GET RID!!
             ClientMessageUnpacker in,
             HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
             TxManager txManager,
-            boolean readOnly,
+            EnumSet<RequestOptions> options,
             @Nullable NotificationSender notificationSender,
             long[] resourceIdHolder) {
-        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder);
+        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder, options);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(readTs, txManager, readOnly);
+            tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY), false);
         }
 
         return tx;
@@ -508,9 +532,15 @@ public class ClientTableCommon {
     private static InternalTransaction startImplicitTx(
             HybridTimestampTracker tsTracker,
             TxManager txManager,
-            boolean readOnly
+            boolean readOnly,
+            boolean noWrites
     ) {
-        return txManager.beginImplicit(tsTracker, readOnly);
+        if (noWrites) {
+            // noWrites imply RW.
+            return txManager.beginImplicitNoWrites(tsTracker);
+        } else {
+            return txManager.beginImplicit(tsTracker, readOnly);
+        }
     }
 
     /**

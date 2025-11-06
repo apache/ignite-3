@@ -20,9 +20,8 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.KEY_ONLY;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.READ_ONLY;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.READ_SECOND_TUPLE;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
 
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -78,10 +77,11 @@ class ClientTupleRequestBase {
         return tuple2;
     }
 
-    enum ReadOptions {
+    public enum RequestOptions {
         READ_ONLY,
         KEY_ONLY,
-        READ_SECOND_TUPLE
+        READ_SECOND_TUPLE,
+        NO_WRITES
     }
 
     public static CompletableFuture<ClientTupleRequestBase> readAsync(
@@ -91,7 +91,7 @@ class ClientTupleRequestBase {
             @Nullable TxManager txManager,
             @Nullable NotificationSender notificationSender,
             @Nullable HybridTimestampTracker tsTracker,
-            EnumSet<ReadOptions> options
+            EnumSet<RequestOptions> options
     ) {
         assert (txManager != null) == (tsTracker != null) : "txManager and tsTracker must be both null or not null";
 
@@ -101,7 +101,7 @@ class ClientTupleRequestBase {
 
         InternalTransaction tx = txManager == null
                 ? null
-                : readOrStartImplicitTx(in, tsTracker, resources, txManager, options.contains(READ_ONLY), notificationSender, resIdHolder);
+                : readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
