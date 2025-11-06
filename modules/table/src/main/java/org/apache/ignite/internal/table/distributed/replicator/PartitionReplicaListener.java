@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.fromBytes;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
@@ -222,6 +223,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -522,6 +524,24 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     @Override
     public CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
+        if (request instanceof ReadWriteMultiRowReplicaRequest) {
+            var rwMultiRowPkReq = (ReadWriteMultiRowReplicaRequest) request;
+
+            if (rwMultiRowPkReq.requestType() == RW_UPSERT_ALL) {
+                long duration = FastTimestamps.coarseCurrentTimeMillis() - rwMultiRowPkReq.startTs();
+
+                if (duration > 0) {
+                    LOG.warn(
+                            "PVD:: Processing of RW_UPSERT_ALL request with {} rows took {} ms, "
+                                    + "which is longer than the threshold of 100 ms. "
+                                    + "Consider using batch operations for better performance.",
+                            rwMultiRowPkReq.binaryRows().size(),
+                            duration
+                    );
+                }
+            }
+        }
+
         return processRequestInContext(request, replicaPrimacy, senderId);
     }
 

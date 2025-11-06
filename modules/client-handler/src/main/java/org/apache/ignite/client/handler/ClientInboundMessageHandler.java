@@ -750,7 +750,7 @@ public class ClientInboundMessageHandler
                 long duration = coarseCurrentTimeMillis() - reqStartTs;
 
                 if (duration > 100) {
-                    LOG.warn("Client request processing is delayed [id=" + requestId + ", op=" + opCode
+                    LOG.warn("PVD:: Client request processing is delayed [id=" + requestId + ", op=" + opCode
                             + ", remoteAddress=" + ctx.channel().remoteAddress() + ", delayMs=" + duration + "]");
                 }
             }
