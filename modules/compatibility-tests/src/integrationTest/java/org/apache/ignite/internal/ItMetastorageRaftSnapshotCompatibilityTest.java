@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.client.DeploymentUtils.runJob;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.is;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
@@ -76,7 +76,7 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
         MetaStorageManager oldNodeMetastorage = unwrapIgniteImpl(cluster.node(0)).metaStorageManager();
 
         // Assert that new node got all log entries from old one.
-        await().atMost(10, SECONDS).until(() -> oldNodeMetastorage.appliedRevision() == newNodeMetastorage.appliedRevision());
+        await().until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));;
     }
 
     private void checkMetastorage() {

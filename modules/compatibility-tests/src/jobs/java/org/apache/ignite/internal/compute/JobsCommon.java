@@ -23,7 +23,7 @@ import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** Common utilities for jobs in compatibility tests. */
 class JobsCommon {
-    static IgniteImpl getIgniteImplFromOldVersionCompute(Ignite ignite) {
+    static IgniteImpl unwrapIgniteImpl(Ignite ignite) {
         return Wrappers.unwrap(ignite, IgniteImpl.class);
     }
 }

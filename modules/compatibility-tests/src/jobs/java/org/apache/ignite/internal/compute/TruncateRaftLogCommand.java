@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.JobsCommon.getIgniteImplFromOldVersionCompute;
+import static org.apache.ignite.internal.compute.JobsCommon.unwrapIgniteImpl;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -28,13 +28,13 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 
-/** Used to truncate raft log via snapshot in old version cluster. */
+/** Used to truncate the Raft log via a snapshot in the older cluster version. */
 @SuppressWarnings("TestOnlyProblems")
 public class TruncateRaftLogCommand implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String groupId) {
         try {
-            IgniteImpl igniteImpl = getIgniteImplFromOldVersionCompute(context.ignite());
+            IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
 
             SnapshotRequest request = new RaftMessagesFactory().snapshotRequest()
                     .groupId(groupId)
