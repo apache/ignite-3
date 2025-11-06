@@ -78,6 +78,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -140,6 +141,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -265,6 +268,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+
         prepareService = new PrepareServiceImpl(
                 "test",
                 0,
@@ -276,7 +281,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 metricManager,
                 new PredefinedSchemaManager(schema),
                 clockService::currentLong,
-                commonExecutor
+                commonExecutor,
+                producer
         );
         parserService = new ParserServiceImpl();
 

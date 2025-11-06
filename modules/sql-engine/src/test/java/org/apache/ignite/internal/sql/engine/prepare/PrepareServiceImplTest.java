@@ -59,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -76,6 +77,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
@@ -860,9 +863,11 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new PredefinedSchemaManager(schemas), clockService::currentLong, commonExecutor);
+                new PredefinedSchemaManager(schemas), clockService::currentLong, commonExecutor, producer);
 
         createdServices.add(service);
 
@@ -895,9 +900,11 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         when(clockService.currentLong()).thenReturn(new HybridTimestamp(1_000, 500).longValue());
 
+        AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new VersionedSchemaManager(schemas, ver), clockService::currentLong, executor);
+                new VersionedSchemaManager(schemas, ver), clockService::currentLong, executor, producer);
 
         createdServices.add(service);
 

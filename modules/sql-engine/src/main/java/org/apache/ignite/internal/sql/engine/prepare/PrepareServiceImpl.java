@@ -20,10 +20,12 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
+import static org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent.STATISTIC_CHANGED;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
@@ -64,6 +66,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -95,7 +98,8 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.statistic.StatisticUpdatesNotifier;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -166,6 +170,8 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final LongSupplier currentClock;
 
+    private final EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates;
+
     /**
      * Factory method.
      *
@@ -179,7 +185,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
      * @param currentClock Actual clock supplier.
      * @param scheduler Scheduler.
-     * @param updNotifier Updates notifier call-back.
+     * @param statUpdates Statistic updates notifier.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -192,9 +198,9 @@ public class PrepareServiceImpl implements PrepareService {
             DdlSqlToCommandConverter ddlSqlToCommandConverter,
             LongSupplier currentClock,
             ScheduledExecutorService scheduler,
-            StatisticUpdatesNotifier updNotifier
+            EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates
     ) {
-        PrepareServiceImpl impl = new PrepareServiceImpl(
+        return new PrepareServiceImpl(
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
@@ -205,12 +211,9 @@ public class PrepareServiceImpl implements PrepareService {
                 metricManager,
                 schemaManager,
                 currentClock,
-                scheduler
+                scheduler,
+                statUpdates
         );
-
-        updNotifier.changesNotifier(impl::statisticsChanged);
-
-        return impl;
     }
 
     /**
@@ -225,6 +228,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      * @param currentClock Actual clock supplier.
      * @param scheduler Scheduler.
+     * @param statUpdates Statistic updates notifier.
      */
     public PrepareServiceImpl(
             String nodeName,
@@ -237,7 +241,8 @@ public class PrepareServiceImpl implements PrepareService {
             MetricManager metricManager,
             SqlSchemaManager schemaManager,
             LongSupplier currentClock,
-            ScheduledExecutorService scheduler
+            ScheduledExecutorService scheduler,
+            EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
@@ -245,6 +250,7 @@ public class PrepareServiceImpl implements PrepareService {
         this.metricManager = metricManager;
         this.plannerThreadCount = plannerThreadCount;
         this.schemaManager = schemaManager;
+        this.statUpdates = statUpdates;
 
         this.currentClock = currentClock;
 
@@ -276,6 +282,12 @@ public class PrepareServiceImpl implements PrepareService {
         metricManager.enable(PLANNING_EXECUTOR_SOURCE_NAME);
 
         IgnitePlanner.warmup();
+
+        statUpdates.listen(STATISTIC_CHANGED, parameters -> {
+            statisticsChanged(parameters.tableId());
+
+            return falseCompletedFuture();
+        });
 
         planUpdater.start();
     }

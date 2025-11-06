@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent.STATISTIC_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -46,6 +48,8 @@ import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.replicator.PartitionModificationInfo;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -55,7 +59,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Statistic manager. Provide and manage update of statistics for SQL.
  */
-public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
+public class SqlStatisticManagerImpl extends AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters>
+        implements SqlStatisticUpdateManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
     static final long DEFAULT_TABLE_SIZE = 1L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, Long.MIN_VALUE);
@@ -72,8 +77,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
     private final TableManager tableManager;
     private final CatalogService catalogService;
     private final LowWatermark lowWatermark;
-
-    private final AtomicReference<StatisticUpdatesSupplier> changesSupplier = new AtomicReference<>();
 
     /* Contains all known table id's with statistics. */
     final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
@@ -100,13 +103,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
         this.lowWatermark = lowWatermark;
         this.scheduler = scheduler;
         this.statSupplier = statSupplier;
-    }
-
-    @Override
-    public void changesNotifier(StatisticUpdatesSupplier updater) {
-        if (!this.changesSupplier.compareAndSet(null, updater)) {
-            throw new AssertionError("Statistics updater unexpected change");
-        }
     }
 
     /**
@@ -184,10 +180,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticUpdateManager {
                             });
 
                             if (estimatedTableSize.getSize() != prevSize.getSize()) {
-                                StatisticUpdatesSupplier supplier = changesSupplier.get();
-                                if (supplier != null) {
-                                    supplier.accept(tableId);
-                                }
+                                fireEvent(STATISTIC_CHANGED, new StatisticEventParameters(tableId));
                             }
                         }
                     }
