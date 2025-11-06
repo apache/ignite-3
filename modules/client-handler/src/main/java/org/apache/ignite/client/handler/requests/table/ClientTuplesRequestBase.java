@@ -20,8 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.KEY_ONLY;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.READ_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -30,7 +29,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
-import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -76,14 +75,14 @@ class ClientTuplesRequestBase {
             TxManager txManager,
             @Nullable NotificationSender notificationSender,
             HybridTimestampTracker tsTracker,
-            EnumSet<ReadOptions> options
+            EnumSet<RequestOptions> options
     ) {
         int tableId = in.unpackInt();
 
         long[] resIdHolder = {0};
 
         InternalTransaction tx =
-                readOrStartImplicitTx(in, tsTracker, resources, txManager, options.contains(READ_ONLY), notificationSender, resIdHolder);
+                readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 

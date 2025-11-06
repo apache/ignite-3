@@ -439,7 +439,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
 
         HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.lowPriority());
+        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
+
+        txStateVolatileStorage.initialize(tx);
+        txMetrics.onTransactionStarted();
+
+        return tx;
+    }
+
+    @Override
+    public InternalTransaction beginImplicitNoWrites(HybridTimestampTracker timestampTracker) {
+        HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
+        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
 
         txStateVolatileStorage.initialize(tx);
         txMetrics.onTransactionStarted();

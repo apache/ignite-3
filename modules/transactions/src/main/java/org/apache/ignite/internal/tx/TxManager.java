@@ -69,6 +69,8 @@ public interface TxManager extends IgniteComponent {
      */
     InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
 
+    InternalTransaction beginImplicitNoWrites(HybridTimestampTracker timestampTracker);
+
     /**
      * Starts an explicit read-write transaction coordinated by a local node.
      *

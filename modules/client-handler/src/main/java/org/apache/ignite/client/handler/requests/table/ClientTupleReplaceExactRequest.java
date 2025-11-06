@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.ReadOptions.READ_SECOND_TUPLE;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
