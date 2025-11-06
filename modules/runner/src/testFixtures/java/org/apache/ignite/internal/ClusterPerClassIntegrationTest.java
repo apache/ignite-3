@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationE
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -71,7 +72,6 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.hamcrest.MatcherAssert;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -213,7 +213,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
                                         .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
                     }
 
-                    MatcherAssert.assertThat(globalPartitionStates, willCompleteSuccessfully());
+                    assertThat(globalPartitionStates, willCompleteSuccessfully());
 
                     Map<?, GlobalPartitionStateEnum> globalStateStates;
                     try {
