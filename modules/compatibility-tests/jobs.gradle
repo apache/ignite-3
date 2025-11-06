@@ -30,7 +30,7 @@ def registerJarTask(SourceSet sourceSet, String baseName) {
 
 registerJarTask(sourceSets.jobs, 'ignite-integration-test-jobs')
 
-processIntegrationTestResources {
+processTestFixturesResources {
     into('units') {
         from jobsJar
     }
@@ -48,5 +48,5 @@ dependencies {
     jobsImplementation project(':ignite-raft')
     jobsImplementation project(':ignite-raft-api')
 
-    integrationTestImplementation sourceSets.jobs.output
+    testFixturesApi sourceSets.jobs.output
 }
