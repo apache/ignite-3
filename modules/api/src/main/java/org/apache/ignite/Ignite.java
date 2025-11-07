@@ -35,7 +35,7 @@ public interface Ignite {
     /**
      * Returns the unique name (consistent ID) of the Ignite node in the cluster.
      *
-     * @return Unique Ignite node name in the cluster.
+     * @return Unique Ignite node name in the cluster.1
      */
     String name();
 
