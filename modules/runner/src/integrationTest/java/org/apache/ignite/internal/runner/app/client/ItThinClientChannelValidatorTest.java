@@ -213,7 +213,8 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
                 false,
                 null,
                 IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
-                IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
+                IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE,
+                null
         );
 
         return await(TcpIgniteClient.startAsync(

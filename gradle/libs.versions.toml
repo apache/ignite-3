@@ -96,6 +96,10 @@ protobuf = "4.33.0"
 cytodynamics = "0.2.0"
 japicmp = "0.24.2"
 
+# JDBC connection pools (for testing purposes)
+hikariCP = "7.0.2"
+c3p0 = "0.11.2"
+
 #Tools
 pmdTool = "7.13.0"
 # NOTE: do not update checkstyle to 11.x.x+, because newer versions are not compatible with Java 11.
@@ -279,6 +283,9 @@ auto-service = { module = "com.google.auto.service:auto-service", version.ref = 
 auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "autoService" }
 
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+
+hikariCP = { module = "com.zaxxer:HikariCP", version.ref = "hikariCP" }
+c3p0 = { module = "com.mchange:c3p0", version.ref = "c3p0" }
 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
