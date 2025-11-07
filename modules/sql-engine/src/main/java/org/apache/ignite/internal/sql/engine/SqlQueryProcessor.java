@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -110,6 +111,7 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -287,7 +289,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
         var nodeFilterValidator = new ClusterWideNodeFilterValidator(logicalTopologyService);
 
-        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator);
+        Supplier<TableStatsStalenessConfiguration> stalenessProperties = () -> new TableStatsStalenessConfiguration(
+                clusterCfg.createTable().staleRowsFraction().value(),
+                clusterCfg.createTable().minStaleRowsCount().value());
+
+        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator, stalenessProperties);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
