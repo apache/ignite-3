@@ -56,6 +56,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -365,10 +366,18 @@ public class ClientSql implements IgniteSql {
 
                 assert table != null;
 
+                PaCacheKey key = new PaCacheKey(statement);
                 mappingProviderCache.put(
-                        new PaCacheKey(statement),
+                        key,
                         PartitionMappingProvider.create(
-                                table, partitionAwarenessMetadata
+                                table,
+                                partitionAwarenessMetadata,
+                                th -> {
+                                    if (th instanceof TableNotFoundException) {
+                                        tableCache.invalidate(tableId);
+                                    }
+                                    mappingProviderCache.invalidate(key);
+                                }
                         )
                 );
             }
