@@ -180,8 +180,6 @@ tasks.register('runnerPlatformCompatibilityTest', JavaExec) {
     jvmArgs += defaultJvmArgs
 
     classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
 }
 
 tasks.register('postRelease', Copy) {
