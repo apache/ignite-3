@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
@@ -27,7 +26,6 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
@@ -38,7 +36,7 @@ public abstract class AbstractRestTestBase extends ClusterPerTestIntegrationTest
     /** HTTP host and port url part. */
     private static final String HTTP_HOST_PORT = "http://localhost:10300";
 
-    protected ObjectMapper objectMapper;
+    protected ObjectMapper objectMapper = new ObjectMapper();
 
     /** HTTP client. */
     private HttpClient client;
@@ -67,7 +65,6 @@ public abstract class AbstractRestTestBase extends ClusterPerTestIntegrationTest
 
     @BeforeEach
     void setUp(TestInfo testInfo) throws IOException, InterruptedException {
-        objectMapper = new ObjectMapper();
         client = HttpClient.newBuilder().build();
 
         for (int i = 0; i < 3; i++) {
@@ -77,9 +74,5 @@ public abstract class AbstractRestTestBase extends ClusterPerTestIntegrationTest
 
     protected HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {
         return client.send(request, BodyHandlers.ofString());
-    }
-
-    protected Problem getProblem(HttpResponse<String> initResponse) throws JsonProcessingException {
-        return objectMapper.readValue(initResponse.body(), Problem.class);
     }
 }
