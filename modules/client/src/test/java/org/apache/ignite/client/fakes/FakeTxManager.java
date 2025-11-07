@@ -72,7 +72,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginImplicitNoWrites(HybridTimestampTracker timestampTracker) {
+    public InternalTransaction beginExplicitWithNoWrites(HybridTimestampTracker timestampTracker) {
         return begin(timestampTracker, true, false, InternalTxOptions.defaults());
     }
 
