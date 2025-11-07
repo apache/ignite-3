@@ -1013,18 +1013,13 @@ public class RexUtils {
         return InputRefReplacer.INSTANCE.apply(node);
     }
 
-    /**
-     * ReplaceLocalRefs.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RexNode replaceLocalRefs(RexNode node) {
+    /** Replaces all occurrences of {@link RexLocalRef} within given list of nodes with {@link RexInputRef}. */
+    public static RexNode replaceLocalRefs(@Nullable RexNode node) {
+        //noinspection DataFlowIssue: RexShuttle expects null as input.
         return LocalRefReplacer.INSTANCE.apply(node);
     }
 
-    /**
-     * ReplaceLocalRefs.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** Replaces all occurrences of {@link RexLocalRef} within given rex node with {@link RexInputRef}. */
     public static List<RexNode> replaceLocalRefs(List<RexNode> nodes) {
         return LocalRefReplacer.INSTANCE.apply(nodes);
     }

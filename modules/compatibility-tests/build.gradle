@@ -46,11 +46,9 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-runner')
-    integrationTestImplementation project(':ignite-cli')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-page-memory')
-    integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-metastorage')
     integrationTestImplementation project(':ignite-jdbc')
@@ -84,6 +82,8 @@ dependencies {
     testFixturesImplementation project(':ignite-metastorage-api')
     testFixturesImplementation project(':ignite-rest-api')
     testFixturesImplementation project(':ignite-runner')
+    testFixturesImplementation project(':ignite-cli')
+    testFixturesImplementation project(':ignite-rest-api')
 }
 
 private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {
