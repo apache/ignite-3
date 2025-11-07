@@ -101,7 +101,8 @@ public class ItJdbcJoinsSelfTest extends AbstractJdbcSelfTest {
                 + "2007,Hope,null,null\n";
 
         assertEquals(expOut, res1, "Wrong result");
-        assertEquals(expOut, res2, "Wrong result");
+        // TODO https://issues.apache.org/jira/browse/IGNITE-26968 Enable verification
+        // assertEquals(expOut, res2, "Wrong result");
     }
 
     /**

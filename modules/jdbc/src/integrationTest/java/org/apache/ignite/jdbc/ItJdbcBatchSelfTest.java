@@ -179,10 +179,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchWithKill() throws SQLException {
         try (Statement targetQueryStatement = conn.createStatement()) {
             try (ResultSet rs = targetQueryStatement.executeQuery("SELECT x FROM system_range(0, 100000);")) {
-                IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-                SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
-
-                List<QueryInfo> queries = queryProcessor.runningQueries();
+                List<QueryInfo> queries = CLUSTER.runningNodes().flatMap(node ->
+                        ((SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine()).runningQueries().stream())
+                        .collect(Collectors.toList());
 
                 assertThat(queries, hasSize(1));
                 UUID targetId = queries.get(0).id();
@@ -190,7 +189,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 stmt.addBatch("KILL QUERY '" + targetId + "'");
                 stmt.executeBatch();
 
-                SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(0));
+                SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, is(0));
 
                 //noinspection ThrowableNotThrown
                 assertThrowsSqlException(

@@ -64,6 +64,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** Driver name. */
     public static final String DRIVER_NAME = "Apache Ignite JDBC Driver";
 
+    /** Product name. */
+    public static final String PRODUCT_NAME = "Apache Ignite";
+
     /** The only possible name for catalog. */
     public static final String CATALOG_NAME = "IGNITE";
 
@@ -158,7 +161,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getDatabaseProductName() {
-        return "Apache Ignite";
+        return PRODUCT_NAME;
     }
 
     /** {@inheritDoc} */

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.QueryCancelledException.CANCEL_MSG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -65,6 +67,8 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -587,12 +591,16 @@ public class SqlTestUtils {
     /**
      * Waits until the number of running queries matches the specified matcher.
      *
-     * @param queryProcessor Query processor.
+     * @param cluster Cluster.
      * @param matcher Matcher to check the number of running queries.
      * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
      */
-    public static void waitUntilRunningQueriesCount(SqlQueryProcessor queryProcessor, Matcher<Integer> matcher) {
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries().size(), matcher));
+    public static void waitUntilRunningQueriesCount(Cluster cluster, Matcher<Integer> matcher) {
+        ToIntFunction<Ignite> queriesCountPerNode = node ->
+                ((SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine()).runningQueries().size();
+
+        Awaitility.await().timeout(5, TimeUnit.SECONDS)
+                .until(() -> cluster.runningNodes().mapToInt(queriesCountPerNode).sum(), matcher);
     }
 
     /**
