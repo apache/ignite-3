@@ -27,6 +27,9 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -52,6 +55,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.jdbc2.JdbcConnection2;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -1001,5 +1005,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (JdbcConnection2 conn = (JdbcConnection2) DriverManager.getConnection(urlPrefix + "=0")) {
             assertEquals(0, conn.properties().getPartitionAwarenessMetadataCacheSize());
         }
+    }
+
+    @Test
+    void ensureClientConnectedToMultipleEndpoints() {
+        assertThat(initialNodes(), greaterThan(1));
+
+        Awaitility.await().until(() -> ((JdbcConnection2) conn).channelsCount(), is(initialNodes()));
     }
 }

@@ -47,6 +47,7 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -834,6 +835,11 @@ public class JdbcConnection2 implements Connection {
     @TestOnly
     void closeClient() {
         igniteClient.close();
+    }
+
+    @TestOnly
+    public int channelsCount() {
+        return ((TcpIgniteClient) igniteClient).channel().channels().size();
     }
 
     private static void checkCursorOptions(

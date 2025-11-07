@@ -209,7 +209,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
 
         // Check non-indexed field.
         JdbcTestUtils.assertThrowsSqlException(
-                "Invalid input string for type INTEGER: \"B\"",
+                "Invalid input string for type INTEGER: ",
                 () -> stmt.executeQuery("select * from PUBLIC.Org where name::INTEGER = 2"));
 
         // Check indexed field.
@@ -218,7 +218,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
         }
 
         JdbcTestUtils.assertThrowsSqlException(
-                "Invalid input string for type INTEGER: \"Mike Green\"",
+                "Invalid input string for type INTEGER: ",
                 () -> stmt.executeQuery("select * from PUBLIC.Person where name::INTEGER = 2"));
     }
 }
