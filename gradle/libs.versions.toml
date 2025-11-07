@@ -282,8 +282,8 @@ auto-service-annotations = { module = "com.google.auto.service:auto-service-anno
 
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
-hikariCP = { module = "com.zaxxer:HikariCP", version.ref="hikariCP"}
-c3p0 = { module = "com.mchange:c3p0", version.ref="c3p0"}
+hikariCP = { module = "com.zaxxer:HikariCP", version.ref = "hikariCP" }
+c3p0 = { module = "com.mchange:c3p0", version.ref = "c3p0" }
 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
