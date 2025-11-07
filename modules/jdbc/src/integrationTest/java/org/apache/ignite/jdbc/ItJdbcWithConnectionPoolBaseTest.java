@@ -141,10 +141,10 @@ public abstract class ItJdbcWithConnectionPoolBaseTest extends ClusterPerClassIn
     public void multipleConnections() {
         int connectionsCount = 100;
 
-        CyclicBarrier barier = new CyclicBarrier(connectionsCount);
+        CyclicBarrier barrier = new CyclicBarrier(connectionsCount);
 
         Callable<Integer> worker = () -> {
-            barier.await(5, TimeUnit.SECONDS);
+            barrier.await(5, TimeUnit.SECONDS);
 
             try (Connection conn = dataSource.getConnection()) {
                 try (Statement stmt = conn.createStatement();
