@@ -128,8 +128,8 @@ class Program<ResultT> {
             if (errorHandler.test(query, th)) {
                 return true;
             }
-        } catch (AssertionError | Exception ex) {
-            LOG.warn("Exception in error handler [queryId={}]", ex, query.id);
+        } catch (Throwable throwableFromErrorHandler) {
+            LOG.warn("Exception in error handler [queryId={}]", throwableFromErrorHandler, query.id);
 
             query.terminateExceptionally(th);
         }

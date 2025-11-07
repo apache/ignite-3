@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -126,8 +128,13 @@ class Query {
     <ResultT> CompletableFuture<ResultT> runProgram(Program<ResultT> program) {
         ProgramExecutionState<ResultT> state = program.createState();
 
-        if (!activeProgram.compareAndSet(null, state)) {
-            throw new SqlException(Common.INTERNAL_ERR);
+        ProgramExecutionHandle currentProgram = activeProgram.compareAndExchange(null, state);
+        if (currentProgram != null) {
+            String message = format(
+                    "Attempt to run query program while another is still active [runningProgram={}, newProgram={}].",
+                    currentProgram, program
+            );
+            throw new SqlException(Common.INTERNAL_ERR, message);
         }
 
         program.run(this, state);
