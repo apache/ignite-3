@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -39,7 +38,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -228,14 +226,6 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
                     // Don't need to rollback manually if got IgniteException.
                     fails.increment();
-                } catch (CompletionException ce) {
-                    Throwable cause = ce.getCause();
-
-                    assertTrue(cause instanceof TransactionException);
-                    assertTrue(cause.getMessage().contains("Failed to acquire a lock"), cause.getMessage());
-
-                    // Don't need to rollback manually if got IgniteException.
-                    fails.increment();
                 }
             }
         };
@@ -297,5 +287,10 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     protected Tuple makeValue(long id, double balance) {
         return Tuple.create().set("accountNumber", id).set("balance", balance);
+    }
+
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 }

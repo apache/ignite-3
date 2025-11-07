@@ -127,6 +127,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                     tx0);
         };
 
+        // TODO handle single partition batch as empty tx
         return tbl.splitAndRun(tx, keys, clo, new HashMap<>(),
                 (agg, cur) -> {
                     agg.putAll(cur);

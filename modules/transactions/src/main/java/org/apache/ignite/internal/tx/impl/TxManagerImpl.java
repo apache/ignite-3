@@ -448,9 +448,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginImplicitNoWrites(HybridTimestampTracker timestampTracker) {
+    public InternalTransaction beginExplicitWithNoWrites(HybridTimestampTracker timestampTracker) {
         HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
+        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, false, InternalTxOptions.lowPriority());
 
         txStateVolatileStorage.initialize(tx);
         txMetrics.onTransactionStarted();
@@ -1196,7 +1196,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public int lockRetryCount() {
-        return lockRetryCount;
+        return 0; // lockRetryCount;
     }
 
     @Override

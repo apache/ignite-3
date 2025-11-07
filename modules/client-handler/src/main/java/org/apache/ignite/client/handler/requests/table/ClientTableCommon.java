@@ -536,8 +536,8 @@ public class ClientTableCommon {
             boolean noWrites
     ) {
         if (noWrites) {
-            // noWrites imply RW.
-            return txManager.beginImplicitNoWrites(tsTracker);
+            // noWrites+implicit tx is executed as multiple explicit transactions, coordinated from a client.
+            return txManager.beginExplicitWithNoWrites(tsTracker);
         } else {
             return txManager.beginImplicit(tsTracker, readOnly);
         }
