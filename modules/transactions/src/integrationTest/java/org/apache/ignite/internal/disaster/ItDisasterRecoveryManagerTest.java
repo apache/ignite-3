@@ -986,7 +986,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         IgniteImpl nodeToCleanup = findZoneNodeConformingOptions(testZone, primaryReplica, raftLeader);
 
-        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartPartitionsWithCleanup(
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = nodeToCleanup.disasterRecoveryManager().restartPartitionsWithCleanup(
                 Set.of(nodeToCleanup.name()),
                 testZone,
                 Set.of(0)

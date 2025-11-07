@@ -848,7 +848,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                                     parameters.causalityToken()
                                             )
                                     ),
-                                    ioExecutor))
+                                    ioExecutor).thenCompose(identity()))
                             .toArray(CompletableFuture[]::new);
 
                     return allOf(futures);
