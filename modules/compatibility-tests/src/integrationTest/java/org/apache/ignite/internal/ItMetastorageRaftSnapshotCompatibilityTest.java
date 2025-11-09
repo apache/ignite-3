@@ -21,15 +21,15 @@ import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsSt
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.client.DeploymentUtils.runJob;
+import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.client.DeploymentUtils;
 import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
 import org.apache.ignite.internal.compute.TruncateRaftLogCommand;
+import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.junit.jupiter.api.Disabled;

@@ -55,9 +55,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -153,10 +151,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final Map<ReplicationGroupId, Integer> timeoutAttemptsCounters = new ConcurrentHashMap<>();
 
-    /** Executor for the throttled log. */
-    // TODO: IGNITE-20063 Maybe get rid of it
-    private final ThreadPoolExecutor throttledLogExecutor;
-
     private final IgniteThrottledLogger throttledLog;
 
     /** Busy lock to stop synchronously. */
@@ -249,6 +243,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *      volatile tables.
      * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
+     * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
     public ReplicaManager(
             String nodeName,
@@ -266,7 +261,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
+            Executor throttledLogExecutor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -298,16 +294,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 1,
                 IgniteThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
         );
-
-        throttledLogExecutor = new ThreadPoolExecutor(
-                1,
-                1,
-                30,
-                SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "throttled-log-replica-manager", LOG)
-        );
-        throttledLogExecutor.allowCoreThreadTimeOut(true);
 
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
     }
@@ -968,7 +954,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         int shutdownTimeoutSeconds = 10;
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, SECONDS);
-        shutdownAndAwaitTermination(throttledLogExecutor, shutdownTimeoutSeconds, SECONDS);
 
         // There we're closing replicas' futures that was created by requests and should be completed with NodeStoppingException.
         try {

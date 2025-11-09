@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 /** Enumerates possible phases of query execution. */
 public enum ExecutionPhase {
     /** Query is registered on server. */
-    REGISTERED(RegisteredPhaseHandler.INSTANCE),
+    REGISTERED(NoOpHandler.INSTANCE),
     /** Query string is parsed at the moment. Parsed AST may or may not be available yet. */
     PARSING(ParsingPhaseHandler.INSTANCE),
     /** AST is available now, optimization task is submitted. */
