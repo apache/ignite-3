@@ -448,9 +448,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginExplicitWithNoWrites(HybridTimestampTracker timestampTracker) {
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
         HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, false, InternalTxOptions.lowPriority());
+        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, options);
 
         txStateVolatileStorage.initialize(tx);
         txMetrics.onTransactionStarted();
@@ -495,6 +495,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 timeout,
                 nodeProperties.colocationEnabled()
         );
+
+        if (options.disabledAutocommit()) {
+            transaction.disableAutoCommit();
+        }
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
         // no need to register them.

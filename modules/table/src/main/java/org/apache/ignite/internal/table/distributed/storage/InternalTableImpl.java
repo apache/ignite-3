@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.tx.InternalTxOptions.getAllOptions;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -127,6 +128,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -463,7 +465,7 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
+        InternalTransaction actualTx = txStartTs != null ? restartImplicitRwTx(tx) : startImplicitRwTxIfNeeded(tx);
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
@@ -509,7 +511,8 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
-        return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
+        var autoCommit = actualTx.implicit() && !singlePart && !actualTx.disabledAutocommit();
+        return postEnlist(fut, autoCommit, actualTx, full && !actualTx.disabledAutocommit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
                     long timeout = actualTx.getTimeout();
@@ -517,7 +520,7 @@ public class InternalTableImpl implements InternalTable {
                     long ts = (txStartTs == null) ? actualTx.schemaTimestamp().getPhysical() : txStartTs;
 
                     if (canRetry(e, ts, timeout)) {
-                        return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
+                        return enlistInTx(keyRows, actualTx, fac, reducer, noOpChecker, ts);
                     }
                 }
 
@@ -530,6 +533,21 @@ public class InternalTableImpl implements InternalTable {
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
         return tx == null ? txManager.beginImplicitRw(observableTimestampTracker) : tx;
+    }
+
+    private InternalTransaction restartImplicitRwTx(InternalTransaction oldTx) {
+        if (oldTx.disabledAutocommit()) {
+            // Currently implicit auto commit can be disabled only for client's implicit getAll transactions.
+            ReadWriteTransactionImpl oldTx0 = (ReadWriteTransactionImpl) oldTx;
+            ReadWriteTransactionImpl tx0 =
+                    (ReadWriteTransactionImpl) txManager.beginImplicit(observableTimestampTracker, getAllOptions());
+            // Keep track of a last restarted tx.
+            var holder = oldTx0.getRestartedTxHolder();
+            holder[0] = tx0;
+            tx0.setRestartedTxHolder(holder);
+        }
+
+        return txManager.beginImplicitRw(observableTimestampTracker);
     }
 
     private InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
@@ -1042,7 +1060,8 @@ public class InternalTableImpl implements InternalTable {
                 keyRows,
                 tx,
                 (keyRows0, txo, groupId, enlistmentConsistencyToken, full) ->
-                        readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full),
+                        readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken,
+                                full && !txo.disabledAutocommit()),
                 InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder,
                 (res, req) -> false
         );

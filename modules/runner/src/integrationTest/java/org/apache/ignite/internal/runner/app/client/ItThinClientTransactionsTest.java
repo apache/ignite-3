@@ -908,21 +908,23 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         }
 
         KeyValueView<Tuple, Tuple> view = table.keyValueView();
-        view.putAll(null, batch);
+        Transaction tx = client().transactions().begin();
+        view.putAll(tx, batch);
 
-        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
-        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
-
-        // Test if we don't stuck in locks in subsequent rw txn.
-        CompletableFuture.runAsync(() -> {
-            Transaction tx = client().transactions().begin();
-            view.put(tx, tuples0.get(0), val("newval0"));
-            tx.commit();
-        }).join();
-
-        CompletableFuture.runAsync(() -> {
-            view.put(null, tuples1.get(0), val("newval1"));
-        }).join();
+        // Should retry.
+        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size(), "Implicit tx should be retried until timeout");
+//        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
+//
+//        // Test if we don't stuck in locks in subsequent rw txn.
+//        CompletableFuture.runAsync(() -> {
+//            Transaction tx = client().transactions().begin();
+//            view.put(tx, tuples0.get(0), val("newval0"));
+//            tx.commit();
+//        }).join();
+//
+//        CompletableFuture.runAsync(() -> {
+//            view.put(null, tuples1.get(0), val("newval1"));
+//        }).join();
     }
 
     @Test

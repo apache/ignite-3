@@ -65,6 +65,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     private boolean killed;
 
+    private boolean disabledAutocommit;
+
+    private ReadWriteTransactionImpl[] holder;
+
     /**
      * Constructs an explicit read-write transaction.
      *
@@ -198,6 +202,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     ) {
         assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
+        if (holder != null && holder[0] != null) {
+            holder[0].finishInternal(commit, executionTimestamp, full, true, timeoutExceeded);
+        }
+
         if (finishFuture != null) {
             return finishFuture;
         }
@@ -324,5 +332,22 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public void fail(TransactionException e) {
         // Thread safety is not needed.
         finishFuture = failedFuture(e);
+    }
+
+    void disableAutoCommit() {
+        this.disabledAutocommit = true;
+    }
+
+    @Override
+    public boolean disabledAutocommit() {
+        return disabledAutocommit;
+    }
+
+    public void setRestartedTxHolder(ReadWriteTransactionImpl[] holder) {
+        this.holder = holder;
+    }
+
+    public ReadWriteTransactionImpl[] getRestartedTxHolder() {
+        return holder;
     }
 }

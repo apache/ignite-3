@@ -31,6 +31,7 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -55,10 +56,16 @@ public class ClientTupleGetAllRequest {
             HybridTimestampTracker tsTracker
     ) {
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(KEY_ONLY, NO_WRITES))
-                .thenCompose(req -> req.table().recordView().getAllAsync(req.tx(), req.tuples())
-                        .thenApply(resTuples -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req);
-                            writeTuplesNullable(out, resTuples, TuplePart.KEY_AND_VAL, req.table().schemaView());
-                        }));
+                .thenCompose(req -> {
+                    ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) req.tx();
+                    ReadWriteTransactionImpl[] holder = new ReadWriteTransactionImpl[1];
+                    tx.setRestartedTxHolder(holder);
+
+                    return req.table().recordView().getAllAsync(req.tx(), req.tuples())
+                            .thenApply(resTuples -> out -> {
+                                writeTxMeta(out, tsTracker, clockService, req);
+                                writeTuplesNullable(out, resTuples, TuplePart.KEY_AND_VAL, req.table().schemaView());
+                            });
+                });
     }
 }
