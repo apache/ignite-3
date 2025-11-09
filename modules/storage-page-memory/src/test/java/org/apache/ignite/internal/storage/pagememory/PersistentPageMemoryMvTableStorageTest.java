@@ -29,8 +29,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -77,6 +79,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -218,7 +221,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         assertNotNull(metric);
         assertEquals(0L, metric.value());
 
-        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        PersistentPageMemoryMvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         assertThat(metric.value(), allOf(greaterThan(0L), equalTo(totalAllocatedSizeInBytes(PARTITION_ID))));
 
         addWriteCommitted(mvPartitionStorage);
@@ -232,7 +235,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         assertNotNull(metric);
         assertEquals(0L, metric.value());
 
-        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        PersistentPageMemoryMvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         assertThat(metric.value(), allOf(greaterThan(0L), equalTo(totalUsedSizeInBytes(PARTITION_ID))));
 
         addWriteCommitted(mvPartitionStorage);
@@ -280,18 +283,22 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         return pageSize() * (filePageStorePageCount(partitionId) - freeListEmptyPageCount(partitionId));
     }
 
-    private void addWriteCommitted(MvPartitionStorage storage) {
-        var rowId = new RowId(PARTITION_ID);
+    private void addWriteCommitted(PersistentPageMemoryMvPartitionStorage... storages) {
+        assertThat(storages, not(emptyArray()));
 
-        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        for (PersistentPageMemoryMvPartitionStorage storage : storages) {
+            var rowId = new RowId(storage.partitionId());
 
-        storage.runConsistently(locker -> {
-            locker.lock(rowId);
+            BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-            storage.addWriteCommitted(rowId, binaryRow, clock.now());
+            storage.runConsistently(locker -> {
+                locker.lock(rowId);
 
-            return null;
-        });
+                storage.addWriteCommitted(rowId, binaryRow, clock.now());
+
+                return null;
+            });
+        }
     }
 
     private void addWriteCommitted(MvPartitionStorage storage, List<RowId> rowIds, List<BinaryRow> binaryRows) {
@@ -397,7 +404,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
     @Test
     void testSyncFreeListOnCheckpointAfterStartRebalance() {
-        MvPartitionStorage storage = getOrCreateMvPartition(PARTITION_ID);
+        PersistentPageMemoryMvPartitionStorage storage = getOrCreateMvPartition(PARTITION_ID);
 
         var meta = new MvPartitionMeta(1, 1, BYTE_EMPTY_ARRAY, null, BYTE_EMPTY_ARRAY);
 
@@ -473,7 +480,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @Test
     void testSuccessfulPartitionRestartAfterParallelUpdateLeaseAndCheckpoint() throws Exception {
         for (int i = 0; i < 100; i++) {
-            MvPartitionStorage mvPartition = getOrCreateMvPartition(PARTITION_ID);
+            PersistentPageMemoryMvPartitionStorage mvPartition = getOrCreateMvPartition(PARTITION_ID);
 
             addWriteCommitted(mvPartition);
 
@@ -509,6 +516,31 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             setUp();
 
             assertDoesNotThrow(() -> getOrCreateMvPartition(PARTITION_ID));
+        }
+    }
+
+    /**
+     * Checks that the partition meta is updated consistently at the start of rebalancing. In other words, it checks that updating the meta
+     * and recreating the structures are under the same checkpoint read lock. If this doesn't happen, then when writing the meta at the
+     * checkpoint, it may not be included in the dirty page list and may not be included in the delta file page index list.
+     */
+    @Test
+    void testUpdatePartitionMetaAfterStartRebalance() {
+        int[] partitionIds = IntStream.range(0, 5)
+                .map(i -> PARTITION_ID + i)
+                .toArray();
+
+        PersistentPageMemoryMvPartitionStorage[] partitions = getOrCreateMvPartitions(partitionIds);
+
+        for (int i = 0; i < 10_000; i++) {
+            addWriteCommitted(partitions);
+
+            runRace(
+                    () -> startRebalance(partitionIds),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            abortRebalance(partitionIds);
         }
     }
 
@@ -560,5 +592,32 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
     private int partitionGeneration(int partId) {
         return ((PersistentPageMemoryTableStorage) tableStorage).dataRegion().pageMemory().partGeneration(TABLE_ID, partId);
+    }
+
+    @Override
+    protected PersistentPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) {
+        return (PersistentPageMemoryMvPartitionStorage) super.getOrCreateMvPartition(partitionId);
+    }
+
+    private PersistentPageMemoryMvPartitionStorage[] getOrCreateMvPartitions(int... partitionIds) {
+        return IntStream.of(partitionIds)
+                .mapToObj(this::getOrCreateMvPartition)
+                .toArray(PersistentPageMemoryMvPartitionStorage[]::new);
+    }
+
+    private void startRebalance(int... partitionIds) {
+        List<CompletableFuture<Void>> startRebalanceFutures = IntStream.of(partitionIds)
+                .mapToObj(tableStorage::startRebalancePartition)
+                .collect(toList());
+
+        assertThat(CompletableFutures.allOf(startRebalanceFutures), willCompleteSuccessfully());
+    }
+
+    private void abortRebalance(int... partitionIds) {
+        List<CompletableFuture<Void>> abortRebalanceFutures = IntStream.of(partitionIds)
+                .mapToObj(tableStorage::abortRebalancePartition)
+                .collect(toList());
+
+        assertThat(CompletableFutures.allOf(abortRebalanceFutures), willCompleteSuccessfully());
     }
 }
