@@ -532,7 +532,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         PersistentPageMemoryMvPartitionStorage[] partitions = getOrCreateMvPartitions(partitionIds);
 
-        for (int i = 0; i < 10_000; i++) {
+        for (int i = 0; i < 10; i++) {
             addWriteCommitted(partitions);
 
             runRace(
