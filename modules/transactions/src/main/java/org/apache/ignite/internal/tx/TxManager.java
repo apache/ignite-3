@@ -70,13 +70,14 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
 
     /**
-     * Starts an explicit RW-R transaction (without writes).
+     * Starts an implicit transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param options Options.
      * @return The transaction.
      */
-    InternalTransaction beginExplicitWithNoWrites(HybridTimestampTracker timestampTracker);
+    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, InternalTxOptions options);
 
     /**
      * Starts an explicit read-write transaction coordinated by a local node.
