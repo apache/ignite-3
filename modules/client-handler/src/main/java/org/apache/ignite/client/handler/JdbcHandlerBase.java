@@ -37,9 +37,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -155,7 +156,7 @@ abstract class JdbcHandlerBase {
 
         String errorMessage;
 
-        if (ex instanceof TxControlInsideExternalTxNotSupportedException) {
+        if (ex instanceof TraceableException && ((TraceableException) ex).code() == Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR) {
             errorMessage = "Transaction control statements are not supported when autocommit mode is disabled";
         } else {
             errorMessage = getErrorMessage(ex);

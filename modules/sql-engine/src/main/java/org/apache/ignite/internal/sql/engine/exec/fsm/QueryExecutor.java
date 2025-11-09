@@ -202,10 +202,10 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             query.cancel.setTimeout(scheduler, queryTimeout);
         }
 
-        return Programs.QUERY_EXECUTION.run(query)
+        return query.runProgram(Programs.QUERY_EXECUTION)
                 .whenComplete((cursor, ex) -> {
                     if (cursor != null && query.parsedScript == null) {
-                        cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                        cursor.onClose().thenRun(query::terminate);
                     }
                 });
     }
@@ -242,15 +242,17 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         try {
             parent.cancel.attach(query.cancel);
         } catch (QueryCancelledException ex) {
-            query.moveTo(ExecutionPhase.TERMINATED);
+            query.terminate();
 
             return failedFuture(ex);
         }
 
-        return Programs.SCRIPT_ITEM_EXECUTION.run(query)
+        return query.runProgram(Programs.SCRIPT_ITEM_EXECUTION)
                 .whenComplete((cursor, ex) -> {
                     if (cursor != null) {
-                        cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                        cursor.onClose().thenRun(query::terminate);
+                    } else if (ex != null) {
+                        query.terminate();
                     }
                 });
     }
@@ -300,7 +302,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                 parent.cancel.attach(query.cancel);
             }
         } catch (QueryCancelledException ex) {
-            queries.forEach(query -> query.onError(ex));
+            queries.forEach(query -> query.terminateExceptionally(ex));
 
             return failedFuture(ex);
         } finally {
@@ -309,7 +311,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
         List<CompletableFuture<?>> preparedQueryFutures = new ArrayList<>(batch.size());
         for (Query query : queries) {
-            preparedQueryFutures.add(Programs.SCRIPT_ITEM_PREPARATION.run(query));
+            preparedQueryFutures.add(query.runProgram(Programs.SCRIPT_ITEM_PREPARATION));
         }
 
         return CompletableFutures.allOf(preparedQueryFutures)
@@ -340,7 +342,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                         assert th != null;
 
                         while (it.hasNext()) {
-                            it.next().onError(th);
+                            it.next().terminateExceptionally(th);
                         }
 
                         return failedFuture(th);
@@ -359,7 +361,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                 Throwable th = null;
                                 for (Query query : queries) {
                                     if (th != null) {
-                                        query.onError(th);
+                                        query.terminateExceptionally(th);
 
                                         continue;
                                     }
@@ -395,7 +397,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                         firstCursor = currentCursor;
                                     }
 
-                                    currentCursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                                    currentCursor.onClose().thenRun(query::terminate);
                                 }
 
                                 return completedFuture(firstCursor);
@@ -418,10 +420,10 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = lastStep
                     .whenComplete((none, ex) -> {
                         if (ex != null) {
-                            query.onError(ex);
+                            query.terminateExceptionally(ex);
                         }
                     })
-                    .thenCompose(none -> Programs.SCRIPT_ITEM_EXECUTION.run(query)
+                    .thenCompose(none -> query.runProgram(Programs.SCRIPT_ITEM_EXECUTION)
                             .whenComplete((cursor, ex) -> {
                                 if (cursorRef0 != null) {
                                     if (cursor != null) {
@@ -432,7 +434,9 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                 }
 
                                 if (cursor != null) {
-                                    cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                                    cursor.onClose().thenRun(query::terminate);
+                                } else if (ex != null) {
+                                    query.terminate();
                                 }
                             }));
 
@@ -609,7 +613,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
         Exception ex = new NodeStoppingException();
 
-        runningQueries.values().forEach(query -> query.onError(ex));
+        runningQueries.values().forEach(query -> query.terminateExceptionally(ex));
     }
 
     static class ParsedResultWithNextCursorFuture {

@@ -1531,7 +1531,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     view -> new LocalLogStorageFactory(),
                     threadPoolsManager.tableIoExecutor(),
                     replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                            .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision()))
+                            .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision())),
+                    threadPoolsManager.commonScheduler()
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;

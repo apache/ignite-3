@@ -615,7 +615,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                        .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision()))
+                        .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision())),
+                threadPoolsManager.commonScheduler()
         );
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
