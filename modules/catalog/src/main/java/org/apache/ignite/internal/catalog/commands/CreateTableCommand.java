@@ -142,7 +142,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         // We will have at max 5 entries if there is lazy default data zone creation action is needed.
         List<UpdateEntry> updateEntries = new ArrayList<>(5);
 
-        boolean shouldCreateNewDefaultZone = zoneName == null && catalog.defaultZone() != null;
+        boolean shouldCreateNewDefaultZone = zoneName == null && catalog.defaultZone() == null;
 
         CatalogZoneDescriptor zone = zoneDescriptorOrThrow(catalog, zoneName, id);
 
