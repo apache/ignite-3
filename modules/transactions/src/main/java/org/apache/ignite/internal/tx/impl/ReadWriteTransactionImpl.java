@@ -63,10 +63,19 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
     private volatile CompletableFuture<Void> finishFuture;
 
+    /**
+     * {@code True} if a transaction is externally killed.
+     */
     private boolean killed;
 
+    /**
+     * {@code True} if an autocommit is disabled for implicit transaction.
+     */
     private boolean disabledAutocommit;
 
+    /**
+     * Holds latest restarted transaction for this implicit transaction.
+     */
     private ReadWriteTransactionImpl[] holder;
 
     /**

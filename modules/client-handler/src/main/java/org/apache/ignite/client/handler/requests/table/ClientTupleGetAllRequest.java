@@ -21,7 +21,7 @@ import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuplesNullable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.NO_WRITES;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.GET_ALL_FRAGMENT;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -55,7 +55,7 @@ public class ClientTupleGetAllRequest {
             ClockService clockService,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(KEY_ONLY, NO_WRITES))
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(KEY_ONLY, GET_ALL_FRAGMENT))
                 .thenCompose(req -> {
                     ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) req.tx();
                     ReadWriteTransactionImpl[] holder = new ReadWriteTransactionImpl[1];

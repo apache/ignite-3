@@ -818,6 +818,8 @@ public class ClientTable implements Table {
                         mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
                     }
 
+                    boolean full = mapped.size() == 1;
+
                     for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
                         res.add(fun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey())));
                     }
