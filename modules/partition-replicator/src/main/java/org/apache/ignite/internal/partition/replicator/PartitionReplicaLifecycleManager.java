@@ -46,6 +46,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
@@ -56,6 +57,7 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.assig
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.COLLECTION_LIMIT;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -73,7 +75,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -109,7 +110,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -156,6 +156,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.thread.ThreadUtils;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -564,7 +565,7 @@ public class PartitionReplicaLifecycleManager extends
             int partitionCount,
             boolean onNodeRecovery
     ) {
-        assert stableAssignmentsForZone != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
+        assert stableAssignmentsForZone != null : format("Zone has empty assignments [id={}].", zoneId);
 
         Supplier<CompletableFuture<Void>> createZoneReplicationNodes = () -> inBusyLockAsync(busyLock, () -> {
             var partitionsStartFutures = new CompletableFuture<?>[stableAssignmentsForZone.size()];
@@ -1664,7 +1665,7 @@ public class PartitionReplicaLifecycleManager extends
             delayedExecutor(30, TimeUnit.SECONDS, Runnable::run)
                     .execute(() -> {
                         if (!fut.isDone()) {
-                            printPartitionState();
+                            printPartitionState(partitionIds);
                         }
                     });
 
@@ -1674,8 +1675,20 @@ public class PartitionReplicaLifecycleManager extends
         }
     }
 
-    private void printPartitionState() {
-        //ThreadUtils.dumpThreads(LOG, null, false);
+    private void printPartitionState(Set<ZonePartitionId> partitionIds) {
+        List<ZonePartitionId> nonStoppedPartitions = partitionIds.stream()
+                .filter(partId -> replicaMgr.replica(partId) != null)
+                .collect(toList());
+
+        String partitionsStr = "There are still some partitions that are being stopped: "
+                + S.toString(nonStoppedPartitions, (sb, e, i) -> sb.app(e).app(i < nonStoppedPartitions.size() - 1 ? ", " : ""));
+        if (nonStoppedPartitions.size() > COLLECTION_LIMIT) {
+            partitionsStr = partitionsStr + format(" and {} more; ", nonStoppedPartitions.size() - COLLECTION_LIMIT);
+        } else {
+            partitionsStr = partitionsStr + "; ";
+        }
+
+        ThreadUtils.dumpThreads(LOG, partitionsStr, false);
     }
 
     /**

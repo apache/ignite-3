@@ -789,6 +789,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicationGroupId Table-Partition identifier.
      * @return replica if it was created or null otherwise.
      */
+    @Nullable
     public CompletableFuture<Replica> replica(ReplicationGroupId replicationGroupId) {
         return replicas.get(replicationGroupId);
     }

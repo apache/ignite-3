@@ -77,8 +77,7 @@ public class ThreadUtils {
         ThreadInfo[] threadInfos =
                 mxBean.dumpAllThreads(mxBean.isObjectMonitorUsageSupported(), mxBean.isSynchronizerUsageSupported());
 
-        StringBuilder sb = new StringBuilder(THREAD_DUMP_MSG)
-                .append(message == null ? "" : message)
+        StringBuilder sb = new StringBuilder(message == null ? THREAD_DUMP_MSG : message)
                 .append(THREAD_DUMP_FMT.format(Instant.ofEpochMilli(System.currentTimeMillis())))
                 .append(NL);
 
