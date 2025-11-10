@@ -406,7 +406,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
     @Test
     public void newTableV3() {
-        int tableSerializerVersion = 2;
+        int tableSerializerVersion = 3;
         int tableVersionsSerializerVersion = 3;
         int tableColumnSerializerVersion = 3;
         int snapshotFileSuffix = 3;
@@ -418,6 +418,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
 
         checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS.id(), tableVersionsSerializerVersion);
         checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id(), tableColumnSerializerVersion);
+        checker.addExpectedVersion(MarshallableEntryType.DESCRIPTOR_TABLE.id(), tableSerializerVersion);
         checker.compareEntries(entries, "NewTableEntry", snapshotFileSuffix);
     }
 }
