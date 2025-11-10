@@ -1622,7 +1622,7 @@ public class PartitionReplicaLifecycleManager extends
                     .thenCompose(v -> {
                         try {
                             return replicaMgr.stopReplica(zonePartitionId)
-                                    .thenCompose(replicaWasStopped -> {
+                                    .thenComposeAsync(replicaWasStopped -> {
                                         afterReplicaStopAction.accept(replicaWasStopped);
 
                                         if (!replicaWasStopped) {
@@ -1632,7 +1632,7 @@ public class PartitionReplicaLifecycleManager extends
                                         replicationGroupIds.remove(zonePartitionId);
 
                                         return fireEvent(afterReplicaStoppedEvent, eventParameters);
-                                    });
+                                    }, ioExecutor);
                         } catch (NodeStoppingException e) {
                             return nullCompletedFuture();
                         }
