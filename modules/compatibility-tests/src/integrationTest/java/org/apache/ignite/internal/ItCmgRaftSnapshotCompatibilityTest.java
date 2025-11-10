@@ -65,6 +65,8 @@ public class ItCmgRaftSnapshotCompatibilityTest extends CompatibilityTestBase {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26923")
     void testCmgRaftSnapshotCompatibility() throws InterruptedException {
         int nodeIndex = nodesCount() - 1;
+
+        // We want to include the NodesLeave command in the log.
         cluster.stopRunnerNode(nodeIndex);
 
         try (IgniteClient ignite = cluster.createClient()) {
