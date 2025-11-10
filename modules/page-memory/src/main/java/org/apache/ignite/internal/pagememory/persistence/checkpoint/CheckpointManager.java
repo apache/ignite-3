@@ -374,6 +374,8 @@ public class CheckpointManager {
             int partitionId,
             int checkpointedPages
     ) {
+        // TODO: IGNITE-26988 Вот тут надо починить и сделать учет поколений
+
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
