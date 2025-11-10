@@ -21,12 +21,9 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.marshaller.FieldAccessor.createIdentityAccessor;
 
 import java.util.Collection;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
-import org.apache.ignite.internal.util.Factory;
-import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
@@ -115,7 +112,7 @@ public abstract class Marshaller {
      * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Pojo marshaller.
      */
-    private static PojoMarshaller pojoMarshaller(
+    private static Marshaller pojoMarshaller(
             MarshallerColumn[] cols,
             PojoMapper<?> mapper,
             boolean requireAllFields,
@@ -143,6 +140,10 @@ public abstract class Marshaller {
 
                 fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, i, converter);
             }
+
+            fieldAccessors[i]
+                    .withFieldName(fieldName)
+                    .withColumnName(columnName);
         }
 
         if (!allowUnmappedFields) {
@@ -166,7 +167,7 @@ public abstract class Marshaller {
             }
         }
 
-        return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
+        return new PojoMarshaller(mapper.targetType(), fieldAccessors);
     }
 
     /**
@@ -261,17 +262,17 @@ public abstract class Marshaller {
         private final FieldAccessor[] fieldAccessors;
 
         /** Object factory. */
-        private final Factory<?> factory;
+        private final Creator<?> creator;
 
         /**
          * Creates a marshaller for POJOs.
          *
-         * @param factory        Object factory.
+         * @param targetType Object target type.
          * @param fieldAccessors Object field accessors for mapped columns.
          */
-        PojoMarshaller(Factory<?> factory, FieldAccessor[] fieldAccessors) {
+        PojoMarshaller(Class<?> targetType, FieldAccessor[] fieldAccessors) {
             this.fieldAccessors = fieldAccessors;
-            this.factory = Objects.requireNonNull(factory);
+            this.creator = new Creator<>(targetType, fieldAccessors);
         }
 
         /** {@inheritDoc} */
@@ -283,13 +284,14 @@ public abstract class Marshaller {
         /** {@inheritDoc} */
         @Override
         public Object readObject(MarshallerReader reader, Object target) throws MarshallerException {
-            Object obj = target == null ? factory.create() : target;
-
-            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                fieldAccessors[fldIdx].read(reader, obj);
+            if (target != null) {
+                for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
+                    fieldAccessors[fldIdx].read(reader, target);
+                }
+                return target;
             }
 
-            return obj;
+            return creator.createFrom(reader);
         }
 
         /** {@inheritDoc} */
