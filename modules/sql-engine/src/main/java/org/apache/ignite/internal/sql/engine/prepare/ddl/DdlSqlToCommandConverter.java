@@ -481,12 +481,15 @@ public class DdlSqlToCommandConverter {
 
         String zone = createTblNode.zone() == null ? null : createTblNode.zone().getSimple();
 
+        TableStatsStalenessConfiguration properties = stalenessProperties.get();
+        tblBuilder
+                .staleRowsFraction(properties.staleRowsFraction())
+                .minStaleRowsCount(properties.minStaleRowsCount());
+
         SqlNodeList propertyList = createTblNode.tableProperties();
         if (propertyList != null) {
             handleTablePropertyList(propertyList, createTablePropertiesInfos, ctx, tblBuilder);
         }
-
-        TableStatsStalenessConfiguration properties = stalenessProperties.get();
 
         CatalogCommand command = tblBuilder.schemaName(deriveSchemaName(createTblNode.name(), ctx))
                 .tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"))
@@ -496,8 +499,6 @@ public class DdlSqlToCommandConverter {
                 .zone(zone)
                 .storageProfile(storageProfile)
                 .ifTableExists(createTblNode.ifNotExists())
-                .staleRowsFraction(properties.staleRowsFraction())
-                .minStaleRowsCount(properties.minStaleRowsCount())
                 .build();
 
         return completedFuture(command);
