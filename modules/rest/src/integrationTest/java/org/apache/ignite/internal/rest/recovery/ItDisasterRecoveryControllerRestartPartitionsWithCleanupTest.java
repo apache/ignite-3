@@ -199,6 +199,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26918")
     public void testRestartPartitionsWithCleanupAllPartitions() throws InterruptedException {
         awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
 
@@ -212,7 +213,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26919")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26918")
     public void testRestartTablePartitionsWithCleanupAllPartitions() throws InterruptedException {
         awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
 

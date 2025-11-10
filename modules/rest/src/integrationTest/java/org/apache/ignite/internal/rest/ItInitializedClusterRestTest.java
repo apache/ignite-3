@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
-import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -144,8 +144,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 + "}"));
 
         // Then
-        assertThat(patchRequest.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(getProblem(patchRequest), isProblem()
+        assertThat(patchRequest, isProblemResponse()
                 .withStatus(HttpStatus.BAD_REQUEST.getCode())
                 .withTitle(HttpStatus.BAD_REQUEST.getReason())
                 .withDetail(containsString(

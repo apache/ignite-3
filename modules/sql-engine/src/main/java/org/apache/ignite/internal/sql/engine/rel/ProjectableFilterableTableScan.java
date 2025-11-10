@@ -49,7 +49,6 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
@@ -207,16 +206,21 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
      * PushUpPredicate.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RexNode pushUpPredicate() {
+    public @Nullable RexNode pushUpPredicate() {
         if (condition == null || projects == null) {
             return replaceLocalRefs(condition);
         }
 
         IgniteTypeFactory typeFactory = Commons.typeFactory(getCluster());
-        IgniteTable tbl = getTable().unwrap(IgniteTable.class);
+        //noinspection DataFlowIssue: TableScan always has table
+        IgniteDataSource dataSource = getTable().unwrap(IgniteDataSource.class);
 
-        Mappings.TargetMapping mapping = RexUtils.inversePermutation(projects,
-                tbl.getRowType(typeFactory, requiredColumns), true);
+        //noinspection DataFlowIssue: this class supports only tables which are derived from IgniteDataSource
+        Mappings.TargetMapping mapping = RexUtils.inversePermutation(
+                projects,
+                dataSource.getRowType(typeFactory, requiredColumns),
+                true
+        );
 
         RexShuttle shuttle = new RexShuttle() {
             @Override
