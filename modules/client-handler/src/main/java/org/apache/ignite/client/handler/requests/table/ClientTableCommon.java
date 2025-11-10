@@ -55,7 +55,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -433,15 +432,14 @@ public class ClientTableCommon {
                 // This is first mapping request, which piggybacks transaction creation.
                 boolean readOnly = in.unpackBoolean();
                 long timeoutMillis = in.unpackLong();
-                boolean implicit = in.unpackBoolean();
+                boolean implicit = in.unpackBoolean(); // TODO compat
 
                 InternalTxOptions txOptions = InternalTxOptions.builder()
                         .timeoutMillis(timeoutMillis)
                         .build();
 
-                var tx = implicit ? startImplicitTx(tsUpdater, txManager, readOnly, options.contains(RequestOptions.NO_WRITES)) :
-                        startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly,
-                                txOptions);
+                var tx = implicit ? startImplicitTx(tsUpdater, txManager, readOnly, options.contains(RequestOptions.GET_ALL_FRAGMENT)) :
+                        startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
 
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
@@ -534,12 +532,11 @@ public class ClientTableCommon {
             HybridTimestampTracker tsTracker,
             TxManager txManager,
             boolean readOnly,
-            boolean noWrites
+            boolean getAll
     ) {
-        if (noWrites) {
-            // noWrites+implicit tx is executed as multiple implicit transactions, coordinated from a client.
-            InternalTxOptions opts = InternalTxOptions.builder().priority(TxPriority.LOW).disableAutoCommit().build();
-            return txManager.beginImplicit(tsTracker, opts);
+        if (getAll) {
+            // getAll+implicit tx is executed as multiple implicit transactions, coordinated from a client.
+            return txManager.beginImplicit(tsTracker, InternalTxOptions.getAllOptions());
         } else {
             return txManager.beginImplicit(tsTracker, readOnly);
         }
