@@ -511,7 +511,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
-        var autoCommit = actualTx.implicit() && !singlePart && !actualTx.disabledAutocommit();
+        boolean autoCommit = actualTx.implicit() && !singlePart && !actualTx.disabledAutocommit();
         return postEnlist(fut, autoCommit, actualTx, full && !actualTx.disabledAutocommit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
@@ -545,6 +545,7 @@ public class InternalTableImpl implements InternalTable {
             var holder = oldTx0.getRestartedTxHolder();
             holder[0] = tx0;
             tx0.setRestartedTxHolder(holder);
+            return tx0;
         }
 
         return txManager.beginImplicitRw(observableTimestampTracker);
@@ -680,11 +681,14 @@ public class InternalTableImpl implements InternalTable {
 
         if (full) { // Full transaction retries are handled in postEnlist.
             return replicaSvc.invokeRaw(enlistment.primaryNodeConsistentId(), request).handle((r, e) -> {
+                // TODO move to postEnlist
                 boolean hasError = e != null;
                 assert hasError || r instanceof TimestampAware;
 
-                // Timestamp is set to commit timestamp for full transactions.
-                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, false);
+                if (!tx.disabledAutocommit()) {
+                    // Timestamp is set to commit timestamp for full transactions.
+                    tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, false);
+                }
 
                 if (e != null) {
                     sneakyThrow(e);
