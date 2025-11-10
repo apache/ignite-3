@@ -81,7 +81,9 @@ class Creator<T> {
     }
 
     /**
-     * Java 11 compatible, reflection based alternative to find the record canonical constructor:
+     * Java 11 compatible, reflection based alternative to find the record canonical constructor.
+     *
+     * <p>Without reflection:
      *
      * {@snippet lang="java" :
      * static <T extends Record> Constructor<T> getCanonicalConstructor(Class<T> cls)
