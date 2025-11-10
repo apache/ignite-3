@@ -19,6 +19,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -158,10 +159,10 @@ public class IgniteServiceCollectionExtensionsTests
 
         register(services);
 
-        var serviceProvider = services.BuildServiceProvider();
+        await using var serviceProvider = services.BuildServiceProvider();
 
-        var group = resolve(serviceProvider);
-        var group2 = resolve(serviceProvider);
+        using var group = resolve(serviceProvider);
+        using var group2 = resolve(serviceProvider);
 
         Assert.That(group, Is.Not.Null);
         Assert.That(group2, Is.Not.Null);
@@ -188,12 +189,13 @@ public class IgniteServiceCollectionExtensionsTests
 
         register(services);
 
-        var serviceProvider = services.BuildServiceProvider();
+        await using var serviceProvider = services.BuildServiceProvider();
 
-        var group = resolve(serviceProvider);
+        using var group = resolve(serviceProvider);
 
         Assert.That(group, Is.Not.Null);
 
+        // ReSharper disable once AccessToDisposedClosure
         var clients = await Task.WhenAll(
             Enumerable.Range(0, count + 1).Select(async _ => await group.GetIgniteAsync()));
 
@@ -235,5 +237,8 @@ public class IgniteServiceCollectionExtensionsTests
         {
             Size = size,
             ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)
+            {
+                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+            }
         };
 }

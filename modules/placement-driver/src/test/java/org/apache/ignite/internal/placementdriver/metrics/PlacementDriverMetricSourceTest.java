@@ -23,17 +23,27 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Set;
-import java.util.function.IntSupplier;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.placementdriver.AssignmentsTracker;
+import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests metric source name and metric names.
  */
+@ExtendWith(MockitoExtension.class)
 public class PlacementDriverMetricSourceTest extends BaseIgniteAbstractTest {
+    @Mock
+    private LeaseTracker leaseTracker;
+    @Mock
+    private AssignmentsTracker assignmentsTracker;
+
     @Test
     void testMetricSourceName() {
         assertThat(PlacementDriverMetricSource.SOURCE_NAME, is("placement-driver"));
@@ -41,22 +51,16 @@ public class PlacementDriverMetricSourceTest extends BaseIgniteAbstractTest {
 
     @Test
     void testMetricNames() {
-        IntSupplier is = () -> 0;
-
-        var metricSource = new PlacementDriverMetricSource(is, is, is, is);
+        var metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker);
 
         MetricSet set = metricSource.enable();
 
         assertThat(set, is(notNullValue()));
 
         Set<String> expectedMetrics = Set.of(
-                "LeasesCreated",
-                "LeasesPublished",
-                "LeasesProlonged",
-                "ActiveLeasesCount",
-                "LeasesWithoutCandidates",
-                "CurrentStableAssignmentsSize",
-                "CurrentPendingAssignmentsSize"
+                "AcceptedLeases",
+                "LeaseNegotiations",
+                "ReplicationGroups"
         );
 
         var actualMetrics = StreamSupport.stream(set.spliterator(), false).map(Metric::name).collect(toSet());
