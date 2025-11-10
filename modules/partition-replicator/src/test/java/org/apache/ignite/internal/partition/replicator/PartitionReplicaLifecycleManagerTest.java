@@ -261,7 +261,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 RaftGroupOptionsConfigurer.EMPTY,
                 logStorageFactoryCreator,
                 executorService,
-                groupId -> nullCompletedFuture()
+                groupId -> nullCompletedFuture(),
+                executorService
         ));
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(

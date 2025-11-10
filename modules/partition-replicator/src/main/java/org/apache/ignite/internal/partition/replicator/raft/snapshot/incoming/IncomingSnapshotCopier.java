@@ -674,10 +674,18 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private CompletableFuture<Void> startRebalance(SnapshotContext snapshotContext) {
-        return allOf(
-                aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, snapshotContext),
-                partitionSnapshotStorage.txState().startRebalance()
-        );
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            return allOf(
+                    aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, snapshotContext),
+                    partitionSnapshotStorage.txState().startRebalance()
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private CompletableFuture<Void> finishRebalance(MvPartitionMeta meta, SnapshotContext snapshotContext) {

@@ -30,7 +30,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -351,12 +351,20 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void transactionControlStatementFailsWithExternalTransaction() {
         InternalTransaction tx1 = (InternalTransaction) igniteTx().begin();
-        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx1, null, "COMMIT"));
+        assertThrowsSqlException(
+                Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR,
+                "Transaction control statement cannot be executed within an external transaction.",
+                () -> runScript(tx1, null, "COMMIT")
+        );
         assertEquals(0, txManager().pending());
         assertEquals(TxState.ABORTED, tx1.state());
 
         InternalTransaction tx2 = (InternalTransaction) igniteTx().begin();
-        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx2, null, "START TRANSACTION; COMMIT;"));
+        assertThrowsSqlException(
+                Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR,
+                "Transaction control statement cannot be executed within an external transaction.",
+                () -> runScript(tx2, null, "START TRANSACTION; COMMIT;")
+        );
         assertEquals(0, txManager().pending());
         assertEquals(TxState.ABORTED, tx2.state());
 

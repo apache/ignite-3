@@ -653,7 +653,8 @@ public class Node {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
-                        .thenApply(Entry::value)
+                        .thenApply(Entry::value),
+                threadPoolsManager.commonScheduler()
         );
 
         LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
