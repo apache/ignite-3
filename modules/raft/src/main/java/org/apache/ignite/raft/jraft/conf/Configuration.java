@@ -362,6 +362,7 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
     /**
      * Update the sequence token.
      */
+    @TestOnly
     public void updateSequenceToken(long sequenceToken) {
         this.sequenceToken = sequenceToken;
     }

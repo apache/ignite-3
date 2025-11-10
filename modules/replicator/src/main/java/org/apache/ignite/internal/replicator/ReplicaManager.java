@@ -69,7 +69,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
@@ -222,7 +221,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
-    private final Function<ReplicationGroupId, CompletableFuture<IgniteBiTuple<byte[], Long>>> getPendingAssignmentsSupplier;
+    private final Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier;
 
     /**
      * Constructor for a replica service.
@@ -262,7 +261,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, CompletableFuture<IgniteBiTuple<byte[], Long>>> getPendingAssignmentsSupplier,
+            Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             Executor throttledLogExecutor
     ) {
         this.clusterNetSvc = clusterNetSvc;

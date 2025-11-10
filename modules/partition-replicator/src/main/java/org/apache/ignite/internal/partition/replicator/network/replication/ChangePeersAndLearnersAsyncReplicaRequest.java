@@ -29,5 +29,9 @@ public interface ChangePeersAndLearnersAsyncReplicaRequest extends PrimaryReplic
     /** New peers configuration to rebalance. */
     byte[] pendingAssignments();
 
+    /** Sequence token of the change.
+     *
+     * <p>Used to version updates to prevent reordering and applying stale ones.
+     **/
     long sequenceToken();
 }

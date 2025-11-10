@@ -78,6 +78,7 @@ class RaftGroupConfigurationSerializerTest {
         assertThat(restoredConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
         assertThat(restoredConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
         assertThat(restoredConfig.sequenceToken(), is(0L));
+        assertThat(restoredConfig.oldSequenceToken(), is(0L));
     }
 
     @Test
@@ -94,6 +95,7 @@ class RaftGroupConfigurationSerializerTest {
         assertThat(restoredConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
         assertThat(restoredConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
         assertThat(restoredConfig.sequenceToken(), is(0L));
+        assertThat(restoredConfig.oldSequenceToken(), is(0L));
     }
 
     @Test
@@ -110,5 +112,6 @@ class RaftGroupConfigurationSerializerTest {
         assertThat(restoredConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
         assertThat(restoredConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
         assertThat(restoredConfig.sequenceToken(), is(11L));
+        assertThat(restoredConfig.oldSequenceToken(), is(10L));
     }
 }

@@ -146,7 +146,7 @@ public interface RaftGroupService extends RaftCommandRunner {
      *
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long sequenceToken);
+    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, @Deprecated long term, long sequenceToken);
 
     /**
      * Changes peers and learners of a replication group.
@@ -166,7 +166,7 @@ public interface RaftGroupService extends RaftCommandRunner {
      *
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long sequenceToken);
+    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, @Deprecated long term, long sequenceToken);
 
     /**
      * Adds learners (non-voting members).

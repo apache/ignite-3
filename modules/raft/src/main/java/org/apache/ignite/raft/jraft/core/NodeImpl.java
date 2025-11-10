@@ -557,9 +557,11 @@ public class NodeImpl implements Node, RaftServerService {
             switch (this.stage) {
                 case STAGE_CATCHING_UP:
                     LOG.info("Catch up phase to change peers was successfully finished "
-                    + "[node={}, from peers={} to peers={}, from learners={}, to learners={}].",
-                        this.node.getNodeId(), oldPeers, newPeers, oldLearners, newLearners);
+                    + "[node={}, from peers={} to peers={}, from learners={}, to learners={}, old token={}, new  token={}].",
+                        this.node.getNodeId(), oldPeers, newPeers, oldLearners, newLearners, oldSequenceToken, sequenceToken);
                     if (this.nchanges > 0 || oldSequenceToken != sequenceToken) {
+                        assert oldSequenceToken <= sequenceToken
+                            : "old sequenceToken=" + oldSequenceToken + ", sequenceToken=" + sequenceToken;
                         this.stage = Stage.STAGE_JOINT;
                         this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners, this.sequenceToken),
                             new Configuration(this.oldPeers, this.oldSequenceToken), false);
@@ -3612,9 +3614,10 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             Requires.requireTrue(!this.conf.getConf().contains(peer), "Peer already exists in current configuration");
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
-                LOG.info("Node {} received stale configuration for peer {}, existing is {}, new {}.",
-                getNodeId(), peer, this.conf.getConf().getSequenceToken(), sequenceToken);
+                LOG.info("Node: addPeer received stale configuration [node={}, peer={}, existing token={}, new token={}].",
+                    getNodeId(), peer, this.conf.getConf().getSequenceToken(), sequenceToken);
 
                 Status status = staleConfiguration(sequenceToken);
 
@@ -3639,7 +3642,10 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             Requires.requireTrue(this.conf.getConf().contains(peer), "Peer not found in current configuration");
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: removePeer received stale configuration [node={}, peer={}, existing token={}, new token={}].",
+                    getNodeId(), peer, this.conf.getConf().getSequenceToken(), sequenceToken);
                 Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
@@ -3668,14 +3674,16 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} ignored the configuration because of mismatching terms. Current term is {}, but provided is {}.",
                     getNodeId(), currentTerm, term);
 
-                    Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
 
-                    return;
+                return;
             }
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > newPeersAndLearners.getSequenceToken()) {
-                 LOG.info("Node {} received stale configuration for conf {}, existing is {}, new {}.",
-                        getNodeId(), newPeersAndLearners, this.conf.getConf().getSequenceToken(),  newPeersAndLearners.getSequenceToken());
+                LOG.info("Node: changePeersAndLearners received stale configuration "
+                        + "[node={}, new conf={}, existing token={}, new token={}].",
+                    getNodeId(), newPeersAndLearners, this.conf.getConf().getSequenceToken(), newPeersAndLearners.getSequenceToken());
                 Status status = staleConfiguration(newPeersAndLearners.getSequenceToken());
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
@@ -3709,9 +3717,11 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > newConf.getSequenceToken()) {
-                LOG.info("Node {} received stale configuration for conf {}, existing is {}, new {}.",
-                                        getNodeId(), newConf, this.conf.getConf().getSequenceToken(),  newConf.getSequenceToken());
+                LOG.info("Node: changePeersAndLearnersAsync received stale configuration "
+                        + "[node={}, new conf={}, existing token={}, new token={}].",
+                    getNodeId(), newConf, this.conf.getConf().getSequenceToken(), newConf.getSequenceToken());
                 Status status = staleConfiguration(newConf.getSequenceToken());
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
@@ -3769,7 +3779,11 @@ public class NodeImpl implements Node, RaftServerService {
                 return new Status(RaftError.EBUSY, "Changing to another configuration");
             }
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > newPeers.getSequenceToken()) {
+                LOG.info("Node: resetPeers received stale configuration "
+                        + "[node={}, new conf={}, existing token={}, new token={}].",
+                    getNodeId(), newPeers, this.conf.getConf().getSequenceToken(), newPeers.getSequenceToken());
                 return staleConfiguration(newPeers.getSequenceToken());
             }
 
@@ -3795,7 +3809,12 @@ public class NodeImpl implements Node, RaftServerService {
         checkPeers(learners);
         this.writeLock.lock();
         try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: addLearners received stale configuration "
+                        + "[node={}, new conf={}, existing token={}, new token={}].",
+                    getNodeId(), learners, this.conf.getConf().getSequenceToken(), sequenceToken);
+
                 Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
@@ -3828,7 +3847,12 @@ public class NodeImpl implements Node, RaftServerService {
         checkPeers(learners);
         this.writeLock.lock();
         try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: removeLearners received stale configuration "
+                        + "[node={}, new conf={}, existing token={}, new token={}].",
+                    getNodeId(), learners, this.conf.getConf().getSequenceToken(), sequenceToken);
+
                 Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
@@ -3852,7 +3876,12 @@ public class NodeImpl implements Node, RaftServerService {
         checkPeers(learners);
         this.writeLock.lock();
         try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
             if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: resetLearners received stale configuration "
+                        + "[node={}, new conf={}, existing token={}, new token={}].",
+                    getNodeId(), learners, this.conf.getConf().getSequenceToken(), sequenceToken);
+
                 Status status = staleConfiguration(sequenceToken);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);

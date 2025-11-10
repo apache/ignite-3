@@ -95,7 +95,6 @@ public class ChangePeersAndLearnersRequestProcessor extends BaseCliRequestProces
                     .newPeersList(toStringList(conf.getPeers()))
                     .oldLearnersList(toStringList(oldLearners))
                     .newLearnersList(toStringList(conf.getLearners()))
-                    .sequenceToken(sequenceToken)
                     .build();
 
                 done.sendResponse(req);
