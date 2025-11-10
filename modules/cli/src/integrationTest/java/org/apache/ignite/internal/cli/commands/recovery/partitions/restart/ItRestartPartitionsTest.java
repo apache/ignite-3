@@ -31,6 +31,7 @@ import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -170,6 +171,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26918")
     public void testRestartAllPartitionsWithCleanup() throws InterruptedException {
         awaitPartitionsToBeHealthy(ZONE, Set.of());
 

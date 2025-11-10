@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorage.INVOKE_RESULT_FALSE_BYTES;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorage.INVOKE_RESULT_TRUE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
@@ -123,7 +125,24 @@ public class MetaStorageWriteHandler {
             CommandResultAndTimestamp cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
-                clo.result(cachedResult.commandResult);
+                Serializable commandResult = cachedResult.commandResult;
+
+                // For MultiInvokeCommand, represent boolean results as 0/1 wrapped in a StatementResult,
+                // because the closure for this command type expects a StatementResult.
+                // Rationale: when restoring the idempotent-command cache from a snapshot, single-byte values (0/1)
+                // are read as booleans, while StatementResult persists raw bytes (0 or 1) and exposes them via its API
+                // (for example, getAsBoolean()).
+                // This maintains backward compatibility.
+                if (commandResult instanceof Boolean && command instanceof MultiInvokeCommand) {
+                    var booleanResult = (Boolean) commandResult;
+
+                    clo.result(MSG_FACTORY.statementResult()
+                            .result(ByteBuffer.wrap(booleanResult ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES))
+                            .build()
+                    );
+                } else {
+                    clo.result(commandResult);
+                }
 
                 return;
             } else {
@@ -392,10 +411,19 @@ public class MetaStorageWriteHandler {
                     CommandId commandId = CommandId.fromString(commandIdString);
 
                     Serializable result;
-                    if (entry.value().length == 1) {
-                        result = byteToBoolean(entry.value()[0]);
+
+                    byte[] entryValue = entry.value();
+
+                    assert entryValue != null;
+
+                    // A single-byte array is not guaranteed to represent a boolean.
+                    // This guard avoids treating arbitrary 1-byte values as booleans.
+                    // We apply it uniformly (including for StatementResult) to keep backward compatibility.
+                    // When reading from the cache, boolean results are normalized to 0/1 so a correct StatementResult can be rebuilt.
+                    if (entryValue.length == 1 && (entryValue[0] | 1) == 1) {
+                        result = byteToBoolean(entryValue[0]);
                     } else {
-                        result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
+                        result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entryValue)).build();
                     }
 
                     idempotentCommandCache.put(commandId, new CommandResultAndTimestamp(result, entry.timestamp()));

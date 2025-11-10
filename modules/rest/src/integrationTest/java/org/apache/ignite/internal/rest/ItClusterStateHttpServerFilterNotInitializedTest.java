@@ -90,8 +90,8 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
     void clusterEndpointsDisabledWhenNotInitialized(HttpRequest<String> request) {
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(request),
-                CONFLICT,
                 isProblem()
+                        .withStatus(CONFLICT)
                         .withTitle("Cluster is not initialized")
                         .withDetail("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
         );
