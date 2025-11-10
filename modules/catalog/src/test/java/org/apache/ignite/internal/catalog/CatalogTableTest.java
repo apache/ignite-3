@@ -1546,10 +1546,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         return manager.catalog(catalogVersion).table(SCHEMA_NAME, tableName);
     }
 
-    private @Nullable CatalogZoneDescriptor zone(int catalogVersion, String zoneName) {
-        return manager.catalog(catalogVersion).zone(zoneName);
-    }
-
     private static void checkDefaultZoneProperties(CatalogZoneDescriptor defaultZoneDescriptor) {
         assertThat(defaultZoneDescriptor.name(), is(DEFAULT_ZONE_NAME));
         assertThat(defaultZoneDescriptor.partitions(), is(DEFAULT_PARTITION_COUNT));

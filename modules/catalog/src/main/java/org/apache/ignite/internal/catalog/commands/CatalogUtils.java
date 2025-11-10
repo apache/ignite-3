@@ -19,10 +19,12 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.lang.Math.min;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFINITION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -181,7 +183,7 @@ public class CatalogUtils {
      */
     public static final int MAX_INTERVAL_TYPE_PRECISION = 10;
 
-    public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = ConsistencyMode.STRONG_CONSISTENCY;
+    public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = STRONG_CONSISTENCY;
 
     public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
     public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
@@ -532,6 +534,98 @@ public class CatalogUtils {
         }
 
         return table;
+    }
+
+    /**
+     * Returns a descriptor for given zone name or for a default zone. This method follow the rules:
+     * <ul>
+     *     <li>if zone name isn't {@code null} then returns catalog descriptor for this zone;</li>
+     *     <li>if zone name is {@code null}, but default zone is presented, then returns default zone's catalog descriptor;</li>
+     *     <li> if both given zone name and default zone from the catalog are {@code null}, then returns a catalog descriptor for the new
+     *     default zone with given identifier.</li>
+     * </ul>
+     *
+     * @param catalog Catalog to check zones' existence.
+     * @param zoneName Zone name to try to find catalog descriptor for. If {@code null} then will return default zone descriptor.
+     * @param newDefaultZoneId Identifier for a new default zone descriptor if the given node name is {@code null} and the catalog hasn't
+     *      default one.
+     * @return Returns a descriptor for given zone name if it isn't {@code null} or existed default zone or newly created default zone's
+     *      catalog descriptor.
+     * @throws CatalogValidationException In 2 cases:
+     *      <ul>
+     *          <li>if given zone name isn't {@code null}, but the given catalog hasn't a zone with such name;</li>
+     *          <li>if the new default zone descriptor should be created, but a zone with default name {@link #DEFAULT_ZONE_NAME} is already
+     *          presented in the catalog.</li>
+     *      </ul>
+     */
+    public static CatalogZoneDescriptor zoneDescriptorOrThrow(
+            Catalog catalog,
+            @Nullable String zoneName,
+            int newDefaultZoneId
+    ) throws CatalogValidationException {
+        return zoneName == null
+                ? getOrCreateDefaultZoneDescriptor(catalog, newDefaultZoneId)
+                : zoneOrThrow(catalog, zoneName);
+    }
+
+    /**
+     * Returns default zone's catalog descriptor if exists in the given catalog or creates a new default zone descriptor.
+     *
+     * @param catalog Catalog to check default zone exist for.
+     * @param newDefaultZoneId Identifier for a new default zone descriptor if the given catalog hasn't one.
+     * @return Existed one or new default zone's catalog descriptor.
+     * @throws CatalogValidationException If a zone with {@link #DEFAULT_ZONE_NAME} already exists.
+     */
+    public static CatalogZoneDescriptor getOrCreateDefaultZoneDescriptor(
+            Catalog catalog,
+            int newDefaultZoneId
+    ) throws CatalogValidationException {
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        return defaultZone == null
+                ? createDefaultZoneDescriptor(catalog, newDefaultZoneId)
+                : defaultZone;
+    }
+
+    /**
+     * Creates catalog descriptor for a new default zone.
+     *
+     * @param catalog Catalog to check that {@link #DEFAULT_ZONE_NAME} isn't used.
+     * @param newDefaultZoneId Identifier for new default zone.
+     * @return New default zone's catalog descriptor.
+     *
+     * @throws CatalogValidationException If a zone with {@link #DEFAULT_ZONE_NAME} already exists.
+     */
+    private static CatalogZoneDescriptor createDefaultZoneDescriptor(
+            Catalog catalog,
+            int newDefaultZoneId
+    ) throws CatalogValidationException {
+        // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
+        checkDuplicateDefaultZoneName(catalog);
+
+        return new CatalogZoneDescriptor(
+                newDefaultZoneId,
+                DEFAULT_ZONE_NAME,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_REPLICA_COUNT,
+                DEFAULT_ZONE_QUORUM_SIZE,
+                IMMEDIATE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                DEFAULT_FILTER,
+                new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))),
+                STRONG_CONSISTENCY
+        );
+    }
+
+    private static void checkDuplicateDefaultZoneName(Catalog catalog) {
+        if (catalog.zone(DEFAULT_ZONE_NAME) == null) {
+            return;
+        }
+
+        throw new CatalogValidationException(
+                "Distribution zone with name '{}' already exists. Please specify zone name for the new table or set the zone as default",
+                DEFAULT_ZONE_NAME
+        );
     }
 
     /**

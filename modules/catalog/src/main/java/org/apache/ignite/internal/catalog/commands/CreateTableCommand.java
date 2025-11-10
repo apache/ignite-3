@@ -19,20 +19,10 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneDescriptorOrThrow;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -54,8 +44,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
@@ -154,43 +142,18 @@ public class CreateTableCommand extends AbstractTableCommand {
         // We will have at max 5 entries if there is lazy default data zone creation action is needed.
         List<UpdateEntry> updateEntries = new ArrayList<>(5);
 
-        CatalogZoneDescriptor zone;
-        if (zoneName == null) {
-            if (catalog.defaultZone() == null) {
-                int zoneId = id++;
+        boolean shouldCreateNewDefaultZone = zoneName == null && catalog.defaultZone() != null;
 
-                if (catalog.zone(DEFAULT_ZONE_NAME) != null) {
-                    throw new CatalogValidationException(
-                            "Distribution zone with name '{}' already exists. "
-                                    + "Please specify zone name for the new table or set the zone as default",
-                            DEFAULT_ZONE_NAME
-                    );
-                }
-
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-26798
-                zone = new CatalogZoneDescriptor(
-                        zoneId,
-                        DEFAULT_ZONE_NAME,
-                        DEFAULT_PARTITION_COUNT,
-                        DEFAULT_REPLICA_COUNT,
-                        DEFAULT_ZONE_QUORUM_SIZE,
-                        IMMEDIATE_TIMER_VALUE,
-                        INFINITE_TIMER_VALUE,
-                        DEFAULT_FILTER,
-                        new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))),
-                        STRONG_CONSISTENCY
-                );
-
-                updateEntries.add(new NewZoneEntry(zone));
-                updateEntries.add(new SetDefaultZoneEntry(zone.id()));
-            } else {
-                zone = catalog.defaultZone();
-            }
-        } else {
-            zone = zoneOrThrow(catalog, zoneName);
-        }
+        CatalogZoneDescriptor zone = zoneDescriptorOrThrow(catalog, zoneName, id);
 
         assert zone != null;
+
+        if (shouldCreateNewDefaultZone) {
+            id++;
+
+            updateEntries.add(new NewZoneEntry(zone));
+            updateEntries.add(new SetDefaultZoneEntry(zone.id()));
+        }
 
         String storageProfile = this.storageProfile != null
                 ? this.storageProfile

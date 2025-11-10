@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssig
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
@@ -1948,27 +1947,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
-    private static void alterDefaultZone(Node node) {
-        node.waitForMetadataCompletenessAtNow();
-
-        CatalogManager catalog = node.catalogManager;
-
-        DistributionZonesTestUtil.alterZone(
-                catalog,
-                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
-                NODE_COUNT
-        );
-
-        // Setting scaleUp timer to immediate value for default zone is just an optimization for faster tests.
-        DistributionZonesTestUtil.alterZone(
-                catalog,
-                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
-                IMMEDIATE_TIMER_VALUE,
-                null,
-                null
-        );
-    }
-
     private static void createTable(Node node, String zoneName, String tableName) {
         node.waitForMetadataCompletenessAtNow();
 
@@ -1983,10 +1961,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 ),
                 List.of("key")
         );
-    }
-
-    private static @Nullable Integer getTableId(Node node, String tableName) {
-        return TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
     private Node getNode(int nodeIndex) {
