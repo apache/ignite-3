@@ -1680,13 +1680,11 @@ public class PartitionReplicaLifecycleManager extends
                 .filter(partId -> replicaMgr.replica(partId) != null)
                 .collect(toList());
 
+        int exceedLimit = nonStoppedPartitions.size() - COLLECTION_LIMIT;
+
         String partitionsStr = "There are still some partitions that are being stopped: "
-                + S.toString(nonStoppedPartitions, (sb, e, i) -> sb.app(e).app(i < nonStoppedPartitions.size() - 1 ? ", " : ""));
-        if (nonStoppedPartitions.size() > COLLECTION_LIMIT) {
-            partitionsStr = partitionsStr + format(" and {} more; ", nonStoppedPartitions.size() - COLLECTION_LIMIT);
-        } else {
-            partitionsStr = partitionsStr + "; ";
-        }
+                + S.toString(nonStoppedPartitions, (sb, e, i) -> sb.app(e).app(i < nonStoppedPartitions.size() - 1 ? ", " : ""))
+                + (exceedLimit > 0 ? format(" and {} more; ", exceedLimit) : "; ");
 
         ThreadUtils.dumpThreads(LOG, partitionsStr, false);
     }
