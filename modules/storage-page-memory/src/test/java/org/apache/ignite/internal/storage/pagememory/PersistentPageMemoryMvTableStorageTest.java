@@ -524,6 +524,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
      * and recreating the structures are under the same checkpoint read lock. If this doesn't happen, then when writing the meta at the
      * checkpoint, it may not be included in the dirty page list and may not be included in the delta file page index list.
      */
+    // TODO: IGNITE-26988 Поменять название и описание
     @Test
     void testUpdatePartitionMetaAfterStartRebalance() {
         int[] partitionIds = IntStream.range(0, 5)
@@ -532,7 +533,8 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         PersistentPageMemoryMvPartitionStorage[] partitions = getOrCreateMvPartitions(partitionIds);
 
-        for (int i = 0; i < 10; i++) {
+        // TODO: IGNITE-26988 Вернуть цикл равный 10
+        for (int i = 0; i < 10_000; i++) {
             addWriteCommitted(partitions);
 
             runRace(
