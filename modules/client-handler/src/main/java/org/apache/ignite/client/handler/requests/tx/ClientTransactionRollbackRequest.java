@@ -28,6 +28,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 
 /**
  * Client transaction rollback request.
@@ -58,6 +59,15 @@ public class ClientTransactionRollbackRequest {
         if (enableDirectMapping && !tx.isReadOnly()) {
             // Attempt to merge server and client transactions.
             int cnt = in.unpackInt(); // Number of direct enlistments.
+
+            // Process an implicit getAll fragment if presents.
+            if (tx.implicit()) {
+                ReadWriteTransactionImpl tx0 = (ReadWriteTransactionImpl) tx;
+                ReadWriteTransactionImpl[] holder = tx0.getRestartedTxHolder();
+                assert cnt == 0;
+                tx = holder[0];
+            }
+
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
                 int partId = in.unpackInt();

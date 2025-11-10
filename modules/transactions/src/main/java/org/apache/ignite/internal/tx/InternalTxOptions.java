@@ -27,7 +27,8 @@ import org.jetbrains.annotations.Nullable;
 public class InternalTxOptions {
     private static final InternalTxOptions DEFAULT_OPTIONS = builder().build();
 
-    private static final InternalTxOptions IMPLICIT_GETALL_OPTIONS = builder().priority(TxPriority.LOW).disableAutoCommit().build();
+    private static final InternalTxOptions IMPLICIT_GETALL_OPTIONS =
+            builder().priority(TxPriority.LOW).disableAutoCommit().timeoutMillis(100).build();
 
     /**
      * Transaction priority. The priority is used to resolve conflicts between transactions. The higher priority is

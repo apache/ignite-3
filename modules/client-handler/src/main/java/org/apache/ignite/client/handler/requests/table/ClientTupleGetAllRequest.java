@@ -57,9 +57,12 @@ public class ClientTupleGetAllRequest {
     ) {
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(KEY_ONLY, GET_ALL_FRAGMENT))
                 .thenCompose(req -> {
-                    ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) req.tx();
-                    ReadWriteTransactionImpl[] holder = new ReadWriteTransactionImpl[1];
-                    tx.setRestartedTxHolder(holder);
+                    if (req.tx().implicit()) {
+                        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) req.tx();
+                        ReadWriteTransactionImpl[] holder = new ReadWriteTransactionImpl[1];
+                        holder[0] = tx;
+                        tx.setRestartedTxHolder(holder);
+                    }
 
                     return req.table().recordView().getAllAsync(req.tx(), req.tuples())
                             .thenApply(resTuples -> out -> {

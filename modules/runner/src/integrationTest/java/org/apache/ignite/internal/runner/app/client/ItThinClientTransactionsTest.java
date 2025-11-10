@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -891,10 +890,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(600, 1, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples0 = generateKeysForNode(600, 2, map, server0.cluster().localNode(), table);
         List<Tuple> tuples1 = generateKeysForNode(610, 1, map, server1.cluster().localNode(), table);
 
-        assertEquals(1, tuples0.size());
+        assertEquals(2, tuples0.size());
         assertEquals(1, tuples1.size());
 
         Map<Tuple, Tuple> batch = new HashMap<>();
@@ -911,20 +910,37 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client().transactions().begin();
         view.putAll(tx, batch);
 
-        // Should retry.
-        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size(), "Implicit tx should be retried until timeout");
-//        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
-//
-//        // Test if we don't stuck in locks in subsequent rw txn.
-//        CompletableFuture.runAsync(() -> {
-//            Transaction tx = client().transactions().begin();
-//            view.put(tx, tuples0.get(0), val("newval0"));
-//            tx.commit();
-//        }).join();
-//
-//        CompletableFuture.runAsync(() -> {
-//            view.put(null, tuples1.get(0), val("newval1"));
-//        }).join();
+        // Should retry until timeout.
+        CompletableFuture<Map<Tuple, Tuple>> fut = view.getAllAsync(null, batch.keySet());
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        assertFalse(fut.isDone());
+        tx.commit();
+
+        assertEquals(batch.size(), fut.join().size(), "Implicit tx should be retried until timeout");
+
+        // Retry transaction without other locker.
+        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
+
+        // Retry expliti transaction.
+        Transaction tx1 = client().transactions().begin();
+        assertEquals(batch.size(), view.getAll(tx1, batch.keySet()).size());
+        tx1.commit();
+
+        // Test if we don't stuck in locks in subsequent rw txn.
+        CompletableFuture.runAsync(() -> {
+            Transaction tx0 = client().transactions().begin();
+            view.put(tx0, tuples0.get(0), val("newval0"));
+            tx0.commit();
+        }).join();
+
+        CompletableFuture.runAsync(() -> {
+            view.put(null, tuples1.get(0), val("newval1"));
+        }).join();
     }
 
     @Test
@@ -1076,11 +1092,6 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         tx1.commit();
         tx0.commit();
-    }
-
-    @Test
-    void testDirectTransaction() {
-        fail("TODO");
     }
 
     @ParameterizedTest

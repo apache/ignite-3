@@ -211,10 +211,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     ) {
         assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
-        if (holder != null && holder[0] != null) {
-            holder[0].finishInternal(commit, executionTimestamp, full, true, timeoutExceeded);
-        }
-
         if (finishFuture != null) {
             return finishFuture;
         }
