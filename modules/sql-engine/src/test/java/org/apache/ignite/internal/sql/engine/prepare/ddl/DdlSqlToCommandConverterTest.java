@@ -882,7 +882,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
 
         assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(321L));
-        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(DEFAULT_STALE_ROWS_FRACTION));
     }
 
     @Test
@@ -895,7 +895,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
 
-        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT));
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(DEFAULT_MIN_STALE_ROWS_COUNT));
         assertThat(newTable.descriptor().properties().staleRowsFraction(), is(0.321));
     }
 
