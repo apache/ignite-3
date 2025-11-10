@@ -34,6 +34,7 @@ import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -59,6 +60,11 @@ public class ItCmgRaftSnapshotCompatibilityTest extends CompatibilityTestBase {
         replicatorLogInspector = LogInspector.create(Replicator.class, true);
 
         DeploymentUtils.deployJobs();
+    }
+
+    @AfterParameterizedClassInvocation
+    void stopReplicatorLogInspector() {
+        replicatorLogInspector.stop();
     }
 
     @Test
