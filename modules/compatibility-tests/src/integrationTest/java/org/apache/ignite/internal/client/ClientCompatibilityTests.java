@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_ALL_COLUMNS;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
+import static org.apache.ignite.internal.jobs.Jobs.JOBS_UNIT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -54,8 +55,8 @@ import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.CompatibilityTestCommon;
+import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -83,8 +84,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings({"resource", "DataFlowIssue"})
 public interface ClientCompatibilityTests {
-    DeploymentUnit JOBS_UNIT = new DeploymentUnit("compat-test-jobs", "1.0");
-
     IgniteClient client();
 
     AtomicInteger idGen();

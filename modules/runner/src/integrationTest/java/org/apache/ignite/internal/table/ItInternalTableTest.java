@@ -549,8 +549,10 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         InternalTransaction roTx =
                 (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
 
+        OperationContext operationContext = OperationContext.create(TxContext.readOnly(roTx));
+
         for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
+            Publisher<BinaryRow> res = internalTable.scan(i, node.node(), operationContext);
 
             res.subscribe(new Subscriber<>() {
                 @Override
