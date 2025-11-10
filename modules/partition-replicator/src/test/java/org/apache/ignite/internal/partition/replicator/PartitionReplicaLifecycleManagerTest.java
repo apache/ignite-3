@@ -56,7 +56,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -177,7 +176,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock DataStorageManager dataStorageManager,
             @Mock CatalogService catalogService,
             @Mock OutgoingSnapshotsManager outgoingSnapshotsManager,
-            @InjectExecutorService ExecutorService executorService,
+            @InjectExecutorService ScheduledExecutorService executorService,
             @InjectExecutorService ScheduledExecutorService scheduledExecutorService,
             @InjectConfiguration SystemDistributedConfiguration systemDistributedConfiguration
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
@@ -38,6 +39,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -127,6 +129,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -181,7 +186,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
-    private final Executor replicaStartStopExecutor;
+    private final ScheduledExecutorService replicaLifecycleExecutor;
 
     /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
@@ -241,7 +246,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
-     * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
+     * @param replicaLifecycleExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
@@ -260,7 +265,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor,
+            ScheduledExecutorService replicaLifecycleExecutor,
             Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             Executor throttledLogExecutor
     ) {
@@ -280,10 +285,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
-        this.replicaStartStopExecutor = replicaStartStopExecutor;
+        this.replicaLifecycleExecutor = replicaLifecycleExecutor;
 
         this.replicaStateManager = new ReplicaStateManager(
-                replicaStartStopExecutor,
+                replicaLifecycleExecutor,
                 placementDriver,
                 this,
                 failureProcessor
@@ -788,7 +793,82 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
-        ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners, sequenceToken);
+        Loza loza = (Loza) raftManager;
+        Status status = loza.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
+
+        // Stale configuration change will not be retried.
+        if (!status.isOk() && status.getRaftError() == RaftError.ESTALE) {
+            // TODO: proper error.
+            throw new IgniteException(INTERNAL_ERR, new RaftException(status.getRaftError(), status.getErrorMsg()));
+        }
+    }
+
+    /**
+     * Performs a {@code resetPeers} operation on raft node with retries.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param peersAndLearners New peers and learners.
+     * @param sequenceToken Sequence token.
+     */
+    public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
+        var result = new CompletableFuture<Void>();
+
+        resetWithRetry(replicaGrpId, peersAndLearners, result, sequenceToken, 1);
+
+        return result;
+    }
+
+    private void resetWithRetry(
+            ReplicationGroupId replicaGrpId,
+            PeersAndLearners peersAndLearners,
+            CompletableFuture<Void> result,
+            long sequenceToken,
+            int iteration
+    ) {
+        if (iteration % 1000 == 0) {
+            LOG.info("Retrying reset [iter={}, groupId={}, peersAndLearners={}]", iteration, replicaGrpId, peersAndLearners);
+        }
+        runAsync(() -> inBusyLock(busyLock, () -> {
+            assert isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
+
+            resetPeers(replicaGrpId, peersAndLearners, sequenceToken);
+        }), replicaLifecycleExecutor)
+                .whenComplete((resetSuccessful, ex) -> {
+                    if (ex != null) {
+                        if (recoverable(ex)) {
+                            LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
+
+                            resetWithRetryThrottling(replicaGrpId, peersAndLearners, result, sequenceToken, iteration);
+                        } else {
+                            result.completeExceptionally(ex);
+                        }
+                    } else {
+                        result.complete(null);
+                    }
+                });
+    }
+
+    private void resetWithRetryThrottling(
+            ReplicationGroupId replicaGrpId,
+            PeersAndLearners peersAndLearners,
+            CompletableFuture<Void> result,
+            long sequenceToken,
+            int iteration
+    ) {
+        replicaLifecycleExecutor.schedule(
+                () -> resetWithRetry(replicaGrpId, peersAndLearners, result, sequenceToken, iteration + 1),
+                500,
+                TimeUnit.MILLISECONDS
+        );
+    }
+
+    // todo: Duplicates method in RebalanceUtil
+    private static boolean recoverable(Throwable t) {
+        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class)) {
+            return false;
+        }
+        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
+        return !t.getMessage().contains("ESTALE:Provided configuration is stale");
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
@@ -904,7 +984,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     return true;
-                }, replicaStartStopExecutor);
+                }, replicaLifecycleExecutor);
     }
 
     /** {@inheritDoc} */
