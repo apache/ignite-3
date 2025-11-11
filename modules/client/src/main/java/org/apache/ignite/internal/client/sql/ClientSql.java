@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.PayloadReader;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.DirectTxUtils;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
@@ -79,6 +81,8 @@ import org.jetbrains.annotations.TestOnly;
 public class ClientSql implements IgniteSql {
     private static final Mapper<SqlRow> sqlRowMapper = () -> SqlRow.class;
 
+    private final IgniteLogger log;
+
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -104,6 +108,7 @@ public class ClientSql implements IgniteSql {
     ) {
         this.ch = ch;
         this.marshallers = marshallers;
+        this.log = ClientUtils.logger(ch.configuration(), ClientSql.class);
 
         partitionAwarenessEnabled = sqlPartitionAwarenessMetadataCacheSize > 0;
 
@@ -373,6 +378,8 @@ public class ClientSql implements IgniteSql {
                                 table,
                                 partitionAwarenessMetadata,
                                 th -> {
+                                    log.debug("Unable to derive node for partition-aware query.", th);
+
                                     if (th instanceof TableNotFoundException) {
                                         tableCache.invalidate(tableId);
                                     }
