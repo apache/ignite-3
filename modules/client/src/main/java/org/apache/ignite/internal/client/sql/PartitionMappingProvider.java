@@ -65,14 +65,10 @@ public class PartitionMappingProvider {
     }
 
     private static <T> CompletableFuture<@Nullable T> nullOnError(CompletableFuture<T> future, Consumer<Throwable> onErrorCallback) {
-        return future.handle((result, throwable) -> {
-            if (throwable != null) {
-                onErrorCallback.accept(throwable);
+        return future.exceptionally(throwable -> {
+            onErrorCallback.accept(throwable);
 
-                return null;
-            }
-
-            return result;
+            return null;
         });
     }
 
