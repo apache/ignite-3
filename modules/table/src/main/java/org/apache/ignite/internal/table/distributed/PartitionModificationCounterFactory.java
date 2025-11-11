@@ -27,10 +27,10 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsRequest;
-import org.apache.ignite.internal.replicator.message.PartitionModificationInfoMessage;
-import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.table.message.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.apache.ignite.internal.table.message.PartitionModificationInfoMessage;
+import org.apache.ignite.internal.table.message.TableMessageGroup;
+import org.apache.ignite.internal.table.message.TableMessagesFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,7 +40,7 @@ public class PartitionModificationCounterFactory {
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
     private final MessagingService messagingService;
     private final Map<TablePartitionId, PartitionModificationCounter> partitionsInfo = new HashMap<>();
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
     public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier, MessagingService messagingService) {
         this.currentTimestampSupplier = currentTimestampSupplier;
@@ -91,7 +91,7 @@ public class PartitionModificationCounterFactory {
      * Starts routine.
      */
     public void start() {
-        messagingService.addMessageHandler(ReplicaMessageGroup.class, this::handleMessage);
+        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
@@ -107,7 +107,7 @@ public class PartitionModificationCounterFactory {
             for (Map.Entry<TablePartitionId, PartitionModificationCounter> ent : partitionsInfo.entrySet()) {
                 PartitionModificationCounter info = ent.getValue();
                 TablePartitionId tblPartId = ent.getKey();
-                PartitionModificationInfoMessage infoMsg = REPLICA_MESSAGES_FACTORY.partitionModificationInfoMessage()
+                PartitionModificationInfoMessage infoMsg = TABLE_MESSAGES_FACTORY.partitionModificationInfoMessage()
                         .tableId(tblPartId.tableId())
                         .partId(tblPartId.partitionId())
                         .estimatedSize(info.estimatedSize())
@@ -118,7 +118,7 @@ public class PartitionModificationCounterFactory {
             }
         }
 
-        messagingService.send(sender, REPLICA_MESSAGES_FACTORY
+        messagingService.send(sender, TABLE_MESSAGES_FACTORY
                 .getEstimatedSizeWithLastModifiedTsResponse()
                 .modifications(modificationInfo)
                 .build());

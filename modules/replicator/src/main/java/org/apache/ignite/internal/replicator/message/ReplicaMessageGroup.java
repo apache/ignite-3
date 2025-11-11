@@ -60,13 +60,4 @@ public interface ReplicaMessageGroup {
 
     /** Message type for {@link ZonePartitionIdMessage}. */
     short ZONE_PARTITION_ID_MESSAGE = 43;
-
-    /** Message type for {@link GetEstimatedSizeWithLastModifiedTsRequest}. */
-    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST = 44;
-
-    /** Message type for {@link GetEstimatedSizeWithLastModifiedTsResponse}. */
-    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_RESPONSE = 45;
-
-    /** Message type for {@link PartitionModificationInfoMessage}. */
-    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE = 46;
 }

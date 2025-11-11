@@ -15,15 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.table.message;
 
-import java.util.Collection;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
-/** A message that queries a partition estimate size and last modification ts. */
-@Transferable(ReplicaMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST)
-public interface GetEstimatedSizeWithLastModifiedTsRequest extends NetworkMessage {
-    /** Table id`s to request estimated size for. */
-    Collection<Integer> tables();
+/**
+ * Message group for table module.
+ */
+@MessageGroup(groupType = TableMessageGroup.GROUP_TYPE, groupName = "TableMessages")
+public interface TableMessageGroup {
+    /** Table message group type. */
+    short GROUP_TYPE = 17;
+
+    /** Message type for {@link GetEstimatedSizeWithLastModifiedTsRequest}. */
+    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST = 1;
+
+    /** Message type for {@link GetEstimatedSizeWithLastModifiedTsResponse}. */
+    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_RESPONSE = 2;
+
+    /** Message type for {@link PartitionModificationInfoMessage}. */
+    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE = 3;
 }

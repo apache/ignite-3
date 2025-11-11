@@ -41,14 +41,14 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsRequest;
-import org.apache.ignite.internal.replicator.message.GetEstimatedSizeWithLastModifiedTsResponse;
-import org.apache.ignite.internal.replicator.message.PartitionModificationInfoMessage;
-import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.message.GetEstimatedSizeWithLastModifiedTsRequest;
+import org.apache.ignite.internal.table.message.GetEstimatedSizeWithLastModifiedTsResponse;
+import org.apache.ignite.internal.table.message.PartitionModificationInfoMessage;
+import org.apache.ignite.internal.table.message.TableMessageGroup;
+import org.apache.ignite.internal.table.message.TableMessagesFactory;
+import org.apache.ignite.internal.table.partition.PartitionModificationInfo;
 import org.jetbrains.annotations.Nullable;
 
 /** Statistic aggregator. */
@@ -57,7 +57,7 @@ public class StatisticAggregatorImpl implements
     private static final IgniteLogger LOG = Loggers.forClass(StatisticAggregatorImpl.class);
     private final Supplier<Set<LogicalNode>> clusterNodes;
     private final MessagingService messagingService;
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
     private static final long REQUEST_ESTIMATION_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
     private final AtomicReference<@Nullable Map<TablePartitionId, CompletableFuture<Object>>> requestsCompletion = new AtomicReference<>();
 
@@ -69,7 +69,7 @@ public class StatisticAggregatorImpl implements
         this.clusterNodes = clusterNodes;
         this.messagingService = messagingService;
 
-        messagingService.addMessageHandler(ReplicaMessageGroup.class, this::handleMessage);
+        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
 
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
@@ -116,7 +116,7 @@ public class StatisticAggregatorImpl implements
         Collection<Integer> tablesId = tables.stream().map(InternalTable::tableId).collect(Collectors.toList());
 
         GetEstimatedSizeWithLastModifiedTsRequest request =
-                REPLICA_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest().tables(tablesId).build();
+                TABLE_MESSAGES_FACTORY.getEstimatedSizeWithLastModifiedTsRequest().tables(tablesId).build();
 
         HashMap<TablePartitionId, CompletableFuture<Object>> partIdRequests = new HashMap<>();
         requestsCompletion.set(partIdRequests);

@@ -47,13 +47,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
-import org.apache.ignite.internal.replicator.PartitionModificationInfo;
 import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
 import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.partition.PartitionModificationInfo;
 import org.jetbrains.annotations.TestOnly;
 
 /**
