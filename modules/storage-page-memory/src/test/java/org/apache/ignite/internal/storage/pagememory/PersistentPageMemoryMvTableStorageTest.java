@@ -520,11 +520,10 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     }
 
     /**
-     * Checks that the partition meta is updated consistently at the start of rebalancing. In other words, it checks that updating the meta
-     * and recreating the structures are under the same checkpoint read lock. If this doesn't happen, then when writing the meta at the
-     * checkpoint, it may not be included in the dirty page list and may not be included in the delta file page index list.
+     * Checks for a rare case where a partition meta update can occur before a checkpoint, which could result in the partition meta not
+     * being included in the dirty pages list and, as a consequence, an "java.lang.IllegalArgumentException: Negative position" when
+     * attempting to write this meta to the delta file.
      */
-    // TODO: IGNITE-26988 Поменять название и описание
     @Test
     void testUpdatePartitionMetaAfterStartRebalance() {
         int[] partitionIds = IntStream.range(0, 5)
@@ -533,8 +532,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         PersistentPageMemoryMvPartitionStorage[] partitions = getOrCreateMvPartitions(partitionIds);
 
-        // TODO: IGNITE-26988 Вернуть цикл равный 10
-        for (int i = 0; i < 10_000; i++) {
+        for (int i = 0; i < 10; i++) {
             addWriteCommitted(partitions);
 
             runRace(

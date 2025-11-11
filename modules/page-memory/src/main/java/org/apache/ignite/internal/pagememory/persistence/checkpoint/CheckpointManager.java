@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -374,7 +373,6 @@ public class CheckpointManager {
             int partitionId,
             int checkpointedPages
     ) {
-        // TODO: IGNITE-26988 Вот тут надо починить и сделать учет поколений
         int partGen = partitionDirtyPages.pageMemory().partGeneration(groupId, partitionId);
 
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
