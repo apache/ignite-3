@@ -72,11 +72,6 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
-        return begin(timestampTracker, true, false, options);
-    }
-
-    @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
         return begin(timestampTracker, false, readOnly, txOptions);
     }

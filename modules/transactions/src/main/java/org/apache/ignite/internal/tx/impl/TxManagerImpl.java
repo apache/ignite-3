@@ -189,7 +189,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final OrphanDetector orphanDetector;
 
     /** Topology service. */
-    public final TopologyService topologyService;
+    private final TopologyService topologyService;
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -448,17 +448,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
-        HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, options);
-
-        txStateVolatileStorage.initialize(tx);
-        txMetrics.onTransactionStarted();
-
-        return tx;
-    }
-
-    @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
         InternalTransaction tx;
 
@@ -495,10 +484,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 timeout,
                 nodeProperties.colocationEnabled()
         );
-
-        if (options.disabledAutocommit()) {
-            transaction.disableAutoCommit();
-        }
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
         // no need to register them.
@@ -1200,7 +1185,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public int lockRetryCount() {
-        return 0; // lockRetryCount;
+        return lockRetryCount;
     }
 
     @Override

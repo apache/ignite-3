@@ -55,6 +55,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -434,12 +435,15 @@ public class ClientTableCommon {
                 long timeoutMillis = in.unpackLong();
                 boolean implicit = in.unpackBoolean(); // TODO compat
 
-                InternalTxOptions txOptions = InternalTxOptions.builder()
-                        .timeoutMillis(timeoutMillis)
-                        .build();
+                var builder = InternalTxOptions.builder().timeoutMillis(timeoutMillis);
+                if (implicit && options.contains(RequestOptions.GET_ALL_FRAGMENT))  {
+                    // Currently we use low priority with get all fragments to avoid conflicts with subsequent RW transactions.
+                    // TODO ticket to avoid starvation.
+                    builder.priority(TxPriority.LOW);
+                }
 
-                var tx = implicit ? startImplicitTx(tsUpdater, txManager, readOnly, options.contains(RequestOptions.GET_ALL_FRAGMENT)) :
-                        startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
+                InternalTxOptions txOptions = builder.build();
+                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
 
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
@@ -496,7 +500,7 @@ public class ClientTableCommon {
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY), false);
+            tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY));
         }
 
         return tx;
@@ -531,15 +535,9 @@ public class ClientTableCommon {
     private static InternalTransaction startImplicitTx(
             HybridTimestampTracker tsTracker,
             TxManager txManager,
-            boolean readOnly,
-            boolean getAll
+            boolean readOnly
     ) {
-        if (getAll) {
-            // getAll+implicit tx is executed as multiple implicit transactions, coordinated from a client.
-            return txManager.beginImplicit(tsTracker, InternalTxOptions.getAllOptions());
-        } else {
-            return txManager.beginImplicit(tsTracker, readOnly);
-        }
+        return txManager.beginImplicit(tsTracker, readOnly);
     }
 
     /**
