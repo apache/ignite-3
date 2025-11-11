@@ -749,7 +749,7 @@ public class PartitionReplicaLifecycleManager extends
                     })
                     .thenCompose(v -> {
                         Supplier<CompletableFuture<Void>> addReplicationGroupIdFuture = () -> {
-                            finishReplicaStart(zonePartitionId);
+                            startedReplicationGroups.startingCompleted(zonePartitionId);
 
                             return nullCompletedFuture();
                         };
@@ -773,27 +773,6 @@ public class PartitionReplicaLifecycleManager extends
                         failureProcessor.process(new FailureContext(ex, errorMessage));
                     }
                 });
-    }
-
-    private void finishReplicaStart(ZonePartitionId zonePartitionId) {
-        if (!busyLock.enterBusy()) {
-            stopPartitionInternal(
-                    zonePartitionId,
-                    BEFORE_REPLICA_STOPPED,
-                    AFTER_REPLICA_STOPPED,
-                    -1L,
-                    replicaWasStopped -> {}
-            ).whenComplete((unused, throwable) ->
-                    startedReplicationGroups.startingFailed(zonePartitionId)
-            );
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            startedReplicationGroups.startingCompleted(zonePartitionId);
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     private CompletableFuture<Set<Assignment>> calculateZoneAssignments(ZonePartitionId zonePartitionId, Long assignmentsTimestamp) {

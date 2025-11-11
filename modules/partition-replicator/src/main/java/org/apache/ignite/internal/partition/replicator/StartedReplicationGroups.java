@@ -48,7 +48,7 @@ class StartedReplicationGroups {
 
     /**
      * Callback to be called before replication group begins start procedure. It is expected that whoever maintains the replication groups
-     * will call either {@link #startingFailed(ZonePartitionId)} or {@link #startingCompleted(ZonePartitionId)} some time after..
+     * will call either {@link #startingFailed(ZonePartitionId)} or {@link #startingCompleted(ZonePartitionId)} some time after.
      */
     void beforeStartingGroup(ZonePartitionId zonePartitionId) {
         CompletableFuture<Void> startingFuture = new CompletableFuture<>();
@@ -60,6 +60,8 @@ class StartedReplicationGroups {
         // Copy future state if assertions are disabled.
         //noinspection ConstantValue
         if (prevFuture != null) {
+            LOG.info("Replication group is starting second time. [zonePartitionId=" + zonePartitionId + ']');
+
             startingFuture.whenComplete(copyStateTo(prevFuture));
         }
     }
