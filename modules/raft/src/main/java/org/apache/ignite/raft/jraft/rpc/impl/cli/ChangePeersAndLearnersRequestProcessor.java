@@ -55,7 +55,9 @@ public class ChangePeersAndLearnersRequestProcessor extends BaseCliRequestProces
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final List<PeerId> oldLearners = ctx.node.listLearners();
 
-        long sequenceToken = request.sequenceToken() != null ? request.sequenceToken() : Configuration.NO_SEQUENCE_TOKEN;
+        assert request.sequenceToken() != null: "Sequence token is null";
+
+        long sequenceToken = request.sequenceToken();
 
         final Configuration conf = new Configuration(sequenceToken);
         for (final String peerIdStr : request.newPeersList()) {

@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
@@ -54,7 +53,9 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
         final String addingPeerIdStr = request.peerId();
         final PeerId addingPeer = new PeerId();
         if (addingPeer.parse(addingPeerIdStr)) {
-            long sequenceToken = request.sequenceToken() != null ? request.sequenceToken() : Configuration.NO_SEQUENCE_TOKEN;
+            assert request.sequenceToken() != null: "Sequence token is null";
+
+            long sequenceToken = request.sequenceToken();
 
             LOG.info("Receive AddPeerRequest to {} from {}, adding {}", ctx.node.getNodeId(), done.getRpcCtx()
                 .getRemoteAddress(), addingPeerIdStr);

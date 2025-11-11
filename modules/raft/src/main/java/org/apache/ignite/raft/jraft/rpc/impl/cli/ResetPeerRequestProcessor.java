@@ -49,7 +49,9 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
     protected Message processRequest0(final CliRequestContext ctx, final ResetPeerRequest request,
         final IgniteCliRpcRequestClosure done) {
 
-        long sequenceToken = request.sequenceToken() != null ? request.sequenceToken() : Configuration.NO_SEQUENCE_TOKEN;
+        assert request.sequenceToken() != null: "Sequence token is null";
+
+        long sequenceToken = request.sequenceToken();
 
         final Configuration newConf = new Configuration(sequenceToken);
         for (final String peerIdStr : request.newPeersList()) {
