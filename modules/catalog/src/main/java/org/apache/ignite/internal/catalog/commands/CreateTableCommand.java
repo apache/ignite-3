@@ -19,9 +19,11 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.createDefaultZoneDescriptor;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneDescriptorOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.shouldCreateNewDefaultZone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneByNameOrDefaultOrThrow;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -51,9 +53,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
-import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
-import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -142,18 +142,11 @@ public class CreateTableCommand extends AbstractTableCommand {
         // We will have at max 5 entries if there is lazy default data zone creation action is needed.
         List<UpdateEntry> updateEntries = new ArrayList<>(5);
 
-        boolean shouldCreateNewDefaultZone = zoneName == null && catalog.defaultZone() == null;
-
-        CatalogZoneDescriptor zone = zoneDescriptorOrThrow(catalog, zoneName, id);
+        CatalogZoneDescriptor zone = shouldCreateNewDefaultZone(catalog, zoneName)
+                ? createDefaultZoneDescriptor(catalog, id++, updateEntries)
+                : zoneByNameOrDefaultOrThrow(catalog, zoneName);
 
         assert zone != null;
-
-        if (shouldCreateNewDefaultZone) {
-            id++;
-
-            updateEntries.add(new NewZoneEntry(zone));
-            updateEntries.add(new SetDefaultZoneEntry(zone.id()));
-        }
 
         String storageProfile = this.storageProfile != null
                 ? this.storageProfile

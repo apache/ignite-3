@@ -50,6 +50,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
+import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -537,54 +540,39 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns a descriptor for given zone name or for a default zone. This method follow the rules:
-     * <ul>
-     *     <li>if zone name isn't {@code null} then returns catalog descriptor for this zone;</li>
-     *     <li>if zone name is {@code null}, but default zone is presented, then returns default zone's catalog descriptor;</li>
-     *     <li> if both given zone name and default zone from the catalog are {@code null}, then returns a catalog descriptor for the new
-     *     default zone with given identifier.</li>
-     * </ul>
+     * Returns a descriptor for given zone name or for a default zone from the given catalog.
      *
      * @param catalog Catalog to check zones' existence.
      * @param zoneName Zone name to try to find catalog descriptor for. If {@code null} then will return default zone descriptor.
-     * @param newDefaultZoneId Identifier for a new default zone descriptor if the given node name is {@code null} and the catalog hasn't
-     *      default one.
-     * @return Returns a descriptor for given zone name if it isn't {@code null} or existed default zone or newly created default zone's
-     *      catalog descriptor.
-     * @throws CatalogValidationException In 2 cases:
-     *      <ul>
-     *          <li>if given zone name isn't {@code null}, but the given catalog hasn't a zone with such name;</li>
-     *          <li>if the new default zone descriptor should be created, but a zone with default name {@link #DEFAULT_ZONE_NAME} is already
-     *          presented in the catalog.</li>
-     *      </ul>
+     * @return Returns a descriptor for given zone name if it isn't {@code null} or for existed default zone otherwise.
+     * @throws CatalogValidationException In casse if given zone name isn't {@code null}, but the given catalog hasn't zone with such name.
+     * @implNote This method assumes, that {@link #shouldCreateNewDefaultZone} returns {@code false} with the same input.
      */
-    public static CatalogZoneDescriptor zoneDescriptorOrThrow(
+    public static CatalogZoneDescriptor zoneByNameOrDefaultOrThrow(
             Catalog catalog,
-            @Nullable String zoneName,
-            int newDefaultZoneId
+            @Nullable String zoneName
     ) throws CatalogValidationException {
-        return zoneName == null
-                ? getOrCreateDefaultZoneDescriptor(catalog, newDefaultZoneId)
-                : zoneOrThrow(catalog, zoneName);
+        if (zoneName != null) {
+            return zoneOrThrow(catalog, zoneName);
+        }
+
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        assert defaultZone != null;
+
+        return defaultZone;
     }
 
     /**
-     * Returns default zone's catalog descriptor if exists in the given catalog or creates a new default zone descriptor.
+     * Returns {@code true} if the given zone name is {@code null} and in the given catalog there is no default zone. If so, then looks like
+     * {@link #createDefaultZoneDescriptor} should be called then.
      *
-     * @param catalog Catalog to check default zone exist for.
-     * @param newDefaultZoneId Identifier for a new default zone descriptor if the given catalog hasn't one.
-     * @return Existed one or new default zone's catalog descriptor.
-     * @throws CatalogValidationException If a zone with {@link #DEFAULT_ZONE_NAME} already exists.
+     * @param catalog Catalog to check default zone presence.
+     * @param zoneName Zone name to check if it is {@code null}.
+     * @return Returns {@code true} if the given zone name is {@code null} and in the given catalog there is no default zone.
      */
-    public static CatalogZoneDescriptor getOrCreateDefaultZoneDescriptor(
-            Catalog catalog,
-            int newDefaultZoneId
-    ) throws CatalogValidationException {
-        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-
-        return defaultZone == null
-                ? createDefaultZoneDescriptor(catalog, newDefaultZoneId)
-                : defaultZone;
+    public static boolean shouldCreateNewDefaultZone(Catalog catalog, @Nullable String zoneName) {
+        return zoneName == null && catalog.defaultZone() == null;
     }
 
     /**
@@ -596,13 +584,23 @@ public class CatalogUtils {
      *
      * @throws CatalogValidationException If a zone with {@link #DEFAULT_ZONE_NAME} already exists.
      */
-    private static CatalogZoneDescriptor createDefaultZoneDescriptor(
+    public static CatalogZoneDescriptor createDefaultZoneDescriptor(
             Catalog catalog,
-            int newDefaultZoneId
+            int newDefaultZoneId,
+            Collection<UpdateEntry> updateEntries
     ) throws CatalogValidationException {
         // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
         checkDuplicateDefaultZoneName(catalog);
 
+        CatalogZoneDescriptor defaultZone = createDefaultZoneDescriptor(newDefaultZoneId);
+
+        updateEntries.add(new NewZoneEntry(defaultZone));
+        updateEntries.add(new SetDefaultZoneEntry(defaultZone.id()));
+
+        return defaultZone;
+    }
+
+    private static CatalogZoneDescriptor createDefaultZoneDescriptor(int newDefaultZoneId) {
         return new CatalogZoneDescriptor(
                 newDefaultZoneId,
                 DEFAULT_ZONE_NAME,
@@ -639,8 +637,11 @@ public class CatalogUtils {
      * @throws CatalogValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
      *         set to {@code true}.
      */
-    public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
-            throws CatalogValidationException {
+    public static @Nullable CatalogZoneDescriptor zone(
+            Catalog catalog,
+            String name,
+            boolean shouldThrowIfNotExists
+    ) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
