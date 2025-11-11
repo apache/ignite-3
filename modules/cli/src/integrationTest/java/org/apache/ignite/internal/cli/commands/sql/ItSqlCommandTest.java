@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
-import static org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler.CLIENT_CONNECTION_FAILED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.DisplayName;
@@ -100,7 +99,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains(CLIENT_CONNECTION_FAILED_MESSAGE)
+                () -> assertErrOutputContains("Connection failed")
         );
     }
 
@@ -180,8 +179,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                // () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("SQL query execution error"),
                 () -> assertErrOutputContains("Division by zero"),
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );
@@ -190,8 +188,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                // () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("SQL query validation error"),
                 () -> assertErrOutputContains("Object 'NOTEXISTEDTABLE' not found"),
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );
@@ -207,8 +204,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
             assertAll(
                     this::assertOutputIsEmpty,
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                    // () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains("SQL query execution error"),
                     () -> assertErrOutputContains(expectedError),
                     () -> assertErrOutputDoesNotContain("Unknown error")
             );
@@ -219,8 +215,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
             assertAll(
                     this::assertOutputIsEmpty,
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                    // () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains("SQL query execution error"),
                     () -> assertErrOutputContains(expectedError),
                     () -> assertErrOutputDoesNotContain("Unknown error")
             );
@@ -231,8 +226,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
             assertAll(
                     this::assertOutputIsEmpty,
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                    // () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains("SQL query execution error"),
                     () -> assertErrOutputContains(expectedError),
                     () -> assertErrOutputDoesNotContain("Unknown error")
             );
@@ -243,8 +237,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
             assertAll(
                     this::assertOutputIsEmpty,
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                    // () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains("SQL query execution error"),
                     () -> assertErrOutputContains(expectedError),
                     () -> assertErrOutputDoesNotContain("Unknown error")
             );
