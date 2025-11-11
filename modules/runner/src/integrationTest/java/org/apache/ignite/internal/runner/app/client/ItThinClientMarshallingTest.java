@@ -99,6 +99,10 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         client().sql().execute(null, "SELECT * FROM Person2")
                 .forEachRemaining(row -> System.out.println("Person2: " + row.stringValue("name") + " (" + row.decimalValue("weight") + ")"));
 
+        // This works?
+        client().sql().execute(null, Mapper.of(Person.class), "SELECT * FROM Person2 WHERE id = ?", 2)
+                .forEachRemaining(person -> System.out.println("SQL Person2: " + person.name + " (" + person.weight + ")"));
+
         Cursor<Person> cursor = pojoView.query(null, Criteria.columnValue("id", Criteria.equalTo(2)));
         // The following line fails with MarshallerException
         cursor.forEachRemaining(person -> System.out.println("Person2: " + person.name + " (" + person.weight + ")"));
