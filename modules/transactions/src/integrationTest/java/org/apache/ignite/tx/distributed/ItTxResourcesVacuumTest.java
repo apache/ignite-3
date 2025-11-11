@@ -85,6 +85,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -485,6 +486,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27014")
     public void testCommitPartitionPrimaryChangesBeforeVacuum() throws InterruptedException {
         // We can't leave TTL as 0 here, because the primary replica is changed during cleanup, and this means
         // WriteIntentSwitchReplicaRequest will be processed not on the primary. Removing tx state instantly will cause incorrect
