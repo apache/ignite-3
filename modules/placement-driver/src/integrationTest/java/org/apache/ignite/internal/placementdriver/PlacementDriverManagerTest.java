@@ -472,6 +472,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         assertTrue(electedEvts.containsKey(lease2.getLeaseholderId()));
         assertTrue(expiredEvts.containsKey(lease1.getLeaseholderId()));
 
+        // Clear events from the previous lease change to verify only new events after node restart.
+        // At this point, the maps can have either size 1 from put above, or size 2 from cluster start and put.
         electedEvts.clear();
         expiredEvts.clear();
         stopAnotherNode(anotherClusterService);
@@ -485,6 +487,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             return meta != null
                     && meta.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id())
+                    // Check event map sizes to prevent race condition between receiving events and the check above.
                     && electedEvts.size() == 1 && expiredEvts.size() == 1;
         }, 10_000));
 
