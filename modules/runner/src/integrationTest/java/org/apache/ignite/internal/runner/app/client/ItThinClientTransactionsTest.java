@@ -944,6 +944,71 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testImplicitRecordDirectMapping() {
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> keys0 = generateKeysForNode(600, 2, map, server0.cluster().localNode(), table);
+        List<Tuple> keys1 = generateKeysForNode(610, 1, map, server1.cluster().localNode(), table);
+
+        assertEquals(2, keys0.size());
+        assertEquals(1, keys1.size());
+
+        List<Tuple> keys = new ArrayList<>();
+        List<Tuple> recsBatch = new ArrayList<>();
+
+        for (Tuple tup : keys0) {
+            recsBatch.add(kv(tup.intValue(0), tup.intValue(0) + ""));
+            keys.add(tup);
+        }
+
+        for (Tuple tup : keys1) {
+            recsBatch.add(kv(tup.intValue(0), tup.intValue(0) + ""));
+            keys.add(tup);
+        }
+
+        RecordView<Tuple> view = table.recordView();
+        Transaction tx = client().transactions().begin();
+        view.upsertAll(tx, recsBatch);
+
+        // Should retry until timeout.
+        CompletableFuture<List<Tuple>> fut = view.getAllAsync(null, keys);
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        assertFalse(fut.isDone());
+        tx.commit();
+
+        assertEquals(recsBatch.size(), fut.join().size(), "Implicit tx should be retried until timeout");
+
+        // Retry transaction without other locker.
+        assertEquals(recsBatch.size(), view.getAll(null, keys).size());
+
+        // Retry explitit transaction.
+        Transaction tx1 = client().transactions().begin();
+        assertEquals(recsBatch.size(), view.getAll(tx1, keys).size());
+        tx1.commit();
+
+        // Test if we don't stuck in locks in subsequent rw txn.
+        CompletableFuture.runAsync(() -> {
+            Transaction tx0 = client().transactions().begin();
+            view.upsert(tx0, keys0.get(0));
+            tx0.commit();
+        }).join();
+
+        CompletableFuture.runAsync(() -> {
+            view.upsert(null, keys1.get(0));
+        }).join();
+    }
+
+    @Test
     void testBatchScenarioWithNoopEnlistmentExplicit() {
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
 

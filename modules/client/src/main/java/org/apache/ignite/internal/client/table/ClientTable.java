@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,8 +34,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
@@ -57,10 +60,13 @@ import org.apache.ignite.internal.client.tx.DirectTxUtils;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
+import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -79,6 +85,8 @@ import org.jetbrains.annotations.TestOnly;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
+    private static final long DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(5000);
+
     private final int id;
 
     // TODO: table name can change, this approach should probably be reworked, see https://issues.apache.org/jira/browse/IGNITE-21237.
@@ -741,12 +749,12 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
-    public Transaction startImplicitTxIfNeeded(@Nullable Transaction tx, List<Transaction> txns) {
-        if (tx != null) {
+    public Transaction startImplicitTxIfNeeded(@Nullable Transaction tx, List<Transaction> txns, boolean startImplicit) {
+        if (tx != null || !startImplicit) {
             return tx;
         }
 
-        // TODO timeout
+        // Will use default timeout.
         ClientLazyTransaction tx0 = new ClientLazyTransaction(channel().observableTimestamp(), new TransactionOptions(), true);
 
         txns.add(tx0);
@@ -778,20 +786,18 @@ public class ClientTable implements Table {
     }
 
     <R, E> CompletableFuture<R> splitAndRun(
-            Transaction tx,
             Collection<E> keys,
-            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
+            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> fun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
-        return splitAndRun(tx, keys, fun, initialValue, reducer, hashFunc, List.of());
+        return splitAndRun(keys, fun, initialValue, reducer, hashFunc, List.of());
     }
 
     <R, E> CompletableFuture<R> splitAndRun(
-            Transaction tx,
             Collection<E> keys,
-            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
+            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> mapFun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc,
@@ -806,11 +812,10 @@ public class ClientTable implements Table {
 
                     @Nullable List<String> aff = partitionsFut.getNow(null);
                     if (aff == null) {
-                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                        return mapFun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
                     }
 
                     Map<Integer, List<E>> mapped = IgniteUtils.newHashMap(aff.size());
-                    List<CompletableFuture<R>> res = new ArrayList<>(aff.size());
 
                     for (E key : keys) {
                         int hash = hashFunc.apply(schema, key);
@@ -818,41 +823,166 @@ public class ClientTable implements Table {
                         mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
                     }
 
-                    boolean full = mapped.size() == 1;
+                    CompletableFuture<R> resFut = new CompletableFuture<>();
+                    mapAndRetry(mapFun, initialValue, reducer, txns, mapped, new long[1], resFut);
+                    return resFut;
+                });
+    }
 
-                    for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
-                        res.add(fun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey())));
+    private static <R, E> void mapAndRetry(
+            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> mapFun,
+            @Nullable R initialValue, Reducer<R> reducer,
+            List<Transaction> txns,
+            Map<Integer, List<E>> mapped,
+            long[] startTs,
+            CompletableFuture<R> resFut
+    ) {
+        if (startTs[0] == 0) {
+            startTs[0] = System.nanoTime();
+        }
+
+        List<CompletableFuture<R>> res = new ArrayList<>();
+
+        for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
+            res.add(mapFun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey()), mapped.size() > 1));
+        }
+
+        CompletableFutures.allOf(res).handle((ignored, err) -> {
+            if (!txns.isEmpty()) {
+                boolean allRetryableExceptions = true;
+
+                for (int i = 0; i < res.size(); i++) {
+                    CompletableFuture<R> fut0 = res.get(i);
+                    if (fut0.isCompletedExceptionally()) {
+                        try {
+                            fut0.join();
+                        } catch (CompletionException e) {
+                            allRetryableExceptions = ExceptionUtils.matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR);
+                        }
+                    }
+                    txns.get(i).rollbackAsync();
+                }
+
+                if (err != null) {
+                    // Check if we can retry.
+                    long nowRelative = System.nanoTime();
+                    if (allRetryableExceptions && nowRelative - startTs[0] < DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS) {
+                        startTs[0] = nowRelative;
+                        txns.clear(); // This collection is re-filled on next map attempt.
+
+                        mapAndRetry(mapFun, initialValue, reducer, txns, mapped, startTs, resFut);
+
+                        return null;
                     }
 
-                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).handle((ignored, err) -> {
-                        if (err != null) {
-                            for (Transaction txn : txns) {
-                                txn.rollbackAsync(); // TODO log error
-                            }
+                    resFut.completeExceptionally(err);
 
-                            sneakyThrow(err);
+                    return null;
+                }
 
-                            return null;
+                for (Transaction txn : txns) {
+                    txn.commitAsync(); // TODO log error
+                }
+            } else {
+                if (err != null) {
+                    resFut.completeExceptionally(err);
+
+                    return null;
+                }
+            }
+
+            R in = initialValue;
+
+            for (CompletableFuture<R> val : res) {
+                in = reducer.reduce(in, val.getNow(null));
+            }
+
+            resFut.complete(in);
+
+            return null;
+        });
+    }
+
+    private static <E> void mapAndRetry(
+            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<E>>> mapFun,
+            Collection<E> keys,
+            List<Transaction> txns,
+            Map<Integer, Batch<E>> mapped,
+            long[] startTs,
+            CompletableFuture<List<E>> resFut) {
+        if (startTs[0] == 0) {
+            startTs[0] = System.nanoTime();
+        }
+
+        List<CompletableFuture<List<E>>> res = new ArrayList<>(mapped.size());
+        List<Batch<E>> batches = new ArrayList<>();
+
+        for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
+            res.add(mapFun.apply(entry.getValue().batch, PartitionAwarenessProvider.of(entry.getKey()), mapped.size() > 1));
+            batches.add(entry.getValue());
+        }
+
+        CompletableFutures.allOf(res).handle((ignored, err) -> {
+            // TODO remove copy paste
+            if (!txns.isEmpty()) {
+                boolean allRetryableExceptions = true;
+
+                for (int i = 0; i < res.size(); i++) {
+                    CompletableFuture<?> fut0 = res.get(i);
+                    if (fut0.isCompletedExceptionally()) {
+                        try {
+                            fut0.join();
+                        } catch (CompletionException e) {
+                            allRetryableExceptions = ExceptionUtils.matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR);
                         }
+                    }
+                    txns.get(i).rollbackAsync();
+                }
 
-                        R in = initialValue;
+                if (err != null) {
+                    // Check if we can retry.
+                    long nowRelative = System.nanoTime();
+                    if (allRetryableExceptions && nowRelative - startTs[0] < DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS) {
+                        startTs[0] = nowRelative;
+                        txns.clear(); // This collection is re-filled on next map attempt.
 
-                        for (CompletableFuture<R> val : res) {
-                            in = reducer.reduce(in, val.getNow(null));
-                        }
+                        mapAndRetry(mapFun, keys, txns, mapped, startTs, resFut);
 
-                        for (Transaction txn : txns) {
-                            txn.commitAsync(); // TODO log error
-                        }
+                        return null;
+                    }
 
-                        return in;
-                    });
-                });
+                    resFut.completeExceptionally(err);
+
+                    return null;
+                }
+
+                for (Transaction txn : txns) {
+                    txn.commitAsync(); // TODO log error
+                }
+            } else {
+                if (err != null) {
+                    resFut.completeExceptionally(err);
+
+                    return null;
+                }
+            }
+
+            var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
+
+            for (int i = 0; i < res.size(); i++) {
+                CompletableFuture<List<E>> f = res.get(i);
+                reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
+            }
+
+            resFut.complete(in);
+
+            return null;
+        });
     }
 
     <E> CompletableFuture<List<E>> splitAndRun(
             Collection<E> keys,
-            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<List<E>>> fun,
+            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<E>>> fun,
             BiFunction<ClientSchema, E, Integer> hashFunc,
             List<Transaction> txns
     ) {
@@ -865,7 +995,7 @@ public class ClientTable implements Table {
 
                     @Nullable List<String> aff = partitionsFut.getNow(null);
                     if (aff == null) {
-                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
                     }
 
                     Map<Integer, Batch<E>> mapped = IgniteUtils.newHashMap(aff.size());
@@ -878,38 +1008,9 @@ public class ClientTable implements Table {
                         idx++;
                     }
 
-                    List<CompletableFuture<List<E>>> res = new ArrayList<>(aff.size());
-                    List<Batch<E>> batches = new ArrayList<>();
-
-                    for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
-                        res.add(fun.apply(entry.getValue().batch, PartitionAwarenessProvider.of(entry.getKey())));
-                        batches.add(entry.getValue());
-                    }
-
-                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).handle((ignored, err) -> {
-                        if (err != null) {
-                            for (Transaction txn : txns) {
-                                txn.rollbackAsync(); // TODO log error
-                            }
-
-                            sneakyThrow(err);
-
-                            return null;
-                        }
-
-                        var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
-
-                        for (int i = 0; i < res.size(); i++) {
-                            CompletableFuture<List<E>> f = res.get(i);
-                            reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
-                        }
-
-                        for (Transaction txn : txns) {
-                            txn.commitAsync(); // TODO log error
-                        }
-
-                        return in;
-                    });
+                    CompletableFuture<List<E>> resFut = new CompletableFuture<>();
+                    mapAndRetry(fun, keys, txns, mapped, new long[1], resFut);
+                    return resFut;
                 });
     }
 

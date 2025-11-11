@@ -38,7 +38,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.tx.TransactionException;
 
@@ -68,19 +67,10 @@ public class ClientTransactionCommitRequest {
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
         InternalTransaction tx = resources.remove(resourceId).get(InternalTransaction.class);
-        boolean readOnly = tx.isReadOnly();
 
         // Attempt to merge server and client mappings.
-        if (enableDirectMapping && !readOnly) {
+        if (enableDirectMapping && !tx.isReadOnly()) {
             int cnt = in.unpackInt(); // Number of direct enlistments.
-
-            // Process an implicit getAll fragment if presents.
-            if (tx.implicit()) {
-                ReadWriteTransactionImpl tx0 = (ReadWriteTransactionImpl) tx;
-                ReadWriteTransactionImpl[] holder = tx0.getRestartedTxHolder();
-                assert cnt == 0;
-                tx = holder[0];
-            }
 
             List<IgniteTuple3<TablePartitionId, String, Long>> list = new ArrayList<>();
             for (int i = 0; i < cnt; i++) {
@@ -144,7 +134,7 @@ public class ClientTransactionCommitRequest {
         }
 
         return tx.commitAsync().handle((res, err) -> {
-            if (!readOnly) {
+            if (!tx.isReadOnly()) {
                 tsTracker.update(clockService.current());
             }
 

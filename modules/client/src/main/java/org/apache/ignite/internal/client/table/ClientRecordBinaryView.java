@@ -33,11 +33,11 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -101,8 +101,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         List<Transaction> txns = new ArrayList<>();
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<List<Tuple>>> clo = (batch, provider) -> {
-            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns);
+        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
+                (batch, provider, startImplicit) -> {
+            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
 
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
@@ -150,20 +151,20 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return trueCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Boolean>> clo = (batch, provider) -> {
+        List<Transaction> txns = new ArrayList<>();
+
+        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<Boolean>> clo = (batch, provider, startImplicit) -> {
+            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
+
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    (s, w, n) -> ser.writeTuples(tx0, batch, s, w, n, true),
                     r -> r.in().unpackBoolean(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
-        }
-
-        return tbl.splitAndRun(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash, txns);
     }
 
     /** {@inheritDoc} */
@@ -200,7 +201,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return nullCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Void>> clo = (batch, provider) -> {
+        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<Void>> clo =
+                (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -210,10 +212,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         };
 
         if (tx == null) {
-            return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()));
+            return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()), false);
         }
 
-        return tbl.splitAndRun(tx, recs, clo, null, (agg, cur) -> null, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(recs, clo, null, (agg, cur) -> null, ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */
@@ -270,7 +272,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<List<Tuple>>> clo = (batch, provider) -> {
+        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
+                (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_INSERT_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -281,10 +284,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         };
 
         if (tx == null) {
-            return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()));
+            return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()), false);
         }
 
-        return tbl.splitAndRun(tx, recs, clo, new ArrayList<>(recs.size()),
+        return tbl.splitAndRun(recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -432,7 +435,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<List<Tuple>>> clo = (batch, provider) -> {
+        // TODO create ticket for execute implicit batch as explicit directly mapped
+        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
+                (batch, provider, startImplict) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
@@ -443,10 +448,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         };
 
         if (tx == null) {
-            return clo.apply(keyRecs, getPartitionAwarenessProvider(keyRecs.iterator().next()));
+            return clo.apply(keyRecs, getPartitionAwarenessProvider(keyRecs.iterator().next()), false);
         }
 
-        return tbl.splitAndRun(tx, keyRecs, clo, new ArrayList<>(keyRecs.size()),
+        return tbl.splitAndRun(keyRecs, clo, new ArrayList<>(keyRecs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -474,7 +479,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<List<Tuple>>> clo = (batch, provider) -> {
+        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
+                (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL_EXACT,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -485,10 +491,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         };
 
         if (tx == null) {
-            return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()));
+            return clo.apply(recs, getPartitionAwarenessProvider(recs.iterator().next()), false);
         }
 
-        return tbl.splitAndRun(tx, recs, clo, new ArrayList<>(recs.size()),
+        return tbl.splitAndRun(recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
