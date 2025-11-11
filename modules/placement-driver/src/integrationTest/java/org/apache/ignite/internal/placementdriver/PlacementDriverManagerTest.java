@@ -93,6 +93,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -428,21 +429,20 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
-        ConcurrentHashMap<UUID, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
-        ConcurrentHashMap<UUID, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, PrimaryReplicaEventParameters> electedEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, PrimaryReplicaEventParameters> expiredEvts = new ConcurrentHashMap<>(2);
 
         placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, evt -> {
-            log.info("Primary replica is elected [grp={}]", evt.groupId());
-
-            electedEvts.put(evt.leaseholderId(), evt.startTime());
+            log.info("Primary replica is elected [grp={}, recipient={}]", evt.groupId(), evt.leaseholderId());
+            electedEvts.put(evt.leaseholderId(), evt);
 
             return falseCompletedFuture();
         });
 
         placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
-            log.info("Primary replica is expired [grp={}]", evt.groupId());
+            log.info("Primary replica is expired [grp={}, recipient={}]", evt.groupId(), evt.leaseholder());
 
-            expiredEvts.put(evt.leaseholderId(), evt.startTime());
+            expiredEvts.put(evt.leaseholderId(), evt);
 
             return falseCompletedFuture();
         });
@@ -460,19 +460,20 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             ReplicaMeta meta = sync(fut);
 
-            return meta != null && meta.getLeaseholder().equals(anotherNodeName);
+            return meta != null && meta.getLeaseholder().equals(anotherNodeName)
+                    && electedEvts.values().stream().anyMatch(v -> v.leaseholder().equals(anotherNodeName))
+                    && expiredEvts.values().stream().anyMatch(v -> v.leaseholder().equals(nodeName));
         }, 10_000));
 
         Lease lease2 = checkLeaseCreated(grpPart0, true);
 
         assertNotEquals(lease1.getLeaseholder(), lease2.getLeaseholder());
 
-        assertEquals(1, electedEvts.size());
-        assertEquals(1, expiredEvts.size());
-
         assertTrue(electedEvts.containsKey(lease2.getLeaseholderId()));
         assertTrue(expiredEvts.containsKey(lease1.getLeaseholderId()));
 
+        electedEvts.clear();
+        expiredEvts.clear();
         stopAnotherNode(anotherClusterService);
         anotherClusterService = startAnotherNode(anotherNodeName, PORT + 1);
 
@@ -482,13 +483,15 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             ReplicaMeta meta = sync(fut);
 
-            return meta != null && meta.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id());
+            return meta != null
+                    && meta.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id())
+                    && electedEvts.size() == 1 && expiredEvts.size() == 1;
         }, 10_000));
 
         Lease lease3 = checkLeaseCreated(grpPart0, true);
 
-        assertEquals(2, electedEvts.size());
-        assertEquals(2, expiredEvts.size());
+        assertEquals(1, electedEvts.size());
+        assertEquals(1, expiredEvts.size());
 
         assertTrue(electedEvts.containsKey(lease3.getLeaseholderId()));
         assertTrue(expiredEvts.containsKey(lease2.getLeaseholderId()));
