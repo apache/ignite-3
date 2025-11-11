@@ -375,26 +375,21 @@ public class CheckpointManager {
             int checkpointedPages
     ) {
         // TODO: IGNITE-26988 Вот тут надо починить и сделать учет поколений
-
-        // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
-        int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
-
         int partGen = partitionDirtyPages.pageMemory().partGeneration(groupId, partitionId);
 
-        int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(groupId, partitionId, checkpointedPages) + offset];
+        // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
+        int offset = partitionDirtyPages.containsMetaPage(partGen) ? 0 : 1;
+
+        int[] pageIndexes = new int[partitionDirtyPages.countAlteredPages(partGen, checkpointedPages) + offset];
 
         int size = offset;
 
-        for (int i = 0; i < pageIndexes.length - offset; i++) {
+        for (int i = 0; i < partitionDirtyPages.size() && size < pageIndexes.length; i++) {
             DirtyFullPageId dirtyFullPageId = partitionDirtyPages.get(i);
 
             if (dirtyFullPageId.partitionGeneration() == partGen) {
                 pageIndexes[size++] = dirtyFullPageId.pageIdx();
             }
-        }
-
-        if (size < pageIndexes.length) {
-            pageIndexes = Arrays.copyOf(pageIndexes, size);
         }
 
         return pageIndexes;
