@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
@@ -39,6 +40,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -69,7 +71,23 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         System.out.println("Added record using RecordView with Tuple");
 
         // 2. Using RecordView with POJOs
-        RecordView<Person> pojoView = table.recordView(Person.class);
+        Mapper<Person> build = Mapper.builder(Person.class)
+                .map("name", "NAME")
+                .map("id", "ID")
+                .map("weight", "WEIGHT", new TypeConverter<BigDecimal, BigDecimal>() {
+                    @Override
+                    public BigDecimal toColumnType(BigDecimal obj) throws Exception {
+                        return obj;
+                    }
+
+                    @Override
+                    public BigDecimal toObjectType(BigDecimal data) throws Exception {
+                        return data;
+                    }
+                })
+                .build();
+
+        RecordView<Person> pojoView = table.recordView(build);
         pojoView.upsert(null, new Person(3, "Jack", BigDecimal.valueOf(68.5)));
         System.out.println("Added record using RecordView with POJO");
 
