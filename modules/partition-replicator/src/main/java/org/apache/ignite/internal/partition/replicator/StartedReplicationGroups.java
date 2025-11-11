@@ -108,6 +108,8 @@ class StartedReplicationGroups {
         //noinspection ConstantValue
         if (startingFuture != null) {
             startingFuture.complete(null);
+        } else {
+            LOG.info("Starting future is not found. [zonePartitionId=" + zonePartitionId + ']');
         }
     }
 
