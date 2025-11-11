@@ -124,7 +124,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
 
         cancelHandle.cancel();
 
-        expectQueryCancelledInternalException(
+        expectQueryCancelled(
                 () -> runScript(token, "SELECT 1; SELECT 2;")
         );
     }

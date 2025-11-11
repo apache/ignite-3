@@ -220,7 +220,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
                 ForkJoinPool.commonPool(),
-                replicaGrpId -> nullCompletedFuture()
+                replicaGrpId -> nullCompletedFuture(),
+                ForkJoinPool.commonPool()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

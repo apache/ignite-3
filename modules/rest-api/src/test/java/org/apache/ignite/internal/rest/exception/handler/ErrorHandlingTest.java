@@ -23,6 +23,7 @@ import static io.micronaut.http.HttpStatus.METHOD_NOT_ALLOWED;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.HttpStatus.UNAUTHORIZED;
 import static io.micronaut.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -53,11 +54,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
-import org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher;
 import org.apache.ignite.lang.IgniteException;
-import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -105,7 +103,10 @@ public class ErrorHandlingTest {
     public void testExceptions(Throwable throwable, HttpStatus status, String title, String detail) {
         ErrorHandlingTest.throwable.set(throwable);
 
-        assertThrowsProblem(() -> client.toBlocking().exchange("/throw-exception"), status, title, detail);
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange("/throw-exception"),
+                isProblem().withStatus(status).withTitle(title).withDetail(detail)
+        );
     }
 
     @Test
@@ -113,9 +114,10 @@ public class ErrorHandlingTest {
         // Invoke non-existing endpoint
         assertThrowsProblem(
                 () -> client.toBlocking().exchange("/endpoint404"),
-                NOT_FOUND,
-                "Not Found",
-                "Requested resource not found: /test/endpoint404"
+                isProblem()
+                        .withStatus(NOT_FOUND)
+                        .withTitle("Not Found")
+                        .withDetail("Requested resource not found: /test/endpoint404")
         );
     }
 
@@ -124,9 +126,10 @@ public class ErrorHandlingTest {
         // Invoke endpoint with wrong path variable data type
         assertThrowsProblem(
                 () -> client.toBlocking().exchange("/list/abc"),
-                BAD_REQUEST,
-                "Invalid parameter",
-                "Failed to convert argument [id] for value [abc] due to: For input string: \"abc\""
+                isProblem()
+                        .withStatus(BAD_REQUEST)
+                        .withTitle("Invalid parameter")
+                        .withDetail("Failed to convert argument [id] for value [abc] due to: For input string: \"abc\"")
         );
     }
 
@@ -135,9 +138,10 @@ public class ErrorHandlingTest {
         // Invoke endpoint without required query value
         assertThrowsProblem(
                 () -> client.toBlocking().exchange("/list"),
-                BAD_REQUEST,
-                "Bad Request",
-                "Required QueryValue [greatThan] not specified"
+                isProblem()
+                        .withStatus(BAD_REQUEST)
+                        .withTitle("Bad Request")
+                        .withDetail("Required QueryValue [greatThan] not specified")
         );
     }
 
@@ -146,20 +150,20 @@ public class ErrorHandlingTest {
         // Invoke endpoint with wrong data type of request argument
         assertThrowsProblem(
                 () -> client.toBlocking().exchange("/list?greatThan=abc"),
-                BAD_REQUEST,
-                "Invalid parameter",
-                "Failed to convert argument [greatThan] for value [abc] due to: For input string: \"abc\""
+                isProblem()
+                        .withStatus(BAD_REQUEST)
+                        .withTitle("Invalid parameter")
+                        .withDetail("Failed to convert argument [greatThan] for value [abc] due to: For input string: \"abc\"")
         );
     }
 
     @Test
     public void invalidTypeQueryValue1() {
         // Invoke endpoint with wrong request argument values
-        MicronautHttpResponseMatcher.assertThrowsProblem(
+        assertThrowsProblem(
                 () -> client.toBlocking().exchange("/list?greatThan=-1&lessThan=11"),
-                BAD_REQUEST,
                 isProblem()
-                        .withStatus(BAD_REQUEST.getCode())
+                        .withStatus(BAD_REQUEST)
                         .withTitle("Bad Request")
                         .withDetail("Validation failed")
                         .withInvalidParams(containsInAnyOrder(
@@ -178,9 +182,10 @@ public class ErrorHandlingTest {
 
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
-                UNSUPPORTED_MEDIA_TYPE,
-                "Unsupported Media Type",
-                "Unsupported media type: text/plain"
+                isProblem()
+                        .withStatus(UNSUPPORTED_MEDIA_TYPE)
+                        .withTitle("Unsupported Media Type")
+                        .withDetail(equalTo("Unsupported media type: text/plain"))
         );
     }
 
@@ -193,9 +198,10 @@ public class ErrorHandlingTest {
 
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
-                BAD_REQUEST,
-                "Invalid JSON",
-                containsString("Unexpected character")
+                isProblem()
+                        .withStatus(BAD_REQUEST)
+                        .withTitle("Invalid JSON")
+                        .withDetail(containsString("Unexpected character"))
         );
     }
 
@@ -208,9 +214,10 @@ public class ErrorHandlingTest {
 
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
-                BAD_REQUEST,
-                "Bad Request",
-                containsString("Required Body [dto] not specified")
+                isProblem()
+                        .withStatus(BAD_REQUEST)
+                        .withTitle("Bad Request")
+                        .withDetail(containsString("Required Body [dto] not specified"))
         );
     }
 
@@ -221,21 +228,10 @@ public class ErrorHandlingTest {
 
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
-                METHOD_NOT_ALLOWED,
-                "Method Not Allowed",
-                "Method not allowed: GET"
-        );
-    }
-
-    private static void assertThrowsProblem(Executable executable, HttpStatus status, String title, String detail) {
-        assertThrowsProblem(executable, status, title, equalTo(detail));
-    }
-
-    private static void assertThrowsProblem(Executable executable, HttpStatus status, String title, Matcher<String> detailMatcher) {
-        MicronautHttpResponseMatcher.assertThrowsProblem(executable, status, isProblem()
-                .withStatus(status.getCode())
-                .withTitle(title)
-                .withDetail(detailMatcher)
+                isProblem()
+                        .withStatus(METHOD_NOT_ALLOWED)
+                        .withTitle("Method Not Allowed")
+                        .withDetail(equalTo("Method not allowed: GET"))
         );
     }
 
