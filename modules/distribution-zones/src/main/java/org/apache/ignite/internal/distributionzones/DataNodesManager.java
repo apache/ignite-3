@@ -39,7 +39,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonePartitionResetTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
@@ -239,7 +238,6 @@ public class DataNodesManager {
             allKeys.add(zoneDataNodesHistoryKey(zone.id()));
             allKeys.add(zoneScaleUpTimerKey(zone.id()));
             allKeys.add(zoneScaleDownTimerKey(zone.id()));
-            allKeys.add(zonePartitionResetTimerKey(zone.id()));
             allKeys.add(zoneDataNodesKey(zone.id()));
 
             descriptors.put(zone.id(), zone);
@@ -253,7 +251,6 @@ public class DataNodesManager {
                         Entry historyEntry = entriesMap.get(zoneDataNodesHistoryKey(zone.id()));
                         Entry scaleUpEntry = entriesMap.get(zoneScaleUpTimerKey(zone.id()));
                         Entry scaleDownEntry = entriesMap.get(zoneScaleDownTimerKey(zone.id()));
-                        Entry partitionResetEntry = entriesMap.get(zonePartitionResetTimerKey(zone.id()));
                         Entry legacyDataNodesEntry = entriesMap.get(zoneDataNodesKey(zone.id()));
 
                         if (missingEntry(historyEntry)) {
@@ -271,10 +268,9 @@ public class DataNodesManager {
                             continue;
                         }
 
-                        if (missingEntry(scaleUpEntry) || missingEntry(scaleDownEntry) || missingEntry(partitionResetEntry)) {
+                        if (missingEntry(scaleUpEntry) || missingEntry(scaleDownEntry)) {
                             throw new AssertionError(format("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, "
-                                    + "scaleDownEntry={}, partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry,
-                                    scaleDownEntry, partitionResetEntry));
+                                    + "scaleDownEntry={}", zone.id(), zone.name(), scaleUpEntry, scaleDownEntry));
                         }
 
                         DataNodesHistory history = DataNodesHistorySerializer.deserialize(historyEntry.value());
@@ -282,11 +278,11 @@ public class DataNodesManager {
 
                         DistributionZoneTimer scaleUpTimer = DistributionZoneTimerSerializer.deserialize(scaleUpEntry.value());
                         DistributionZoneTimer scaleDownTimer = DistributionZoneTimerSerializer.deserialize(scaleDownEntry.value());
-                        DistributionZoneTimer resetTimer = DistributionZoneTimerSerializer.deserialize(partitionResetEntry.value());
 
                         onScaleUpTimerChange(zone, scaleUpTimer);
                         onScaleDownTimerChange(zone, scaleDownTimer);
-                        restorePartitionResetTimer(zone, resetTimer, recoveryRevision);
+                        // We can restore partition reset timer based on scale down timer, so we don't need to persist it.
+                        restorePartitionResetTimer(zone, scaleDownTimer, recoveryRevision);
                     }
                 })
                 .thenCompose(unused -> allOf(legacyInitFutures)
@@ -792,8 +788,8 @@ public class DataNodesManager {
         timer.init(scaleDownTimer);
     }
 
-    private void restorePartitionResetTimer(CatalogZoneDescriptor zone, DistributionZoneTimer partitionResetTimer, long revision) {
-        if (!partitionResetTimer.equals(DEFAULT_TIMER)) {
+    private void restorePartitionResetTimer(CatalogZoneDescriptor zone, DistributionZoneTimer scaleDownTimer, long revision) {
+        if (!scaleDownTimer.equals(DEFAULT_TIMER) && zone.consistencyMode() == HIGH_AVAILABILITY) {
             reschedulePartitionReset(
                     partitionDistributionResetTimeoutSupplier.getAsInt(),
                     () -> partitionResetClosure.run(revision, zone),
@@ -996,8 +992,7 @@ public class DataNodesManager {
                 .operations(operations(
                         addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, filteredDataNodes),
                         clearTimer(zoneScaleUpTimerKey(zoneId)),
-                        clearTimer(zoneScaleDownTimerKey(zoneId)),
-                        clearTimer(zonePartitionResetTimerKey(zoneId))
+                        clearTimer(zoneScaleDownTimerKey(zoneId))
                 ))
                 .operationName("distribution zone filter change")
                 .currentDataNodesHistory(dataNodesHistory)
@@ -1300,7 +1295,6 @@ public class DataNodesManager {
                     addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
                     clearTimer(zoneScaleUpTimerKey(zoneId)),
                     clearTimer(zoneScaleDownTimerKey(zoneId)),
-                    clearTimer(zonePartitionResetTimerKey(zoneId)),
                     removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop(),
                     removeLegacyDataNodes ? remove(zonesNodesAttributes()) : noop()
             )).yield(true);
@@ -1367,8 +1361,7 @@ public class DataNodesManager {
             Update removeKeysUpd = ops(
                     // TODO remove(zoneDataNodesHistoryKey(zoneId)), https://issues.apache.org/jira/browse/IGNITE-24345
                     remove(zoneScaleUpTimerKey(zoneId)),
-                    remove(zoneScaleDownTimerKey(zoneId)),
-                    remove(zonePartitionResetTimerKey(zoneId))
+                    remove(zoneScaleDownTimerKey(zoneId))
             ).yield(true);
 
             Iif iif = iif(condition, removeKeysUpd, ops().yield(false));

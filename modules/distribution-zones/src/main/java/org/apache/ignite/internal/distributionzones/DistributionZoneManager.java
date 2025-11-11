@@ -903,7 +903,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     *
+     * Closure called when partition distribution reset is triggered for a zone.
      */
     @FunctionalInterface
     public interface PartitionResetClosure {
