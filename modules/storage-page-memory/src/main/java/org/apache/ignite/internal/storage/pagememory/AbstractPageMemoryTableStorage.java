@@ -294,14 +294,14 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
         return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
-            return clearStorageAndUpdateDataStructures(mvPartitionStorage)
-                    .thenAccept(unused ->
-                            mvPartitionStorage.runConsistently(locker -> {
-                                mvPartitionStorage.lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+            return clearStorageAndUpdateDataStructures(
+                    mvPartitionStorage,
+                    () -> mvPartitionStorage.runConsistently(locker -> {
+                        mvPartitionStorage.lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
-                                return null;
-                            })
-                    );
+                        return null;
+                    })
+            );
         }));
     }
 
@@ -310,8 +310,9 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
         return busy(() -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startAbortRebalance();
 
-            return clearStorageAndUpdateDataStructures(mvPartitionStorage)
-                    .thenAccept(unused -> {
+            return clearStorageAndUpdateDataStructures(
+                    mvPartitionStorage,
+                    () -> {
                         mvPartitionStorage.runConsistently(locker -> {
                             mvPartitionStorage.lastAppliedOnRebalance(0, 0);
 
@@ -319,7 +320,8 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
                         });
 
                         mvPartitionStorage.completeRebalance();
-                    });
+                    }
+            );
         }));
     }
 
@@ -351,7 +353,7 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
             try {
                 mvPartitionStorage.startCleanup();
 
-                return clearStorageAndUpdateDataStructures(mvPartitionStorage)
+                return clearStorageAndUpdateDataStructures(mvPartitionStorage, () -> {})
                         .whenComplete((unused, throwable) -> mvPartitionStorage.finishCleanup());
             } catch (StorageException e) {
                 mvPartitionStorage.finishCleanup();
@@ -369,9 +371,14 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
      * Clears the partition multi-version storage and all its indexes, updates their internal data structures such as {@link BplusTree},
      * {@link FreeList} and {@link ReuseList}.
      *
+     * @param mvPartitionStorage Storage to be cleared.
+     * @param afterUpdateStructuresCallback Callback to be invoked after updating internal structures.
      * @return Future of the operation.
      */
-    abstract CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
+    abstract CompletableFuture<Void> clearStorageAndUpdateDataStructures(
+            AbstractPageMemoryMvPartitionStorage mvPartitionStorage,
+            Runnable afterUpdateStructuresCallback
+    );
 
     /**
      * Returns the table ID.
