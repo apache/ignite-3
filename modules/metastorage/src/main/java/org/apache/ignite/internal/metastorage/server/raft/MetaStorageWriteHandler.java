@@ -380,20 +380,20 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    boolean beforeApply(Command command) {
+    Command beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
             // Alter command by setting safe time based on the adjusted clock.
-            MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command;
+            MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command.clone();
 
             clusterTime.adjustClock(writeCommand.initiatorTime());
 
             writeCommand.safeTime(clock.now());
 
-            return true;
+            return writeCommand;
         }
 
-        return false;
+        return command;
     }
 
     /**

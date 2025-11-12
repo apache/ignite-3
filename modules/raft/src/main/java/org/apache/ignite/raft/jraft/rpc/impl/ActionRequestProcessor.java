@@ -144,7 +144,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             Command command,
             Marshaller commandsMarshaller
     ) {
-        if (!beforeApplyHandler.onBeforeApply(command)) {
+        Command newCommand = beforeApplyHandler.onBeforeApply(command);
+        if (command == newCommand) {
             return request;
         }
 
@@ -152,12 +153,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return (AR) factory.writeActionRequest()
                 .groupId(request.groupId())
                 .command(commandsMarshaller.marshall(command))
-                .deserializedCommand((WriteCommand)command)
+                .deserializedCommand((WriteCommand)newCommand)
                 .build();
         } else {
             return (AR) factory.readActionRequest()
                 .groupId(request.groupId())
-                .command((ReadCommand)command)
+                .command((ReadCommand)newCommand)
                 .readOnlySafe(((ReadActionRequest)request).readOnlySafe())
                 .build();
         }
