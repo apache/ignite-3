@@ -136,6 +136,22 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         });
     }
 
+    @Test
+    void resourceNotFoundOnClose() {
+        IgniteSql sql = igniteSql();
+
+        Statement stmt = sql.statementBuilder()
+                .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 1000))")
+                .pageSize(400)
+                .build();
+
+        // TODO
+        for (int attempt = 0; attempt < 10; attempt++) {
+            var rs = sql.execute(null, stmt);
+            rs.close();
+        }
+    }
+
     private void executeAndCancel(Function<CancellationToken, ResultSet<SqlRow>> execute) throws InterruptedException {
         CancelHandle cancelHandle = CancelHandle.create();
 
