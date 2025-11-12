@@ -103,8 +103,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                // () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("SQL query execution error"),
                 () -> assertErrOutputContains("Division by zero"),
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );
@@ -113,8 +112,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26790
-                // () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("SQL query validation error"),
                 () -> assertErrOutputContains("Object 'NOTEXISTEDTABLE' not found"),
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );
