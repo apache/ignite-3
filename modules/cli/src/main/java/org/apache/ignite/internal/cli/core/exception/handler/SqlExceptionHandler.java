@@ -22,15 +22,12 @@ import static org.apache.ignite.lang.ErrorGroups.extractCauseMessage;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 import javax.net.ssl.SSLHandshakeException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.style.component.ErrorUiComponent;
-import org.apache.ignite.internal.cli.core.style.component.ErrorUiComponent.ErrorComponentBuilder;
-import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -49,37 +46,23 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
 
     private static final IgniteLogger LOG = Loggers.forClass(SqlExceptionHandler.class);
 
-    public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error";
+    private static final String CLIENT_CONNECTION_FAILED_MESSAGE = "Connection failed";
 
-    public static final String INVALID_PARAMETER_MESSAGE = "Invalid parameter value";
+    private static final String UNRECOGNIZED_ERROR_MESSAGE = "Unrecognized error while processing SQL query ";
 
-    public static final String CLIENT_CONNECTION_FAILED_MESSAGE = "Connection failed";
-
-    public static final String CONNECTION_BROKE_MESSAGE = "Connection error";
-
-    public static final String UNRECOGNIZED_ERROR_MESSAGE = "Unrecognized error while processing SQL query ";
-
-    private final Map<Integer, Function<IgniteException, ErrorComponentBuilder>> sqlExceptionMappers = new HashMap<>();
+    private final Map<Short, Function<IgniteException, ErrorUiComponent>> sqlExceptionMappers = new HashMap<>();
 
     /** Default constructor. */
     private SqlExceptionHandler() {
-        sqlExceptionMappers.put(Client.CONNECTION_ERR, SqlExceptionHandler::connectionErrUiComponent);
-        sqlExceptionMappers.put(Sql.STMT_PARSE_ERR, SqlExceptionHandler::sqlParseErrUiComponent);
+        sqlExceptionMappers.put(Client.CLIENT_ERR_GROUP.groupCode(), SqlExceptionHandler::connectionErrUiComponent);
+        sqlExceptionMappers.put(Sql.SQL_ERR_GROUP.groupCode(), SqlExceptionHandler::sqlErrUiComponent);
     }
 
-    private static ErrorComponentBuilder sqlParseErrUiComponent(IgniteException e) {
-        return fromExWithHeader(PARSING_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
-    }
+    private static ErrorUiComponent connectionErrUiComponent(IgniteException e) {
+        if (e.code() != Client.CONNECTION_ERR) {
+            return fromIgniteException("Client error", e);
+        }
 
-    private static ErrorComponentBuilder unrecognizedErrComponent(IgniteException e) {
-        return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
-    }
-
-    private static ErrorComponentBuilder unrecognizedErrComponent(IgniteCheckedException e) {
-        return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
-    }
-
-    private static ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
         if (e.getCause() instanceof IgniteClientConnectionException) {
             IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
 
@@ -88,7 +71,8 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
                 return ErrorUiComponent.builder()
                         .header("Could not connect to node. Check authentication configuration")
                         .details(invalidCredentialsException.getMessage())
-                        .verbose(extractCauseMessage(cause.getMessage()));
+                        .verbose(extractCauseMessage(cause.getMessage()))
+                        .build();
             }
 
             SSLHandshakeException sslHandshakeException = findCause(cause, SSLHandshakeException.class);
@@ -96,13 +80,14 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
                 return ErrorUiComponent.builder()
                         .header("Could not connect to node. Check SSL configuration")
                         .details(sslHandshakeException.getMessage())
-                        .verbose(extractCauseMessage(cause.getMessage()));
+                        .verbose(extractCauseMessage(cause.getMessage()))
+                        .build();
             }
 
-            return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, cause.code(), cause.traceId(), cause.getMessage());
+            return fromIgniteException(CLIENT_CONNECTION_FAILED_MESSAGE, cause);
         }
 
-        return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, e.code(), e.traceId(), e.getMessage());
+        return fromIgniteException(CLIENT_CONNECTION_FAILED_MESSAGE, e);
     }
 
     @Nullable
@@ -116,72 +101,86 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
         return null;
     }
 
-    private static ErrorComponentBuilder fromExWithHeader(String header, int errorCode, UUID traceId, String message) {
-        return ErrorUiComponent.builder()
-                .header(header)
-                .errorCode(String.valueOf(errorCode))
-                .traceId(traceId)
-                .details(extractCauseMessage(message));
-    }
-
     @Override
     public int handle(ExceptionWriter err, SQLException e) {
-        err.write(handleSqlException(e).build().render());
+        Throwable unwrappedCause = ExceptionUtils.unwrapCause(e.getCause());
+        ErrorUiComponent errorComponent;
+
+        if (unwrappedCause instanceof IgniteException) {
+            IgniteException igniteException = (IgniteException) unwrappedCause;
+
+            errorComponent = sqlExceptionMappers.getOrDefault(
+                    igniteException.groupCode(),
+                    SqlExceptionHandler::otherIgniteException
+            ).apply(igniteException);
+
+        } else if (unwrappedCause instanceof IgniteCheckedException) {
+            IgniteCheckedException checkedError = (IgniteCheckedException) unwrappedCause;
+
+            errorComponent = fromCheckedIgniteException(UNRECOGNIZED_ERROR_MESSAGE, checkedError);
+        } else {
+            LOG.warn("Unrecognized exception", e);
+
+            errorComponent = ErrorUiComponent.builder()
+                    .header("Unrecognized exception")
+                    .details(String.valueOf(unwrappedCause))
+                    .build();
+        }
+
+        err.write(errorComponent.render());
         return 1;
     }
 
-    private ErrorComponentBuilder handleSqlException(SQLException e) {
-        Throwable unwrappedCause = ExceptionUtils.unwrapCause(e.getCause());
-        if (unwrappedCause instanceof IgniteException) {
-            return handleIgniteException((IgniteException) unwrappedCause);
+    private static ErrorUiComponent sqlErrUiComponent(IgniteException e) {
+        String header;
+
+        if (e.code() == Sql.STMT_PARSE_ERR) {
+            header = "SQL query parsing error";
+        } else if (e.code() == Sql.STMT_VALIDATION_ERR) {
+            header = "SQL query validation error";
+        } else if (e.code() == Sql.CONSTRAINT_VIOLATION_ERR) {
+            header = "Constraint violation";
+        } else if (e.code() == Sql.EXECUTION_CANCELLED_ERR) {
+            header = "Query was cancelled";
+        } else if (e.code() == Sql.RUNTIME_ERR) {
+            header = "SQL query execution error";
+        } else if (e.code() == Sql.MAPPING_ERR) {
+            header = "Unable to map query on current cluster topology";
+        } else if (e.code() == Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR) {
+            header = "Unexpected SQL statement";
+        } else {
+            header = "SQL error";
         }
 
-        if (unwrappedCause instanceof IgniteCheckedException) {
-            return unrecognizedErrComponent((IgniteCheckedException) unwrappedCause);
-        }
-
-        if (e.getSQLState() != null) {
-            return handleExceptionWithState(e);
-        }
-
-        return handleUnrecognizedError(e);
+        return fromIgniteException(header, e);
     }
 
-    private static ErrorComponentBuilder handleExceptionWithState(SQLException e) {
-        ErrorComponentBuilder errorComponentBuilder = ErrorUiComponent.builder();
-
-        switch (e.getSQLState()) {
-            case SqlStateCode.CONNECTION_FAILURE:
-            case SqlStateCode.CONNECTION_CLOSED:
-            case SqlStateCode.CONNECTION_REJECTED:
-                errorComponentBuilder.header(CONNECTION_BROKE_MESSAGE).verbose(extractCauseMessage(e.getMessage()));
-                break;
-            case SqlStateCode.PARSING_EXCEPTION:
-                errorComponentBuilder.header(PARSING_ERROR_MESSAGE).details(extractCauseMessage(e.getMessage()));
-                break;
-            case SqlStateCode.INVALID_PARAMETER_VALUE:
-                errorComponentBuilder.header(INVALID_PARAMETER_MESSAGE).verbose(extractCauseMessage(e.getMessage()));
-                break;
-            case SqlStateCode.CLIENT_CONNECTION_FAILED:
-                errorComponentBuilder.header(CLIENT_CONNECTION_FAILED_MESSAGE).verbose(extractCauseMessage(e.getMessage()));
-                break;
-            default:
-                return handleUnrecognizedError(e);
-        }
-
-        return errorComponentBuilder;
+    private static ErrorUiComponent fromIgniteException(String header, IgniteException e) {
+        // Header
+        // GROUP_NAME-CODE: ... 
+        return ErrorUiComponent.builder()
+                .header(header)
+                .errorCode(String.valueOf(e.code()))
+                .traceId(e.traceId())
+                .details(e.codeAsString() + ": " + extractCauseMessage(e.getMessage()))
+                .build();
     }
 
-    private static ErrorComponentBuilder handleUnrecognizedError(SQLException e) {
-        LOG.error("Unrecognized error", e);
-        return ErrorUiComponent.builder().header("SQL query execution error").details(e.getMessage());
+    private static ErrorUiComponent fromCheckedIgniteException(String header, IgniteCheckedException e) {
+        // Header
+        // GROUP_NAME-CODE: ...
+        return ErrorUiComponent.builder()
+                .header(header)
+                .errorCode(String.valueOf(e.code()))
+                .traceId(e.traceId())
+                .details(e.codeAsString() + ": " + extractCauseMessage(e.getMessage()))
+                .build();
     }
 
-    /** Handles IgniteException that has more information like error code and trace id. */
-    private ErrorComponentBuilder handleIgniteException(IgniteException e) {
-        var exceptionMapper = sqlExceptionMappers.getOrDefault(e.code(), SqlExceptionHandler::unrecognizedErrComponent);
-
-        return exceptionMapper.apply(e);
+    private static ErrorUiComponent otherIgniteException(IgniteException e) {
+        // GROUP_NAME error
+        // GROUP_NAME-CODE: ... 
+        return fromIgniteException(e.groupName() + " error", e);
     }
 
     @Override
