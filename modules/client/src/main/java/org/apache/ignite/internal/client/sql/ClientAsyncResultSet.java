@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -34,6 +36,9 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -208,7 +213,27 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         closed = true;
 
-        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null);
+        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null)
+                .exceptionally(t -> {
+                    Throwable cause = unwrapCause(t);
+
+                    if (cause instanceof IgniteException) {
+                        IgniteException igniteEx = (IgniteException) cause;
+
+                        if (igniteEx.code() == Client.RESOURCE_NOT_FOUND_ERR) {
+                            throw new IgniteException(
+                                    Client.RESOURCE_NOT_FOUND_ERR,
+                                    "Failed to find cursor with id: " + resourceId + ". Cursor might have been closed concurrently.",
+                                    cause);
+                        } else if (cause instanceof IgniteClientConnectionException) {
+                            // Connection lost - cursor is closed on the server side.
+                            return null;
+                        }
+                    }
+
+                    throw new IgniteException(Common.INTERNAL_ERR, "Failed to close SQL cursor: " + t.getMessage(), t);
+                })
+                .thenApply(ignore -> null);
     }
 
     @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata() {
