@@ -152,7 +152,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         if (request instanceof WriteActionRequest) {
             return (AR) factory.writeActionRequest()
                 .groupId(request.groupId())
-                .command(commandsMarshaller.marshall(command))
+                .command(commandsMarshaller.marshall(newCommand))
                 .deserializedCommand((WriteCommand)newCommand)
                 .build();
         } else {
