@@ -372,7 +372,7 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
      * {@link FreeList} and {@link ReuseList}.
      *
      * @param mvPartitionStorage Storage to be cleared.
-     * @param afterUpdateStructuresCallback Callback after updating internal structures.
+     * @param afterUpdateStructuresCallback Callback to be invoked after updating internal structures.
      * @return Future of the operation.
      */
     abstract CompletableFuture<Void> clearStorageAndUpdateDataStructures(
