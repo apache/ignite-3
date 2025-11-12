@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.digest;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.structuredTypeFromRelTypeList;
 
 import java.lang.reflect.Modifier;
 import java.util.List;
@@ -40,11 +41,10 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
@@ -82,10 +82,9 @@ class JoinProjectionImplementor {
         Cache<String, SqlJoinProjection<RowT>> cache = cast(this.cache);
 
         return cache.get(digest, key -> {
-            RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projections));
             SqlJoinProjectionExt<RowT> projectionExt = implementInternal(projections, type, firstRowSize);
 
-            return new SqlJoinProjectionImpl<>(projectionExt, rowSchema);
+            return new SqlJoinProjectionImpl<>(projectionExt, structuredTypeFromRelTypeList(RexUtil.types(projections)));
         });
     }
 
@@ -152,21 +151,15 @@ class JoinProjectionImplementor {
 
     private static class SqlJoinProjectionImpl<RowT> implements SqlJoinProjection<RowT> {
         private final SqlJoinProjectionExt<RowT> projection;
-        private final RowSchema rowSchema;
+        private final StructNativeType rowType;
 
-        /**
-         * Constructor.
-         *
-         * @param projection Scalar.
-         * @param rowSchema Row factory.
-         */
-        private SqlJoinProjectionImpl(SqlJoinProjectionExt<RowT> projection, RowSchema rowSchema) {
+        private SqlJoinProjectionImpl(SqlJoinProjectionExt<RowT> projection, StructNativeType rowType) {
             this.projection = projection;
-            this.rowSchema = rowSchema;
+            this.rowType = rowType;
         }
 
         private RowBuilder<RowT> builder(ExecutionContext<RowT> context) {
-            return context.rowHandler().factory(rowSchema).rowBuilder();
+            return context.rowHandler().factory(rowType).rowBuilder();
         }
 
         @Override

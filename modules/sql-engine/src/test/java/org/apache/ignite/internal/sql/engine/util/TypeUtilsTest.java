@@ -21,6 +21,17 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.lowerBoundFor;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.upperBoundFor;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.NULL;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -40,25 +51,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
-import org.apache.ignite.internal.sql.engine.exec.row.RowType;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
@@ -77,17 +83,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
-
-    private static final BaseTypeSpec BOOLEAN = RowSchemaTypes.nativeType(NativeTypes.BOOLEAN);
-    private static final BaseTypeSpec INT8 = RowSchemaTypes.nativeType(NativeTypes.INT8);
-    private static final BaseTypeSpec INT16 = RowSchemaTypes.nativeType(NativeTypes.INT16);
-    private static final BaseTypeSpec INT32 = RowSchemaTypes.nativeType(NativeTypes.INT32);
-    private static final BaseTypeSpec INT64 = RowSchemaTypes.nativeType(NativeTypes.INT64);
-    private static final BaseTypeSpec FLOAT = RowSchemaTypes.nativeType(NativeTypes.FLOAT);
-    private static final BaseTypeSpec DOUBLE = RowSchemaTypes.nativeType(NativeTypes.DOUBLE);
-    private static final BaseTypeSpec STRING = RowSchemaTypes.nativeType(NativeTypes.stringOf(65536));
-    private static final BaseTypeSpec BYTES = RowSchemaTypes.nativeType(NativeTypes.blobOf(65536));
-    private static final BaseTypeSpec UUID = RowSchemaTypes.nativeType(NativeTypes.UUID);
 
     @Test
     public void testValidateCharactersOverflowAndTrimIfPossible() {
@@ -244,8 +239,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     }
 
     private static Object[] buildTrimmedRow(RelDataType rowType, Object[] input) {
-        List<RelDataType> columnTypes = rowType.getFieldList().stream().map(RelDataTypeField::getType).collect(Collectors.toList());
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(columnTypes);
+        StructNativeType rowSchema = TypeUtils.convertStructuredType(rowType);
 
         Object[] newRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType,
                 ArrayRowHandler.INSTANCE,
@@ -387,11 +381,12 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         });
     }
 
-    /** Conversion to base types + their NULLABLE variants from rel types. */
+    /** Conversion to base types. */
     @TestFactory
     public Stream<DynamicTest> testSimpleTypesConversion() {
         List<RelToExecTestCase> testCaseList = new ArrayList<>();
 
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.NULL, NULL));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.BOOLEAN, BOOLEAN));
 
         testCaseList.add(new RelToExecTestCase(SqlTypeName.TINYINT, INT8));
@@ -402,66 +397,46 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         testCaseList.add(new RelToExecTestCase(SqlTypeName.REAL, FLOAT));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.DOUBLE, DOUBLE));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.DECIMAL, RowSchemaTypes.nativeType(NativeTypes.decimalOf(32767, 0))));
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.DECIMAL, 10, RowSchemaTypes.nativeType(NativeTypes.decimalOf(10, 0))));
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.DECIMAL, 10, 4, RowSchemaTypes.nativeType(NativeTypes.decimalOf(10, 4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.DECIMAL, NativeTypes.decimalOf(32767, 0)));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.DECIMAL, 10, NativeTypes.decimalOf(10, 0)));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.DECIMAL, 10, 4, NativeTypes.decimalOf(10, 4)));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.CHAR, RowSchemaTypes.nativeType(NativeTypes.stringOf(1))));
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.CHAR, 8, RowSchemaTypes.nativeType(NativeTypes.stringOf(8))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.CHAR, NativeTypes.stringOf(1)));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.CHAR, 8, NativeTypes.stringOf(8)));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.VARCHAR, STRING));
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.VARCHAR, 8, RowSchemaTypes.nativeType(NativeTypes.stringOf(8))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.VARCHAR, 8, NativeTypes.stringOf(8)));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.BINARY, RowSchemaTypes.nativeType(NativeTypes.blobOf(1))));
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.BINARY, 8, RowSchemaTypes.nativeType(NativeTypes.blobOf(8))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.BINARY, NativeTypes.blobOf(1)));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.BINARY, 8, NativeTypes.blobOf(8)));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.VARBINARY, BYTES));
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.VARBINARY, 8, RowSchemaTypes.nativeType(NativeTypes.blobOf(8))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.VARBINARY, 8, NativeTypes.blobOf(8)));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.DATE, RowSchemaTypes.nativeType(NativeTypes.DATE)));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.DATE, NativeTypes.DATE));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME, 4, RowSchemaTypes.nativeType(NativeTypes.time(4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME, 4, NativeTypes.time(4)));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE, 4, RowSchemaTypes.nativeType(NativeTypes.time(4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE, 4, NativeTypes.time(4)));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP, 4, RowSchemaTypes.nativeType(NativeTypes.datetime(4))));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP, 4, NativeTypes.datetime(4)));
 
         testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, 4,
-                RowSchemaTypes.nativeType(NativeTypes.timestamp(4))));
+                NativeTypes.timestamp(4)));
 
         for (SqlTypeName interval : SqlTypeName.YEAR_INTERVAL_TYPES) {
             SqlIntervalQualifier yearMonth = new SqlIntervalQualifier(interval.getStartUnit(), interval.getEndUnit(), SqlParserPos.ZERO);
             testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(yearMonth),
-                    RowSchemaTypes.nativeType(NativeTypes.PERIOD)));
+                    NativeTypes.PERIOD));
         }
 
         for (SqlTypeName interval : SqlTypeName.DAY_INTERVAL_TYPES) {
             SqlIntervalQualifier dayTime = new SqlIntervalQualifier(interval.getStartUnit(), interval.getEndUnit(), SqlParserPos.ZERO);
             testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(dayTime),
-                    RowSchemaTypes.nativeType(NativeTypes.DURATION)));
+                    NativeTypes.DURATION));
         }
 
         testCaseList.add(new RelToExecTestCase(SqlTypeName.UUID, UUID));
 
-        // Add test cases for nullable variants
-        for (RelToExecTestCase testCase : new ArrayList<>(testCaseList)) {
-            RelDataType nullableRelType = TYPE_FACTORY.createTypeWithNullability(testCase.input, true);
-            BaseTypeSpec typeSpec = (BaseTypeSpec) testCase.expected;
-
-            testCaseList.add(new RelToExecTestCase(nullableRelType, new BaseTypeSpec(typeSpec.nativeType(), true)));
-        }
-
         return testCaseList.stream().map(RelToExecTestCase::toTest);
-    }
-
-    /** NULL type conversion. */
-    @TestFactory
-    public Stream<DynamicTest> testNullTypeConversion() {
-        RelDataType nullType = TYPE_FACTORY.createSqlType(SqlTypeName.NULL);
-
-        return Stream.of(
-                        new RelToExecTestCase(nullType, RowSchemaTypes.NULL),
-                        new RelToExecTestCase(TYPE_FACTORY.createTypeWithNullability(nullType, true), RowSchemaTypes.NULL)
-                )
-                .map(RelToExecTestCase::toTest);
     }
 
     /** Conversion to row types from struct rel types. */
@@ -476,7 +451,10 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                 .add("f2", TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER), true))
                 .build();
 
-        RowType expected1 = new RowType(List.of(BOOLEAN, new BaseTypeSpec(INT32.nativeType(), true)), false);
+        StructNativeType expected1 = NativeTypes.rowBuilder()
+                .addField("f1", BOOLEAN, false)
+                .addField("f2", INT32, true)
+                .build();
 
         RelToExecTestCase simpleRow = new RelToExecTestCase(relType1, expected1);
         testCaseList.add(simpleRow);
@@ -494,11 +472,18 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                 )
                 .build();
 
-        RowType expected2 = new RowType(List.of(
-                BOOLEAN,
-                new BaseTypeSpec(INT32.nativeType(), true),
-                new RowType(List.of(new BaseTypeSpec(INT64.nativeType(), true), STRING), false)),
-                false);
+        StructNativeType expected2 = NativeTypes.rowBuilder()
+                .addField("f1", BOOLEAN, false)
+                .addField("f2", INT32, true)
+                .addField(
+                        "f3",
+                        NativeTypes.rowBuilder()
+                                .addField("f3_f1", INT64, true)
+                                .addField("f3_f2", STRING, false)
+                                .build(),
+                        false
+                )
+                .build();
 
         testCaseList.add(new RelToExecTestCase(relType2, expected2));
 
@@ -581,33 +566,32 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
         final RelDataType input;
 
-        final TypeSpec expected;
+        final NativeType expected;
 
-        RelToExecTestCase(SqlTypeName input, TypeSpec expected) {
+        RelToExecTestCase(SqlTypeName input, NativeType expected) {
             this.input = TYPE_FACTORY.createSqlType(input);
             this.expected = expected;
         }
 
-        RelToExecTestCase(SqlTypeName input, int precision, TypeSpec expected) {
+        RelToExecTestCase(SqlTypeName input, int precision, NativeType expected) {
             this.input = TYPE_FACTORY.createSqlType(input, precision);
             this.expected = expected;
         }
 
-        RelToExecTestCase(SqlTypeName input, int precision, int scale, TypeSpec expected) {
+        RelToExecTestCase(SqlTypeName input, int precision, int scale, NativeType expected) {
             this.input = TYPE_FACTORY.createSqlType(input, precision, scale);
             this.expected = expected;
         }
 
-        RelToExecTestCase(RelDataType input, TypeSpec expected) {
+        RelToExecTestCase(RelDataType input, NativeType expected) {
             this.input = input;
             this.expected = expected;
         }
 
         DynamicTest toTest() {
             return DynamicTest.dynamicTest((input.isNullable() ? "NULLABLE " : "") + input, () -> {
-                RowSchema schema = TypeUtils.rowSchemaFromRelTypes(List.of(input));
+                NativeType actualType = IgniteTypeFactory.relDataTypeToNative(input);
 
-                TypeSpec actualType = schema.fields().get(0);
                 assertEquals(expected, actualType, input.getFullTypeString());
             });
         }

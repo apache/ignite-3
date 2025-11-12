@@ -27,7 +27,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -38,11 +37,11 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.StructNativeType;
 
 /**
  * SortAggregateExecutionTest.
@@ -74,7 +73,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
-        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
@@ -125,8 +124,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         }
 
         // Map node
-        RowSchema reduceRowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(inRowType));
-        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(reduceRowSchema);
+        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(TypeUtils.convertStructuredType(inRowType));
 
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
@@ -175,7 +173,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 true
         );
 
-        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(

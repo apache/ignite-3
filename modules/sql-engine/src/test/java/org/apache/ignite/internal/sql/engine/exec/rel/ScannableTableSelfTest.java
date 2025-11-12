@@ -70,17 +70,17 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Named;
@@ -613,7 +613,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final RelDataType rowType;
 
-        final RowSchema rowSchema;
+        final StructNativeType rowSchema;
 
         final BitSet indexColumns = new BitSet();
 
@@ -623,17 +623,14 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         TestInput(int columnCount) {
             Builder builder = new Builder(TYPE_FACTORY);
-            RowSchema.Builder rowSchema = RowSchema.builder();
-
             for (int i = 1; i <= columnCount; i++) {
                 builder.add("C" + i, SqlTypeName.INTEGER);
-                rowSchema.addField(NativeTypes.INT32);
             }
 
             indexColumns.set(0);
 
             rowType = builder.build();
-            this.rowSchema = rowSchema.build();
+            this.rowSchema = TypeUtils.convertStructuredType(rowType);
         }
 
         void addRow(BinaryRow row) {

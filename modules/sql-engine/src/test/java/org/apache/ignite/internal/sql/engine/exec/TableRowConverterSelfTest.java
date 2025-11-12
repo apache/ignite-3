@@ -37,11 +37,11 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.jetbrains.annotations.Nullable;
@@ -77,9 +77,9 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 null
         );
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
+        StructNativeType rowSchema = NativeTypes.rowBuilder()
+                .addField("C1", NativeTypes.STRING, false)
+                .addField("C2", NativeTypes.INT32, false)
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
@@ -116,11 +116,11 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 null
         );
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.BOOLEAN)
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.INT32)
+        StructNativeType rowSchema = NativeTypes.rowBuilder()
+                .addField("C1", NativeTypes.STRING, false)
+                .addField("C2", NativeTypes.BOOLEAN, false)
+                .addField("C3", NativeTypes.INT32, false)
+                .addField("C4", NativeTypes.INT32, false)
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
@@ -166,9 +166,9 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 List.of(keyColumnNames[colocationColumn])
         );
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(schema.keyColumns().get(0).type())
-                .addField(schema.keyColumns().get(1).type())
+        StructNativeType rowSchema = NativeTypes.rowBuilder()
+                .addField("C1", schema.keyColumns().get(0).type(), false)
+                .addField("C2", schema.keyColumns().get(1).type(), false)
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
