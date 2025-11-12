@@ -30,6 +30,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -149,7 +150,9 @@ public class RocksDBLogStorage implements LogStorage, Describer {
     private LogEntryEncoder logEntryEncoder;
     private LogEntryDecoder logEntryDecoder;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(
+        IgniteThreadFactory.createWithFixedPrefix("rocks-db-log-storage-thread-", false, LOG)
+    );
 
     public RocksDBLogStorage(final String path, final RaftOptions raftOptions) {
         super();
