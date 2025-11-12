@@ -141,14 +141,13 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         IgniteSql sql = igniteSql();
 
         Statement stmt = sql.statementBuilder()
-                .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 1000))")
-                .pageSize(400)
+                .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 1))") // 2 rows
+                .pageSize(1) // 1 row
                 .build();
 
-        // TODO
-        for (int attempt = 0; attempt < 10; attempt++) {
-            var rs = sql.execute(null, stmt);
-            rs.close();
+        for (int attempt = 0; attempt < 1000; attempt++) {
+            var rs = sql.execute(null, stmt); // preloads 2-nd page in the background (see SyncResultSetAdapter.IteratorImpl constructor)
+            rs.close(); // Fails with "Failed to find resource"
         }
     }
 
