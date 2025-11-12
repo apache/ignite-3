@@ -530,7 +530,8 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testQueryAllColumnTypes() {
         String tableName = "all_column_types";
 
-        sql(format("CREATE TABLE {} (str VARCHAR PRIMARY KEY, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
+        CLIENT.sql().executeScript(format(
+                "CREATE TABLE {} (str VARCHAR PRIMARY KEY, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
                         + "floatCol REAL, doubleCol DOUBLE, decimalCol DECIMAL(6, 3), boolCol BOOLEAN, bytesCol VARBINARY, "
                         + "uuidCol UUID, dateCol DATE, timeCol TIME, datetimeCol TIMESTAMP, instantCol TIMESTAMP WITH LOCAL TIME ZONE)",
                 tableName));
@@ -542,13 +543,11 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         Instant instant = Instant.parse("2024-01-01T12:00:00Z");
         byte[] bytes = {1, 2, 3};
 
-        insertData(
-                tableName,
-                List.of("str", "byteCol", "shortCol", "intCol", "longCol", "floatCol", "doubleCol", "decimalCol",
-                        "boolCol", "bytesCol", "uuidCol", "dateCol", "timeCol", "datetimeCol", "instantCol"),
-                new Object[]{"test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.89"), true,
-                        bytes, uuid, localDate, localTime, localDateTime, instant}
-        );
+        CLIENT.sql().executeScript("INSERT INTO " + tableName + " (str, byteCol, shortCol, intCol, longCol, floatCol, doubleCol, "
+                + "decimalCol, boolCol, bytesCol, uuidCol, dateCol, timeCol, datetimeCol, instantCol) VALUES "
+                + "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.89"), true,
+                bytes, uuid, localDate, localTime, localDateTime, instant);
 
         Table table = CLIENT.tables().table(tableName);
 
