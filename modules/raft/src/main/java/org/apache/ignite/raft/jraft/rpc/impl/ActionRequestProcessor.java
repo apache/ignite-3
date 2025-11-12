@@ -145,23 +145,23 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private <AR extends ActionRequest> AR patchRequest(
             AR request,
             Command originalCommand,
-            Command newCommand,
+            Command patchedCommand,
             Marshaller commandsMarshaller
     ) {
-        if (originalCommand == newCommand) {
+        if (originalCommand == patchedCommand) {
             return request;
         }
 
         if (request instanceof WriteActionRequest) {
             return (AR) factory.writeActionRequest()
                 .groupId(request.groupId())
-                .command(commandsMarshaller.marshall(newCommand))
-                .deserializedCommand((WriteCommand)newCommand)
+                .command(commandsMarshaller.marshall(patchedCommand))
+                .deserializedCommand((WriteCommand)patchedCommand)
                 .build();
         } else {
             return (AR) factory.readActionRequest()
                 .groupId(request.groupId())
-                .command((ReadCommand)newCommand)
+                .command((ReadCommand)patchedCommand)
                 .readOnlySafe(((ReadActionRequest)request).readOnlySafe())
                 .build();
         }
