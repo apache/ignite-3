@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -58,6 +59,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -110,7 +113,7 @@ public class LocalFileConfigurationStorageTest {
     @BeforeEach
     void before() {
         LocalFileConfigurationModule module = new LocalFileConfigurationModule();
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, module);
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, new InMemoryVaultService(), module);
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
@@ -478,7 +481,7 @@ public class LocalFileConfigurationStorageTest {
         ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON).setAllowMissing(false);
         assertDoesNotThrow(() -> ConfigFactory.parseFile(configFile.toFile(), parseOptions));
 
-        LocalFileConfigurationStorage storage = new LocalFileConfigurationStorage(configFile, treeGenerator, null);
+        LocalFileConfigurationStorage storage = new LocalFileConfigurationStorage(configFile, treeGenerator, new InMemoryVaultService(), null);
 
         // And storage reads the file successfully
         assertDoesNotThrow(storage::readDataOnRecovery);
@@ -507,7 +510,7 @@ public class LocalFileConfigurationStorageTest {
 
         // And storage detects duplicates
         assertThrows(
-                ConfigurationValidationException.class,
+                ConfigurationChangeException.class,
                 changer::start,
                 "Validation did not pass for keys: [top.inner.boolVal, Duplicated key]"
         );
@@ -551,8 +554,29 @@ public class LocalFileConfigurationStorageTest {
 
         assertFalse(Files.isWritable(configFile));
 
-        var storage = new LocalFileConfigurationStorage(configFile, treeGenerator, new LocalFileConfigurationModule());
-        assertThat(storage.write(Map.of(), storage.localRevision().get() + 1), willCompleteSuccessfully());
+        var storage = new LocalFileConfigurationStorage(
+                configFile,
+                treeGenerator,
+                new InMemoryVaultService(),
+                new LocalFileConfigurationModule()
+        );
+        assertThat(storage.write(new WriteEntryImpl(Map.of(), storage.localRevision().get() + 1)), willCompleteSuccessfully());
+    }
+
+    @Test
+    void test() throws Exception {
+        Path configFile = tmpDir.resolve(CONFIG_NAME + "test");
+        File file = configFile.toFile();
+
+        assertFalse(Files.isWritable(configFile));
+
+        var storage = new LocalFileConfigurationStorage(
+                configFile,
+                treeGenerator,
+                new InMemoryVaultService(),
+                new LocalFileConfigurationModule()
+        );
+        assertThat(storage.write(new WriteEntryImpl(Map.of(), storage.localRevision().get() + 1)), willCompleteSuccessfully());
     }
 
     @Test
@@ -604,6 +628,10 @@ public class LocalFileConfigurationStorageTest {
 
         @NamedConfigValue
         public PolyNamedListConfigurationSchema polyNamedList;
+
+        @Immutable
+        @Value(hasDefault = true)
+        public int immutable = 0;
     }
 
 
