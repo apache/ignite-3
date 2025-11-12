@@ -200,7 +200,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     tcpConnectionEstablished = true;
 
-                    ClientTimeoutWorker.INSTANCE.registerClientChannel(this);
+                    ClientTimeoutWorker.INSTANCE.registerClientChannel(this, cfg.clientConfiguration());
 
                     sock = s;
 

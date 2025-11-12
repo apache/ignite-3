@@ -173,7 +173,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     ) {
        // no-op
     }
@@ -206,7 +207,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
+    public void onReconfigurationError(Status status, PeersAndLearners configuration, long term, long sequenceToken) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -229,14 +230,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.debug("Error occurred during rebalance [partId={}]", tablePartitionId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
-                scheduleChangePeersAndLearners(configuration, term);
+                scheduleChangePeersAndLearners(configuration, term, sequenceToken);
             } else {
                 LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", tablePartitionId,
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
                 // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-19087
-                scheduleChangePeersAndLearners(configuration, term);
+                scheduleChangePeersAndLearners(configuration, term, sequenceToken);
             }
         } finally {
             busyLock.leaveBusy();
@@ -259,7 +260,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param peersAndLearners Peers and learners.
      * @param term Current known leader term.
      */
-    private void scheduleChangePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
+    private void scheduleChangePeersAndLearners(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
         rebalanceScheduler.schedule(() -> {
             if (!busyLock.enterBusy()) {
                 return;
@@ -268,7 +269,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), tablePartitionId);
 
             try {
-                partitionMover.movePartition(peersAndLearners, term)
+                partitionMover.movePartition(peersAndLearners, term, sequenceToken)
                         .whenComplete((unused, ex) -> {
                             if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                                 String errorMessage = String.format("Failure while moving partition [partId=%s]", tablePartitionId);

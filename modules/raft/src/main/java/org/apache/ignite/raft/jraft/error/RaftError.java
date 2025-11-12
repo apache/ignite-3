@@ -211,7 +211,9 @@ public enum RaftError {
     ETIMEDOUT(1010),
 
     /**
-     * Data is stale
+     * Data is stale.
+     *
+     * This means stale proposed data and not stale server data.
      */
     ESTALE(1011),
 

@@ -630,11 +630,13 @@ public class Loza implements RaftManager {
      *
      * @param raftNodeId Raft node ID.
      * @param peersAndLearners New node configuration.
+     * @param sequenceToken Sequence token.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
-        LOG.warn("Reset peers for raft group {}, new configuration is {}", raftNodeId, peersAndLearners);
+    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
+        LOG.warn("Reset peers for raft group {}, new configuration is {}, sequence token {}",
+                raftNodeId, peersAndLearners, sequenceToken);
 
-        raftServer.resetPeers(raftNodeId, peersAndLearners);
+        raftServer.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
     }
 
     /**
