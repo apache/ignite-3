@@ -52,6 +52,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -526,7 +527,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testRecordViewAllColumnTypes() {
+    public void testQueryAllColumnTypes() {
         String tableName = "all_column_types";
 
         sql(format("CREATE TABLE {} (str VARCHAR PRIMARY KEY, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
@@ -561,6 +562,33 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             TestAllColumnTypes row = results.get(0);
 
             assertEquals("test", row.str);
+            assertEquals(Byte.valueOf((byte) 1), row.byteCol);
+            assertEquals(Short.valueOf((short) 2), row.shortCol);
+            assertEquals(Integer.valueOf(3), row.intCol);
+            assertEquals(Long.valueOf(4L), row.longCol);
+            assertEquals(Float.valueOf(5.0f), row.floatCol);
+            assertEquals(Double.valueOf(6.0d), row.doubleCol);
+            assertEquals(new BigDecimal("7.890"), row.decimalCol);
+            assertEquals(Boolean.TRUE, row.boolCol);
+            assertArrayEquals(bytes, row.bytesCol);
+            assertEquals(uuid, row.uuidCol);
+            assertEquals(localDate, row.dateCol);
+            assertEquals(localTime, row.timeCol);
+            assertEquals(localDateTime, row.datetimeCol);
+            assertEquals(Instant.parse("2024-01-01T12:00:00Z"), row.instantCol);
+        }
+
+        try (Cursor<Entry<String, TestAllColumnTypes>> cur = table.keyValueView(String.class, TestAllColumnTypes.class).query(null, null)) {
+            List<Entry<String, TestAllColumnTypes>> results = StreamSupport.stream(spliteratorUnknownSize(cur, Spliterator.ORDERED), false)
+                    .collect(toList());
+
+            assertThat(results, Matchers.hasSize(1));
+
+            Entry<String, TestAllColumnTypes> entry = results.get(0);
+            TestAllColumnTypes row = entry.getValue();
+
+            assertEquals("test", entry.getKey());
+            assertNull(row.str);
             assertEquals(Byte.valueOf((byte) 1), row.byteCol);
             assertEquals(Short.valueOf((short) 2), row.shortCol);
             assertEquals(Integer.valueOf(3), row.intCol);
