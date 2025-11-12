@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -54,5 +58,8 @@ public class ItCmgRaftLogCompatibilityTest extends CompatibilityTestBase {
         deleteIfExists(workDir.resolve(node0CmgPath));
 
         cluster.startEmbedded(nodesCount());
+
+        assertThat(unwrapIgniteImpl(cluster.node(0)).clusterManagementGroupManager().clusterState().thenAccept(Assertions::assertNotNull),
+                willCompleteSuccessfully());
     }
 }
