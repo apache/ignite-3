@@ -544,6 +544,28 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         }
     }
 
+    @Test
+    void testSyncFreeListMetadataOnCheckpointAfterAbortRebalance() {
+        int[] partitionIds = IntStream.range(0, 5)
+                .map(i -> PARTITION_ID + i)
+                .toArray();
+
+        PersistentPageMemoryMvPartitionStorage[] partitions = getOrCreateMvPartitions(partitionIds);
+
+        for (int i = 0; i < 10; i++) {
+            addWriteCommitted(partitions);
+
+            startRebalance(partitionIds);
+
+            addWriteCommitted(partitions);
+
+            runRace(
+                    () -> abortRebalance(partitionIds),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+        }
+    }
+
     private CompletableFuture<Void> forceCheckpointAsync() {
         return engine.checkpointManager().forceCheckpoint("test").futureFor(FINISHED);
     }

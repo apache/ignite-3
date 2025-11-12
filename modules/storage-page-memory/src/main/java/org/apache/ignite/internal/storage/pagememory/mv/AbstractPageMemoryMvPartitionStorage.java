@@ -827,6 +827,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
+     * Prepares the storage and its indexes for rebalance abortion.
+     *
+     * <p>Stops ongoing operations on the storage and its indexes.</p>
+     *
+     * @throws StorageRebalanceException If there was an error when starting the rebalance abortion.
+     */
+    public void startAbortRebalance() {
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        try {
+            closeAll(getResourcesToCloseOnCleanup());
+        } catch (Exception e) {
+            throw new StorageRebalanceException(
+                    IgniteStringFormatter.format("Error on start abort of rebalancing: [{}]", createStorageInfo()),
+                    e
+            );
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    /**
      * Completes the rebalancing of the storage and its indexes.
      *
      * @throws StorageRebalanceException If there is an error while completing the storage and its indexes rebalance.
