@@ -384,6 +384,8 @@ public class MetaStorageWriteHandler {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
             // Alter command by setting safe time based on the adjusted clock.
+            // We need to clone the original command, because we have no control over its lifecycle. For example, raft client might send it
+            // second time during the retry, this would lead to changing an already processing command in such a case, which is a data race.
             MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command.clone();
 
             clusterTime.adjustClock(writeCommand.initiatorTime());
