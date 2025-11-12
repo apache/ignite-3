@@ -141,7 +141,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         IgniteSql sql = igniteSql();
 
         Statement stmt = sql.statementBuilder()
-                .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 10))")
+                .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 1))")
                 .pageSize(1)
                 .build();
 
