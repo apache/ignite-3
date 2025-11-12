@@ -539,6 +539,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         LocalDate localDate = LocalDate.of(2024, 1, 1);
         LocalTime localTime = LocalTime.of(12, 15, 10);
         LocalDateTime localDateTime = LocalDateTime.of(2024, 1, 1, 12, 0);
+        Instant instant = Instant.parse("2024-01-01T12:00:00Z");
         byte[] bytes = {1, 2, 3};
 
         insertData(
@@ -546,9 +547,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                 List.of("str", "byteCol", "shortCol", "intCol", "longCol", "floatCol", "doubleCol", "decimalCol",
                         "boolCol", "bytesCol", "uuidCol", "dateCol", "timeCol", "datetimeCol", "instantCol"),
                 new Object[]{"test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.89"), true,
-                        bytes, uuid, localDate,
-                        localTime, localDateTime,
-                        Instant.parse("2024-01-01T12:00:00Z")}
+                        bytes, uuid, localDate, localTime, localDateTime, instant}
         );
 
         Table table = CLIENT.tables().table(tableName);
@@ -575,7 +574,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             assertEquals(localDate, row.dateCol);
             assertEquals(localTime, row.timeCol);
             assertEquals(localDateTime, row.datetimeCol);
-            assertEquals(Instant.parse("2024-01-01T12:00:00Z"), row.instantCol);
+            assertEquals(instant, row.instantCol);
         }
 
         try (Cursor<Entry<String, TestAllColumnTypes>> cur = table.keyValueView(String.class, TestAllColumnTypes.class).query(null, null)) {
@@ -602,7 +601,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             assertEquals(localDate, row.dateCol);
             assertEquals(localTime, row.timeCol);
             assertEquals(localDateTime, row.datetimeCol);
-            assertEquals(Instant.parse("2024-01-01T12:00:00Z"), row.instantCol);
+            assertEquals(instant, row.instantCol);
         }
     }
 
