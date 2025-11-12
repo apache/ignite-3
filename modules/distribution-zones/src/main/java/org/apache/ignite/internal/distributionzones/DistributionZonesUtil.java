@@ -95,10 +95,6 @@ public class DistributionZonesUtil {
     static final byte[] DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES =
             DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
 
-    /** Key prefix for zone's partition reset timer. */
-    private static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
-            + "partitionResetTimer.";
-
     /** Key prefix for zones' logical topology nodes and logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
 
@@ -233,16 +229,6 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zoneScaleDownTimerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX + zoneId);
-    }
-
-    /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX}.
-     *
-     * @param zoneId Zone id.
-     * @return ByteArray representation.
-     */
-    public static ByteArray zonePartitionResetTimerKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX + zoneId);
     }
 
     /**
