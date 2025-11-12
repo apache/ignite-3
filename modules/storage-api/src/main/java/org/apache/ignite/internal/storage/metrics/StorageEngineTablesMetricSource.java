@@ -23,6 +23,7 @@ import java.util.Set;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.table.QualifiedName;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metric source for storage engine metrics related to a specific table.
@@ -41,6 +42,15 @@ public class StorageEngineTablesMetricSource extends AbstractMetricSource<Storag
      */
     public StorageEngineTablesMetricSource(String engine, QualifiedName tableName) {
         super(sourceName(engine, tableName), "\"" + engine + "\" storage engine metrics for the specific table.", METRIC_GROUP);
+    }
+
+    public StorageEngineTablesMetricSource(String engine, QualifiedName tableName, @Nullable StorageEngineTablesMetricSource source) {
+        super(
+                sourceName(engine, tableName),
+                "\"" + engine + "\" storage engine metrics for the specific table.",
+                METRIC_GROUP,
+                Holder.copyFrom(source)
+        );
     }
 
     /**
@@ -76,6 +86,11 @@ public class StorageEngineTablesMetricSource extends AbstractMetricSource<Storag
 
         protected Holder(Set<Metric> extraMetrics) {
             metrics = List.copyOf(extraMetrics);
+        }
+
+        static @Nullable Holder copyFrom(@Nullable StorageEngineTablesMetricSource source) {
+            Holder holder = source == null ? null : source.holder();
+            return holder;
         }
 
         @Override
