@@ -529,18 +529,24 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testRecordViewAllColumnTypes() {
         String tableName = "all_column_types";
 
-        sql(format("CREATE TABLE {} (str VARCHAR, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
+        sql(format("CREATE TABLE {} (str VARCHAR PRIMARY KEY, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
                         + "floatCol REAL, doubleCol DOUBLE, decimalCol DECIMAL, boolCol BOOLEAN, bytesCol VARBINARY, "
-                        + "uuidCol UUID, dateCol DATE, timeCol TIME, datetimeCol DATETIME, instantCol TIMESTAMP, PRIMARY KEY (str))",
+                        + "uuidCol UUID, dateCol DATE, timeCol TIME, datetimeCol TIMESTAMP, instantCol TIMESTAMP WITH LOCAL TIME ZONE)",
                 tableName));
+
+        UUID uuid = UUID.randomUUID();
+        LocalDate localDate = LocalDate.of(2024, 1, 1);
+        LocalTime localTime = LocalTime.of(12, 15, 10);
+        LocalDateTime localDateTime = LocalDateTime.of(2024, 1, 1, 12, 0);
+        byte[] bytes = {1, 2, 3};
 
         insertData(
                 tableName,
                 List.of("str", "byteCol", "shortCol", "intCol", "longCol", "floatCol", "doubleCol", "decimalCol",
                         "boolCol", "bytesCol", "uuidCol", "dateCol", "timeCol", "datetimeCol", "instantCol"),
                 new Object[]{"test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.0"), true,
-                        new byte[]{1, 2, 3}, UUID.randomUUID(), LocalDate.of(2024, 1, 1),
-                        LocalTime.of(12, 0), LocalDateTime.of(2024, 1, 1, 12, 0),
+                        bytes, uuid, localDate,
+                        localTime, localDateTime,
                         Instant.parse("2024-01-01T12:00:00Z")}
         );
 
@@ -563,11 +569,11 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             assertEquals(Double.valueOf(6.0d), row.doubleCol);
             assertEquals(new BigDecimal("7.0"), row.decimalCol);
             assertEquals(Boolean.TRUE, row.boolCol);
-            assertArrayEquals(new byte[]{1, 2, 3}, row.bytesCol);
-            assertNotNull(row.uuidCol);
-            assertEquals(LocalDate.of(2024, 1, 1), row.dateCol);
-            assertEquals(LocalTime.of(12, 0), row.timeCol);
-            assertEquals(LocalDateTime.of(2024, 1, 1, 12, 0), row.datetimeCol);
+            assertArrayEquals(bytes, row.bytesCol);
+            assertEquals(uuid, row.uuidCol);
+            assertEquals(localDate, row.dateCol);
+            assertEquals(localTime, row.timeCol);
+            assertEquals(localDateTime, row.datetimeCol);
             assertEquals(Instant.parse("2024-01-01T12:00:00Z"), row.instantCol);
         }
     }
