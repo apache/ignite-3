@@ -362,6 +362,8 @@ public class NodeImpl implements Node, RaftServerService {
         List<PeerId> oldLearners = new ArrayList<>();
         Closure done;
         boolean async;
+        long sequenceToken;
+        long oldSequenceToken;
 
         ConfigurationCtx(final NodeImpl node) {
             super();
@@ -395,6 +397,8 @@ public class NodeImpl implements Node, RaftServerService {
             }
             this.oldPeers = oldConf.listPeers();
             this.newPeers = newConf.listPeers();
+            this.sequenceToken = newConf.getSequenceToken();
+            this.oldSequenceToken = oldConf.getSequenceToken();
             this.oldLearners = oldConf.listLearners();
             this.newLearners = newConf.listLearners();
             final Configuration adding = new Configuration();
@@ -480,6 +484,7 @@ public class NodeImpl implements Node, RaftServerService {
             // must be copied before clearing
             List<PeerId> resultPeerIds = List.copyOf(this.newPeers);
             List<PeerId> resultLearnerIds = List.copyOf(this.newLearners);
+            long resultToken = this.sequenceToken;
 
             clearPeers();
             clearLearners();
@@ -500,7 +505,7 @@ public class NodeImpl implements Node, RaftServerService {
 
                             listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds, id.getTerm(), id.getIndex());
                         } else {
-                            listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
+                            listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm(), resultToken);
                         }
                     }
 
@@ -533,6 +538,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(!isBusy(), "Flush when busy");
             this.newPeers = conf.listPeers();
             this.newLearners = conf.listLearners();
+            this.sequenceToken = conf.getSequenceToken();
             if (oldConf == null || oldConf.isEmpty()) {
                 this.stage = Stage.STAGE_STABLE;
                 this.oldPeers = this.newPeers;
@@ -551,18 +557,24 @@ public class NodeImpl implements Node, RaftServerService {
             switch (this.stage) {
                 case STAGE_CATCHING_UP:
                     LOG.info("Catch up phase to change peers was successfully finished "
-                    + "[node={}, from peers={} to peers={}, from learners={}, to learners={}].",
-                        this.node.getNodeId(), oldPeers, newPeers, oldLearners, newLearners);
-                    if (this.nchanges > 0) {
+                    + "[node={}, fromPeers={}, toPeers={}, fromLearners={}, toLearners={}, oldToken={}, newToken={}].",
+                        this.node.getNodeId(), oldPeers, newPeers, oldLearners, newLearners, oldSequenceToken, sequenceToken);
+                    if (this.nchanges > 0 || oldSequenceToken != sequenceToken) {
+                        assert oldSequenceToken <= sequenceToken
+                            : "old sequenceToken=" + oldSequenceToken + ", sequenceToken=" + sequenceToken;
                         this.stage = Stage.STAGE_JOINT;
-                        this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners),
-                            new Configuration(this.oldPeers), false);
+                        this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners, this.sequenceToken),
+                            new Configuration(this.oldPeers, this.oldSequenceToken), false);
                         return;
                     }
                     // fallthrough.
                 case STAGE_JOINT:
                     this.stage = Stage.STAGE_STABLE;
-                    this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners), null, false);
+                    this.node.unsafeApplyConfiguration(
+                            new Configuration(this.newPeers, this.newLearners, this.sequenceToken),
+                             null,
+                             false
+                        );
                     break;
                 case STAGE_STABLE:
                     final boolean shouldStepDown = !this.newPeers.contains(this.node.serverId);
@@ -941,6 +953,7 @@ public class NodeImpl implements Node, RaftServerService {
         entry.getId().setTerm(this.currTerm);
         entry.setPeers(opts.getGroupConf().listPeers());
         entry.setLearners(opts.getGroupConf().listLearners());
+        entry.setSequenceToken(opts.getGroupConf().getSequenceToken());
 
         final List<LogEntry> entries = new ArrayList<>();
         entries.add(entry);
@@ -1184,7 +1197,7 @@ public class NodeImpl implements Node, RaftServerService {
     private Configuration pseudoConfigToAbstainFromBecomingLeader() {
         List<PeerId> peersWithoutThisNode = List.of(new PeerId("not-me-" + this.serverId.getConsistentId()));
         List<PeerId> learnersWithThisNode = List.of(this.serverId);
-        return new Configuration(peersWithoutThisNode, learnersWithThisNode);
+        return new Configuration(peersWithoutThisNode, learnersWithThisNode, Configuration.NO_SEQUENCE_TOKEN);
     }
 
     private boolean initBallotBox() {
@@ -2609,6 +2622,9 @@ public class NodeImpl implements Node, RaftServerService {
             }
             logEntry.setOldLearners(peers);
         }
+
+        logEntry.setSequenceToken(entry.sequenceToken());
+        logEntry.setOldSequenceToken(entry.oldSequenceToken());
     }
 
     // called when leader receive greater term in AppendEntriesResponse
@@ -2837,7 +2853,8 @@ public class NodeImpl implements Node, RaftServerService {
                                 targetConfiguration.getId().getTerm(),
                                 targetConfiguration.getId().getIndex(),
                                 targetConfiguration.getConf().listPeers(),
-                                targetConfiguration.getConf().listLearners()
+                                targetConfiguration.getConf().listLearners(),
+                                targetConfiguration.getConf().getSequenceToken()
                         );
                     }
                     getOptions().getFsm().onLeaderStart(this.term);
@@ -2856,9 +2873,11 @@ public class NodeImpl implements Node, RaftServerService {
         entry.setId(new LogId(0, this.currTerm));
         entry.setPeers(newConf.listPeers());
         entry.setLearners(newConf.listLearners());
+        entry.setSequenceToken(newConf.getSequenceToken());
         if (oldConf != null) {
             entry.setOldPeers(oldConf.listPeers());
             entry.setOldLearners(oldConf.listLearners());
+            entry.setOldSequenceToken(oldConf.getSequenceToken());
         }
         final ConfigurationChangeDone configurationChangeDone = new ConfigurationChangeDone(this.currTerm, leaderStart);
         // Use the new_conf to deal the quorum of this very log
@@ -2906,7 +2925,9 @@ public class NodeImpl implements Node, RaftServerService {
             }
             return;
         }
-        // Return immediately when the new peers equals to the current configuration
+        // Return immediately when the new peers equals to the current configuration.
+        // Note: Configuration.equals() includes sequenceToken, so configurations with same peers/learners
+        // but different tokens are NOT equal and will proceed with the configuration change.
         if (this.conf.getConf().equals(newConf)) {
             Closure newDone = (Status status) -> {
                 // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.
@@ -3587,13 +3608,25 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void addPeer(final PeerId peer, final Closure done) {
+    public void addPeer(final PeerId peer, long sequenceToken, final Closure done) {
         Requires.requireNonNull(peer, "Null peer");
         this.writeLock.lock();
         try {
             Requires.requireTrue(!this.conf.getConf().contains(peer), "Peer already exists in current configuration");
 
-            final Configuration newConf = new Configuration(this.conf.getConf());
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: addPeer received stale configuration [node={}, peer={}, existingToken={}, newToken={}].",
+                    getNodeId(), peer, this.conf.getConf().getSequenceToken(), sequenceToken);
+
+                Status status = staleConfiguration(sequenceToken);
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
+            }
+
+            final Configuration newConf = new Configuration(this.conf.getConf(), sequenceToken);
             newConf.addPeer(peer);
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done);
         }
@@ -3603,13 +3636,24 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void removePeer(final PeerId peer, final Closure done) {
+    public void removePeer(final PeerId peer, long sequenceToken, final Closure done) {
         Requires.requireNonNull(peer, "Null peer");
         this.writeLock.lock();
         try {
             Requires.requireTrue(this.conf.getConf().contains(peer), "Peer not found in current configuration");
 
-            final Configuration newConf = new Configuration(this.conf.getConf());
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: removePeer received stale configuration [node={}, peer={}, existingToken={}, newToken={}].",
+                    getNodeId(), peer, this.conf.getConf().getSequenceToken(), sequenceToken);
+                Status status = staleConfiguration(sequenceToken);
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
+            }
+
+            final Configuration newConf = new Configuration(this.conf.getConf(), sequenceToken);
             newConf.removePeer(peer);
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done);
         }
@@ -3630,9 +3674,21 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} ignored the configuration because of mismatching terms. Current term is {}, but provided is {}.",
                     getNodeId(), currentTerm, term);
 
-                    Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
 
-                    return;
+                return;
+            }
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > newPeersAndLearners.getSequenceToken()) {
+                LOG.info("Node: changePeersAndLearners received stale configuration "
+                        + "[node={}, newConf={}, existingToken={}, newToken={}].",
+                    getNodeId(), newPeersAndLearners, this.conf.getConf().getSequenceToken(), newPeersAndLearners.getSequenceToken());
+                Status status = staleConfiguration(newPeersAndLearners.getSequenceToken());
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
             }
 
             logConfigurationChange(newPeersAndLearners);
@@ -3661,6 +3717,18 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > newConf.getSequenceToken()) {
+                LOG.info("Node: changePeersAndLearnersAsync received stale configuration "
+                        + "[node={}, newConf={}, existingToken={}, newToken={}].",
+                    getNodeId(), newConf, this.conf.getConf().getSequenceToken(), newConf.getSequenceToken());
+                Status status = staleConfiguration(newConf.getSequenceToken());
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
+            }
+
             logConfigurationChange(newConf);
 
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done, true);
@@ -3668,6 +3736,15 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.writeLock.unlock();
         }
+    }
+
+    private Status staleConfiguration(long newConfSeqToken) {
+        return new Status(
+                RaftError.ESTALE,
+                "Provided configuration is stale [current token=%d, request token=%d].",
+                this.conf.getConf().getSequenceToken(),
+                newConfSeqToken
+        );
     }
 
     @Override
@@ -3701,11 +3778,20 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} set peers need wait current conf changing.", getNodeId());
                 return new Status(RaftError.EBUSY, "Changing to another configuration");
             }
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > newPeers.getSequenceToken()) {
+                LOG.info("Node: resetPeers received stale configuration "
+                        + "[node={}, newConf={}, existingToken={}, newToken={}].",
+                    getNodeId(), newPeers, this.conf.getConf().getSequenceToken(), newPeers.getSequenceToken());
+                return staleConfiguration(newPeers.getSequenceToken());
+            }
+
             // check equal, maybe retry direct return
             if (this.conf.getConf().equals(newPeers)) {
                 return Status.OK();
             }
-            final Configuration newConf = new Configuration(newPeers);
+            final Configuration newConf = new Configuration(newPeers, newPeers.getSequenceToken());
             LOG.info("Node {} set peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
             this.conf.setConf(newConf);
             this.conf.getOldConf().reset();
@@ -3719,11 +3805,24 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void addLearners(final List<PeerId> learners, final Closure done) {
+    public void addLearners(final List<PeerId> learners, long sequenceToken, final Closure done) {
         checkPeers(learners);
         this.writeLock.lock();
         try {
-            final Configuration newConf = new Configuration(this.conf.getConf());
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: addLearners received stale configuration "
+                        + "[node={}, newConf={}, existingToken={}, newToken={}].",
+                    getNodeId(), learners, this.conf.getConf().getSequenceToken(), sequenceToken);
+
+                Status status = staleConfiguration(sequenceToken);
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
+            }
+
+            final Configuration newConf = new Configuration(this.conf.getConf(), sequenceToken);
             for (final PeerId peer : learners) {
                 newConf.addLearner(peer);
             }
@@ -3744,11 +3843,24 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void removeLearners(final List<PeerId> learners, final Closure done) {
+    public void removeLearners(final List<PeerId> learners, long sequenceToken, final Closure done) {
         checkPeers(learners);
         this.writeLock.lock();
         try {
-            final Configuration newConf = new Configuration(this.conf.getConf());
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: removeLearners received stale configuration "
+                        + "[node={}, newConf={}, existingToken={}, newToken={}].",
+                    getNodeId(), learners, this.conf.getConf().getSequenceToken(), sequenceToken);
+
+                Status status = staleConfiguration(sequenceToken);
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
+            }
+
+            final Configuration newConf = new Configuration(this.conf.getConf(), sequenceToken);
             for (final PeerId peer : learners) {
                 newConf.removeLearner(peer);
             }
@@ -3760,11 +3872,24 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void resetLearners(final List<PeerId> learners, final Closure done) {
+    public void resetLearners(final List<PeerId> learners, long sequenceToken, final Closure done) {
         checkPeers(learners);
         this.writeLock.lock();
         try {
-            final Configuration newConf = new Configuration(this.conf.getConf());
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26855 Consider replacing '>' with '>='.
+            if (this.conf.getConf().getSequenceToken() > sequenceToken) {
+                LOG.info("Node: resetLearners received stale configuration "
+                        + "[node={}, newConf={}, existingToken={}, newToken={}].",
+                    getNodeId(), learners, this.conf.getConf().getSequenceToken(), sequenceToken);
+
+                Status status = staleConfiguration(sequenceToken);
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
+            }
+
+            final Configuration newConf = new Configuration(this.conf.getConf(), sequenceToken);
             newConf.setLearners(new LinkedHashSet<>(learners));
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done);
         }
