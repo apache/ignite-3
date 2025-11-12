@@ -35,10 +35,6 @@ private:
     std::string value;
 };
 
-inline hidden operator ""_h(const char* v, std::size_t /*size*/) {
-    return hidden(v);
-}
-
 template<typename T>
 auto unhide(const T& value) {
     if constexpr (std::is_same_v<T, hidden>) {
