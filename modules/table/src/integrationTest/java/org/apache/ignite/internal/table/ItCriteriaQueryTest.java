@@ -49,6 +49,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -82,6 +83,7 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -520,6 +522,53 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     aMapWithSize(1),
                     hasEntry(tupleValue("id", is(1)), tupleValue(QUOTED_COLUMN_NAME, is("name1")))
             ));
+        }
+    }
+
+    @Test
+    public void testRecordViewAllColumnTypes() {
+        String tableName = "all_column_types";
+
+        sql(format("CREATE TABLE {} (str VARCHAR, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
+                        + "floatCol REAL, doubleCol DOUBLE, decimalCol DECIMAL, boolCol BOOLEAN, bytesCol VARBINARY, "
+                        + "uuidCol UUID, dateCol DATE, timeCol TIME, datetimeCol DATETIME, instantCol TIMESTAMP, PRIMARY KEY (str))",
+                tableName));
+
+        insertData(
+                tableName,
+                List.of("str", "byteCol", "shortCol", "intCol", "longCol", "floatCol", "doubleCol", "decimalCol",
+                        "boolCol", "bytesCol", "uuidCol", "dateCol", "timeCol", "datetimeCol", "instantCol"),
+                new Object[]{"test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.0"), true,
+                        new byte[]{1, 2, 3}, UUID.randomUUID(), LocalDate.of(2024, 1, 1),
+                        LocalTime.of(12, 0), LocalDateTime.of(2024, 1, 1, 12, 0),
+                        Instant.parse("2024-01-01T12:00:00Z")}
+        );
+
+        Table table = CLIENT.tables().table(tableName);
+
+        try (Cursor<TestAllColumnTypes> cur = table.recordView(TestAllColumnTypes.class).query(null, null)) {
+            List<TestAllColumnTypes> results = StreamSupport.stream(spliteratorUnknownSize(cur, Spliterator.ORDERED), false)
+                    .collect(toList());
+
+            assertThat(results, Matchers.hasSize(1));
+
+            TestAllColumnTypes row = results.get(0);
+
+            assertEquals("test", row.str);
+            assertEquals(Byte.valueOf((byte) 1), row.byteCol);
+            assertEquals(Short.valueOf((short) 2), row.shortCol);
+            assertEquals(Integer.valueOf(3), row.intCol);
+            assertEquals(Long.valueOf(4L), row.longCol);
+            assertEquals(Float.valueOf(5.0f), row.floatCol);
+            assertEquals(Double.valueOf(6.0d), row.doubleCol);
+            assertEquals(new BigDecimal("7.0"), row.decimalCol);
+            assertEquals(Boolean.TRUE, row.boolCol);
+            assertArrayEquals(new byte[]{1, 2, 3}, row.bytesCol);
+            assertNotNull(row.uuidCol);
+            assertEquals(LocalDate.of(2024, 1, 1), row.dateCol);
+            assertEquals(LocalTime.of(12, 0), row.timeCol);
+            assertEquals(LocalDateTime.of(2024, 1, 1, 12, 0), row.datetimeCol);
+            assertEquals(Instant.parse("2024-01-01T12:00:00Z"), row.instantCol);
         }
     }
 
