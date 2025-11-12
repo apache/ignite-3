@@ -236,6 +236,10 @@ class ApacheIgnite3Teamcity {
             "Migration Tools - E2E AI2",
             "migration-tools-e2e-adapter-tests"
         )
+        private val IGNITE__SPRING_BOOT_IGNITE_CLIENT_AUTOCONFIGURE = GradleModule(
+            "Spring Boot Client Autoconfigure",
+            "spring-boot-ignite-client-autoconfigure"
+        )
 
         /**
          * List of GradleModules with Unit tests
@@ -277,7 +281,8 @@ class ApacheIgnite3Teamcity {
             IGNITE__SYSTEM_DISASTER_RECOVERY,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
-            IGNITE__VAULT
+            IGNITE__VAULT,
+            IGNITE__SPRING_BOOT_IGNITE_CLIENT_AUTOCONFIGURE
         )
 
         private val integrationTestGradleModulesList: List<GradleModule> = listOf(
