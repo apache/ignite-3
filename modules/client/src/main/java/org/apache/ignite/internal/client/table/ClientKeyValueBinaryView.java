@@ -115,7 +115,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         List<Transaction> txns = new ArrayList<>();
 
-        // Implicit getAll transaction is executed as multiple independent explicit transactions, coordinated from a client.
+        // Implicit getAll transaction is executed as multiple independent transactions, coordinated from a client.
         IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<Map<Tuple, Tuple>>> clo =
                 (batch, provider, startImplicit) -> {
             Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);

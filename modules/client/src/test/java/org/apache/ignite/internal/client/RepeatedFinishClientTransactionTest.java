@@ -220,7 +220,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         tx.commit();
 
-        WriteContext wc = new WriteContext(emptyTracker());
+        WriteContext wc = new WriteContext(emptyTracker(), 1);
         wc.pm = pm;
 
         try {
@@ -251,7 +251,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         tx.rollback();
 
-        WriteContext wc = new WriteContext(emptyTracker());
+        WriteContext wc = new WriteContext(emptyTracker(), 1);
         wc.pm = pm;
 
         try {

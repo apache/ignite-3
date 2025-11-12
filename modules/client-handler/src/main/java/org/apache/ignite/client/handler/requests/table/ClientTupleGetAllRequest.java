@@ -20,18 +20,19 @@ package org.apache.ignite.client.handler.requests.table;
 import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuplesNullable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.HAS_PRIORITY;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.GET_ALL_FRAGMENT;
 
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -41,10 +42,13 @@ public class ClientTupleGetAllRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param tables    Ignite tables.
-     * @param resources Resource registry.
-     * @param txManager Transaction manager.
+     * @param in           Unpacker.
+     * @param tables       Ignite tables.
+     * @param resources    Resource registry.
+     * @param txManager    Transaction manager.
+     * @param clockService Clock service.
+     * @param tsTracker    Tracker.
+     * @param supportsPriority {@code True} if compatible with tx priority in request body.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -53,17 +57,13 @@ public class ClientTupleGetAllRequest {
             ClientResourceRegistry resources,
             TxManager txManager,
             ClockService clockService,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            boolean supportsPriority
     ) {
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(KEY_ONLY, GET_ALL_FRAGMENT))
-                .thenCompose(req -> {
-                    if (req.tx().implicit()) {
-                        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) req.tx();
-                        ReadWriteTransactionImpl[] holder = new ReadWriteTransactionImpl[1];
-                        holder[0] = tx;
-                        tx.setRestartedTxHolder(holder);
-                    }
+        EnumSet<RequestOptions> options = supportsPriority ? of(KEY_ONLY, HAS_PRIORITY) : of(KEY_ONLY);
 
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options)
+                .thenCompose(req -> {
                     return req.table().recordView().getAllAsync(req.tx(), req.tuples())
                             .thenApply(resTuples -> out -> {
                                 writeTxMeta(out, tsTracker, clockService, req);

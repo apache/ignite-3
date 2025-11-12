@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_PRIORITY;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
@@ -478,7 +479,7 @@ public class ClientTable implements Table {
                     @Nullable PartitionMapping pm = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
 
                     // Write context carries request execution details over async chain.
-                    WriteContext ctx = new WriteContext(ch.observableTimestamp());
+                    WriteContext ctx = new WriteContext(ch.observableTimestamp(), opCode);
 
                     CompletableFuture<@Nullable ClientTransaction> txStartFut = DirectTxUtils.ensureStarted(ch, tx, pm, ctx, ch -> {
                         // Enough to check only TX_PIGGYBACK flag - other tx flags are set if this flag is set.

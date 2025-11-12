@@ -433,13 +433,16 @@ public class ClientTableCommon {
                 // This is first mapping request, which piggybacks transaction creation.
                 boolean readOnly = in.unpackBoolean();
                 long timeoutMillis = in.unpackLong();
-                boolean implicit = in.unpackBoolean(); // TODO compat
 
                 var builder = InternalTxOptions.builder().timeoutMillis(timeoutMillis);
-                if (implicit && options.contains(RequestOptions.GET_ALL_FRAGMENT))  {
-                    // Currently we use low priority with get all fragments to avoid conflicts with subsequent RW transactions.
+                if (options.contains(RequestOptions.HAS_PRIORITY))  {
+                    boolean lowPriority = in.unpackBoolean();
+                    // Currently we use low priority with getAll fragments to avoid conflicts with subsequent explicit RW transactions,
+                    // because locks are released asynchronously. This makes client's getAll a subject for starvation.
                     // TODO ticket to avoid starvation.
-                    builder.priority(TxPriority.LOW);
+                    if (lowPriority) {
+                        builder.priority(TxPriority.LOW);
+                    }
                 }
 
                 InternalTxOptions txOptions = builder.build();

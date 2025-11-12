@@ -338,21 +338,4 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         // Thread safety is not needed.
         finishFuture = failedFuture(e);
     }
-
-    void disableAutoCommit() {
-        this.disabledAutocommit = true;
-    }
-
-    @Override
-    public boolean disabledAutocommit() {
-        return disabledAutocommit;
-    }
-
-    public void setRestartedTxHolder(ReadWriteTransactionImpl[] holder) {
-        this.holder = holder;
-    }
-
-    public ReadWriteTransactionImpl[] getRestartedTxHolder() {
-        return holder;
-    }
 }

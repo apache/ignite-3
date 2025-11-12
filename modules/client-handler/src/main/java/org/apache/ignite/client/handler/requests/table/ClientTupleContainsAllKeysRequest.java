@@ -20,10 +20,13 @@ package org.apache.ignite.client.handler.requests.table;
 import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.HAS_PRIORITY;
 
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -37,10 +40,13 @@ public class ClientTupleContainsAllKeysRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param tables    Ignite tables.
-     * @param resources Resource registry.
-     * @param txManager Transaction manager.
+     * @param in           Unpacker.
+     * @param tables       Ignite tables.
+     * @param resources    Resource registry.
+     * @param txManager    Transaction manager.
+     * @param clockService Clock service.
+     * @param tsTracker    Tracker.
+     * @param supportsPriority {@code True} if compatible with tx priority in request body.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -49,9 +55,12 @@ public class ClientTupleContainsAllKeysRequest {
             ClientResourceRegistry resources,
             TxManager txManager,
             ClockService clockService,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            boolean supportsPriority
     ) {
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(KEY_ONLY))
+        EnumSet<RequestOptions> options = supportsPriority ? of(KEY_ONLY, HAS_PRIORITY) : of(KEY_ONLY);
+
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options)
                 .thenCompose(req -> req.table().recordView().containsAllAsync(req.tx(), req.tuples())
                         .thenApply(containsAll -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);
