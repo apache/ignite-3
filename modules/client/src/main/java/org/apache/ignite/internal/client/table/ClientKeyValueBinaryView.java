@@ -228,7 +228,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                     tx0);
         };
 
-        return tbl.splitAndRun(keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash, txns);
     }
 
     /** {@inheritDoc} */

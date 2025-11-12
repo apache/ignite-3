@@ -79,6 +79,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -825,7 +826,7 @@ public class ClientTable implements Table {
                     }
 
                     CompletableFuture<R> resFut = new CompletableFuture<>();
-                    mapAndRetry(mapFun, initialValue, reducer, txns, mapped, new long[1], resFut);
+                    mapAndRetry(mapFun, initialValue, reducer, txns, mapped, new long[1], resFut, log);
                     return resFut;
                 });
     }
@@ -836,7 +837,8 @@ public class ClientTable implements Table {
             List<Transaction> txns,
             Map<Integer, List<E>> mapped,
             long[] startTs,
-            CompletableFuture<R> resFut
+            CompletableFuture<R> resFut,
+            IgniteLogger log
     ) {
         if (startTs[0] == 0) {
             startTs[0] = System.nanoTime();
@@ -849,6 +851,7 @@ public class ClientTable implements Table {
         }
 
         CompletableFutures.allOf(res).handle((ignored, err) -> {
+            List<CompletableFuture<Void>> waitCommitFuts = List.of();
             if (!txns.isEmpty()) {
                 boolean allRetryableExceptions = true;
 
@@ -861,7 +864,12 @@ public class ClientTable implements Table {
                             allRetryableExceptions = ExceptionUtils.matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR);
                         }
                     }
-                    txns.get(i).rollbackAsync();
+                    Transaction tx0 = txns.get(i);
+                    tx0.rollbackAsync().whenComplete((r, e) -> {
+                        if (e != null) {
+                            log.error("Failed to rollback a transactional batch: [tx=" + tx0 + ']', e);
+                        }
+                    });
                 }
 
                 if (err != null) {
@@ -871,7 +879,7 @@ public class ClientTable implements Table {
                         startTs[0] = nowRelative;
                         txns.clear(); // This collection is re-filled on next map attempt.
 
-                        mapAndRetry(mapFun, initialValue, reducer, txns, mapped, startTs, resFut);
+                        mapAndRetry(mapFun, initialValue, reducer, txns, mapped, startTs, resFut, log);
 
                         return null;
                     }
@@ -881,9 +889,7 @@ public class ClientTable implements Table {
                     return null;
                 }
 
-                for (Transaction txn : txns) {
-                    txn.commitAsync(); // TODO log error
-                }
+                waitCommitFuts = unlockFragments(txns, log);
             } else {
                 if (err != null) {
                     resFut.completeExceptionally(err);
@@ -898,7 +904,15 @@ public class ClientTable implements Table {
                 in = reducer.reduce(in, val.getNow(null));
             }
 
-            resFut.complete(in);
+            if (waitCommitFuts.isEmpty()) {
+                resFut.complete(in);
+            } else {
+                R finalIn = in;
+                CompletableFutures.allOf(waitCommitFuts).whenComplete((r, e) -> {
+                    // Ignore errors.
+                    resFut.complete(finalIn);
+                });
+            }
 
             return null;
         });
@@ -910,7 +924,9 @@ public class ClientTable implements Table {
             List<Transaction> txns,
             Map<Integer, Batch<E>> mapped,
             long[] startTs,
-            CompletableFuture<List<E>> resFut) {
+            CompletableFuture<List<E>> resFut,
+            IgniteLogger log
+    ) {
         if (startTs[0] == 0) {
             startTs[0] = System.nanoTime();
         }
@@ -925,6 +941,7 @@ public class ClientTable implements Table {
 
         CompletableFutures.allOf(res).handle((ignored, err) -> {
             // TODO remove copy paste
+            List<CompletableFuture<Void>> waitCommitFuts = List.of();
             if (!txns.isEmpty()) {
                 boolean allRetryableExceptions = true;
 
@@ -947,7 +964,7 @@ public class ClientTable implements Table {
                         startTs[0] = nowRelative;
                         txns.clear(); // This collection is re-filled on next map attempt.
 
-                        mapAndRetry(mapFun, keys, txns, mapped, startTs, resFut);
+                        mapAndRetry(mapFun, keys, txns, mapped, startTs, resFut, log);
 
                         return null;
                     }
@@ -957,9 +974,7 @@ public class ClientTable implements Table {
                     return null;
                 }
 
-                for (Transaction txn : txns) {
-                    txn.commitAsync(); // TODO log error
-                }
+                waitCommitFuts = unlockFragments(txns, log);
             } else {
                 if (err != null) {
                     resFut.completeExceptionally(err);
@@ -975,10 +990,37 @@ public class ClientTable implements Table {
                 reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
             }
 
-            resFut.complete(in);
+            if (waitCommitFuts.isEmpty()) {
+                resFut.complete(in);
+            } else {
+                CompletableFutures.allOf(waitCommitFuts).whenComplete((r, e) -> {
+                    // Ignore errors.
+                    resFut.complete(in);
+                });
+            }
 
             return null;
         });
+    }
+
+    @NotNull
+    private static List<CompletableFuture<Void>> unlockFragments(List<Transaction> txns, IgniteLogger log) {
+        List<CompletableFuture<Void>> waitCommitFuts = new ArrayList<>();
+
+        for (Transaction txn : txns) {
+            // ClientTransaction tx0 = (ClientTransaction) txn; TODO FIXME investigate error handling
+            ClientLazyTransaction tx0 = (ClientLazyTransaction) txn;
+            CompletableFuture<Void> fut = tx0.commitAsync().whenComplete((r, e) -> {
+                if (e != null) {
+                    log.error("Failed to commit a transactional batch: [tx=" + tx0 + ']', e);
+                }
+            });
+            // Enforce sync commit to avoid lock conflicts then working in compatibility mode.
+            if (!tx0.startedTx().channel().protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_PRIORITY)) {
+                waitCommitFuts.add(fut);
+            }
+        }
+        return waitCommitFuts;
     }
 
     <E> CompletableFuture<List<E>> splitAndRun(
@@ -1010,7 +1052,7 @@ public class ClientTable implements Table {
                     }
 
                     CompletableFuture<List<E>> resFut = new CompletableFuture<>();
-                    mapAndRetry(fun, keys, txns, mapped, new long[1], resFut);
+                    mapAndRetry(fun, keys, txns, mapped, new long[1], resFut, log);
                     return resFut;
                 });
     }
