@@ -113,9 +113,11 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
             if (listener instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+                    Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
 
-                    applyWrite(node, writeRequest, command, rpcCtx);
+                    writeRequest = patchRequest(writeRequest, command, patchedCommand, commandsMarshaller);
+
+                    applyWrite(node, writeRequest, (WriteCommand) patchedCommand, rpcCtx);
                 }
             } else {
                 applyWrite(node, writeRequest, command, rpcCtx);
@@ -126,7 +128,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             if (listener instanceof BeforeApplyHandler) {
                 ReadCommand command = readRequest.command();
 
-                readRequest = patchCommandBeforeApply(readRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+                Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
+
+                readRequest = patchRequest(readRequest, command, patchedCommand, commandsMarshaller);
             }
 
             applyRead(node, readRequest, rpcCtx);
@@ -134,18 +138,17 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
-     * This method calls {@link BeforeApplyHandler#onBeforeApply(Command)} and returns action request with a serialized version of the
-     * updated command, if it has been updated. Otherwise, the method returns the original {@code request} instance. The reason for such
-     * behavior is the fact that we use {@code byte[]} in action requests, thus modified command should be serialized twice.
+     * This method returns action request with a serialized version of the updated command, if it has been updated. Otherwise, the method
+     * returns the original {@code request} instance. The reason for such behavior is the fact that we use {@code byte[]} in action
+     * requests, thus modified command should be serialized twice.
      */
-    private <AR extends ActionRequest> AR patchCommandBeforeApply(
+    private <AR extends ActionRequest> AR patchRequest(
             AR request,
-            BeforeApplyHandler beforeApplyHandler,
-            Command command,
+            Command originalCommand,
+            Command newCommand,
             Marshaller commandsMarshaller
     ) {
-        Command newCommand = beforeApplyHandler.onBeforeApply(command);
-        if (command == newCommand) {
+        if (originalCommand == newCommand) {
             return request;
         }
 
