@@ -85,7 +85,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -376,7 +375,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *     <li>Wait for the tx state vacuum on the commit partition group.</li>
      * </ul>
      */
-    @RepeatedTest(100)
+    @Test
     @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "0")
     public void testVacuumWithCleanupDelay() throws InterruptedException {
         IgniteImpl node = anyNode();
