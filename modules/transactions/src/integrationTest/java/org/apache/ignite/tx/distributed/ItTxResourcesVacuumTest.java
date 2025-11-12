@@ -85,6 +85,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -364,7 +365,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *
      * <ul>
      *     <li>Start a transaction;</li>
-     *     <li>Generate some tuple and define on which nodes it would be hosted;</li>
+     *     <li>Take some tuple and define on which nodes it would be hosted;</li>
      *     <li>Choose one more node that doesn't host the first tuple and choose a tuple that will be sent on this node as primary;</li>
      *     <li>Upsert both tuples within a transaction;</li>
      *     <li>Block {@link TxCleanupMessage}-s from commit partition primary;</li>
@@ -374,7 +375,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *     <li>Wait for the tx state vacuum on the commit partition group.</li>
      * </ul>
      */
-    @Test
+    @RepeatedTest(100)
     @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "0")
     public void testVacuumWithCleanupDelay() throws InterruptedException {
         IgniteImpl node = anyNode();
@@ -387,8 +388,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         log.info("Test: Loading the data [tx={}].", txId);
 
-        // Generate some tuple and define on which nodes it would be hosted.
-        Tuple tuple0 = findTupleToBeHostedOnNode(node, TABLE_NAME, tx, INITIAL_TUPLE, NEXT_TUPLE, true);
+        // Take some tuple and define on which nodes it would be hosted.
+        Tuple tuple0 = INITIAL_TUPLE;
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 
