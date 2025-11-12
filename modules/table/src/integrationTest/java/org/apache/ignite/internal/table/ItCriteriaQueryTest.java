@@ -530,7 +530,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         String tableName = "all_column_types";
 
         sql(format("CREATE TABLE {} (str VARCHAR PRIMARY KEY, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
-                        + "floatCol REAL, doubleCol DOUBLE, decimalCol DECIMAL, boolCol BOOLEAN, bytesCol VARBINARY, "
+                        + "floatCol REAL, doubleCol DOUBLE, decimalCol DECIMAL(6, 3), boolCol BOOLEAN, bytesCol VARBINARY, "
                         + "uuidCol UUID, dateCol DATE, timeCol TIME, datetimeCol TIMESTAMP, instantCol TIMESTAMP WITH LOCAL TIME ZONE)",
                 tableName));
 
@@ -544,7 +544,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                 tableName,
                 List.of("str", "byteCol", "shortCol", "intCol", "longCol", "floatCol", "doubleCol", "decimalCol",
                         "boolCol", "bytesCol", "uuidCol", "dateCol", "timeCol", "datetimeCol", "instantCol"),
-                new Object[]{"test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.0"), true,
+                new Object[]{"test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.89"), true,
                         bytes, uuid, localDate,
                         localTime, localDateTime,
                         Instant.parse("2024-01-01T12:00:00Z")}
@@ -567,7 +567,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             assertEquals(Long.valueOf(4L), row.longCol);
             assertEquals(Float.valueOf(5.0f), row.floatCol);
             assertEquals(Double.valueOf(6.0d), row.doubleCol);
-            assertEquals(new BigDecimal("7.0"), row.decimalCol);
+            assertEquals(new BigDecimal("7.890"), row.decimalCol);
             assertEquals(Boolean.TRUE, row.boolCol);
             assertArrayEquals(bytes, row.bytesCol);
             assertEquals(uuid, row.uuidCol);
