@@ -20,9 +20,11 @@ package org.apache.ignite.internal.schema.marshaller;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertView;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertViewThrows;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Named.named;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -32,7 +34,6 @@ import org.apache.ignite.internal.schema.marshaller.Records.ComponentsReordered;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsWide;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsWrongTypes;
 import org.apache.ignite.internal.schema.marshaller.Records.NotAnnotatedNotMapped;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
@@ -66,8 +67,10 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
 
         sql(format(Records.SQL_PATTERN, TBL));
 
-        TABLE_EMBEDDED = CLUSTER.aliveNode().tables().table(TBL);
-        TABLE_CLIENT = CLIENT.tables().table(TBL);
+        await().ignoreExceptions().untilAsserted(() -> {
+            TABLE_EMBEDDED = Objects.requireNonNull(CLUSTER.aliveNode().tables().table(TBL));
+            TABLE_CLIENT = Objects.requireNonNull(CLIENT.tables().table(TBL));
+        });
     }
 
     @AfterEach
@@ -76,8 +79,8 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
     }
 
     @AfterAll
-    static void afterAll() throws Exception {
-        IgniteUtils.closeAll(CLIENT);
+    static void afterAll() {
+        CLIENT.close();
     }
 
     @ParameterizedTest

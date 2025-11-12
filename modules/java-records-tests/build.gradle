@@ -28,6 +28,7 @@ java {
 }
 
 dependencies {
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-core')
@@ -43,6 +44,8 @@ dependencies {
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-schema')
+
+    testFixturesImplementation testFixtures(project(':ignite-core'))
 
     testImplementation project(':ignite-api')
     testImplementation testFixtures(project(':java-records-tests'))

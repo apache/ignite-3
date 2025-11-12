@@ -19,14 +19,13 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.marshaller.Records.schema;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.same;
 
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -59,8 +58,7 @@ class AssertMarshaller {
     }
 
     static <T, E extends Throwable> void assertMarshallerThrows(Class<E> expectedType, String msgSubstring, T expected) {
-        var ex = assertThrows(expectedType, () -> assertMarshaller(expected));
-        assertThat(ex.getMessage(), containsString(msgSubstring));
+        IgniteTestUtils.assertThrows(expectedType, () -> assertMarshaller(expected), msgSubstring);
     }
 
     static <K, V, E extends Throwable> void assertMarshallerThrows(
@@ -69,8 +67,7 @@ class AssertMarshaller {
             K expectedKey,
             V expectedVal
     ) {
-        var ex = assertThrows(expectedType, () -> assertMarshaller(expectedKey, expectedVal));
-        assertThat(ex.getMessage(), containsString(msgSubstring));
+        IgniteTestUtils.assertThrows(expectedType, () -> assertMarshaller(expectedKey, expectedVal), msgSubstring);
     }
 
 
@@ -94,8 +91,7 @@ class AssertMarshaller {
     }
 
     static <T, E extends Throwable> void assertViewThrows(Class<E> expectedType, String msgSubstring, Table table, T expected) {
-        var ex = assertThrows(expectedType, () -> assertView(table, expected));
-        assertThat(ex.getMessage(), containsString(msgSubstring));
+        IgniteTestUtils.assertThrows(expectedType, () -> assertView(table, expected), msgSubstring);
     }
 
     static <K, V, E extends Throwable> void assertViewThrows(
@@ -105,7 +101,6 @@ class AssertMarshaller {
             K expectedKey,
             V expectedVal
     ) {
-        var ex = assertThrows(expectedType, () -> assertView(table, expectedKey, expectedVal));
-        assertThat(ex.getMessage(), containsString(msgSubstring));
+        IgniteTestUtils.assertThrows(expectedType, () -> assertView(table, expectedKey, expectedVal), msgSubstring);
     }
 }
