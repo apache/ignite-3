@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.app.IgniteServerImpl;
+import org.apache.ignite.internal.app.config.NodeConfigFactory;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -78,6 +79,12 @@ public interface IgniteServer {
         return server;
     }
 
+    static IgniteServer start(String nodeName, NodeConfig nodeConfig, Path workDir) {
+        IgniteServer server = builder(nodeName, nodeConfig, workDir).build();
+        server.start();
+        return server;
+    }
+
     /**
      * Starts the node.
      *
@@ -97,7 +104,11 @@ public interface IgniteServer {
      * @return Node instance.
      */
     static Builder builder(String nodeName, Path configPath, Path workDir) {
-        return new Builder(nodeName, configPath, workDir);
+        return new Builder(nodeName, NodeConfigFactory.fromFile(configPath), workDir);
+    }
+
+    static Builder builder(String nodeName, NodeConfig nodeConfig, Path workDir) {
+        return new Builder(nodeName, nodeConfig, workDir);
     }
 
     /**
@@ -186,15 +197,15 @@ public interface IgniteServer {
      */
     final class Builder {
         private final String nodeName;
-        private final Path configPath;
+        private final NodeConfig nodeConfig;
         private final Path workDir;
 
         private @Nullable ClassLoader serviceLoaderClassLoader;
         private Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
 
-        private Builder(String nodeName, Path configPath, Path workDir) {
+        private Builder(String nodeName, NodeConfig nodeConfig, Path workDir) {
             this.nodeName = nodeName;
-            this.configPath = configPath;
+            this.nodeConfig = nodeConfig;
             this.workDir = workDir;
         }
 
@@ -229,7 +240,7 @@ public interface IgniteServer {
         public IgniteServer build() {
             return new IgniteServerImpl(
                     nodeName,
-                    configPath,
+                    nodeConfig,
                     workDir,
                     serviceLoaderClassLoader,
                     asyncContinuationExecutor
