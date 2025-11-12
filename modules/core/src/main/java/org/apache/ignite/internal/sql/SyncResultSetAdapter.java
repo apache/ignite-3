@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -107,39 +106,31 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
     private static class IteratorImpl<T> implements Iterator<T> {
         private AsyncResultSet<T> curRes;
 
-        private CompletionStage<? extends AsyncResultSet<T>> nextPageStage;
-
         private Iterator<T> curPage;
 
         IteratorImpl(AsyncResultSet<T> ars) {
             curRes = ars;
-
-            advance();
         }
 
         @Override
         public boolean hasNext() {
             if (curPage.hasNext()) {
                 return true;
-            } else if (nextPageStage != null) {
-                curRes = sync(nextPageStage.toCompletableFuture());
+            }
 
-                advance();
-
-                return curPage.hasNext();
-            } else {
+            if (curRes == null || !curRes.hasMorePages()) {
                 return false;
             }
-        }
 
-        private void advance() {
+            curRes = sync(curRes.fetchNextPage().toCompletableFuture());
+
+            if (curRes == null) {
+                return false;
+            }
+
             curPage = curRes.currentPage().iterator();
 
-            if (curRes.hasMorePages()) {
-                nextPageStage = curRes.fetchNextPage();
-            } else {
-                nextPageStage = null;
-            }
+            return curPage.hasNext();
         }
 
         @Override
