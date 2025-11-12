@@ -783,7 +783,7 @@ public class PersistentPageMemory implements PageMemory {
                     lockedPageAbsPtr = absPtr;
                 }
             } else if (relPtr == OUTDATED_REL_PTR) {
-                // assert pageIndex(pageId) == 0 : fullId;
+                assert pageIndex(pageId) == 0 : fullId;
 
                 relPtr = seg.refreshOutdatedPage(grpId, pageId, false);
 
