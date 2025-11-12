@@ -543,6 +543,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return new RaftGroupConfiguration(
                 meta.cfgIndex(),
                 meta.cfgTerm(),
+                meta.sequenceToken(),
+                meta.oldSequenceToken(),
                 meta.peersList(),
                 meta.learnersList(),
                 meta.oldPeersList(),
