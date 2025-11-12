@@ -46,8 +46,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -136,7 +136,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         FailureManager failureManager = mock(FailureManager.class);
         when(failureManager.process(any())).thenThrow(new AssertionError("Unexpected error"));
 
-        fileIoFactory = spy(new AsyncFileIoFactory());
+        fileIoFactory = spy(new RandomAccessFileIoFactory());
         pageStoreManager = new FilePageStoreManager("test", workDir, fileIoFactory, PAGE_SIZE, failureManager);
 
         List<DataRegion<PersistentPageMemory>> dataRegions = new CopyOnWriteArrayList<>();
