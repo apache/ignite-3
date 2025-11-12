@@ -33,13 +33,15 @@ public interface JraftGroupEventsListener {
      * @param configurationIndex Index on which the current configuration was applied.
      * @param peers Collection of peers at the moment of leader election.
      * @param learners Collection of learners at the moment of leader election.
+     * @param sequenceToken Sequence token of this change.
      */
     void onLeaderElected(
             long term,
             long configurationTerm,
             long configurationIndex,
             Collection<PeerId> peers,
-            Collection<PeerId> learners
+            Collection<PeerId> learners,
+            long sequenceToken
     );
 
     /**
@@ -59,6 +61,7 @@ public interface JraftGroupEventsListener {
      * @param peers Collection of peers, which was as a target of reconfiguration.
      * @param learners Collection of learners, which was as a target of reconfiguration.
      * @param term Raft term of the current leader.
+     * @param sequenceToken Sequence token of this change.
      */
-    void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term);
+    void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term, long sequenceToken);
 }

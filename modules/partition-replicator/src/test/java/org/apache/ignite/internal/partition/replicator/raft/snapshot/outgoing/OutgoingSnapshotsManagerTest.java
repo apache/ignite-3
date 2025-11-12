@@ -71,7 +71,12 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     void emptyOngoingSnapshotsIfNoSnapshotWasRegistered() {
         PartitionSnapshots snapshots = manager.partitionSnapshots(partitionKey);
 
-        assertThat(snapshots.ongoingSnapshots(), is(empty()));
+        snapshots.acquireReadLock();
+        try {
+            assertThat(snapshots.ongoingSnapshots(), is(empty()));
+        } finally {
+            snapshots.releaseReadLock();
+        }
     }
 
     @Test
@@ -115,6 +120,13 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
 
         manager.cleanupOutgoingSnapshots(partitionKey);
 
-        assertThat(manager.partitionSnapshots(partitionKey).ongoingSnapshots(), is(empty()));
+        PartitionSnapshots snapshots = manager.partitionSnapshots(partitionKey);
+
+        snapshots.acquireReadLock();
+        try {
+            assertThat(snapshots.ongoingSnapshots(), is(empty()));
+        } finally {
+            snapshots.releaseReadLock();
+        }
     }
 }
