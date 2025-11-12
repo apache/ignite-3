@@ -307,20 +307,22 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
 
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
-        return busy(() -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage ->
-                clearStorageAndUpdateDataStructures(
-                        mvPartitionStorage,
-                        () -> {
-                            mvPartitionStorage.runConsistently(locker -> {
-                                mvPartitionStorage.lastAppliedOnRebalance(0, 0);
+        return busy(() -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage -> {
+            mvPartitionStorage.startAbortRebalance();
 
-                                return null;
-                            });
+            return clearStorageAndUpdateDataStructures(
+                    mvPartitionStorage,
+                    () -> {
+                        mvPartitionStorage.runConsistently(locker -> {
+                            mvPartitionStorage.lastAppliedOnRebalance(0, 0);
 
-                            mvPartitionStorage.completeRebalance();
-                        }
-                )
-        ));
+                            return null;
+                        });
+
+                        mvPartitionStorage.completeRebalance();
+                    }
+            );
+        }));
     }
 
     @Override
