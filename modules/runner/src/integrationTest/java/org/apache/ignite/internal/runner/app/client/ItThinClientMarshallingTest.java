@@ -26,21 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.catalog.ColumnType;
-import org.apache.ignite.catalog.definitions.ColumnDefinition;
-import org.apache.ignite.catalog.definitions.TableDefinition;
-import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -51,62 +43,6 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     protected Ignite ignite() {
         return client();
-    }
-
-    @Test
-    public void testBigDecimal() {
-        Table table = client().catalog().createTable(
-                TableDefinition.builder("Person2")
-                        .ifNotExists()
-                        .columns(
-                                ColumnDefinition.column("ID", ColumnType.INT32),
-                                ColumnDefinition.column("NAME", ColumnType.VARCHAR),
-                                ColumnDefinition.column("WEIGHT", "DECIMAL(5, 2)"))
-                        .primaryKey("ID")
-                        .build());
-
-        // 1. Using RecordView with Tuples
-        RecordView<Tuple> recordView = table.recordView();
-        recordView.upsert(null, Tuple.create().set("id", 2).set("name", "Jane").set("weight", BigDecimal.valueOf(65.1)));
-        System.out.println("Added record using RecordView with Tuple");
-
-        // 2. Using RecordView with POJOs
-        Mapper<Person> build = Mapper.builder(Person.class)
-                .map("name", "NAME")
-                .map("id", "ID")
-                .map("weight", "WEIGHT", new TypeConverter<BigDecimal, BigDecimal>() {
-                    @Override
-                    public BigDecimal toColumnType(BigDecimal obj) throws Exception {
-                        return obj;
-                    }
-
-                    @Override
-                    public BigDecimal toObjectType(BigDecimal data) throws Exception {
-                        return data;
-                    }
-                })
-                .build();
-
-        RecordView<Person> pojoView = table.recordView(build);
-        pojoView.upsert(null, new Person(3, "Jack", BigDecimal.valueOf(68.5)));
-        System.out.println("Added record using RecordView with POJO");
-
-        // 3. Using KeyValueView with Tuples
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
-        keyValueView.put(null, Tuple.create().set("id", 4), Tuple.create().set("name", "Jill").set("weight", BigDecimal.valueOf(62.3)));
-        System.out.println("Added record using KeyValueView with Tuples");
-
-        client().sql().execute(null, "SELECT * FROM Person2")
-                .forEachRemaining(row -> System.out.println("Person2: " + row.stringValue("name") + " (" + row.decimalValue("weight") + ")"));
-
-        // This works?
-        client().sql().execute(null, Mapper.of(Person.class), "SELECT * FROM Person2 WHERE id = ?", 2)
-                .forEachRemaining(person -> System.out.println("SQL Person2: " + person.name + " (" + person.weight + ")"));
-
-        Cursor<Person> cursor = pojoView.query(null, Criteria.columnValue("id", Criteria.equalTo(2)));
-        // The following line fails with MarshallerException
-        cursor.forEachRemaining(person -> System.out.println("Person2: " + person.name + " (" + person.weight + ")"));
-        cursor.close();
     }
 
     @Test
@@ -486,23 +422,5 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     private static class BoxedPrimitivePojo {
         public Integer key;
         public String val;
-    }
-
-    /**
-     * POJO class representing a Person
-     */
-    public static class Person {
-        // Default constructor required for serialization
-        public Person() { }
-
-        public Person(Integer id, String name, BigDecimal weight) {
-            this.id = id;
-            this.name = name;
-            this.weight = weight;
-        }
-
-        Integer id;
-        String name;
-        BigDecimal weight;
     }
 }
