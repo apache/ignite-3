@@ -386,6 +386,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             req.packInt(opCode);
             req.packLong(id);
 
+            if (opCode == ClientOp.TUPLE_UPSERT_ALL) {
+                req.packLong(coarseCurrentTimeMillis());
+            }
+
             if (payloadWriter != null) {
                 payloadWriter.accept(payloadCh);
             }
