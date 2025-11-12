@@ -201,9 +201,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         }
 
         if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx)) {
-            String ctxId = format(" [failureCtxId={}]", failureCtx.id());
+            String ctxIdMsg = format(" [failureCtxId={}]", failureCtx.id());
 
-            ThreadUtils.dumpThreads(LOG, ctxId, !handler.ignoredFailureTypes().contains(failureCtx.type()));
+            ThreadUtils.dumpThreads(LOG, ctxIdMsg, !handler.ignoredFailureTypes().contains(failureCtx.type()));
         }
 
         boolean invalidated = handler.onFailure(failureCtx);

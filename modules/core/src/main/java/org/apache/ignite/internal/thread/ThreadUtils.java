@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class contains utility methods for working with threads.
@@ -61,7 +62,7 @@ public class ThreadUtils {
      * @param isErrorLevel {@code true} if thread dump must be printed with ERROR logging level,
      *      {@code false} if thread dump must be printed with WARN logging level.
      */
-    public static void dumpThreads(IgniteLogger log, String message, boolean isErrorLevel) {
+    public static void dumpThreads(IgniteLogger log, @Nullable String message, boolean isErrorLevel) {
         ThreadMXBean mxBean = ManagementFactory.getThreadMXBean();
 
         Set<Long> deadlockedThreadsIds = getDeadlockedThreadIds(mxBean);

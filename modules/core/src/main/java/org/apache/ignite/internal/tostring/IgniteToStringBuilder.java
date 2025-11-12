@@ -83,7 +83,7 @@ public class IgniteToStringBuilder {
     private static final Object[] EMPTY_ARRAY = new Object[0];
 
     /** Max collection elements to be written. */
-    private static final int COLLECTION_LIMIT = 100;
+    public static final int COLLECTION_LIMIT = 100;
 
     /** {@link #sensitiveDataPolicy} var handle. */
     private static final VarHandle SENSITIVE_DATA_POLICY;
