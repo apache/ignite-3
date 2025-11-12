@@ -407,8 +407,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @CartesianTest
     public void colocationTwoColumnsInsert(
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
     ) {
         init(t0, t1);
 
@@ -432,8 +432,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @CartesianTest
     public void colocationTwoColumnsInsertAll(
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
     ) {
         int keysCount = t0 == ColumnType.BOOLEAN && t0 == t1 ? 2 : KEYS;
 

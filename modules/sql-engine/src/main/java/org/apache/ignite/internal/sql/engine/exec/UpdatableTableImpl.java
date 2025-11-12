@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.rowType;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
@@ -35,7 +35,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Static;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -54,7 +53,6 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidatorErrorMessages;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -63,6 +61,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.RowBatch;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -97,7 +96,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final TableRowConverter rowConverter;
 
-    private RowSchema rowSchema;
+    private StructNativeType rowSchema;
 
     /** Constructor. */
     UpdatableTableImpl(
@@ -137,7 +136,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
-        Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
+        Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
 
@@ -228,7 +227,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         validateNotNullConstraint(ectx.rowHandler(), row);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
-        Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
+        Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
         RowT validatedRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
 
@@ -259,7 +258,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
-        Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
+        Supplier<StructNativeType> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
 
@@ -387,8 +386,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
                     RowHandler<RowT> handler = ectx.rowHandler();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType(desc, typeFactory)));
-                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
+                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(convertStructuredType(rowType(desc, typeFactory)));
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
 
@@ -419,7 +417,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             RelDataType rowType,
             RowHandler<RowT> rowHandler,
             List<RowT> rows,
-            Supplier<RowSchema> schemaSupplier
+            Supplier<StructNativeType> schemaSupplier
     ) {
         List<RowT> out = new ArrayList<>(rows.size());
 
@@ -451,14 +449,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
         }
     }
 
-    private <RowT> Supplier<RowSchema> makeSchemaSupplier(ExecutionContext<RowT> ectx) {
+    private <RowT> Supplier<StructNativeType> makeSchemaSupplier(ExecutionContext<RowT> ectx) {
         return () -> {
             if (rowSchema != null) {
                 return rowSchema;
             }
 
             RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
-            rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+            rowSchema = convertStructuredType(rowType);
             return rowSchema;
         };
     }

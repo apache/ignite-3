@@ -58,7 +58,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     private static final int TEST_SCALE = 5;
 
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Mode.EXCLUDE)
     public void convertColumnType(ColumnType typeSpec) {
         CatalogTableColumnDescriptor columnDescriptor = TestColumnDescriptors.forSpec(typeSpec);
 

@@ -83,10 +83,10 @@ public interface ExpressionFactory<RowT> {
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
      *
      * @param projects Projection expressions.
-     * @param rowType  Input row type.
+     * @param inputRowType  Input row type.
      * @return Project function.
      */
-    SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType);
+    SqlProjection<RowT> project(List<RexNode> projects, RelDataType inputRowType);
 
     /**
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
