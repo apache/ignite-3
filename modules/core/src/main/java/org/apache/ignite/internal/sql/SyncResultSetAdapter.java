@@ -110,6 +110,7 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
 
         IteratorImpl(AsyncResultSet<T> ars) {
             curRes = ars;
+            curPage = ars.currentPage().iterator();
         }
 
         @Override
