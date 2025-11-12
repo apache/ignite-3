@@ -115,7 +115,7 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
 
         @Override
         public boolean hasNext() {
-            if (curPage != null && curPage.hasNext()) {
+            if (curPage.hasNext()) {
                 return true;
             }
 
