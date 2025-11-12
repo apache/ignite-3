@@ -17,7 +17,10 @@
 
 #pragma once
 
+#include <cstddef>
+#include <type_traits>
 #include <string>
+#include <tuple>
 
 #include <gtest/gtest.h>
 
