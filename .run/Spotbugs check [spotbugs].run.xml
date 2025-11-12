@@ -16,7 +16,7 @@
   -->
 
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All checkstyle [checkstyle --continune]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
+  <configuration default="false" name="Spotbugs check [spotbugs]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -27,7 +27,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value="checkstyle" />
+          <option value="spotbugs" />
         </list>
       </option>
       <option name="vmOptions" />

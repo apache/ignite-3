@@ -869,6 +869,8 @@ public class Replicator implements ThreadId.OnError {
 
         if (entry.getOldLearners() != null)
             emb.oldLearnersList(entry.getOldLearners().stream().map(Object::toString).collect(toList()));
+        emb.sequenceToken(entry.getSequenceToken());
+        emb.oldSequenceToken(entry.getOldSequenceToken());
     }
 
     public static ThreadId start(final ReplicatorOptions opts, final RaftOptions raftOptions) {

@@ -119,8 +119,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
             assertThrowsProblem(
                     () -> getSqlQuery(client, queryInfo.id()),
-                    NOT_FOUND,
-                    isProblem().withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
+                    isProblem().withStatus(NOT_FOUND).withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
             );
         }
     }
@@ -131,8 +130,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> getSqlQuery(client, queryId),
-                NOT_FOUND,
-                isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Sql query not found [queryId=" + queryId + "]")
         );
     }
 
@@ -142,8 +140,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> killSqlQuery(client, queryId),
-                NOT_FOUND,
-                isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Sql query not found [queryId=" + queryId + "]")
         );
     }
 

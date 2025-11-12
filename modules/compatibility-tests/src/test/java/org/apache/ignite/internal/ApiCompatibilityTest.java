@@ -61,6 +61,10 @@ class ApiCompatibilityTest {
                     "org.apache.ignite.table.IgniteTables#tableAsync(java.lang.String)", // METHOD_ABSTRACT_NOW_DEFAULT
                     "org.apache.ignite.table.QualifiedName", // CLASS_NOW_FINAL
                     "org.apache.ignite.table.Table#name()" // METHOD_ABSTRACT_NOW_DEFAULT
+            ),
+            "3.1.0", List.of(
+                    // Erroneous error code remove between versions
+                    "org.apache.ignite.lang.ErrorGroups$DisasterRecovery#RESTART_WITH_CLEAN_UP_ERR"
             )
     );
 

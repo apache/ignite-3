@@ -87,9 +87,9 @@ public class TimeoutWorker extends IgniteWorker {
                         CompletableFuture<?> fut = timeoutObject.future();
 
                         if (!fut.isDone()) {
-                            fut.completeExceptionally(new TimeoutException(timeoutObject.describe()));
-
                             requestsMap.remove(entry.getKey(), timeoutObject);
+
+                            fut.completeExceptionally(new TimeoutException(timeoutObject.describe()));
                         }
                     }
                 }

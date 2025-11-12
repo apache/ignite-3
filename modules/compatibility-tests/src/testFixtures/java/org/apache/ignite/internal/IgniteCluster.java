@@ -426,6 +426,20 @@ public class IgniteCluster {
         }
     }
 
+    /**
+     * Stops the runner node with the given index.
+     *
+     * @param nodeIndex Index of the node to stop.
+     */
+    public void stopRunnerNode(int nodeIndex) {
+        if (nodeIndex < runnerNodes.size()) {
+            runnerNodes.get(nodeIndex).stop();
+            runnerNodes.set(nodeIndex, null);
+        } else {
+            throw new IllegalStateException("Runner node with index " + nodeIndex + " is not started");
+        }
+    }
+
     private HttpRequest post(String path, String body) {
         return newBuilder(path)
                 .header("content-type", "application/json")

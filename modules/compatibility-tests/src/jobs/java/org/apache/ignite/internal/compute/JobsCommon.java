@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.fsm;
+package org.apache.ignite.internal.compute;
 
-/** Handler that kick-starts query processing. */
-class RegisteredPhaseHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new RegisteredPhaseHandler();
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 
-    private RegisteredPhaseHandler() { }
-
-    @Override
-    public Result handle(Query query) {
-        return Result.completed();
+/** Common utilities for jobs in compatibility tests. */
+class JobsCommon {
+    static IgniteImpl unwrapIgniteImpl(Ignite ignite) {
+        return Wrappers.unwrap(ignite, IgniteImpl.class);
     }
 }

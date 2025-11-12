@@ -46,7 +46,6 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -70,7 +69,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     HttpClient client;
 
     @BeforeAll
-    public void setUp() throws InterruptedException {
+    public void setUp() {
         sql(String.format(
                 "CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
                 FIRST_ZONE,
@@ -212,7 +211,6 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26919")
     public void testRestartTablePartitionsWithCleanupAllPartitions() throws InterruptedException {
         awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
 

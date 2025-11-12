@@ -70,6 +70,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.TestWriteCommand;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -245,7 +246,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         assertThat(service1.leader(), is(follower.asPeer()));
         assertThat(service1.learners(), is(empty()));
 
-        CompletableFuture<Void> addLearners = service1.addLearners(Arrays.asList(toPeerArray(learners)));
+        CompletableFuture<Void> addLearners = service1.addLearners(Arrays.asList(toPeerArray(learners)), Configuration.NO_SEQUENCE_TOKEN);
 
         assertThat(addLearners, willCompleteSuccessfully());
 
@@ -401,7 +402,11 @@ public class ItLearnersTest extends IgniteAbstractTest {
         PeersAndLearners newConfiguration = createConfiguration(followers, List.of(learner, newLearner));
 
         CompletableFuture<Void> changePeersFuture = learnerService.refreshAndGetLeaderWithTerm()
-                .thenCompose(leaderWithTerm -> learnerService.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term()));
+                .thenCompose(leaderWithTerm -> learnerService.changePeersAndLearnersAsync(
+                        newConfiguration,
+                        leaderWithTerm.term(),
+                        Configuration.NO_SEQUENCE_TOKEN
+                ));
 
         assertThat(changePeersFuture, willCompleteSuccessfully());
 

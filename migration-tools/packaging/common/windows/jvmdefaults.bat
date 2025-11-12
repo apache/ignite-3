@@ -22,6 +22,7 @@ if %JAVA_VER% GEQ 11 if %JAVA_VER% LSS 14 (
     --add-exports=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED ^
     --add-exports=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED ^
     --add-exports=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED ^
+    --add-opens=java.base/java.nio=ALL-UNNAMED ^
     --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED ^
     --illegal-access=permit
 )
@@ -33,6 +34,7 @@ if %JAVA_VER% GEQ 14 if %JAVA_VER% LSS 15 (
     --add-exports=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED ^
     --add-exports=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED ^
     --add-exports=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED ^
+    --add-opens=java.base/java.nio=ALL-UNNAMED ^
     --add-opens=java.base/jdk.internal.access=ALL-UNNAMED ^
     --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED ^
     --illegal-access=permit

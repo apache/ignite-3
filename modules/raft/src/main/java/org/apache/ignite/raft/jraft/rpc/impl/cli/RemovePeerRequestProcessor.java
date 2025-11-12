@@ -53,9 +53,14 @@ public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePe
         final String removingPeerIdStr = request.peerId();
         final PeerId removingPeer = new PeerId();
         if (removingPeer.parse(removingPeerIdStr)) {
+
+            assert request.sequenceToken() != null: "Sequence token is null";
+
+            long sequenceToken = request.sequenceToken();
+
             LOG.info("Receive RemovePeerRequest to {} from {}, removing {}", ctx.node.getNodeId(), done.getRpcCtx()
                 .getRemoteAddress(), removingPeerIdStr);
-            ctx.node.removePeer(removingPeer, status -> {
+            ctx.node.removePeer(removingPeer, sequenceToken, status -> {
                 if (!status.isOk()) {
                     done.run(status);
                 }
