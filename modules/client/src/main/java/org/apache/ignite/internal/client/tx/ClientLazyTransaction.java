@@ -39,14 +39,18 @@ public class ClientLazyTransaction implements Transaction {
 
     private final @Nullable TransactionOptions options;
 
-    private final boolean implicit;
+    private final boolean lowPriority;
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
-    public ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options, boolean implicit) {
+    ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
+        this(observableTimestamp, options, false);
+    }
+
+    public ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options, boolean lowPriority) {
         this.observableTimestamp = observableTimestamp.getLong();
         this.options = options;
-        this.implicit = implicit;
+        this.lowPriority = lowPriority;
     }
 
     @Override
@@ -208,7 +212,7 @@ public class ClientLazyTransaction implements Transaction {
         return observableTimestamp;
     }
 
-    public boolean implicit() {
-        return implicit;
+    public boolean lowPriority() {
+        return lowPriority;
     }
 }

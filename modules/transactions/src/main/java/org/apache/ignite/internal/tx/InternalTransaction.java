@@ -173,15 +173,6 @@ public interface InternalTransaction extends Transaction {
     boolean isRolledBackWithTimeoutExceeded();
 
     /**
-     * Check if the autocommit is disabled for the implicit transaction.
-     *
-     * @return {@code True} if autocommit is enabled.
-     */
-    default boolean disabledAutocommit() {
-        return false;
-    }
-
-    /**
      * Process delayed ack.
      *
      * @param val The value.

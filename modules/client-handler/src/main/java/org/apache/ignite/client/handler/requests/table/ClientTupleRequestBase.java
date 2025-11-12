@@ -81,7 +81,7 @@ class ClientTupleRequestBase {
         READ_ONLY,
         KEY_ONLY,
         READ_SECOND_TUPLE,
-        GET_ALL_FRAGMENT
+        HAS_PRIORITY
     }
 
     public static CompletableFuture<ClientTupleRequestBase> readAsync(

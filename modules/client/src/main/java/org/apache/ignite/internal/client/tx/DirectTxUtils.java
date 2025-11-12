@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.tx;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_PRIORITY;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -131,7 +133,10 @@ public class DirectTxUtils {
                     out.out().packLong(tx0.observableTimestamp());
                     out.out().packBoolean(tx.isReadOnly());
                     out.out().packLong(tx0.timeout());
-                    out.out().packBoolean(tx0.implicit()); // TODO compat
+                    if (ctx.channel.protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_PRIORITY) &&
+                            (ctx.opCode == ClientOp.TUPLE_GET_ALL || ctx.opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS)) {
+                        out.out().packBoolean(tx0.lowPriority());
+                    }
                 } else {
                     ClientTransaction tx0 = ClientTransaction.get(tx);
                     out.out().packLong(TX_ID_DIRECT);
