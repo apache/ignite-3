@@ -92,7 +92,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                     ch.pipeline().addLast(
                             new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true),
                             new ClientMessageDecoder(),
-                            new NettyClientMessageHandler());
+                            new NettyClientMessageHandler(),
+                            new DefaultExceptionHandler(clientCfg));
                 }
             });
 

@@ -39,7 +39,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonePartitionResetTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
@@ -81,7 +80,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -89,6 +87,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.PartitionResetClosure;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -127,7 +126,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  * It is used by {@link DistributionZoneManager} to calculate data nodes, see {@link #dataNodes(int, HybridTimestamp)}.
  * Data nodes are stored in meta storage as {@link DataNodesHistory} for each zone, also for each zone there are scale up and
  * scale down timers, stored as {@link DistributionZoneTimer}. Partition reset timer is calculated on the node recovery according
- * to the scale down timer state, see {@link #restorePartitionResetTimer(int, DistributionZoneTimer, long)}.
+ * to the scale down timer state, see {@link #restorePartitionResetTimer(CatalogZoneDescriptor, DistributionZoneTimer, long)}.
  * <br>
  * Data nodes history is appended on topology changes, on zone filter changes and on zone auto adjust alterations (i.e. alterations of
  * scale up and scale down timer configuration), see {@link #onTopologyChange}, {@link #onZoneFilterChange} and
@@ -168,7 +167,7 @@ public class DataNodesManager {
 
     private final Map<Integer, DataNodesHistory> dataNodesHistoryVolatile = new ConcurrentHashMap<>();
 
-    private final BiConsumer<Long, Integer> partitionResetClosure;
+    private final PartitionResetClosure partitionResetClosure;
 
     private final IntSupplier partitionDistributionResetTimeoutSupplier;
 
@@ -196,7 +195,7 @@ public class DataNodesManager {
             CatalogManager catalogManager,
             ClockService clockService,
             FailureProcessor failureProcessor,
-            BiConsumer<Long, Integer> partitionResetClosure,
+            PartitionResetClosure partitionResetClosure,
             IntSupplier partitionDistributionResetTimeoutSupplier,
             Supplier<Set<NodeWithAttributes>> latestLogicalTopologyProvider
     ) {
@@ -239,7 +238,6 @@ public class DataNodesManager {
             allKeys.add(zoneDataNodesHistoryKey(zone.id()));
             allKeys.add(zoneScaleUpTimerKey(zone.id()));
             allKeys.add(zoneScaleDownTimerKey(zone.id()));
-            allKeys.add(zonePartitionResetTimerKey(zone.id()));
             allKeys.add(zoneDataNodesKey(zone.id()));
 
             descriptors.put(zone.id(), zone);
@@ -253,7 +251,6 @@ public class DataNodesManager {
                         Entry historyEntry = entriesMap.get(zoneDataNodesHistoryKey(zone.id()));
                         Entry scaleUpEntry = entriesMap.get(zoneScaleUpTimerKey(zone.id()));
                         Entry scaleDownEntry = entriesMap.get(zoneScaleDownTimerKey(zone.id()));
-                        Entry partitionResetEntry = entriesMap.get(zonePartitionResetTimerKey(zone.id()));
                         Entry legacyDataNodesEntry = entriesMap.get(zoneDataNodesKey(zone.id()));
 
                         if (missingEntry(historyEntry)) {
@@ -271,10 +268,9 @@ public class DataNodesManager {
                             continue;
                         }
 
-                        if (missingEntry(scaleUpEntry) || missingEntry(scaleDownEntry) || missingEntry(partitionResetEntry)) {
+                        if (missingEntry(scaleUpEntry) || missingEntry(scaleDownEntry)) {
                             throw new AssertionError(format("Couldn't recover timers for zone [id={}, name={}, scaleUpEntry={}, "
-                                    + "scaleDownEntry={}, partitionResetEntry={}", zone.id(), zone.name(), scaleUpEntry,
-                                    scaleDownEntry, partitionResetEntry));
+                                    + "scaleDownEntry={}", zone.id(), zone.name(), scaleUpEntry, scaleDownEntry));
                         }
 
                         DataNodesHistory history = DataNodesHistorySerializer.deserialize(historyEntry.value());
@@ -285,7 +281,8 @@ public class DataNodesManager {
 
                         onScaleUpTimerChange(zone, scaleUpTimer);
                         onScaleDownTimerChange(zone, scaleDownTimer);
-                        restorePartitionResetTimer(zone.id(), scaleDownTimer, recoveryRevision);
+                        // We can restore partition reset timer based on scale down timer, so we don't need to persist it.
+                        restorePartitionResetTimer(zone, scaleDownTimer, recoveryRevision);
                     }
                 })
                 .thenCompose(unused -> allOf(legacyInitFutures)
@@ -418,7 +415,7 @@ public class DataNodesManager {
         if (!removedNodes.isEmpty()
                 && zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY
                 && partitionResetDelay != INFINITE_TIMER_VALUE) {
-            reschedulePartitionReset(partitionResetDelay, () -> partitionResetClosure.accept(revision, zoneId), zoneId);
+            reschedulePartitionReset(partitionResetDelay, () -> partitionResetClosure.run(revision, zoneDescriptor), zoneId);
         }
 
         DistributionZoneTimer mergedScaleUpTimer = mergeTimerOnTopologyChange(zoneDescriptor, timestamp,
@@ -791,12 +788,12 @@ public class DataNodesManager {
         timer.init(scaleDownTimer);
     }
 
-    private void restorePartitionResetTimer(int zoneId, DistributionZoneTimer scaleDownTimer, long revision) {
-        if (!scaleDownTimer.equals(DEFAULT_TIMER)) {
+    private void restorePartitionResetTimer(CatalogZoneDescriptor zone, DistributionZoneTimer scaleDownTimer, long revision) {
+        if (!scaleDownTimer.equals(DEFAULT_TIMER) && zone.consistencyMode() == HIGH_AVAILABILITY) {
             reschedulePartitionReset(
                     partitionDistributionResetTimeoutSupplier.getAsInt(),
-                    () -> partitionResetClosure.accept(revision, zoneId),
-                    zoneId
+                    () -> partitionResetClosure.run(revision, zone),
+                    zone.id()
             );
         }
     }
@@ -995,8 +992,7 @@ public class DataNodesManager {
                 .operations(operations(
                         addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, filteredDataNodes),
                         clearTimer(zoneScaleUpTimerKey(zoneId)),
-                        clearTimer(zoneScaleDownTimerKey(zoneId)),
-                        clearTimer(zonePartitionResetTimerKey(zoneId))
+                        clearTimer(zoneScaleDownTimerKey(zoneId))
                 ))
                 .operationName("distribution zone filter change")
                 .currentDataNodesHistory(dataNodesHistory)
@@ -1299,7 +1295,6 @@ public class DataNodesManager {
                     addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
                     clearTimer(zoneScaleUpTimerKey(zoneId)),
                     clearTimer(zoneScaleDownTimerKey(zoneId)),
-                    clearTimer(zonePartitionResetTimerKey(zoneId)),
                     removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop(),
                     removeLegacyDataNodes ? remove(zonesNodesAttributes()) : noop()
             )).yield(true);
@@ -1366,8 +1361,7 @@ public class DataNodesManager {
             Update removeKeysUpd = ops(
                     // TODO remove(zoneDataNodesHistoryKey(zoneId)), https://issues.apache.org/jira/browse/IGNITE-24345
                     remove(zoneScaleUpTimerKey(zoneId)),
-                    remove(zoneScaleDownTimerKey(zoneId)),
-                    remove(zonePartitionResetTimerKey(zoneId))
+                    remove(zoneScaleDownTimerKey(zoneId))
             ).yield(true);
 
             Iif iif = iif(condition, removeKeysUpd, ops().yield(false));
