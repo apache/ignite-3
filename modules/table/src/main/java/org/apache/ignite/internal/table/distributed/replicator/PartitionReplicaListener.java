@@ -196,7 +196,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -347,7 +347,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
 
-    private final TableMetricSource metrics;
+    private final TableMetrics metrics;
 
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
     private final TableAwareReplicaRequestPreProcessor tableAwareReplicaRequestPreProcessor;
@@ -387,7 +387,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param clusterNodeResolver Node resolver.
      * @param remotelyTriggeredResourceRegistry Resource registry.
      * @param indexMetaStorage Index meta storage.
-     * @param metrics Table metric source.
+     * @param metrics Table metrics.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -417,7 +417,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
             NodeProperties nodeProperties,
-            TableMetricSource metrics
+            TableMetrics metrics
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftCommandRunner = raftCommandRunner;

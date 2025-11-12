@@ -766,20 +766,8 @@ public class DistributionZoneManager extends
      * @param zone Zone descriptor.
      */
     private void registerMetricSource(CatalogZoneDescriptor zone) {
-        registerMetricSource(zone, null);
-    }
-
-    /**
-     * Registers metric source for the specified zone.
-     *
-     * @param zone Zone descriptor.
-     * @param copyFrom Source to copy metrics from.
-     */
-    private void registerMetricSource(CatalogZoneDescriptor zone, @Nullable ZoneMetricSource copyFrom) {
         try {
-            ZoneMetricSource source = (copyFrom == null)
-                    ? new ZoneMetricSource(metaStorageManager, localNodeName, zone)
-                    : new ZoneMetricSource(metaStorageManager, localNodeName, zone, copyFrom);
+            ZoneMetricSource source = new ZoneMetricSource(metaStorageManager, localNodeName, zone);
 
             zoneMetricSources.put(zone.id(), source);
 
@@ -787,6 +775,36 @@ public class DistributionZoneManager extends
             metricManager.enable(source);
         } catch (Exception e) {
             LOG.error("Failed to register zone metric source [zoneName={}, zoneId={}]", e, zone.name(), zone.id());
+        }
+    }
+
+    /**
+     * Replaces metric source for the specified zone on its rename.
+     *
+     * @param zone Zone descriptor.
+     * @param oldName Old zone name.
+     */
+    private void replaceMetricSourceOnZoneRename(CatalogZoneDescriptor zone, String oldName) {
+        try {
+            ZoneMetricSource copyFrom = zoneMetricSources.remove(zone.id());
+
+            boolean isEnabled = copyFrom == null || copyFrom.enabled();
+            ZoneMetricSource source = (copyFrom == null)
+                    ? new ZoneMetricSource(metaStorageManager, localNodeName, zone)
+                    : new ZoneMetricSource(metaStorageManager, localNodeName, zone, copyFrom);
+
+            if (copyFrom != null) {
+                metricManager.unregisterSource(copyFrom);
+            }
+
+            metricManager.registerSource(source);
+            zoneMetricSources.put(zone.id(), source);
+
+            if (isEnabled) {
+                metricManager.enable(source);
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to update zone metric source [zoneName={}, renamedTo={}, zoneId={}]", e, oldName, zone.name(), zone.id());
         }
     }
 
@@ -875,10 +893,7 @@ public class DistributionZoneManager extends
         @Override
         protected CompletableFuture<Void> onNameUpdate(AlterZoneEventParameters parameters, String oldName) {
             return inBusyLock(busyLock, () -> {
-                ZoneMetricSource oldSource = zoneMetricSources.get(parameters.zoneDescriptor().id());
-
-                unregisterMetricSource(parameters.zoneDescriptor().id());
-                registerMetricSource(parameters.zoneDescriptor(), oldSource);
+                replaceMetricSourceOnZoneRename(parameters.zoneDescriptor(), oldName);
 
                 return nullCompletedFuture();
             });

@@ -130,6 +130,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -312,7 +313,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> 10_000L,
                 () -> 10_000L,
                 colocationEnabled(),
-                new TableMetricSource(QualifiedName.fromSimple("test"))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("test")))
         );
 
         RaftGroupService svc = mock(RaftGroupService.class);
@@ -500,7 +501,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark(),
                 mock(FailureProcessor.class),
                 new SystemPropertiesNodeProperties(),
-                new TableMetricSource(QualifiedName.fromSimple("dummy_table"))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("dummy_table")))
         );
 
         if (enabledColocation) {

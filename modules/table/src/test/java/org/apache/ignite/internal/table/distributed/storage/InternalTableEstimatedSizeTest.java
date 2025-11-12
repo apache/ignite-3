@@ -101,6 +101,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -238,7 +239,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 () -> 10_000L,
                 () -> 10_000L,
                 colocationEnabled(),
-                new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME)))
         );
 
         when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
@@ -348,7 +349,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 new TestLowWatermark(),
                 new NoOpFailureManager(),
                 new SystemPropertiesNodeProperties(),
-                new TableMetricSource(QualifiedName.fromSimple("test_table"))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("test_table")))
         );
     }
 
