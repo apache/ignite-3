@@ -744,7 +744,7 @@ public class PartitionReplicaLifecycleManager extends
                     })
                     .whenComplete((replica, throwable) -> {
                         if (throwable != null) {
-                            startedReplicationGroups.startingFailed(zonePartitionId);
+                            startedReplicationGroups.startingFailed(zonePartitionId, throwable);
                         }
                     })
                     .thenCompose(v -> {

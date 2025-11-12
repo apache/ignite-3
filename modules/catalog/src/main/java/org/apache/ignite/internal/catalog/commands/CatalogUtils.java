@@ -558,7 +558,10 @@ public class CatalogUtils {
 
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
-        assert defaultZone != null;
+        // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
+        if (defaultZone == null) {
+            throw new CatalogValidationException("Default zone not found.");
+        }
 
         return defaultZone;
     }

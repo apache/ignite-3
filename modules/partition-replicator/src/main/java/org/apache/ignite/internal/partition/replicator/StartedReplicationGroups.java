@@ -48,7 +48,7 @@ class StartedReplicationGroups {
 
     /**
      * Callback to be called before replication group begins start procedure. It is expected that whoever maintains the replication groups
-     * will call either {@link #startingFailed(ZonePartitionId)} or {@link #startingCompleted(ZonePartitionId)} some time after.
+     * will call either {@link #startingFailed(ZonePartitionId, Throwable)} or {@link #startingCompleted(ZonePartitionId)} some time after.
      */
     void beforeStartingGroup(ZonePartitionId zonePartitionId) {
         CompletableFuture<Void> startingFuture = new CompletableFuture<>();
@@ -68,9 +68,18 @@ class StartedReplicationGroups {
 
     /**
      * Mark starting replication groups as failed. Such a group won't be considered {@code starting} anymore.
+     *
+     * @param zonePartitionId Replication group identifier.
+     * @param cause Cause of the failure to complete existed starting future with.
      */
-    void startingFailed(ZonePartitionId zonePartitionId) {
-        completeStartingFuture(zonePartitionId);
+    void startingFailed(ZonePartitionId zonePartitionId, Throwable cause) {
+        CompletableFuture<Void> startingFuture = startingReplicationGroupIds.remove(zonePartitionId);
+
+        if (startingFuture != null) {
+            startingFuture.completeExceptionally(cause);
+        } else {
+            LOG.warn("Failed starting future is not found. [zonePartitionId=" + zonePartitionId + ']', cause);
+        }
     }
 
     /**
@@ -114,7 +123,7 @@ class StartedReplicationGroups {
     }
 
     /**
-     * Wait for all replication groups in {@code starting} status to call {@link #startingFailed(ZonePartitionId)} or
+     * Wait for all replication groups in {@code starting} status to call {@link #startingFailed(ZonePartitionId, Throwable)} or
      * {@link #startingCompleted(ZonePartitionId)}.
      */
     void waitForStartingReplicas() {
