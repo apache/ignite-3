@@ -173,6 +173,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -4102,8 +4103,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
-    @Test
+    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
+    @RepeatedTest(300)
     public void testChangePeersAndLearnersChaosWithSnapshot() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
