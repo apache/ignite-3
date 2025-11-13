@@ -18,20 +18,13 @@
 #include "ignite/client/table/qualified_name.h"
 #include "ignite/common/ignite_error.h"
 
+#include "tests/test-common/hidden_param.h"
+
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 using namespace ignite;
 using namespace detail;
-
-namespace {
-
-template<typename T>
-std::string PrintTestIndex(const testing::TestParamInfo<typename T::ParamType>& info) {
-    return "_" + std::to_string(info.index);
-}
-
-}
 
 TEST(client_qualified_name, create_empty_schema_empty_name_throws) {
     EXPECT_THROW(
@@ -85,10 +78,10 @@ TEST(client_qualified_name, parse_implicit_schema_default) {
     EXPECT_EQ(name.get_schema_name(), qualified_name::DEFAULT_SCHEMA_NAME);
 }
 
-class canonical_values_fixture : public ::testing::TestWithParam<std::string> {};
+class canonical_values_fixture : public ::testing::TestWithParam<hidden> {};
 
 TEST_P(canonical_values_fixture, canonical_name_parse) {
-    auto canonical_name = GetParam();
+    auto canonical_name = unhide(GetParam());
 
     EXPECT_EQ(canonical_name, qualified_name::parse(canonical_name).get_canonical_name());
 }
@@ -103,13 +96,13 @@ INSTANTIATE_TEST_SUITE_P(
         R"("foo"."bar")",
         "\"\xF0\x9F\x98\x85\".\"\xC2\xB7\""
     ),
-    PrintTestIndex<canonical_values_fixture>
+    print_test_index<canonical_values_fixture>
 );
 
-class valid_simple_names_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+class valid_simple_names_fixture : public ::testing::TestWithParam<std::tuple<hidden, hidden>> {};
 
 TEST_P(valid_simple_names_fixture, valid_simple_name) {
-    auto [to_parse, expected] = GetParam();
+    auto [to_parse, expected] = unhide(GetParam());
 
     auto parsed = qualified_name::parse(to_parse).get_object_name();
     auto created = qualified_name::create({}, to_parse).get_object_name();
@@ -150,13 +143,13 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"\"\"bar\"\"\"", "\"bar\""),
         std::make_tuple("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
     ),
-    PrintTestIndex<valid_simple_names_fixture>
+    print_test_index<valid_simple_names_fixture>
 );
 
-class malformed_simple_name_fixture : public ::testing::TestWithParam<std::string> {};
+class malformed_simple_name_fixture : public ::testing::TestWithParam<hidden> {};
 
 TEST_P(malformed_simple_name_fixture, malformed_simple_name) {
-    auto malformed = GetParam();
+    auto malformed = unhide(GetParam());
 
     EXPECT_THROW(
         {
@@ -171,7 +164,7 @@ TEST_P(malformed_simple_name_fixture, malformed_simple_name) {
 }
 
 TEST_P(malformed_simple_name_fixture, malformed_schema_name) {
-    auto malformed = GetParam();
+    auto malformed = unhide(GetParam());
 
     EXPECT_THROW(
         {
@@ -186,7 +179,7 @@ TEST_P(malformed_simple_name_fixture, malformed_schema_name) {
 }
 
 TEST_P(malformed_simple_name_fixture, malformed_parse) {
-    auto malformed = GetParam();
+    auto malformed = unhide(GetParam());
 
     EXPECT_THROW(
         {
@@ -221,13 +214,13 @@ INSTANTIATE_TEST_SUITE_P(
         "\"foo",
         "\"fo\"o\""
     ),
-    PrintTestIndex<malformed_simple_name_fixture>
+    print_test_index<malformed_simple_name_fixture>
 );
 
-class malformed_canonical_name_fixture : public ::testing::TestWithParam<std::string> {};
+class malformed_canonical_name_fixture : public ::testing::TestWithParam<hidden> {};
 
 TEST_P(malformed_canonical_name_fixture, malformed_parse) {
-    auto malformed = GetParam();
+    auto malformed = unhide(GetParam());
 
     EXPECT_THROW(
         {
@@ -257,13 +250,13 @@ INSTANTIATE_TEST_SUITE_P(
         "foo.1ar",
         "1oo"
     ),
-    PrintTestIndex<malformed_canonical_name_fixture>
+    print_test_index<malformed_canonical_name_fixture>
 );
 
-class valid_simple_name_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+class valid_simple_name_fixture : public ::testing::TestWithParam<std::tuple<hidden, hidden>> {};
 
 TEST_P(valid_simple_name_fixture, valid_simple_name) {
-    auto [to_parse, expected] = GetParam();
+    auto [to_parse, expected] = unhide(GetParam());
 
     auto parsed = qualified_name::parse(to_parse).get_object_name();
     auto created = qualified_name::create({}, to_parse).get_object_name();
@@ -304,13 +297,13 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"\"\"bar\"\"\"", "\"bar\""),
         std::make_tuple("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
     ),
-    PrintTestIndex<valid_simple_name_fixture>
+    print_test_index<valid_simple_name_fixture>
 );
 
-class valid_canonical_name_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string, std::string>> {};
+class valid_canonical_name_fixture : public ::testing::TestWithParam<std::tuple<hidden, hidden, hidden>> {};
 
 TEST_P(valid_canonical_name_fixture, valid_canonical_name) {
-    auto [full, schema, object] = GetParam();
+    auto [full, schema, object] = unhide(GetParam());
 
     auto parsed = qualified_name::parse(full);
 
@@ -333,13 +326,13 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("_foo.bar", "_FOO", "BAR"),
         std::make_tuple("foo._bar", "FOO", "_BAR")
     ),
-    PrintTestIndex<valid_canonical_name_fixture>
+    print_test_index<valid_canonical_name_fixture>
 );
 
-class parsing_error_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+class parsing_error_fixture : public ::testing::TestWithParam<std::tuple<hidden, hidden>> {};
 
 TEST_P(parsing_error_fixture, parsing_error) {
-    auto [name, exception] = GetParam();
+    auto [name, exception] = unhide(GetParam());
 
     EXPECT_THROW(
         {
@@ -365,5 +358,5 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("123", "Invalid identifier start '49' : 123. Unquoted identifiers must begin with a letter or an underscore."),
         std::make_tuple("x.y.z", "Canonical name should have at most two parts: 'x.y.z'")
     ),
-    PrintTestIndex<parsing_error_fixture>
+    print_test_index<parsing_error_fixture>
 );
