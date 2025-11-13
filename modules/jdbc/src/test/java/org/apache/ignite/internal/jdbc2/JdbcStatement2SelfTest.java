@@ -263,6 +263,9 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
             stmt.setFetchSize(1000);
             assertEquals(1000, stmt.getFetchSize());
 
+            stmt.setFetchSize(0);
+            assertEquals(0, stmt.getFetchSize());
+
             assertThrowsSqlException(SQLException.class,
                     "Invalid fetch size.",
                     () -> stmt.setFetchSize(-1)

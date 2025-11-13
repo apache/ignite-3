@@ -512,7 +512,8 @@ public class JdbcStatement2 implements Statement {
 
     /**
      * Gives the JDBC driver a hint as to the number of rows that should
-     * be fetched from the database.
+     * be fetched from the database. If the value specified is zero, then
+     * the hint is ignored. The default value is zero.
      *
      * <p>Note: the current implementation does not provide any means to change the number
      * of rows after the statement has executed. Thus, changing this value after the statement
