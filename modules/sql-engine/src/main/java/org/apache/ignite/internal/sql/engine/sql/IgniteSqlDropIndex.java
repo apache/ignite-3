@@ -35,7 +35,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Parse tree for {@code DROP INDEX} statement.
  */
-@DdlBatchAware(group = DdlBatchGroup.DROP)
+// Note: This operation changes index state for available indexes and can't be batched with DROP TABLE operations.
+//    Actually, this is a dirty hack and it can and should be batched, but "the voices in one's had" do NOT allow just ignore DROP_INDEX
+//    late event and the objective reality, when an index has been dropped together with it's table in the same DDL batch (script).
+//    However, the same "voices" are ok with ignoring errors, when the table is dropped concurrently while the index purging is in progress.
+@DdlBatchAware(group = DdlBatchGroup.DROP_INDEX)
 public class IgniteSqlDropIndex extends SqlDrop {
 
     /** DROP INDEX operator. */

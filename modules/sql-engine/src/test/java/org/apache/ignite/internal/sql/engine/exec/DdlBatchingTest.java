@@ -284,6 +284,57 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void batchIsSplitByDropIndex() {
+        AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
+                "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
+                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
+                        + "DROP INDEX t1_ind_1;"
+                        + "DROP INDEX t1_ind_2;"
+                        + "DROP TABLE t1;"
+        );
+
+        // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t1_ind_1 ON t1 (val_1)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t1_ind_2 ON t1 (val_2)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP INDEX t1_ind_1
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP INDEX t1_ind_1
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP TABLE t1
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(false));
+
+        assertEquals(3, executeCallCounter.get());
+        assertTableNotExists("t1");
+        assertIndexNotExists("t1_ind_1");
+        assertIndexNotExists("t1_ind_2");
+    }
+
+    @Test
     void batchIsSplitByOtherStatements() {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
                 "INSERT INTO blackhole SELECT x FROM system_range(1, 10);"

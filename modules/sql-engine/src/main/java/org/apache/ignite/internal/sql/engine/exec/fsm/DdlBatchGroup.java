@@ -25,7 +25,9 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 public enum DdlBatchGroup {
     /** Group for CREATE operations. */
     CREATE,
-    /** Group for DROP operations. */
+    /** Group for DROP index operations. */
+    DROP_INDEX,
+    /** Group for other DROP operations. */
     DROP,
     /** Group for other DDL operations. */
     OTHER;
