@@ -110,6 +110,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private SharedState sharedState = new SharedState();
 
+    private final @Nullable Long topologyVersion;
+
     /**
      * Constructor.
      *
@@ -142,6 +144,50 @@ public class ExecutionContext<RowT> implements DataContext {
             ZoneId timeZoneId,
             int inBufSize,
             Clock clock,
+            @Nullable String username,
+            @Nullable Long topologyVersion
+    ) {
+        this.expressionFactory = expressionFactory;
+        this.executor = executor;
+        this.executionId = executionId;
+        this.description = description;
+        this.handler = handler;
+        this.params = params;
+        this.localNode = localNode;
+        this.originatingNodeName = originatingNodeName;
+        this.originatingNodeId = originatingNodeId;
+        this.txAttributes = txAttributes;
+        this.timeZoneId = timeZoneId;
+        this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
+        this.currentUser = username;
+        this.topologyVersion = topologyVersion;
+
+        assert this.inBufSize > 0 : this.inBufSize;
+
+        Instant nowUtc = Instant.now(clock);
+        startTs = nowUtc.toEpochMilli();
+        startTsWithTzOffset = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
+
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Context created [executionId={}, fragmentId={}]", executionId, fragmentId());
+        }
+    }
+
+    /** Constructor. */
+    public ExecutionContext(
+            ExpressionFactory<RowT> expressionFactory,
+            QueryTaskExecutor executor,
+            ExecutionId executionId,
+            InternalClusterNode localNode,
+            String originatingNodeName,
+            UUID originatingNodeId,
+            FragmentDescription description,
+            RowHandler<RowT> handler,
+            Map<String, Object> params,
+            TxAttributes txAttributes,
+            ZoneId timeZoneId,
+            int inBufSize,
+            Clock clock,
             @Nullable String username
     ) {
         this.expressionFactory = expressionFactory;
@@ -157,6 +203,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
         this.currentUser = username;
+        this.topologyVersion = null;
 
         assert this.inBufSize > 0 : this.inBufSize;
 
@@ -314,6 +361,10 @@ public class ExecutionContext<RowT> implements DataContext {
         }
     }
 
+    public @Nullable Long topologyVersion() {
+        return topologyVersion;
+    }
+
     /** Gets dynamic parameters by name. */
     private @Nullable Object getParameter(String name) {
         assert name.startsWith("?") : name;
@@ -398,7 +449,7 @@ public class ExecutionContext<RowT> implements DataContext {
                 Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
                 onError.accept(unwrappedException);
 
-                if (unwrappedException instanceof IgniteException 
+                if (unwrappedException instanceof IgniteException
                         || unwrappedException instanceof IgniteInternalException
                         || unwrappedException instanceof IgniteCheckedException
                         || unwrappedException instanceof IgniteInternalCheckedException

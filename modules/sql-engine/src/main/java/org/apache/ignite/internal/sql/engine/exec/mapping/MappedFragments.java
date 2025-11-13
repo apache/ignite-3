@@ -18,23 +18,29 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 
 /**
- * A service to map multi step plan to an actual topology.
+ * Mapped fragments.
  */
-@FunctionalInterface
-public interface MappingService {
-    /**
-     * Maps given plan to a cluster topology.
-     *
-     * @param multiStepPlan A plan to map.
-     * @return A list of fragments with metadata related to a fragment topology.
-     */
-    CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters);
+public final class MappedFragments {
 
-    default CompletableFuture<MappedFragments> map2(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        return map(multiStepPlan, parameters).thenApply(f -> new MappedFragments(f, 0));
+    private final long topologyVersion;
+
+    private final List<MappedFragment> fragments;
+
+    /** Constructor. */
+    public MappedFragments(List<MappedFragment> fragments, long topologyVersion) {
+        this.fragments = fragments;
+        this.topologyVersion = topologyVersion;
+    }
+
+    /** Cluster topology version these fragments were mapped on. */
+    public long topologyVersion() {
+        return topologyVersion;
+    }
+
+    /** Fragments. */
+    public List<MappedFragment> fragments() {
+        return fragments;
     }
 }

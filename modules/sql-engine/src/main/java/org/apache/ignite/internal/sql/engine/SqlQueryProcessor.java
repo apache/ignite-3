@@ -348,6 +348,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         logicalTopologyService.addEventListener(mappingService);
+        logicalTopologyService.addEventListener(mailboxRegistry);
+
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
         // Need to be implemented after https://issues.apache.org/jira/browse/IGNITE-23519 Add an event for lease Assignments
         // placementDriver.listen(PrimaryReplicaEvent.ASSIGNMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);
@@ -395,7 +397,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         queriesViewProvider.init(queryExecutor, prepareSvc);
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
-        clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
 
         registerService(sqlStatisticManager);
 
