@@ -59,6 +59,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.configuration.distributed.CreateTableDefaultsView;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
@@ -289,9 +290,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
         var nodeFilterValidator = new ClusterWideNodeFilterValidator(logicalTopologyService);
 
+        CreateTableDefaultsView tablePropertiesView = clusterCfg.createTable().value();
+
         Supplier<TableStatsStalenessConfiguration> stalenessProperties = () -> new TableStatsStalenessConfiguration(
-                clusterCfg.createTable().staleRowsFraction().value(),
-                clusterCfg.createTable().minStaleRowsCount().value());
+                tablePropertiesView.staleRowsFraction(),
+                tablePropertiesView.minStaleRowsCount());
 
         var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator, stalenessProperties);
 

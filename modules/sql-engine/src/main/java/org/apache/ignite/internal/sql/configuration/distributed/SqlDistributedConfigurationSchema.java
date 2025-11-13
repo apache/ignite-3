@@ -29,5 +29,5 @@ public class SqlDistributedConfigurationSchema {
 
     /** Represent a configuration related to initial table creation. */
     @ConfigValue
-    public TablePropertiesConfigurationSchema createTable;
+    public CreateTableDefaultsConfigurationSchema createTable;
 }

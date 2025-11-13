@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.validation.Range;
 
 /** Configuration for table initialization properties. */
 @Config
-public class TablePropertiesConfigurationSchema {
+public class CreateTableDefaultsConfigurationSchema {
     /** A fraction of a partition to be modified before the data is considered to be "stale". */
     @Value(hasDefault = true)
     @Range(min = 0, max = 1)

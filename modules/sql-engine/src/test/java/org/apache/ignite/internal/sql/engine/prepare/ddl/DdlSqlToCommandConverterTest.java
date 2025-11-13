@@ -871,6 +871,28 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @Test
+    void createTableWithNonDefaultStalenessConfig() throws SqlParseException {
+        long staleRowsCount = DEFAULT_MIN_STALE_ROWS_COUNT / 2;
+        double staleRowsFraction = DEFAULT_STALE_ROWS_FRACTION / 2;
+
+        assert staleRowsCount != 0 && staleRowsFraction != 0.0d;
+
+        Supplier<TableStatsStalenessConfiguration> statStalenessProperties =
+                () -> new TableStatsStalenessConfiguration(staleRowsFraction, staleRowsCount);
+        converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null),
+                statStalenessProperties);
+
+        CatalogCommand cmd = convert("CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+
+        mockCatalogSchemaAndZone("TEST_ZONE");
+
+        NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(staleRowsCount));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(staleRowsFraction));
+    }
+
+    @Test
     void createTableWithMinStaleRows() throws SqlParseException {
         CatalogCommand cmd = convert(
                 "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (min stale rows 321)"
