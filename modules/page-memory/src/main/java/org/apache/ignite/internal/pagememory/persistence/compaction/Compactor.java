@@ -391,19 +391,11 @@ public class Compactor extends IgniteWorker {
         for (long pageIndex : deltaFilePageStore.pageIndexes()) {
             updateHeartbeat();
 
-            if (isCancelled()) {
-                return;
-            }
-
-            if (filePageStore.isMarkedToDestroy()) {
+            if (shouldStopCompaction(filePageStore)) {
                 return;
             }
 
             long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
-
-            if (isPaused()) {
-                return;
-            }
 
             // pageIndex instead of pageId, only for debugging in case of errors
             // since we do not know the pageId until we read it from the pageOffset.
@@ -418,15 +410,7 @@ public class Compactor extends IgniteWorker {
 
             updateHeartbeat();
 
-            if (isCancelled()) {
-                return;
-            }
-
-            if (filePageStore.isMarkedToDestroy()) {
-                return;
-            }
-
-            if (isPaused()) {
+            if (shouldStopCompaction(filePageStore)) {
                 return;
             }
 
@@ -438,15 +422,7 @@ public class Compactor extends IgniteWorker {
         // Fsync the file page store.
         updateHeartbeat();
 
-        if (isCancelled()) {
-            return;
-        }
-
-        if (filePageStore.isMarkedToDestroy()) {
-            return;
-        }
-
-        if (isPaused()) {
+        if (shouldStopCompaction(filePageStore)) {
             return;
         }
 
@@ -455,19 +431,11 @@ public class Compactor extends IgniteWorker {
         // Removing the delta file page store from a file page store.
         updateHeartbeat();
 
-        if (isCancelled()) {
-            return;
-        }
-
-        if (filePageStore.isMarkedToDestroy()) {
+        if (shouldStopCompaction(filePageStore)) {
             return;
         }
 
         deltaFilePageStore.markMergedToFilePageStore();
-
-        if (isPaused()) {
-            return;
-        }
 
         deltaFilePageStore.stop(true);
 
@@ -535,5 +503,9 @@ public class Compactor extends IgniteWorker {
         synchronized (mux) {
             return paused;
         }
+    }
+
+    private boolean shouldStopCompaction(FilePageStore filePageStore) {
+        return isCancelled() || filePageStore.isMarkedToDestroy() || isPaused();
     }
 }
