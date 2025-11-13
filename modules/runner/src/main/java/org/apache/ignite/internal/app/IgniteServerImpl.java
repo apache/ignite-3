@@ -188,7 +188,9 @@ public class IgniteServerImpl implements IgniteServer {
         try {
             Files.createDirectories(workDir);
             Path configFile = Files.writeString(getConfigFile(workDir), config);
-            configFile.toFile().setReadOnly();
+            if (!configFile.toFile().setReadOnly()) {
+                throw new NodeStartException("Cannot set read-only flag on node configuration file");
+            }
             return configFile;
         } catch (IOException e) {
             throw new NodeStartException("Cannot write node configuration file", e);
