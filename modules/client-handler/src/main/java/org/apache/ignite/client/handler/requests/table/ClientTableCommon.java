@@ -411,6 +411,7 @@ public class ClientTableCommon {
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
      * @param resourceIdHolder Resource id holder.
+     * @param options Request options. Defines how a request is processed.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
@@ -439,7 +440,7 @@ public class ClientTableCommon {
                     boolean lowPriority = in.unpackBoolean();
                     // Currently we use low priority with getAll fragments to avoid conflicts with subsequent explicit RW transactions,
                     // because locks are released asynchronously. This makes client's getAll a subject for starvation.
-                    // TODO ticket to avoid starvation.
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-27039
                     if (lowPriority) {
                         builder.priority(TxPriority.LOW);
                     }

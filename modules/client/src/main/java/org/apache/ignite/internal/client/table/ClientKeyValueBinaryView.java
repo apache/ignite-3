@@ -114,9 +114,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         List<Transaction> txns = new ArrayList<>();
 
-        // Implicit getAll transaction is executed as multiple independent transactions, coordinated from a client.
-        MapFunction<Tuple, Map<Tuple, Tuple>> clo = (batch, provider, startImplicit) -> {
-            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
+        MapFunction<Tuple, Map<Tuple, Tuple>> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
 
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
@@ -213,8 +212,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
         List<Transaction> txns = new ArrayList<>();
 
-        MapFunction<Tuple, Boolean> clo = (batch, provider, startImplicit) -> {
-            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
+        MapFunction<Tuple, Boolean> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
 
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_CONTAINS_ALL_KEYS,
@@ -267,7 +266,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return nullCompletedFuture();
         }
 
-        MapFunction<Entry<Tuple, Tuple>, Void> clo = (batch, provider, startImplicit) -> {
+        MapFunction<Entry<Tuple, Tuple>, Void> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> ser.writeKvTuples(tx, batch, s, w, n),
@@ -407,7 +406,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyCollectionCompletedFuture();
         }
 
-        MapFunction<Tuple, Collection<Tuple>> clo = (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, Collection<Tuple>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
