@@ -256,7 +256,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             // It might be the last page which closes the cursor on the server side.
             return nextPageFut0
                     .thenApply(p -> p.hasMorePages)
-                    .exceptionally(t -> true) // Fetch failed, assume the cursor is still open.
+                    .exceptionally(t -> true) // Fetch failed, assume the cursor is still open (e.g. cancelled query).
                     .thenCompose(needsClose -> needsClose ? closeAsyncInternal(ch, resourceId) : nullCompletedFuture())
                     .thenApply(ignore -> null);
         } else {
