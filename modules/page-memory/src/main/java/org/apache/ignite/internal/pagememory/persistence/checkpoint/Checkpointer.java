@@ -127,7 +127,8 @@ public class Checkpointer extends IgniteWorker {
             + "replicatorLogSyncTime={}ms, "
             + "waitCompletePageReplacementTime={}ms, "
             + "totalTime={}ms, "
-            + "avgWriteSpeed={}MB/s]";
+            + "avgWriteSpeed={}MB/s, "
+            + "avgTotalWriteSpeed={}MB/s]";
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Checkpointer.class);
@@ -427,6 +428,10 @@ public class Checkpointer extends IgniteWorker {
                 if (log.isInfoEnabled()) {
                     int totalWrittenPages = chp.writtenPages;
                     long totalWriteBytes = (long) pageSize * totalWrittenPages;
+                    long totalIoDurationInNanos = tracker.replicatorLogSyncDuration(NANOSECONDS)
+                            + tracker.pagesWriteDuration(NANOSECONDS)
+                            + tracker.waitPageReplacementDuration(NANOSECONDS)
+                            + tracker.fsyncDuration(NANOSECONDS);
                     long totalDurationInNanos = tracker.checkpointDuration(NANOSECONDS);
 
                     log.info(
@@ -439,6 +444,7 @@ public class Checkpointer extends IgniteWorker {
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
                             tracker.waitPageReplacementDuration(MILLISECONDS),
                             tracker.checkpointDuration(MILLISECONDS),
+                            WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalIoDurationInNanos),
                             WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
                     );
                 }
