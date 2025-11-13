@@ -258,7 +258,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
                         if (igniteEx.code() == Client.RESOURCE_NOT_FOUND_ERR) {
                             try {
-                                if (!nextPageFut.join().hasMorePages) {
+                                var nextPageFut0 = nextPageFut;
+                                if (nextPageFut0 != null && !nextPageFut0.join().hasMorePages) {
                                     // Closed by prefetch of the last page, no error.
                                     return null;
                                 }
