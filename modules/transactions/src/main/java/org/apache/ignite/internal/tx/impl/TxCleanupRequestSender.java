@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
@@ -122,17 +123,24 @@ public class TxCleanupRequestSender {
     private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        txStateVolatileStorage.updateMeta(txId, oldMeta ->
-                new TxStateMeta(
-                        oldMeta == null ? state : oldMeta.txState(),
-                        oldMeta == null ? null : oldMeta.txCoordinatorId(),
-                        commitPartitionId,
-                        oldMeta == null ? null : oldMeta.commitTimestamp(),
-                        oldMeta == null ? null : oldMeta.tx(),
-                        oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                        cleanupCompletionTimestamp,
-                        oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
-                )
+        txStateVolatileStorage.updateMeta(txId, oldMeta -> {
+                    if (oldMeta == null && isFinalState(state)) {
+                        // To prevent further problems in write intent resolution.
+                        return null;
+                    } else {
+                        return new TxStateMeta(
+                                oldMeta == null ? state : oldMeta.txState(),
+                                oldMeta == null ? null : oldMeta.txCoordinatorId(),
+                                commitPartitionId,
+                                oldMeta == null ? null : oldMeta.commitTimestamp(),
+                                oldMeta == null ? null : oldMeta.tx(),
+                                oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
+                                cleanupCompletionTimestamp,
+                                oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
+                        );
+                    }
+                }
+
         );
     }
 
