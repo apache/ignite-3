@@ -32,7 +32,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -81,14 +80,15 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Nullable
     private final Mapper<T> mapper;
 
-    /** Rows. */
-    private volatile List<T> rows;
-
-    /** More pages flag. */
-    private volatile boolean hasMorePages;
+    /** Current page. */
+    @Nullable
+    private volatile Page<T> page;
 
     /** Closed flag. */
     private volatile boolean closed;
+
+    /** Prefetched next page future. */
+    private volatile CompletableFuture<Page<T>> nextPageFut;
 
     /**
      * Constructor.
@@ -112,7 +112,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
         hasRowSet = in.unpackBoolean();
-        hasMorePages = in.unpackBoolean();
+        var hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
         metadata = ClientResultSetMetadata.read(in);
@@ -130,7 +130,16 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         if (hasRowSet) {
             assert metadata != null : "Metadata must be present when row set is available";
-            rows = readRows(in, metadata, marshaller, mapper);
+            List<T> rows = readRows(in, metadata, marshaller, mapper);
+            page = new Page<>(rows, hasMorePages);
+
+            if (hasMorePages) {
+                assert resourceId != null : "Resource id must be present when more pages are available";
+                nextPageFut = fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata);
+            } else {
+                // When last page is fetched, server closes the cursor.
+                closed = true;
+            }
         }
     }
 
@@ -164,7 +173,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     public Iterable<T> currentPage() {
         requireResultSet();
 
-        return rows;
+        Page<T> p = page;
+        assert p != null : "Page must be present when row set is available";
+        return p.rows;
     }
 
     /** {@inheritDoc} */
@@ -172,7 +183,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     public int currentPageSize() {
         requireResultSet();
 
-        return rows.size();
+        Page<T> p = page;
+        assert p != null : "Page must be present when row set is available";
+        return p.rows.size();
     }
 
     /** {@inheritDoc} */
@@ -184,24 +197,22 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             return CompletableFuture.failedFuture(new CursorClosedException());
         }
 
-        return fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata)
-                .thenApply(tuple -> {
-                    //noinspection DataFlowIssue
-                    rows = tuple.get1();
+        return nextPageFut.thenApply(p -> {
+            page = p;
 
-                    //noinspection DataFlowIssue
-                    hasMorePages = tuple.get2();
+            if (p.hasMorePages()) {
+                assert resourceId != null : "Resource id must be present when more pages are available";
+                nextPageFut = fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata);
+            } else {
+                // When last page is fetched, server closes the cursor.
+                closed = true;
+            }
 
-                    if (!hasMorePages) {
-                        // When last page is fetched, server closes the cursor.
-                        closed = true;
-                    }
-
-                    return this;
-                });
+            return this;
+        });
     }
 
-    private static <T> CompletableFuture<IgniteBiTuple<List<T>, Boolean>> fetchNextPageInternal(
+    private static <T> CompletableFuture<Page<T>> fetchNextPageInternal(
             ClientChannel ch,
             long resourceId,
             @Nullable Marshaller marshaller,
@@ -215,14 +226,15 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                     List<T> rows = readRows(r.in(), metadata, marshaller, mapper);
                     boolean hasMorePages = r.in().unpackBoolean();
 
-                    return new IgniteBiTuple<>(rows, hasMorePages);
+                    return new Page<>(rows, hasMorePages);
                 });
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return resourceId != null && hasMorePages;
+        Page<T> p = page;
+        return p != null && p.hasMorePages();
     }
 
     /** {@inheritDoc} */
@@ -325,5 +337,23 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         var schema = new ClientSchema(0, schemaColumns, marshallers);
         return schema.getMarshaller(mapper);
+    }
+
+    private static class Page<T> {
+        private final List<T> rows;
+        private final boolean hasMorePages;
+
+        Page(List<T> rows, boolean hasMorePages) {
+            this.rows = rows;
+            this.hasMorePages = hasMorePages;
+        }
+
+        public List<T> rows() {
+            return rows;
+        }
+
+        public boolean hasMorePages() {
+            return hasMorePages;
+        }
     }
 }
