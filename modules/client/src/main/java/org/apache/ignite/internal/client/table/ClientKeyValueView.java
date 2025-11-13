@@ -195,8 +195,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         List<Transaction> txns = new ArrayList<>();
 
-        MapFunction<K, Map<K, V>> clo = (batch, provider, startImplicit) -> {
-            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
+        MapFunction<K, Map<K, V>> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
 
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
@@ -249,8 +249,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         List<Transaction> txns = new ArrayList<>();
 
-        MapFunction<K, Boolean> clo = (batch, provider, startImplicit) -> {
-            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
+        MapFunction<K, Boolean> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
 
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_CONTAINS_ALL_KEYS,
@@ -305,7 +305,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
-        MapFunction<Entry<K, V>, Void> clo = (batch, provider, startImplicit) -> {
+        MapFunction<Entry<K, V>, Void> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> {
@@ -472,7 +472,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyCollectionCompletedFuture();
         }
 
-        MapFunction<K, Collection<K>> clo = (batch, provider, startImplicit) -> {
+        MapFunction<K, Collection<K>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),

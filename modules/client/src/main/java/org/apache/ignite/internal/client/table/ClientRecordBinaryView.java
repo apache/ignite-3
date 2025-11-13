@@ -100,8 +100,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         List<Transaction> txns = new ArrayList<>();
 
-        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplicit) -> {
-            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
 
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
@@ -151,8 +151,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         List<Transaction> txns = new ArrayList<>();
 
-        MapFunction<Tuple, Boolean> clo = (batch, provider, startImplicit) -> {
-            Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
+        MapFunction<Tuple, Boolean> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
 
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_CONTAINS_ALL_KEYS,
@@ -199,7 +199,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return nullCompletedFuture();
         }
 
-        MapFunction<Tuple, Void> clo = (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, Void> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -269,7 +269,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_INSERT_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -431,7 +431,6 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        // TODO create ticket for execute implicit batch as explicit directly mapped
         MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplict) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
@@ -474,7 +473,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL_EXACT,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),

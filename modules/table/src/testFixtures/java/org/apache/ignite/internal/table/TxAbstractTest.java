@@ -1696,7 +1696,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     /**
-     * TODO disable
      * Performs a test.
      *
      * @param duration The duration.

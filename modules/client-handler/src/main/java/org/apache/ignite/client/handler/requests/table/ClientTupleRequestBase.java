@@ -88,20 +88,16 @@ class ClientTupleRequestBase {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            @Nullable TxManager txManager,
+            TxManager txManager,
             @Nullable NotificationSender notificationSender,
             @Nullable HybridTimestampTracker tsTracker,
             EnumSet<RequestOptions> options
     ) {
-        assert (txManager != null) == (tsTracker != null) : "txManager and tsTracker must be both null or not null";
-
         int tableId = in.unpackInt();
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx = txManager == null
-                ? null
-                : readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
+        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
