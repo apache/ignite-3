@@ -183,7 +183,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         int pageSize = engineConfig.pageSizeBytes().value();
 
         try {
-            FileIoFactory fileIoFactory = new RandomAccessFileIoFactory();
+            var fileIoFactory = new RandomAccessFileIoFactory();
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 

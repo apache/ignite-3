@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
@@ -404,6 +405,6 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
     }
 
     private static FileIoFactory[] ioFactories() {
-        return new FileIoFactory[]{new RandomAccessFileIoFactory()};
+        return new FileIoFactory[]{new RandomAccessFileIoFactory(), new AsyncFileIoFactory()};
     }
 }
