@@ -69,16 +69,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private boolean killed;
 
     /**
-     * {@code True} if an autocommit is disabled for implicit transaction.
-     */
-    private boolean disabledAutocommit;
-
-    /**
-     * Holds latest restarted transaction for this implicit transaction.
-     */
-    private ReadWriteTransactionImpl[] holder;
-
-    /**
      * Constructs an explicit read-write transaction.
      *
      * @param txManager The tx manager.

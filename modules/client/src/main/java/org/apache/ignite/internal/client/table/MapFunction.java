@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.table.ItDataConsistencyTest;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteTriFunction;
 
 /**
- * Test data consistency in mixed read-write load initiated from a client.
+ * Defines alias for batch map function.
+ *
+ * @param <K> Key type.
+ * @param <R> Result type.
  */
-public class ItClientDataConsistencyTest extends ItDataConsistencyTest {
-    private IgniteClient client;
-
-    @BeforeEach
-    public void startClient() {
-        client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-    }
-
-    @Override
-    protected Ignite assignNodeForIteration(int workerId) {
-        return client;
-    }
+@FunctionalInterface
+interface MapFunction<K, R> extends IgniteTriFunction<Collection<K>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> {
 }

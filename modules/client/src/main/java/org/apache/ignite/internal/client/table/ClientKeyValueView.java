@@ -55,7 +55,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
@@ -196,8 +195,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         List<Transaction> txns = new ArrayList<>();
 
-        IgniteTriFunction<Collection<K>, PartitionAwarenessProvider, Boolean, CompletableFuture<Map<K, V>>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<K, Map<K, V>> clo = (batch, provider, startImplicit) -> {
             Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
 
             return tbl.doSchemaOutInOpAsync(
@@ -251,8 +249,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         List<Transaction> txns = new ArrayList<>();
 
-        IgniteTriFunction<Collection<K>, PartitionAwarenessProvider, Boolean, CompletableFuture<Boolean>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<K, Boolean> clo = (batch, provider, startImplicit) -> {
             Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
 
             return tbl.doSchemaOutOpAsync(
@@ -308,8 +305,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
-        IgniteTriFunction<Collection<Entry<K, V>>, PartitionAwarenessProvider, Boolean, CompletableFuture<Void>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<Entry<K, V>, Void> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> {
@@ -476,8 +472,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyCollectionCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<K>, PartitionAwarenessProvider, Boolean, CompletableFuture<Collection<K>>> batchFunc =
-                (batch, provider, startImplicit) -> {
+        MapFunction<K, Collection<K>> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
@@ -488,10 +483,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         };
 
         if (tx == null) {
-            return batchFunc.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()), false);
+            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()), false);
         }
 
-        return tbl.splitAndRun(keys, batchFunc, new HashSet<>(), (agg, cur) -> {
+        return tbl.splitAndRun(keys, clo, new HashSet<>(), (agg, cur) -> {
             agg.addAll(cur);
             return agg;
         }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));

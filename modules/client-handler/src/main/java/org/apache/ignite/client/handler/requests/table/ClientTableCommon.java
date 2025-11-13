@@ -403,7 +403,7 @@ public class ClientTableCommon {
     }
 
     /**
-     * Reads transaction.
+     * Read a transaction or start new.
      *
      * @param in Unpacker.
      * @param tsUpdater Packer.
@@ -422,7 +422,7 @@ public class ClientTableCommon {
             long[] resourceIdHolder,
             EnumSet<RequestOptions> options) {
         if (in.tryUnpackNil()) {
-            return null;
+            return startImplicitTx(tsUpdater, txManager, options.contains(RequestOptions.READ_ONLY));
         }
 
         try {
@@ -488,25 +488,6 @@ public class ClientTableCommon {
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
-    }
-
-    static InternalTransaction readOrStartImplicitTx( // TODO GET RID!!
-            ClientMessageUnpacker in,
-            HybridTimestampTracker readTs,
-            ClientResourceRegistry resources,
-            TxManager txManager,
-            EnumSet<RequestOptions> options,
-            @Nullable NotificationSender notificationSender,
-            long[] resourceIdHolder) {
-        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder, options);
-
-        if (tx == null) {
-            // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
-            // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY));
-        }
-
-        return tx;
     }
 
     /**
