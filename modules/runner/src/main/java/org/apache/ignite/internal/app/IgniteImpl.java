@@ -223,6 +223,7 @@ import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
+import org.apache.ignite.internal.rest.cluster.DataNodesRestFactory;
 import org.apache.ignite.internal.rest.compute.ComputeRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -1419,6 +1420,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
         Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql, killCommandHandler);
         Supplier<RestFactory> nodePropertiesRestFactory = () -> new NodePropertiesFactory(nodeProperties);
+        Supplier<RestFactory> dataNodesRestFactory = () -> new DataNodesRestFactory(distributionZoneManager);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 
@@ -1434,7 +1436,8 @@ public class IgniteImpl implements Ignite {
                         disasterRecoveryFactory,
                         systemDisasterRecoveryFactory,
                         sqlQueryRestFactory,
-                        nodePropertiesRestFactory
+                        nodePropertiesRestFactory,
+                        dataNodesRestFactory
                 ),
                 restManager,
                 restConfiguration

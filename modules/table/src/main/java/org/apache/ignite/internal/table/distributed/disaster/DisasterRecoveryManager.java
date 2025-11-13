@@ -22,7 +22,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
@@ -75,6 +74,7 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
@@ -131,7 +131,6 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalN
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
-import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -807,7 +806,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Function<LocalPartitionStateMessage, T> keyExtractor
     ) {
         return inBusyLock(busyLock, () -> {
-            Collection<CatalogZoneDescriptor> zones = filterZones(zoneNames, catalog.zones());
+            Collection<CatalogZoneDescriptor> zones = DistributionZonesUtil.filterZonesForOperations(zoneNames, catalog.zones());
 
             checkPartitionsRange(partitionIds, zones);
 
@@ -1150,29 +1149,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
 
         return nodes;
-    }
-
-    private static Collection<CatalogZoneDescriptor> filterZones(Set<String> zoneNames, Collection<CatalogZoneDescriptor> zones)
-            throws ZonesNotFoundException {
-        if (zoneNames.isEmpty()) {
-            return zones;
-        }
-
-        List<CatalogZoneDescriptor> zoneDescriptors = zones.stream()
-                .filter(catalogZoneDescriptor -> zoneNames.contains(catalogZoneDescriptor.name()))
-                .collect(toList());
-
-        Set<String> foundZoneNames = zoneDescriptors.stream()
-                .map(CatalogObjectDescriptor::name)
-                .collect(toSet());
-
-        if (!zoneNames.equals(foundZoneNames)) {
-            Set<String> missingZoneNames = CollectionUtils.difference(zoneNames, foundZoneNames);
-
-            throw new ZonesNotFoundException(missingZoneNames);
-        }
-
-        return zoneDescriptors;
     }
 
     /**
