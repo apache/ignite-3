@@ -255,7 +255,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             // If there is a prefetch ongoing, wait for it to complete.
             // It might be the last page which closes the cursor on the server side.
             return nextPageFut0
-                    .thenCompose(p -> p.hasMorePages ? closeAsyncInternal(ch, resourceId) : nullCompletedFuture())
+                    .thenApply(p -> p.hasMorePages)
+                    .exceptionally(t -> true) // Fetch failed, assume the cursor is still open.
+                    .thenCompose(needsClose -> needsClose ? closeAsyncInternal(ch, resourceId) : nullCompletedFuture())
                     .thenApply(ignore -> null);
         } else {
             return closeAsyncInternal(ch, resourceId)
