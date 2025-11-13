@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -66,5 +68,29 @@ public class RowMeta {
     /** Returns the commit partition ID. If row has no write intent, it's {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID}. */
     public int commitPartitionId() {
         return commitPartitionId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        RowMeta rowMeta = (RowMeta) o;
+
+        return commitPartitionId == rowMeta.commitPartitionId
+                && Objects.equals(rowId, rowMeta.rowId)
+                && Objects.equals(transactionId, rowMeta.transactionId)
+                && Objects.equals(commitTableOrZoneId, rowMeta.commitTableOrZoneId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(rowId, transactionId, commitTableOrZoneId, commitPartitionId);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

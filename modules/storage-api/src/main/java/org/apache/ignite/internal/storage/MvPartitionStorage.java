@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -270,12 +271,13 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
-     * Returns a row, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
+     * Returns a batch of rows with subsequent IDs which IDs are greater or equal than the lower bound.
      *
      * @param lowerBound Lower bound.
+     * @param limit Maximum number of rows to return.
      * @throws StorageException If failed to read data from the storage.
      */
-    @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException;
+    List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException;
 
     /**
      * Returns the head of GC queue.

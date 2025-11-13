@@ -20,8 +20,10 @@ package org.apache.ignite.internal.storage.impl;
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
@@ -631,9 +633,30 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+    public List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException {
         checkStorageClosedOrInProcessOfRebalance();
 
+        List<RowMeta> result = new ArrayList<>();
+        RowId currentLowerBound = lowerBound;
+        for (int i = 0; i < limit; i++) {
+            RowMeta row = closestRow(currentLowerBound);
+
+            if (row == null) {
+                break;
+            }
+
+            result.add(row);
+            currentLowerBound = row.rowId().increment();
+
+            if (currentLowerBound == null) {
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    private @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
         Entry<RowId, VersionChain> entry = map.ceilingEntry(lowerBound);
         if (entry == null) {
             return null;

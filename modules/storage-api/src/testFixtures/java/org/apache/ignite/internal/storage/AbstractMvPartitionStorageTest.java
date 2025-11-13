@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.storage.CommitResultMatcher.equalsToCom
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -1501,7 +1502,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    void testClosestRowId() {
+    void testRowsStartingWithId() {
         RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
@@ -1520,7 +1521,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    void testClosestRow() {
+    void testRowsStartingWith() {
         RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
@@ -1531,23 +1532,23 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow2, txId);
 
-        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0));
-        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0.increment()));
+        assertThat(storage.rowsStartingWith(rowId0, 0), is(empty()));
 
-        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId1));
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId0, Integer.MAX_VALUE));
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0.increment(), 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId0.increment(), Integer.MAX_VALUE));
 
-        assertRowMetaEquals(expectedRowMeta2, storage.closestRow(rowId2));
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId1, Integer.MAX_VALUE));
 
-        assertNull(storage.closestRow(rowId2.increment()));
+        assertRowMetasEqual(List.of(expectedRowMeta2), storage.rowsStartingWith(rowId2, Integer.MAX_VALUE));
+
+        assertThat(storage.rowsStartingWith(rowId2.increment(), 1), is(empty()));
     }
 
-    private static void assertRowMetaEquals(RowMeta expected, RowMeta actual) {
-        assertNotNull(actual);
-
-        assertEquals(expected.rowId(), actual.rowId());
-        assertEquals(expected.transactionId(), actual.transactionId());
-        assertEquals(expected.commitTableOrZoneId(), actual.commitTableOrZoneId());
-        assertEquals(expected.commitPartitionId(), actual.commitPartitionId());
+    private static void assertRowMetasEqual(List<RowMeta> expected, List<RowMeta> actual) {
+        assertThat(expected, is(actual));
     }
 
     @Test
@@ -1558,7 +1559,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         addWrite(rowId, binaryRow, txId);
 
-        assertRowMetaEquals(expectedRowMeta, storage.closestRow(RowId.lowestRowId(PARTITION_ID)));
+        assertRowMetasEqual(List.of(expectedRowMeta), storage.rowsStartingWith(RowId.lowestRowId(PARTITION_ID), Integer.MAX_VALUE));
     }
 
     @Test

@@ -53,6 +53,8 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -1115,7 +1117,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+    public List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
@@ -1123,36 +1125,47 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     .position(0)
                     .limit(ROW_PREFIX_SIZE);
 
+            List<RowMeta> result = new ArrayList<>();
+
             try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
                 it.seek(keyBuf);
 
-                if (!it.isValid()) {
-                    it.status();
+                for (int i = 0; i < limit; i++) {
+                    if (!it.isValid()) {
+                        it.status();
 
-                    return null;
-                }
+                        break;
+                    }
 
-                keyBuf.rewind();
-                int keyLength = it.key(keyBuf);
-                boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
+                    keyBuf.rewind();
+                    int keyLength = it.key(keyBuf);
+                    boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
 
-                RowId rowId = getRowId(keyBuf);
+                    RowId rowId = getRowId(keyBuf);
 
-                if (isWriteIntent) {
-                    ByteBuffer transactionState = ByteBuffer.wrap(it.value());
+                    RowMeta row;
+                    if (isWriteIntent) {
+                        ByteBuffer transactionState = ByteBuffer.wrap(it.value());
 
-                    readDataIdFromTxState(transactionState);
-                    UUID txId = new UUID(transactionState.getLong(), transactionState.getLong());
-                    int commitTableId = transactionState.getInt();
-                    int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
+                        readDataIdFromTxState(transactionState);
+                        UUID txId = new UUID(transactionState.getLong(), transactionState.getLong());
+                        int commitTableId = transactionState.getInt();
+                        int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
 
-                    return new RowMeta(rowId, txId, commitTableId, commitPartitionId);
-                } else {
-                    return RowMeta.withoutWriteIntent(rowId);
+                        row = new RowMeta(rowId, txId, commitTableId, commitPartitionId);
+                    } else {
+                        row = RowMeta.withoutWriteIntent(rowId);
+                    }
+
+                    result.add(row);
+
+                    it.next();
                 }
             } catch (RocksDBException e) {
                 throw new IgniteRocksDbException("Error finding closest Row ID", e);
             }
+
+            return result;
         });
     }
 

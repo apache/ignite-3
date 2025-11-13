@@ -263,13 +263,9 @@ class IndexBuildTask {
         List<RowId> rowIds = new ArrayList<>(batchSize);
         Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
 
-        while (rowIds.size() < batchSize && nextRowIdToBuild != null) {
-            @Nullable RowMeta row = partitionStorage.closestRow(nextRowIdToBuild);
+        List<RowMeta> rows = nextRowIdToBuild == null ? List.of() : partitionStorage.rowsStartingWith(nextRowIdToBuild, batchSize);
 
-            if (row == null) {
-                break;
-            }
-
+        for (RowMeta row : rows) {
             rowIds.add(row.rowId());
 
             if (row.isWriteIntent()) {
@@ -284,8 +280,6 @@ class IndexBuildTask {
                     );
                 }
             }
-
-            nextRowIdToBuild = row.rowId().increment();
         }
 
         Map<UUID, CompletableFuture<TxState>> txStateResolveFutures = transactionsToResolve.entrySet().stream()
