@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsSt
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.client.ClientCompatibilityTests.JOBS_UNIT;
+import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,12 +29,9 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.client.DeploymentUtils;
 import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -114,14 +111,6 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     }
 
     private void runSendAllMetastorageCommandTypesJob() {
-        try (IgniteClient client = cluster.createClient()) {
-            JobDescriptor<String, Void> job = JobDescriptor.builder(SendAllMetastorageCommandTypesJob.class)
-                    .units(JOBS_UNIT)
-                    .build();
-
-            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
-
-            client.compute().execute(jobTarget, job, "");
-        }
+        runJob(cluster, SendAllMetastorageCommandTypesJob.class, "");
     }
 }

@@ -28,11 +28,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Parse tree for {@code DROP INDEX} statement.
  */
+@DdlBatchAware(group = DdlBatchGroup.DROP)
 public class IgniteSqlDropIndex extends SqlDrop {
 
     /** DROP INDEX operator. */

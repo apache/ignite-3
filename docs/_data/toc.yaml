@@ -23,6 +23,8 @@
       url: installation/deb-rpm
     - title: Installing Docker
       url: installation/installing-using-docker
+    - title: Migration From Ignite 3.0
+      url: installation/migration-from-ai3-1
     - title: Migration From Ignite 2
       url: installation/migration-from-ai2/overview
       items:

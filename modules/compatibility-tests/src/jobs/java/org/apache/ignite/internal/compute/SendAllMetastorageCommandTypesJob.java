@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 
 /** A job that runs different MetastorageWriteCommands. */
+// TODO IGNITE-26874 Add a check that all write commands are covered.
 public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
@@ -43,7 +45,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
         try {
             IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
-            byte[] value = "value".getBytes();
+            byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
             MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
 
@@ -58,7 +60,7 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
                             iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
                     metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
                     sendCompactionCommand(metastorage)
-            );
+            ).thenCompose((v) -> metastorage.storage().flush());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

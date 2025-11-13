@@ -60,7 +60,9 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -339,10 +341,8 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         return internalTableImpl.scan(
                 partitionId,
-                roTx.id(),
-                roTx.readTimestamp(),
                 recipientNode,
-                roTx.coordinatorId()
+                OperationContext.create(TxContext.readOnly(roTx))
         );
     }
 

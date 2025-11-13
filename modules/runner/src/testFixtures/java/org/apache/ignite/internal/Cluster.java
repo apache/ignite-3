@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
 import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
@@ -41,8 +42,10 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -54,6 +57,7 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -113,7 +117,8 @@ public class Cluster {
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = ConcurrentHashMap.newKeySet();
 
-    private List<IgniteServer> metaStorageAndCmgNodes = List.of();
+    private List<IgniteServer> cmgNodes = List.of();
+    private List<IgniteServer> metastorageNodes = List.of();
 
     /**
      * Creates a new cluster.
@@ -203,7 +208,7 @@ public class Cluster {
      *
      * @param testInfo Test info.
      * @param nodeCount Number of nodes in the cluster.
-     * @param cmgNodes Indices of CMG nodes.
+     * @param cmgNodeIndices Indices of CMG nodes.
      * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
      *     with this call.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
@@ -212,7 +217,7 @@ public class Cluster {
     private void startAndInit(
             @Nullable TestInfo testInfo,
             int nodeCount,
-            int[] cmgNodes,
+            int[] cmgNodeIndices,
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator,
             NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater
@@ -227,19 +232,27 @@ public class Cluster {
                 .mapToObj(nodeIndex -> startEmbeddedNode(testInfo, nodeIndex, nodeBootstrapConfigTemplate, nodeBootstrapConfigUpdater))
                 .collect(toList());
 
-        metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+        List<String> initialCmgNodeNames = Arrays.stream(cmgNodeIndices)
                 .mapToObj(nodeRegistrations::get)
                 .map(ServerRegistration::server)
+                .map(IgniteServer::name)
                 .collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .metaStorageNodes(metaStorageAndCmgNodes)
+                .cmgNodeNames(initialCmgNodeNames)
                 .clusterName(clusterConfiguration.clusterName())
                 .clusterConfiguration("ignite { metrics: { exporters { log { exporterName = logPush, periodMillis = 10000 } } } }");
 
         initParametersConfigurator.accept(builder);
 
-        TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
+        InitParameters initParameters = builder.build();
+
+        // Init parameters configuration can change these values. It's still not ideal because initializer uses heuristics to construct
+        // actual lists, but this is the best we can do here.
+        cmgNodes = getNodesByNames(nodeRegistrations, initParameters.cmgNodeNames());
+        metastorageNodes = getNodesByNames(nodeRegistrations, initParameters.metaStorageNodeNames());
+
+        TestIgnitionManager.init(cmgNodes.get(0), initParameters);
 
         for (ServerRegistration registration : nodeRegistrations) {
             try {
@@ -250,6 +263,15 @@ public class Cluster {
         }
 
         started = true;
+    }
+
+    private static List<IgniteServer> getNodesByNames(Collection<ServerRegistration> nodeRegistrations, Collection<String> nodeNames) {
+        Map<String, IgniteServer> nodesByName = nodeRegistrations.stream()
+                .collect(toMap(reg -> reg.server().name(), ServerRegistration::server));
+
+        return nodeNames.stream()
+                .map(nodesByName::get)
+                .collect(toList());
     }
 
     /**
@@ -370,6 +392,13 @@ public class Cluster {
      */
     public int httpPort(int nodeIndex) {
         return clusterConfiguration.baseHttpPort() + nodeIndex;
+    }
+
+    /**
+     * Returns HTTPS port by index.
+     */
+    public int httpsPort(int nodeIndex) {
+        return clusterConfiguration.baseHttpsPort() + nodeIndex;
     }
 
     private String seedAddressesString() {
@@ -613,19 +642,26 @@ public class Cluster {
         Collections.fill(nodes, null);
 
         // TODO: IGNITE-26085 Allow stopping nodes in any order. Currently, MS nodes stop only at the last one.
-        serversToStop.parallelStream()
-                .filter(igniteServer -> igniteServer != null && !metaStorageAndCmgNodes.contains(igniteServer))
-                .forEach(IgniteServer::shutdown);
+        // First stop ordinary nodes
+        stopNodes(serversToStop, server -> !cmgNodes.contains(server) && !metastorageNodes.contains(server));
+        // Then stop cmg nodes that are not also in metastorage
+        stopNodes(cmgNodes, server -> serversToStop.contains(server) && !metastorageNodes.contains(server));
+        // Finally stop metastorage nodes
+        stopNodes(metastorageNodes, serversToStop::contains);
 
-        metaStorageAndCmgNodes.parallelStream()
-                .filter(igniteServer -> igniteServer != null && serversToStop.contains(igniteServer))
-                .forEach(IgniteServer::shutdown);
-
-        metaStorageAndCmgNodes = List.of();
+        cmgNodes = List.of();
+        metastorageNodes = List.of();
 
         MicronautCleanup.removeShutdownHooks();
 
         LOG.info("Shut the cluster down");
+    }
+
+    private static void stopNodes(List<IgniteServer> nodes, Predicate<IgniteServer> filter) {
+        nodes.parallelStream()
+                .filter(Objects::nonNull)
+                .filter(filter)
+                .forEach(IgniteServer::shutdown);
     }
 
     /**

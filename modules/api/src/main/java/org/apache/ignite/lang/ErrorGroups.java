@@ -555,6 +555,9 @@ public class ErrorGroups {
 
         /** Config parse error. */
         public static final int CONFIG_PARSE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Join denied error. */
+        public static final int JOIN_DENIED_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Code deployment error group. */

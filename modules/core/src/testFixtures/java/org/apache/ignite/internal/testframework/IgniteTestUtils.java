@@ -76,6 +76,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.awaitility.Awaitility;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -654,11 +655,15 @@ public final class IgniteTestUtils {
     /**
      * Waits for the condition.
      *
+     * <p>This method is deprecated in favor of the Awaitility library; use {@link Awaitility#await()} instead.
+     *
      * @param cond Condition.
      * @param timeoutMillis Timeout in milliseconds.
      * @return {@code True} if the condition was satisfied within the timeout.
      * @throws InterruptedException If waiting was interrupted.
+     * @see Awaitility#await()
      */
+    @Deprecated
     public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
         return waitForCondition(cond, 10, timeoutMillis);
     }
@@ -666,13 +671,17 @@ public final class IgniteTestUtils {
     /**
      * Waits for the condition.
      *
+     * <p>This method is deprecated in favor of the Awaitility library; use {@link Awaitility#await()} instead.
+     *
      * @param cond Condition.
      * @param sleepMillis Sleep im milliseconds.
      * @param timeoutMillis Timeout in milliseconds.
      * @return {@code True} if the condition was satisfied within the timeout.
      * @throws InterruptedException If waiting was interrupted.
+     * @see Awaitility#await()
      */
     @SuppressWarnings("BusyWait")
+    @Deprecated
     public static boolean waitForCondition(BooleanSupplier cond, long sleepMillis, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
@@ -26,6 +25,9 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -64,13 +66,19 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
     CatalogHashIndexDescriptor createCatalogIndexDescriptor(
             int tableId, int indexId, String indexName, boolean built, ColumnType... columnTypes
     ) {
+        CatalogTableDescriptor table = Objects.requireNonNull(catalog.table(tableId));
+        IntList columnIds = Stream.of(columnTypes)
+                .map(AbstractIndexStorageTest::columnName)
+                .map(columnName -> table.column(columnName).id())
+                .collect(IntArrayList::new, IntList::add, IntList::addAll);
+
         var indexDescriptor = new CatalogHashIndexDescriptor(
                 indexId,
                 indexName,
                 tableId,
                 false,
                 AVAILABLE,
-                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList()),
+                columnIds,
                 built
         );
 

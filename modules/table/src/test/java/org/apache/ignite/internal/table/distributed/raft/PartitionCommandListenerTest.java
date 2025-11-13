@@ -329,6 +329,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                     new RaftGroupConfiguration(
                             index,
                             1,
+                            111L,
+                            110L,
                             List.of(clusterService.nodeName()),
                             Collections.emptyList(),
                             null,
@@ -676,7 +678,16 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         long index = raftIndex.incrementAndGet();
 
         commandListener.onConfigurationCommitted(
-                new RaftGroupConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                new RaftGroupConfiguration(
+                        index,
+                        2,
+                        111L,
+                        110L,
+                        List.of("peer"),
+                        List.of("learner"),
+                        List.of("old-peer"),
+                        List.of("old-learner")
+                ),
                 index,
                 2
         );
@@ -684,6 +695,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         RaftGroupConfiguration expectedConfig = new RaftGroupConfiguration(
                 index,
                 2,
+                111L,
+                110L,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),
@@ -697,7 +710,16 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     @Test
     void updatesLastAppliedIndexAndTermOnConfigCommit() {
         commandListener.onConfigurationCommitted(
-                new RaftGroupConfiguration(3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                new RaftGroupConfiguration(
+                        3,
+                        2,
+                        111L,
+                        110L,
+                        List.of("peer"),
+                        List.of("learner"),
+                        List.of("old-peer"),
+                        List.of("old-learner")
+                ),
                 3,
                 2
         );
@@ -711,7 +733,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         commandListener.onConfigurationCommitted(
                 new RaftGroupConfiguration(
-                    1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+                    1, 2, 111L, 110L, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
                 ),
                 1,
                 2
@@ -726,7 +748,16 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void locksOnConfigCommit() {
         long index = raftIndex.incrementAndGet();
         commandListener.onConfigurationCommitted(
-                new RaftGroupConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                new RaftGroupConfiguration(
+                        index,
+                        2,
+                        111L,
+                        110L,
+                        List.of("peer"),
+                        List.of("learner"),
+                        List.of("old-peer"),
+                        List.of("old-learner")
+                ),
                 index,
                 2
         );

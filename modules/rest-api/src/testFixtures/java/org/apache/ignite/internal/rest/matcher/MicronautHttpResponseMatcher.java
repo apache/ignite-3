@@ -76,10 +76,10 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      * @param problemMatcher Expected problem.
      * @return Matcher.
      */
-    public static MicronautHttpResponseMatcher<Problem> isProblemResponse(HttpStatus status, ProblemMatcher problemMatcher) {
-        return MicronautHttpResponseMatcher.<Problem>hasStatus(status)
+    public static MicronautHttpResponseMatcher<Problem> isProblemResponse(ProblemMatcher problemMatcher) {
+        return new MicronautHttpResponseMatcher<Problem>(problemMatcher.statusMatcher())
                 .withMediaType(org.apache.ignite.internal.rest.constants.MediaType.PROBLEM_JSON)
-                .withBody(problemMatcher.withStatus(status.getCode()), Problem.class);
+                .withBody(problemMatcher, Problem.class);
     }
 
     /**
@@ -87,23 +87,22 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      * {@link Problem} matching provided matcher.
      *
      * @param executable Executable to run.
-     * @param status Expected HTTP status.
      * @param problemMatcher Matcher to apply to the problem JSON.
      */
-    public static void assertThrowsProblem(Executable executable, HttpStatus status, ProblemMatcher problemMatcher) {
+    public static void assertThrowsProblem(Executable executable, ProblemMatcher problemMatcher) {
         HttpClientResponseException thrown = assertThrows(HttpClientResponseException.class, executable);
-        assertThat(thrown.getResponse(), isProblemResponse(status, problemMatcher));
+        assertThat(thrown.getResponse(), isProblemResponse(problemMatcher));
     }
 
     /**
      * Shortcut method which asserts that the provided executable will throw a {@link HttpClientResponseException} which contains a
-     * {@link Problem}.
+     * {@link Problem} with specified status.
      *
      * @param executable Executable to run.
      * @param status Expected HTTP status.
      */
     public static void assertThrowsProblem(Executable executable, HttpStatus status) {
-        assertThrowsProblem(executable, status, isProblem());
+        assertThrowsProblem(executable, isProblem().withStatus(status));
     }
 
     /**

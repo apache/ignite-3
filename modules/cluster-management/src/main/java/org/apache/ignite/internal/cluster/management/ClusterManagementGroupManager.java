@@ -728,7 +728,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     ) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping onLeaderElected callback, because the node is stopping");

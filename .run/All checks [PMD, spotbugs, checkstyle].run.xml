@@ -10,13 +10,9 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value="pmdMain" />
-          <option value="pmdTest" />
-          <option value="spotbugsMain" />
-          <option value="checkstyleMain" />
-          <option value="checkstyleIntegrationTest" />
-          <option value="checkstyleTest" />
-          <option value="checkstyleTestFixtures" />
+          <option value="pmd" />
+          <option value="spotbugs" />
+          <option value="checkstyle" />
         </list>
       </option>
       <option name="vmOptions" />
