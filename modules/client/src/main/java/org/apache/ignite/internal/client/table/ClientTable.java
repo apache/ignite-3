@@ -61,7 +61,6 @@ import org.apache.ignite.internal.client.tx.DirectTxUtils;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
-import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
@@ -751,8 +750,17 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
-    public Transaction startImplicitTxIfNeeded(@Nullable Transaction tx, List<Transaction> txns, boolean startImplicit) {
-        if (tx != null || !startImplicit) {
+    /**
+     * Start an explicit transaction for implicit operation if needed.
+     *
+     * @param tx Transaction to check.
+     * @param txns Explicit transactions holder.
+     * @param txRequired {@code True} if explicit tx is required (implicit + multiple batches).
+     *
+     * @return The transaction.
+     */
+    Transaction startImplicitTxIfNeeded(@Nullable Transaction tx, List<Transaction> txns, boolean txRequired) {
+        if (tx != null || !txRequired) {
             return tx;
         }
 
@@ -789,7 +797,7 @@ public class ClientTable implements Table {
 
     <R, E> CompletableFuture<R> splitAndRun(
             Collection<E> keys,
-            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> fun,
+            MapFunction<E, R> fun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
@@ -799,7 +807,7 @@ public class ClientTable implements Table {
 
     <R, E> CompletableFuture<R> splitAndRun(
             Collection<E> keys,
-            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> mapFun,
+            MapFunction<E, R> mapFun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc,
@@ -831,8 +839,42 @@ public class ClientTable implements Table {
                 });
     }
 
+    <E> CompletableFuture<List<E>> splitAndRun(
+            Collection<E> keys,
+            MapFunction<E, List<E>> fun,
+            BiFunction<ClientSchema, E, Integer> hashFunc,
+            List<Transaction> txns
+    ) {
+        CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
+        CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    ClientSchema schema = schemaFut.getNow(null);
+
+                    @Nullable List<String> aff = partitionsFut.getNow(null);
+                    if (aff == null) {
+                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
+                    }
+
+                    Map<Integer, Batch<E>> mapped = IgniteUtils.newHashMap(aff.size());
+
+                    int idx = 0;
+                    for (E key : keys) {
+                        int hash = hashFunc.apply(schema, key);
+                        int part = Math.abs(hash % aff.size());
+                        mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
+                        idx++;
+                    }
+
+                    CompletableFuture<List<E>> resFut = new CompletableFuture<>();
+                    mapAndRetry(fun, keys, txns, mapped, new long[1], resFut, log);
+                    return resFut;
+                });
+    }
+
     private static <R, E> void mapAndRetry(
-            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> mapFun,
+            MapFunction<E, R> mapFun,
             @Nullable R initialValue, Reducer<R> reducer,
             List<Transaction> txns,
             Map<Integer, List<E>> mapped,
@@ -919,7 +961,7 @@ public class ClientTable implements Table {
     }
 
     private static <E> void mapAndRetry(
-            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<E>>> mapFun,
+            MapFunction<E, List<E>> mapFun,
             Collection<E> keys,
             List<Transaction> txns,
             Map<Integer, Batch<E>> mapped,
@@ -1021,40 +1063,6 @@ public class ClientTable implements Table {
             }
         }
         return waitCommitFuts;
-    }
-
-    <E> CompletableFuture<List<E>> splitAndRun(
-            Collection<E> keys,
-            IgniteTriFunction<Collection<E>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<E>>> fun,
-            BiFunction<ClientSchema, E, Integer> hashFunc,
-            List<Transaction> txns
-    ) {
-        CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
-        CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
-
-        return CompletableFuture.allOf(schemaFut, partitionsFut)
-                .thenCompose(v -> {
-                    ClientSchema schema = schemaFut.getNow(null);
-
-                    @Nullable List<String> aff = partitionsFut.getNow(null);
-                    if (aff == null) {
-                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
-                    }
-
-                    Map<Integer, Batch<E>> mapped = IgniteUtils.newHashMap(aff.size());
-
-                    int idx = 0;
-                    for (E key : keys) {
-                        int hash = hashFunc.apply(schema, key);
-                        int part = Math.abs(hash % aff.size());
-                        mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
-                        idx++;
-                    }
-
-                    CompletableFuture<List<E>> resFut = new CompletableFuture<>();
-                    mapAndRetry(fun, keys, txns, mapped, new long[1], resFut, log);
-                    return resFut;
-                });
     }
 
     @FunctionalInterface

@@ -27,9 +27,6 @@ import org.jetbrains.annotations.Nullable;
 public class InternalTxOptions {
     private static final InternalTxOptions DEFAULT_OPTIONS = builder().build();
 
-    private static final InternalTxOptions IMPLICIT_GETALL_OPTIONS =
-            builder().priority(TxPriority.LOW).disableAutoCommit().timeoutMillis(100).build();
-
     /**
      * Transaction priority. The priority is used to resolve conflicts between transactions. The higher priority is
      * the more likely the transaction will win the conflict.
@@ -46,14 +43,10 @@ public class InternalTxOptions {
     @Nullable
     private final HybridTimestamp readTimestamp;
 
-    /** Disabled auto commit property. */
-    private final boolean disabledAutocommit;
-
-    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, boolean disabledAutocommit) {
+    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
         this.readTimestamp = readTimestamp;
-        this.disabledAutocommit = disabledAutocommit;
     }
 
     public static Builder builder() {
@@ -62,10 +55,6 @@ public class InternalTxOptions {
 
     public static InternalTxOptions defaults() {
         return DEFAULT_OPTIONS;
-    }
-
-    public static InternalTxOptions getAllOptions() {
-        return IMPLICIT_GETALL_OPTIONS;
     }
 
     public static InternalTxOptions defaultsWithPriority(TxPriority priority) {
@@ -84,10 +73,6 @@ public class InternalTxOptions {
         return readTimestamp;
     }
 
-    public boolean disabledAutocommit() {
-        return disabledAutocommit;
-    }
-
     /** Builder for InternalTxOptions. */
     public static class Builder {
         private TxPriority priority = TxPriority.NORMAL;
@@ -100,8 +85,6 @@ public class InternalTxOptions {
 
         @Nullable
         private HybridTimestamp readTimestamp = null;
-
-        private boolean disableAutoCommit = false;
 
         public Builder priority(TxPriority priority) {
             this.priority = priority;
@@ -118,13 +101,8 @@ public class InternalTxOptions {
             return this;
         }
 
-        public Builder disableAutoCommit() {
-            this.disableAutoCommit = true;
-            return this;
-        }
-
         public InternalTxOptions build() {
-            return new InternalTxOptions(priority, timeoutMillis, readTimestamp, disableAutoCommit);
+            return new InternalTxOptions(priority, timeoutMillis, readTimestamp);
         }
     }
 }

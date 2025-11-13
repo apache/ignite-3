@@ -47,6 +47,13 @@ public class ClientLazyTransaction implements Transaction {
         this(observableTimestamp, options, false);
     }
 
+    /**
+     * Create a transaction with priority.
+     *
+     * @param observableTimestamp The timestamp tracker.
+     * @param options Options.
+     * @param lowPriority {@code True} to use low priority.
+     */
     public ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options, boolean lowPriority) {
         this.observableTimestamp = observableTimestamp.getLong();
         this.options = options;

@@ -37,7 +37,6 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
-import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -101,8 +100,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         List<Transaction> txns = new ArrayList<>();
 
-        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplicit) -> {
             Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
 
             return tbl.doSchemaOutInOpAsync(
@@ -153,7 +151,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         List<Transaction> txns = new ArrayList<>();
 
-        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<Boolean>> clo = (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, Boolean> clo = (batch, provider, startImplicit) -> {
             Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
 
             return tbl.doSchemaOutOpAsync(
@@ -201,8 +199,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return nullCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<Void>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, Void> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -272,8 +269,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_INSERT_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -436,8 +432,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         }
 
         // TODO create ticket for execute implicit batch as explicit directly mapped
-        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
-                (batch, provider, startImplict) -> {
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplict) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
@@ -479,8 +474,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<Tuple>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<Tuple>>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL_EXACT,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),

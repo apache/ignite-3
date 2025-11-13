@@ -17,9 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
 
@@ -99,9 +99,8 @@ class ClientTupleRequestBase {
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx = txManager == null
-                ? null
-                : readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
+        InternalTransaction tx =
+                txManager == null ? null : readTx(in, tsTracker, resources, txManager, notificationSender, resIdHolder, options);
 
         int schemaId = in.unpackInt();
 
@@ -115,8 +114,8 @@ class ClientTupleRequestBase {
                 .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
                         .thenApply(schema -> {
                             var tuple = readTuple(noValueSet, tupleBytes, options.contains(KEY_ONLY), schema);
-                            var tuple2 = options.contains(READ_SECOND_TUPLE) ?
-                                    readTuple(noValueSet2, tupleBytes2, options.contains(KEY_ONLY), schema) : null;
+                            var tuple2 = options.contains(READ_SECOND_TUPLE)
+                                    ? readTuple(noValueSet2, tupleBytes2, options.contains(KEY_ONLY), schema) : null;
 
                             return new ClientTupleRequestBase(tx, table, tuple, tuple2, resIdHolder[0]);
                         }));

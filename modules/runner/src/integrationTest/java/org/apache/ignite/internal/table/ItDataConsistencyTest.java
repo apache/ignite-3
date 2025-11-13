@@ -47,30 +47,23 @@ import org.junit.jupiter.api.Test;
  * Test data consistency in mixed read-write load.
  */
 public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
-    static final String ZONE_NAME = "test_zone";
-    static final String TABLE_NAME = "accounts";
-    static final int WRITE_PARALLELISM = Runtime.getRuntime().availableProcessors();
-    static final int READ_PARALLELISM = 1;
-    static final int accountsCount = WRITE_PARALLELISM * 10;
-    static final double initial = 1000;
-    static final double total = accountsCount * initial;
-    static final int durationMillis = 15000;
+    private static final String ZONE_NAME = "test_zone";
+    private static final String TABLE_NAME = "accounts";
+    private static final int WRITE_PARALLELISM = Runtime.getRuntime().availableProcessors();
+    private static final int READ_PARALLELISM = 1;
+    private static final int ACCOUNTS_COUNT = WRITE_PARALLELISM * 10;
+    private static final double INITIAL = 1000;
+    private static final double TOTAL = ACCOUNTS_COUNT * INITIAL;
+    private static final int DURATION_MILLIS = 10000;
 
-    CyclicBarrier startBar = new CyclicBarrier(WRITE_PARALLELISM + READ_PARALLELISM, () -> log.info("Before test"));
-
-    LongAdder ops = new LongAdder();
-
-    LongAdder fails = new LongAdder();
-
-    LongAdder readOps = new LongAdder();
-
-    LongAdder readFails = new LongAdder();
-
-    AtomicBoolean stop = new AtomicBoolean();
-
-    Random r = new Random();
-
-    AtomicReference<Throwable> firstErr = new AtomicReference<>();
+    private CyclicBarrier startBar = new CyclicBarrier(WRITE_PARALLELISM + READ_PARALLELISM, () -> log.info("Before test"));
+    private LongAdder ops = new LongAdder();
+    private LongAdder fails = new LongAdder();
+    private LongAdder readOps = new LongAdder();
+    private LongAdder readFails = new LongAdder();
+    private AtomicBoolean stop = new AtomicBoolean();
+    private Random rng = new Random();
+    private AtomicReference<Throwable> firstErr = new AtomicReference<>();
 
     @BeforeAll
     public void createTables() {
@@ -121,7 +114,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
         long cur = System.currentTimeMillis();
 
-        while(cur + durationMillis > System.currentTimeMillis()) {
+        while (cur + DURATION_MILLIS > System.currentTimeMillis()) {
             Thread.sleep(1000);
 
             log.info("Waiting...");
@@ -147,19 +140,19 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         Ignite node = node(0); // Intentional.
         Table accounts = node.tables().table("accounts");
 
-        for (int i = 0; i < accountsCount; i++) {
+        for (int i = 0; i < ACCOUNTS_COUNT; i++) {
             accounts.recordView().upsert(null, makeValue(i, 1000));
         }
 
         double total0 = 0;
 
-        for (long i = 0; i < accountsCount; i++) {
+        for (long i = 0; i < ACCOUNTS_COUNT; i++) {
             double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
 
             total0 += balance;
         }
 
-        assertEquals(total, total0, "Total amount invariant is not preserved");
+        assertEquals(TOTAL, total0, "Total amount invariant is not preserved");
     }
 
     private void validate() {
@@ -174,13 +167,13 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
         double total0 = 0;
 
-        for (long i = 0; i < accountsCount; i++) {
+        for (long i = 0; i < ACCOUNTS_COUNT; i++) {
             double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
 
             total0 += balance;
         }
 
-        assertEquals(total, total0, "Total amount invariant is not preserved");
+        assertEquals(TOTAL, total0, "Total amount invariant is not preserved");
     }
 
     private Runnable createWriter(int workerId) {
@@ -200,16 +193,16 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 var view = node.tables().table("accounts").recordView();
 
                 try {
-                    long acc1 = r.nextInt(accountsCount);
+                    long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 
-                    double amount = 100 + r.nextInt(500);
+                    double amount = 100 + rng.nextInt(500);
 
                     double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
 
                     long acc2 = acc1;
 
                     while (acc1 == acc2) {
-                        acc2 = r.nextInt(accountsCount);
+                        acc2 = rng.nextInt(ACCOUNTS_COUNT);
                     }
 
                     double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
@@ -241,7 +234,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
             List<Tuple> keys = new ArrayList<>();
 
-            for (int i = 0; i < accountsCount; i++) {
+            for (int i = 0; i < ACCOUNTS_COUNT; i++) {
                 keys.add(makeKey(i));
             }
 
@@ -265,7 +258,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                         sum += val.doubleValue("balance");
                     }
 
-                    assertEquals(total, sum);
+                    assertEquals(TOTAL, sum);
 
                     readOps.increment();
                 } catch (Exception e) {
@@ -278,7 +271,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     }
 
     protected Ignite assignNodeForIteration(int workerId) {
-        return CLUSTER.node(0);
+        return CLUSTER.node(workerId % initialNodes());
     }
 
     protected Tuple makeKey(long id) {
@@ -287,10 +280,5 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     protected Tuple makeValue(long id, double balance) {
         return Tuple.create().set("accountNumber", id).set("balance", balance);
-    }
-
-    @Override
-    protected int initialNodes() {
-        return 1;
     }
 }

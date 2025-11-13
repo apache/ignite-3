@@ -133,8 +133,8 @@ public class DirectTxUtils {
                     out.out().packLong(tx0.observableTimestamp());
                     out.out().packBoolean(tx.isReadOnly());
                     out.out().packLong(tx0.timeout());
-                    if (ctx.channel.protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_PRIORITY) &&
-                            (ctx.opCode == ClientOp.TUPLE_GET_ALL || ctx.opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS)) {
+                    if (ctx.channel.protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_PRIORITY)
+                            && (ctx.opCode == ClientOp.TUPLE_GET_ALL || ctx.opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS)) {
                         out.out().packBoolean(tx0.lowPriority());
                     }
                 } else {

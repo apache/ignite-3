@@ -39,7 +39,6 @@ import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSql;
-import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
@@ -109,8 +108,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         List<Transaction> txns = new ArrayList<>();
 
-        IgniteTriFunction<Collection<R>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<R>>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<R, List<R>> clo = (batch, provider, startImplicit) -> {
             Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
 
             return tbl.doSchemaOutInOpAsync(
@@ -161,8 +159,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         List<Transaction> txns = new ArrayList<>();
 
-        IgniteTriFunction<Collection<R>, PartitionAwarenessProvider, Boolean, CompletableFuture<Boolean>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<R, Boolean> clo = (batch, provider, startImplicit) -> {
             Transaction tx0 = tbl.startImplicitTxIfNeeded(tx, txns, startImplicit);
 
             return tbl.doSchemaOutOpAsync(
@@ -211,8 +208,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return nullCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<R>, PartitionAwarenessProvider, Boolean, CompletableFuture<Void>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<R, Void> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
@@ -283,8 +279,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<R>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<R>>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<R, List<R>> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_INSERT_ALL,
                     (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
@@ -443,8 +438,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<R>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<R>>> clo =
-                (batch, provider, startImplicit) -> {
+        MapFunction<R, List<R>> clo = (batch, provider, startImplicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
@@ -486,8 +480,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        IgniteTriFunction<Collection<R>, PartitionAwarenessProvider, Boolean, CompletableFuture<List<R>>> clo =
-                (batch, provider, startImlpicit) -> {
+        MapFunction<R, List<R>> clo = (batch, provider, startImlpicit) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL_EXACT,
                     (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),

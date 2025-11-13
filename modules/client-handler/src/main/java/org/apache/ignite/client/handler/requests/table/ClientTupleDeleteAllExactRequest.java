@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static java.util.EnumSet.noneOf;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
+import static org.apache.ignite.client.handler.requests.table.ClientTuplesRequestBase.readAsync;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -54,7 +55,7 @@ public class ClientTupleDeleteAllExactRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, notificationSender, tsTracker, noneOf(RequestOptions.class))
+        return readAsync(in, tables, resources, txManager, notificationSender, tsTracker, noneOf(RequestOptions.class))
                 .thenCompose(req -> req.table().recordView().deleteAllExactAsync(req.tx(), req.tuples())
                         .thenApply(skippedTuples -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);
