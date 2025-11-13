@@ -171,7 +171,11 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> {
             IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
-            CompletableFuture<Set<Assignment>> assignmentsFuture = stablePartitionAssignments(ignite.metaStorageManager(), table, 0);
+            CompletableFuture<Set<Assignment>> assignmentsFuture = stablePartitionAssignments(
+                    ignite.metaStorageManager(),
+                    table.zoneId(),
+                    0
+            );
 
             Set<String> assignments = await(assignmentsFuture)
                     .stream()
