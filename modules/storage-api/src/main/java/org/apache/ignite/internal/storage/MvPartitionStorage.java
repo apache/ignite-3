@@ -86,6 +86,21 @@ public interface MvPartitionStorage extends ManuallyCloseable {
          *      {@code false} if lock is not held by the current thread and the attempt to acquire it has failed.
          */
         boolean tryLock(RowId rowId);
+
+        /**
+         * Returns {@code true} if the engine needs resources and the user should consider stopping the execution preemptively.
+         *
+         * <p>This method is intended to prevent stalling critical engine operations (such as checkpointing) when user code
+         * is performing long-running work inside {@link WriteClosure}. User code should check this method periodically
+         * and stop the execution if it returns {@code true}.
+         *
+         * <p>For most storage engines, this method always returns {@code false}. Only engines that require exclusive access
+         * to resources (like {@code aipersist} waiting for checkpoint write lock) will return {@code true} when they need
+         * the resources.
+         *
+         * @return {@code true} if the engine needs resources and the user should release the lock, {@code false} otherwise.
+         */
+        boolean shouldRelease();
     }
 
     /**

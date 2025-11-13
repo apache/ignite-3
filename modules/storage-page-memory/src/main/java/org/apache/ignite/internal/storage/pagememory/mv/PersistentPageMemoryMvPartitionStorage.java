@@ -170,7 +170,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-                LocalLocker locker0 = new LocalLocker(lockByRowId);
+                LocalLocker locker0 = new LocalLocker(lockByRowId, checkpointTimeoutLock::shouldReleaseReadLock);
 
                 checkpointTimeoutLock.checkpointReadLock();
 
