@@ -21,6 +21,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.ClusterPerClassIntegrationTest.isIndexAvailable;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.index.ItBuildIndexTest.getIndexDescriptor;
+import static org.apache.ignite.internal.index.WriteIntentSwitchControl.disableWriteIntentSwitchExecution;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -36,11 +38,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -56,8 +55,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest {
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
-
     private static final String ZONE_NAME = "ZONE_TABLE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -68,7 +65,7 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
     void writeIntentFromTxAbandonedBeforeShouldNotBeIndexed() {
         createTable(1, 1);
 
-        disableWriteIntentSwitchExecution();
+        disableWriteIntentSwitchExecution(cluster);
 
         // Create and abandon a transaction.
         int txCoordinatorOrdinal = 2;
@@ -138,12 +135,6 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
                 }
             }
         }
-    }
-
-    private void disableWriteIntentSwitchExecution() {
-        cluster.runningNodes().forEach(ignite -> {
-            unwrapIgniteImpl(ignite).dropMessages((recipientId, message) -> message instanceof WriteIntentSwitchReplicaRequest);
-        });
     }
 
     private static CatalogIndexDescriptor indexDescriptor(String indexName, IgniteImpl ignite) {
@@ -226,18 +217,6 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
                         .map(node -> getIndexDescriptor(node, indexName))
                         .allMatch(Objects::nonNull)
         );
-    }
-
-    /**
-     * Returns table index descriptor of the given index at the given node, or {@code null} if no such index exists.
-     *
-     * @param node Node.
-     * @param indexName Index name.
-     */
-    private static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
-        HybridClock clock = node.clock();
-        CatalogManager catalogManager = node.catalogManager();
-        return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
     }
 
     private void insertDataInTransaction(Transaction tx, String tblName, List<String> columnNames, Object[]... tuples) {

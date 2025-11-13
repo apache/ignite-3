@@ -417,7 +417,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param node Node.
      * @param indexName Index name.
      */
-    private static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
+    static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
         HybridClock clock = node.clock();
         CatalogManager catalogManager = node.catalogManager();
         return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
