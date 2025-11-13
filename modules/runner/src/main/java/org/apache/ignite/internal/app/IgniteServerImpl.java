@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -77,6 +78,8 @@ public class IgniteServerImpl implements IgniteServer {
             "     ####  ##         /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
             "       ##                  /____/\n"
     };
+
+    private static final Random RANDOM = new Random();
 
     static {
         ErrorGroups.initialize();
@@ -135,7 +138,10 @@ public class IgniteServerImpl implements IgniteServer {
      * Constructs an embedded node.
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}. Must exist
+     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null} if the {@code configString} is
+     *         {@code null}. Must exist if not {@code null}.
+     * @param configString Node configuration in the HOCON format. Must not be {@code null} if the {@code configPath} is
+     *         {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param classLoader The class loader to be used to load provider-configuration files and provider classes, or {@code null} if
      *         the system class loader (or, failing that, the bootstrap class loader) is to be used
@@ -143,7 +149,8 @@ public class IgniteServerImpl implements IgniteServer {
      */
     public IgniteServerImpl(
             String nodeName,
-            Path configPath,
+            @Nullable Path configPath,
+            @Nullable String configString,
             Path workDir,
             @Nullable ClassLoader classLoader,
             Executor asyncContinuationExecutor
@@ -154,10 +161,10 @@ public class IgniteServerImpl implements IgniteServer {
         if (nodeName.isEmpty()) {
             throw new NodeStartException("Node name must not be empty.");
         }
-        if (configPath == null) {
-            throw new NodeStartException("Config path must not be null");
+        if (configPath == null && configString == null) {
+            throw new NodeStartException("Config path or config string must not be null");
         }
-        if (Files.notExists(configPath)) {
+        if (configPath != null && Files.notExists(configPath)) {
             throw new NodeStartException("Config file doesn't exist");
         }
         if (workDir == null) {
@@ -168,13 +175,37 @@ public class IgniteServerImpl implements IgniteServer {
         }
 
         this.nodeName = nodeName;
-        this.configPath = configPath;
+        this.configPath = configPath != null ? configPath : createConfigFile(configString, workDir);
         this.workDir = workDir;
         this.classLoader = classLoader;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
 
         attachmentLock = new IgniteAttachmentLock(() -> ignite, asyncContinuationExecutor);
         publicIgnite = new RestartProofIgnite(attachmentLock);
+    }
+
+    private static Path createConfigFile(String config, Path workDir) {
+        try {
+            Files.createDirectories(workDir);
+            Path configFile = Files.writeString(getConfigFile(workDir), config);
+            configFile.toFile().setReadOnly();
+            return configFile;
+        } catch (IOException e) {
+            throw new NodeStartException("Cannot write node configuration file", e);
+        }
+    }
+
+    private static Path getConfigFile(Path workDir) {
+        // First try the well-known name
+        Path path = workDir.resolve("ignite-config.conf");
+        if (Files.notExists(path)) {
+            return path;
+        }
+
+        while (Files.exists(path)) {
+            path = workDir.resolve("ignite-config." + RANDOM.nextInt() + ".conf");
+        }
+        return path;
     }
 
     @Override
@@ -209,7 +240,8 @@ public class IgniteServerImpl implements IgniteServer {
             throw new NodeNotStartedException();
         }
         try {
-            return instance.initClusterAsync(parameters.metaStorageNodeNames(),
+            return instance.initClusterAsync(
+                    parameters.metaStorageNodeNames(),
                     parameters.cmgNodeNames(),
                     parameters.clusterName(),
                     parameters.clusterConfiguration()
