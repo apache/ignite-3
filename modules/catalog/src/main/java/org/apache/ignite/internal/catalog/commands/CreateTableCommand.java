@@ -19,9 +19,11 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.createDefaultZoneDescriptor;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.shouldCreateNewDefaultZone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneByNameOrDefaultOrThrow;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -60,7 +62,6 @@ import org.jetbrains.annotations.Nullable;
  * A command that adds a new table to the catalog.
  */
 public class CreateTableCommand extends AbstractTableCommand {
-
     /** Returns builder to create a command to create a new table. */
     public static CreateTableCommandBuilder builder() {
         return new Builder();
@@ -134,16 +135,16 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
-        CatalogZoneDescriptor zone;
-        if (zoneName == null) {
-            if (catalog.defaultZone() == null) {
-                throw new CatalogValidationException("The zone is not specified. Please specify zone explicitly or set default one.");
-            }
+        int id = catalog.objectIdGenState();
+        int tableId = id++;
+        int pkIndexId = id++;
 
-            zone = catalog.defaultZone();
-        } else {
-            zone = zone(catalog, zoneName, true);
-        }
+        // We will have at max 5 entries if there is lazy default data zone creation action is needed.
+        List<UpdateEntry> updateEntries = new ArrayList<>(5);
+
+        CatalogZoneDescriptor zone = shouldCreateNewDefaultZone(catalog, zoneName)
+                ? createDefaultZoneDescriptor(catalog, id++, updateEntries)
+                : zoneByNameOrDefaultOrThrow(catalog, zoneName);
 
         assert zone != null;
 
@@ -152,10 +153,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                 : zone.storageProfiles().defaultProfile().storageProfile();
 
         ensureZoneContainsTablesStorageProfile(zone, storageProfile);
-
-        int id = catalog.objectIdGenState();
-        int tableId = id++;
-        int pkIndexId = id++;
 
         List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>(columns.size());
         for (ColumnParams columnParams : columns) {
@@ -195,11 +192,11 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         CatalogIndexDescriptor pkIndex = createPkIndexDescriptor(indexName, pkIndexId, table);
 
-        return List.of(
-                new NewTableEntry(table),
-                new NewIndexEntry(pkIndex),
-                new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
-        );
+        updateEntries.add(new NewTableEntry(table));
+        updateEntries.add(new NewIndexEntry(pkIndex));
+        updateEntries.add(new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState()));
+
+        return updateEntries;
     }
 
     @Contract("null, _ -> null; !null, _ -> !null")

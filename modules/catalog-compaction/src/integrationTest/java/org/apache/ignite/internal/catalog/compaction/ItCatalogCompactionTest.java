@@ -292,8 +292,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         sql(format("drop table {}", tableName));
         sql(format("drop zone {}", zoneName));
 
-        sql(format("alter zone {} set auto scale up {}", "\"Default\"", 10));
-
         int catalogVersion = getLatestCatalogVersion(node(0));
         expectEarliestCatalogVersion(catalogVersion - 1);
     }

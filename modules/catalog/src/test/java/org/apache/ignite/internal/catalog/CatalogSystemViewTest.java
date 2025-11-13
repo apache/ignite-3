@@ -83,7 +83,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         CatalogSystemViewDescriptor view1 = systemSchema.systemView(SYS_VIEW_NAME);
 
         assertNotNull(view1, "sys view");
-        assertEquals(3L, view1.id(), "system view id");
+        assertEquals(2L, view1.id(), "system view id");
         assertEquals(SYS_VIEW_NAME, view1.name());
         assertEquals(Type.SYSTEM_VIEW, view1.type(), "type");
         assertEquals(type, view1.systemViewType(), "system view type");

@@ -696,7 +696,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new UpdateLogImpl(metaStorageMgr, failureProcessor),
                 clockService,
                 failureProcessor,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 

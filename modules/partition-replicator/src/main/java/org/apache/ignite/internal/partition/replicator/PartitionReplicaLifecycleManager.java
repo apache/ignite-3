@@ -698,11 +698,11 @@ public class PartitionReplicaLifecycleManager extends
                     storageIndexTracker
             );
 
+            startedReplicationGroups.beforeStartingGroup(zonePartitionId);
+
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
                         try {
-                            startedReplicationGroups.beforeStartingGroup(zonePartitionId);
-
                             // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Properly close storageIndexTracker.
                             //  internalTbl.updatePartitionTrackers is used in order to add storageIndexTracker to some context for further
                             //  storage closing.

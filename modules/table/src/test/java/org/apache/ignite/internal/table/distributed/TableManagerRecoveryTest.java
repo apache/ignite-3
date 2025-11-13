@@ -314,6 +314,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     @Test
     public void raftListenersAreRecoveredOnRecovery() throws Exception {
+        DistributionZonesTestUtil.createDefaultZone(catalogManager);
+
         int defaultZonePartitions = catalogManager.catalog(catalogManager.latestCatalogVersion())
                 .defaultZone()
                 .partitions();
