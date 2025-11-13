@@ -42,8 +42,10 @@ dependencies {
     runtimeOnly libs.junit5.platform.console
 }
 
+ext.docker_image_name = 'docker.io/ai3-migration-tools/e2e-tests:' + project.version
+
 docker {
-    name 'ai3-migration-tools/e2e-tests:latest'
+    name project.docker_image_name
     dockerfile file('docker/Dockerfile')
     files configurations.runtimeClasspath, tasks.jar.outputs
     copySpec.into("libs")
