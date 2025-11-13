@@ -308,6 +308,20 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     /**
+     * Creates a table.
+     *
+     * @param tableName Table name.
+     */
+    protected static Table createTableOnly(String tableName) {
+        sql(format(
+                "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)",
+                tableName
+        ));
+
+        return CLUSTER.node(0).tables().table(tableName);
+    }
+
+    /**
      * Creates a zone.
      *
      * @param zoneName Zone name.

@@ -134,7 +134,12 @@ public class TupleReader implements MarshallerReader {
 
     @Override
     public BigDecimal readBigDecimal(int scale) {
-        return new BigDecimal(tuple.value(index++), scale);
+        // Scale is already set by the BinaryTupleReader based on the schema.
+        BigDecimal scaled = tuple.value(index++);
+
+        assert scaled == null || scaled.scale() == scale : "Unexpected scale [expected=" + scale + ", actual=" + scaled.scale() + "]";
+
+        return scaled;
     }
 
     @Override

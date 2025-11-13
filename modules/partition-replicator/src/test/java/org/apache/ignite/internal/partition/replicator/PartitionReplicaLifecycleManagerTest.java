@@ -71,6 +71,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -295,6 +296,10 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 .thenCompose(v -> catalogManager.catalogInitializationFuture());
 
         assertThat(startFuture, willCompleteSuccessfully());
+
+        when(clockService.waitFor(any())).thenReturn(nullCompletedFuture());
+
+        DistributionZonesTestUtil.createDefaultZone(catalogManager);
     }
 
     @AfterEach
