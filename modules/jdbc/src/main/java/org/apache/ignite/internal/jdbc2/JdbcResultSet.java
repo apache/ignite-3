@@ -105,7 +105,8 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Constructor.
      */
-    JdbcResultSet(
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26145 Remove "public" modifier
+    public JdbcResultSet(
             ClientSyncResultSet rs,
             Statement statement,
             Supplier<ZoneId> zoneIdSupplier,
