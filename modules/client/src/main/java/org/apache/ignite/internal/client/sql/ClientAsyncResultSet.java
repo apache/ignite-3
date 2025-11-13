@@ -191,7 +191,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
+    public synchronized CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
         if (closed || !hasMorePages()) {
@@ -199,14 +199,16 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
 
         return nextPageFut.thenApply(p -> {
-            page = p;
+            synchronized (this) {
+                page = p;
 
-            if (p.hasMorePages) {
-                assert resourceId != null : "Resource id must be present when more pages are available";
-                nextPageFut = fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata);
-            } else {
-                // When last page is fetched, server closes the cursor.
-                closed = true;
+                if (p.hasMorePages) {
+                    assert resourceId != null : "Resource id must be present when more pages are available";
+                    nextPageFut = fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata);
+                } else {
+                    // When last page is fetched, server closes the cursor.
+                    closed = true;
+                }
             }
 
             return this;
@@ -240,7 +242,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync() {
+    public synchronized CompletableFuture<Void> closeAsync() {
         if (resourceId == null || closed) {
             return nullCompletedFuture();
         }
