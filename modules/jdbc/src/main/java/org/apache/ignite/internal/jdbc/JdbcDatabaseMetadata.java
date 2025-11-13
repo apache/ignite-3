@@ -24,7 +24,7 @@ import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static org.apache.ignite.internal.jdbc.JdbcDatabaseMetataUtils.createObjectListResultSet;
+import static org.apache.ignite.internal.jdbc.JdbcDatabaseMetadataUtils.createObjectListResultSet;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
 import java.sql.Connection;
@@ -34,7 +34,6 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
@@ -815,12 +814,6 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         return false;
     }
 
-    private static ColumnMetadata columnMeta(String name, ColumnType type) {
-        return new ColumnMetadataImpl(name, type, -1, -1, true, null);
-    }
-
-
-
     /** {@inheritDoc} */
     @Override
     public ResultSet getProcedures(String catalog, String schemaPtrn,
@@ -1009,13 +1002,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 columnMeta("TABLE_SCHEM", ColumnType.STRING),    // 2
                 columnMeta("TABLE_NAME", ColumnType.STRING),     // 3
                 columnMeta("COLUMN_NAME", ColumnType.STRING),    // 4
-                columnMeta("DATA_TYPE", ColumnType.INT16),       // 5
+                columnMeta("DATA_TYPE", ColumnType.INT32),       // 5
                 columnMeta("TYPE_NAME", ColumnType.STRING),      // 6
                 columnMeta("COLUMN_SIZE", ColumnType.INT32),   // 7
                 columnMeta("BUFFER_LENGTH", ColumnType.INT32), // 8
                 columnMeta("DECIMAL_DIGITS", ColumnType.INT32), // 9
                 columnMeta("NUM_PREC_RADIX", ColumnType.INT16),  // 10
-                columnMeta("NULLABLE", ColumnType.INT16),        // 11
+                columnMeta("NULLABLE", ColumnType.INT32),        // 11
                 columnMeta("REMARKS", ColumnType.STRING),        // 12
                 columnMeta("COLUMN_DEF", ColumnType.STRING),     // 13
                 columnMeta("SQL_DATA_TYPE", ColumnType.INT32), // 14
@@ -1378,7 +1371,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 columnMeta("FILTER_CONDITION", ColumnType.STRING));
 
         if (!isValidCatalog(catalog)) {
-            return createObjectListResultSet(Collections.emptyList(), meta);
+            return createObjectListResultSet(meta);
         }
 
         throw new UnsupportedOperationException("Index info is not supported yet.");
@@ -1786,13 +1779,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         row.add(colMeta.schemaName());          // 2. TABLE_SCHEM
         row.add(colMeta.tableName());           // 3. TABLE_NAME
         row.add(colMeta.columnLabel());         // 4. COLUMN_NAME
-        row.add((short) colMeta.dataType());    // 5. DATA_TYPE
+        row.add(colMeta.dataType());            // 5. DATA_TYPE
         row.add(colMeta.dataTypeName());        // 6. TYPE_NAME
         row.add(colMeta.precision() == -1 ? null : colMeta.precision()); // 7. COLUMN_SIZE
         row.add((Integer) null);                 // 8. BUFFER_LENGTH
         row.add(colMeta.scale() == -1 ? null : colMeta.scale());           // 9. DECIMAL_DIGITS
         row.add(10);                            // 10. NUM_PREC_RADIX
-        row.add(colMeta.isNullable() ? (short) columnNullable : (short) columnNoNulls);  // 11. NULLABLE
+        row.add(colMeta.isNullable() ? columnNullable : columnNoNulls);  // 11. NULLABLE
         row.add((String) null);                  // 12. REMARKS
         row.add(colMeta.defaultValue());        // 13. COLUMN_DEF
         row.add(colMeta.dataType());            // 14. SQL_DATA_TYPE
@@ -1839,5 +1832,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         if (connection.isClosed()) {
             throw new SQLException("Connection is closed.", CONNECTION_CLOSED);
         }
+    }
+
+    private static ColumnMetadata columnMeta(String name, ColumnType type) {
+        return new ColumnMetadataImpl(name, type, -1, -1, true, null);
     }
 }

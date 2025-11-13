@@ -378,13 +378,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             expectColumn(metaData, 2, "TABLE_SCHEM", Types.VARCHAR);
             expectColumn(metaData, 3, "TABLE_NAME", Types.VARCHAR);
             expectColumn(metaData, 4, "COLUMN_NAME", Types.VARCHAR);
-            expectColumn(metaData, 5, "DATA_TYPE", Types.SMALLINT);
+            expectColumn(metaData, 5, "DATA_TYPE", Types.INTEGER);
             expectColumn(metaData, 6, "TYPE_NAME", Types.VARCHAR);
             expectColumn(metaData, 7, "COLUMN_SIZE", Types.INTEGER);
             expectColumn(metaData, 8, "BUFFER_LENGTH", Types.INTEGER);
             expectColumn(metaData, 9, "DECIMAL_DIGITS", Types.INTEGER);
             expectColumn(metaData, 10, "NUM_PREC_RADIX", Types.SMALLINT);
-            expectColumn(metaData, 11, "NULLABLE", Types.SMALLINT);
+            expectColumn(metaData, 11, "NULLABLE", Types.INTEGER);
             expectColumn(metaData, 12, "REMARKS", Types.VARCHAR);
             expectColumn(metaData, 13, "COLUMN_DEF", Types.VARCHAR);
             expectColumn(metaData, 14, "SQL_DATA_TYPE", Types.INTEGER);

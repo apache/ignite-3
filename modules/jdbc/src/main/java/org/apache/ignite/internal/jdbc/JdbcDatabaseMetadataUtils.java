@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -45,8 +44,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Helper methods for creating a {@link ResultSet} using a list of objects.
  */
-class JdbcDatabaseMetataUtils {
-    /** List of support metadata column types. */
+class JdbcDatabaseMetadataUtils {
+    /** List of supported metadata column types. */
     private static final EnumSet<ColumnType> SUPPORTED_TYPES = EnumSet.of(
             ColumnType.NULL,
             ColumnType.BOOLEAN,

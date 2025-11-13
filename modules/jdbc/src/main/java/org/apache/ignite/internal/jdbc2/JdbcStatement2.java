@@ -519,7 +519,7 @@ public class JdbcStatement2 implements Statement {
      * has executed will not apply to the previously retrieved ResultSet.
      *
      * @param fetchSize the number of rows to fetch
-     * @exception SQLException if the condition {@code rows >= 0} is not satisfied.
+     * @exception SQLException if the condition {@code fetchSize >= 0} is not satisfied.
      * @since 1.2
      * @see #getFetchSize
      */
