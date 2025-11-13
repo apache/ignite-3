@@ -16,9 +16,9 @@
  */
 
 def createVersionFile = tasks.register('createVersionFile') {
-    onlyIf {
-        project.hasProperty("lastCommitHash")
-    }
+    def commitHash = project.hasProperty("lastCommitHash")
+            ? project.property("lastCommitHash")
+            : 'git rev-parse HEAD'.execute().text.trim()
 
     def versionFileName = "ignite.version.full"
     def versionFile = file("$buildDir/$versionFileName")
@@ -28,9 +28,7 @@ def createVersionFile = tasks.register('createVersionFile') {
     }
 
     doLast {
-        def versionProp = project.property("lastCommitHash")
-
-        versionFile << project.version + "-sha1:" + versionProp
+        versionFile << project.version + "-sha1:" + commitHash
     }
 
     outputs.file versionFile
