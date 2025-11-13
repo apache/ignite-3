@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -95,7 +96,11 @@ class DisasterRecoveryTestUtil {
                     ByteArray stablePartAssignmentsKey = stablePartitionAssignmentsKey(partId);
 
                     for (Operation operation : operations) {
-                        ByteArray opKey = new ByteArray(toByteArray(operation.key()));
+                        ByteBuffer operationKey = operation.key();
+                        if (operationKey == null) {
+                            continue;
+                        }
+                        ByteArray opKey = new ByteArray(toByteArray(operationKey));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
                             boolean equals = blockedAssignments.equals(Assignments.fromBytes(toByteArray(operation.value())));
