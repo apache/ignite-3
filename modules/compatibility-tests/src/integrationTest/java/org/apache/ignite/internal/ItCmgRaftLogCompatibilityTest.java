@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
@@ -54,12 +55,28 @@ public class ItCmgRaftLogCompatibilityTest extends CompatibilityTestBase {
         cluster.stop();
 
         String nodeName = cluster.nodeName(0);
-        Path node0CmgPath = Path.of("cluster", nodeName, "cmg");
-        deleteIfExists(workDir.resolve(node0CmgPath));
+        Path node0CmgDbPath = Path.of("cluster", nodeName, "cmg", "db");
+        deleteIfExists(workDir.resolve(node0CmgDbPath));
 
         cluster.startEmbedded(nodesCount());
 
         assertThat(unwrapIgniteImpl(cluster.node(0)).clusterManagementGroupManager().clusterState().thenAccept(Assertions::assertNotNull),
                 willCompleteSuccessfully());
+    }
+
+    @Test
+    void testCmgRaftLogReplication() {
+        final int initialNodeCount = nodesCount();
+        final int finalNodeCount = nodesCount() + 1;
+        final int lastNodeIndex = finalNodeCount - 1;
+
+        cluster.stop();
+        cluster.startEmbedded(initialNodeCount);
+
+        ServerRegistration serverRegistration = cluster.startEmbeddedNode(null, lastNodeIndex, finalNodeCount);
+        assertThat(serverRegistration.registrationFuture(), willCompleteSuccessfully());
+
+        assertThat(unwrapIgniteImpl(cluster.node(lastNodeIndex)).clusterManagementGroupManager().clusterState()
+                .thenAccept(Assertions::assertNotNull), willCompleteSuccessfully());
     }
 }
