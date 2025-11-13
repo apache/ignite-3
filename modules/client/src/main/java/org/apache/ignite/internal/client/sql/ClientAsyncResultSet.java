@@ -32,6 +32,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -128,7 +129,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                 : null;
 
         if (hasRowSet) {
-            readRows(in);
+            assert metadata != null : "Metadata must be present when row set is available";
+            rows = readRows(in, metadata, marshaller, mapper);
         }
     }
 
@@ -182,12 +184,13 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             return CompletableFuture.failedFuture(new CursorClosedException());
         }
 
-        return ch.serviceAsync(
-                ClientOp.SQL_CURSOR_NEXT_PAGE,
-                w -> w.out().packLong(resourceId),
-                r -> {
-                    readRows(r.in());
-                    hasMorePages = r.in().unpackBoolean();
+        return fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata)
+                .thenApply(tuple -> {
+                    //noinspection DataFlowIssue
+                    rows = tuple.get1();
+
+                    //noinspection DataFlowIssue
+                    hasMorePages = tuple.get2();
 
                     if (!hasMorePages) {
                         // When last page is fetched, server closes the cursor.
@@ -195,6 +198,24 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                     }
 
                     return this;
+                });
+    }
+
+    private static <T> CompletableFuture<IgniteBiTuple<List<T>, Boolean>> fetchNextPageInternal(
+            ClientChannel ch,
+            long resourceId,
+            @Nullable Marshaller marshaller,
+            @Nullable Mapper<T> mapper,
+            @Nullable ResultSetMetadata metadata) {
+        return ch.serviceAsync(
+                ClientOp.SQL_CURSOR_NEXT_PAGE,
+                w -> w.out().packLong(resourceId),
+                r -> {
+                    assert metadata != null : "Metadata must be present when row set is available";
+                    List<T> rows = readRows(r.in(), metadata, marshaller, mapper);
+                    boolean hasMorePages = r.in().unpackBoolean();
+
+                    return new IgniteBiTuple<>(rows, hasMorePages);
                 });
     }
 
@@ -246,7 +267,11 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
     }
 
-    private void readRows(ClientMessageUnpacker in) {
+    private static <T> List<T> readRows(
+            ClientMessageUnpacker in,
+            ResultSetMetadata metadata,
+            @Nullable Marshaller marshaller,
+            @Nullable Mapper<?> mapper) {
         int size = in.unpackInt();
         int rowSize = metadata.columns().size();
 
@@ -274,69 +299,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             }
         }
 
-        rows = Collections.unmodifiableList(res);
-    }
-
-    private static Object readValue(BinaryTupleReader in, int idx, ColumnMetadata col) {
-        if (in.hasNullValue(idx)) {
-            return null;
-        }
-
-        switch (col.type()) {
-            case BOOLEAN:
-                return in.byteValue(idx) != 0;
-
-            case INT8:
-                return in.byteValue(idx);
-
-            case INT16:
-                return in.shortValue(idx);
-
-            case INT32:
-                return in.intValue(idx);
-
-            case INT64:
-                return in.longValue(idx);
-
-            case FLOAT:
-                return in.floatValue(idx);
-
-            case DOUBLE:
-                return in.doubleValue(idx);
-
-            case DECIMAL:
-                return in.decimalValue(idx, col.scale());
-
-            case DATE:
-                return in.dateValue(idx);
-
-            case TIME:
-                return in.timeValue(idx);
-
-            case DATETIME:
-                return in.dateTimeValue(idx);
-
-            case TIMESTAMP:
-                return in.timestampValue(idx);
-
-            case UUID:
-                return in.uuidValue(idx);
-
-            case STRING:
-                return in.stringValue(idx);
-
-            case BYTE_ARRAY:
-                return in.bytesValue(idx);
-
-            case PERIOD:
-                return in.periodValue(idx);
-
-            case DURATION:
-                return in.durationValue(idx);
-
-            default:
-                throw new UnsupportedOperationException("Unsupported column type: " + col.type());
-        }
+        return Collections.unmodifiableList(res);
     }
 
     private static <T> Marshaller marshaller(ResultSetMetadata metadata, MarshallersProvider marshallers, Mapper<T> mapper) {
