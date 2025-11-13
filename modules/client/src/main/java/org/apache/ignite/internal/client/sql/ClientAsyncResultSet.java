@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
@@ -249,37 +248,18 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         closed = true;
 
-        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null)
-                .exceptionally(t -> {
-                    Throwable cause = unwrapCause(t);
+        var nextPageFut0 = nextPageFut;
 
-                    if (cause instanceof IgniteException) {
-                        IgniteException igniteEx = (IgniteException) cause;
-
-                        if (igniteEx.code() == Client.RESOURCE_NOT_FOUND_ERR) {
-                            try {
-                                var nextPageFut0 = nextPageFut;
-                                if (nextPageFut0 != null && !nextPageFut0.join().hasMorePages) {
-                                    // Closed by prefetch of the last page, no error.
-                                    return null;
-                                }
-                            } catch (CompletionException ignored) {
-                                // Ignore.
-                            }
-
-                            throw new IgniteException(
-                                    Client.RESOURCE_NOT_FOUND_ERR,
-                                    "Failed to find cursor with id: " + resourceId + ". Cursor might have been closed concurrently.",
-                                    cause);
-                        } else if (cause instanceof IgniteClientConnectionException) {
-                            // Connection lost - cursor is closed on the server side.
-                            return null;
-                        }
-                    }
-
-                    throw new IgniteException(Common.INTERNAL_ERR, "Failed to close SQL cursor: " + t.getMessage(), t);
-                })
-                .thenApply(ignore -> null);
+        if (nextPageFut0 != null) {
+            // If there is a prefetch ongoing, wait for it to complete.
+            // It might be the last page which closes the cursor on the server side.
+            return nextPageFut0
+                    .thenCompose(p -> p.hasMorePages ? closeAsyncInternal(ch, resourceId) : nullCompletedFuture())
+                    .thenApply(ignore -> null);
+        } else {
+            return closeAsyncInternal(ch, resourceId)
+                    .thenApply(ignore -> null);
+        }
     }
 
     @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata() {
@@ -350,6 +330,29 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         var schema = new ClientSchema(0, schemaColumns, marshallers);
         return schema.getMarshaller(mapper);
+    }
+
+    private static CompletableFuture<Object> closeAsyncInternal(ClientChannel ch, long resourceId) {
+        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null)
+                .exceptionally(t -> {
+                    Throwable cause = unwrapCause(t);
+
+                    if (cause instanceof IgniteException) {
+                        IgniteException igniteEx = (IgniteException) cause;
+
+                        if (igniteEx.code() == Client.RESOURCE_NOT_FOUND_ERR) {
+                            throw new IgniteException(
+                                    Client.RESOURCE_NOT_FOUND_ERR,
+                                    "Failed to find cursor with id: " + resourceId + ". Cursor might have been closed concurrently.",
+                                    cause);
+                        } else if (cause instanceof IgniteClientConnectionException) {
+                            // Connection lost - cursor is closed on the server side.
+                            return null;
+                        }
+                    }
+
+                    throw new IgniteException(Common.INTERNAL_ERR, "Failed to close SQL cursor: " + t.getMessage(), t);
+                });
     }
 
     private static class Page<T> {
