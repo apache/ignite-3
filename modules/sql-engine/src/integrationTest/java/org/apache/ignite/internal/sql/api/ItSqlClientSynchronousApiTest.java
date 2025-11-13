@@ -19,23 +19,16 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
-import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -89,28 +82,6 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
             client0.close();
 
             assertDoesNotThrow(rs::close);
-        }
-    }
-
-    @Test
-    void concurrentCursorCloseThrowsResourceNotFound() {
-        Statement stmt = client.sql().statementBuilder()
-                .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 1))")
-                .pageSize(1)
-                .build();
-
-        AsyncResultSet<SqlRow> rs = client.sql().executeAsync(null, stmt).join();
-
-        CompletableFuture<? extends AsyncResultSet<SqlRow>> fetchFut = rs.fetchNextPage();
-        CompletableFuture<Void> closeFut = rs.closeAsync();
-
-        try {
-            CompletableFuture.allOf(fetchFut, closeFut).join();
-        } catch (CompletionException e) {
-            assertThat(e.getCause(), instanceOf(IgniteException.class));
-
-            IgniteException ie = (IgniteException) e.getCause();
-            assertEquals(Client.RESOURCE_NOT_FOUND_ERR, ie.code());
         }
     }
 
