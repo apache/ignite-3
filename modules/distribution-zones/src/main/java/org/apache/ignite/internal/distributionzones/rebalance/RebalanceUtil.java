@@ -595,7 +595,8 @@ public class RebalanceUtil {
             return false;
         }
         // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        return !t.getMessage().contains("ESTALE:Provided configuration is stale");
+        String message = t.getMessage();
+        return message == null || !message.contains("ESTALE:Provided configuration is stale");
     }
 
     /**
