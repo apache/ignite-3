@@ -42,7 +42,6 @@ import static org.apache.ignite.internal.partitiondistribution.PartitionDistribu
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
 import java.util.Collection;
@@ -58,8 +57,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -582,21 +579,6 @@ public class RebalanceUtil {
      */
     public static int extractZoneId(byte[] key, byte[] prefix) {
         return Integer.parseInt(toStringWithoutPrefix(key, prefix.length));
-    }
-
-    /**
-     * Checks if an error is recoverable, so we can retry a rebalance intent.
-     *
-     * @param t The throwable.
-     * @return {@code True} if this is a recoverable exception.
-     */
-    public static boolean recoverable(Throwable t) {
-        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class)) {
-            return false;
-        }
-        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        String message = t.getMessage();
-        return message == null || !message.contains("ESTALE:Provided configuration is stale");
     }
 
     /**

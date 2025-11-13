@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 
 /**
  * Stateless distribution utils that produces helper methods for an assignments distribution calculation.
@@ -74,6 +77,21 @@ public class PartitionDistributionUtils {
         List<Set<Assignment>> assignments = calculateAssignments(dataNodes, partitions, replicas, consensusGroupSize);
 
         return assignments.get(partitionId);
+    }
+
+    /**
+     * Checks if an error is recoverable, so we can retry a rebalance intent.
+     *
+     * @param t The throwable.
+     * @return {@code True} if this is a recoverable exception.
+     */
+    public static boolean recoverable(Throwable t) {
+        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class)) {
+            return false;
+        }
+        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
+        String message = t.getMessage();
+        return message == null || !message.contains("ESTALE:Provided configuration is stale");
     }
 
 }

@@ -27,6 +27,7 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.recoverable;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
@@ -860,16 +861,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 500,
                 TimeUnit.MILLISECONDS
         );
-    }
-
-    // todo: Duplicates method in RebalanceUtil
-    private static boolean recoverable(Throwable t) {
-        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class)) {
-            return false;
-        }
-        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        String message = t.getMessage();
-        return message == null || !message.contains("ESTALE:Provided configuration is stale");
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
