@@ -28,7 +28,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Synchronous wrapper over {@link org.apache.ignite.sql.async.AsyncResultSet}.
+ * Synchronous wrapper over {@link AsyncResultSet}.
  */
 public class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** Wrapped async result set. */
@@ -86,11 +86,7 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean hasNext() {
-        if (it == null) {
-            return false;
-        }
-
-        return it.hasNext();
+        return it != null && it.hasNext();
     }
 
     /** {@inheritDoc} */
@@ -119,16 +115,11 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
                 return true;
             }
 
-            if (curRes == null || !curRes.hasMorePages()) {
+            if (!curRes.hasMorePages()) {
                 return false;
             }
 
-            curRes = sync(curRes.fetchNextPage().toCompletableFuture());
-
-            if (curRes == null) {
-                return false;
-            }
-
+            curRes = sync(curRes.fetchNextPage());
             curPage = curRes.currentPage().iterator();
 
             return curPage.hasNext();
