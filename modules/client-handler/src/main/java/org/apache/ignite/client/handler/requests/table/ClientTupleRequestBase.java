@@ -17,9 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
 
@@ -99,8 +99,9 @@ class ClientTupleRequestBase {
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx =
-                txManager == null ? null : readTx(in, tsTracker, resources, txManager, notificationSender, resIdHolder, options);
+        InternalTransaction tx = txManager == null
+                ? null
+                : readOrStartImplicitTx(in, tsTracker, resources, txManager, options, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
