@@ -92,9 +92,7 @@ public class Compactor extends IgniteWorker {
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
 
-    private final Object pauseMux = new Object();
-
-    /** Guarded by {@link #pauseMux}. */
+    /** Guarded by {@link #mux}. */
     private boolean paused;
 
     /**
@@ -169,7 +167,7 @@ public class Compactor extends IgniteWorker {
     void waitDeltaFiles() {
         try {
             synchronized (mux) {
-                while (!addedDeltaFiles && !isCancelled()) {
+                while ((!addedDeltaFiles || paused) && !isCancelled()) {
                     blockingSectionBegin();
 
                     try {
@@ -357,9 +355,9 @@ public class Compactor extends IgniteWorker {
             log.debug("Cancelling grid runnable: " + this);
         }
 
-        resume();
-
         synchronized (mux) {
+            paused = false;
+
             // Do not interrupt runner thread.
             isCancelled.set(true);
 
@@ -403,7 +401,9 @@ public class Compactor extends IgniteWorker {
 
             long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
 
-            pauseCompactionIfNeeded();
+            if (isPaused()) {
+                return;
+            }
 
             // pageIndex instead of pageId, only for debugging in case of errors
             // since we do not know the pageId until we read it from the pageOffset.
@@ -426,7 +426,9 @@ public class Compactor extends IgniteWorker {
                 return;
             }
 
-            pauseCompactionIfNeeded();
+            if (isPaused()) {
+                return;
+            }
 
             filePageStore.write(pageId, buffer.rewind());
 
@@ -444,7 +446,9 @@ public class Compactor extends IgniteWorker {
             return;
         }
 
-        pauseCompactionIfNeeded();
+        if (isPaused()) {
+            return;
+        }
 
         filePageStore.sync();
 
@@ -461,7 +465,9 @@ public class Compactor extends IgniteWorker {
 
         deltaFilePageStore.markMergedToFilePageStore();
 
-        pauseCompactionIfNeeded();
+        if (isPaused()) {
+            return;
+        }
 
         deltaFilePageStore.stop(true);
 
@@ -506,7 +512,7 @@ public class Compactor extends IgniteWorker {
      * in parallel and subsequent calls will strictly be calls after {@link #resume}.
      */
     public void pause() {
-        synchronized (pauseMux) {
+        synchronized (mux) {
             assert !paused : "It is expected that a further pause will only occur after resume";
 
             paused = true;
@@ -515,33 +521,19 @@ public class Compactor extends IgniteWorker {
 
     /** Resumes the compactor if it was paused. It is expected that this method will not be called multiple times in parallel. */
     public void resume() {
-        synchronized (pauseMux) {
-            if (paused) {
-                paused = false;
+        synchronized (mux) {
+            paused = false;
 
-                pauseMux.notifyAll();
-            }
+            addedDeltaFiles = true;
+
+            mux.notifyAll();
         }
     }
 
-    /** Must be called before each IO operation to provide other IO components with resources. */
-    private void pauseCompactionIfNeeded() throws InterruptedException {
-        try {
-            synchronized (pauseMux) {
-                while (paused) {
-                    blockingSectionBegin();
-
-                    try {
-                        pauseMux.wait();
-                    } finally {
-                        blockingSectionEnd();
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw e;
+    /** Must be called before each IO operation to pause the current compaction and to provide IO resources to other components. */
+    private boolean isPaused() {
+        synchronized (mux) {
+            return paused;
         }
     }
 }

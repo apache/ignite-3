@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -208,15 +209,60 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo();
         FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
 
-        CompletableFuture<?> mergeDeltaFileToMainFileFuture = runAsync(
-                () -> compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker())
+        assertThat(
+                runAsync(() -> compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker())),
+                willCompleteSuccessfully()
         );
 
-        assertThat(mergeDeltaFileToMainFileFuture, willTimeoutFast());
+        verify(filePageStore, never()).write(anyLong(), any());
+        verify(filePageStore, never()).sync();
+        verify(filePageStore, never()).removeDeltaFile(any());
+
+        verify(deltaFilePageStoreIo, never()).readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(), anyBoolean());
+        verify(deltaFilePageStoreIo, never()).markMergedToFilePageStore();
+        verify(deltaFilePageStoreIo, never()).stop(anyBoolean());
 
         compactor.resume();
 
-        assertThat(mergeDeltaFileToMainFileFuture, willCompleteSuccessfully());
+        assertThat(
+                runAsync(() -> compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker())),
+                willCompleteSuccessfully()
+        );
+
+        verify(filePageStore).write(anyLong(), any());
+        verify(filePageStore).sync();
+        verify(filePageStore).removeDeltaFile(any());
+
+        verify(deltaFilePageStoreIo).readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(), anyBoolean());
+        verify(deltaFilePageStoreIo).markMergedToFilePageStore();
+        verify(deltaFilePageStoreIo).stop(anyBoolean());
+    }
+
+    @Test
+    void testTriggerCompactionAfterPause() {
+        Compactor compactor = spy(newCompactor());
+
+        compactor.pause();
+
+        CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
+        assertThat(waitDeltaFilesFuture, willTimeoutFast());
+
+        compactor.triggerCompaction();
+        assertThat(waitDeltaFilesFuture, willTimeoutFast());
+
+        compactor.resume();
+        assertThat(waitDeltaFilesFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testWaitDeltaFilesAfterResume() {
+        Compactor compactor = spy(newCompactor());
+
+        CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
+        assertThat(waitDeltaFilesFuture, willTimeoutFast());
+
+        compactor.resume();
+        assertThat(waitDeltaFilesFuture, willCompleteSuccessfully());
     }
 
     private Compactor newCompactor() {
