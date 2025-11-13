@@ -348,20 +348,7 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
-            long startCompactorPauseNanos = nanoTime();
-
             compactor.pause();
-
-            long stopCompactorPauseNanos = nanoTime();
-
-            long durationCompactorPauseNanos = stopCompactorPauseNanos - startCompactorPauseNanos;
-
-            LOG.info(
-                    ">>>>> Checkpoint pause compactor duration: [nanos={}, ms={}, duration={}]",
-                    (durationCompactorPauseNanos),
-                    NANOSECONDS.toMillis(durationCompactorPauseNanos),
-                    Duration.ofNanos(durationCompactorPauseNanos)
-            );
 
             var tracker = new CheckpointMetricsTracker();
 
@@ -472,20 +459,7 @@ public class Checkpointer extends IgniteWorker {
         } finally {
             currentCheckpointProgressForThrottling = null;
 
-            long startCompactorResumeNanos = nanoTime();
-
             compactor.resume();
-
-            long stopCompactorResumeNanos = nanoTime();
-
-            long durationCompactorResumeNanos = stopCompactorResumeNanos - startCompactorResumeNanos;
-
-            LOG.info(
-                    ">>>>> Checkpoint pause compactor duration: [nanos={}, ms={}, duration={}]",
-                    (durationCompactorResumeNanos),
-                    NANOSECONDS.toMillis(durationCompactorResumeNanos),
-                    Duration.ofNanos(durationCompactorResumeNanos)
-            );
         }
     }
 
