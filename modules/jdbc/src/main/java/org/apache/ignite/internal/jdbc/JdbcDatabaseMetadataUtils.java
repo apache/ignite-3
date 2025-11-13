@@ -35,7 +35,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
@@ -134,10 +133,6 @@ class JdbcDatabaseMetadataUtils {
 
         @Override
         public SqlRow next() {
-            if (!rowsIterator.hasNext()) {
-                throw new NoRowSetExpectedException();
-            }
-
             return rowsIterator.next();
         }
     }
