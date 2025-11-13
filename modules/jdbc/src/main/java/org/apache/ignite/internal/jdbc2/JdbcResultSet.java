@@ -84,7 +84,7 @@ public class JdbcResultSet implements ResultSet {
 
     private final Supplier<ZoneId> zoneIdSupplier;
 
-    private final Statement statement;
+    private final @Nullable Statement statement;
 
     private final JdbcResultSetMetadata jdbcMeta;
 
@@ -108,7 +108,7 @@ public class JdbcResultSet implements ResultSet {
     // TODO https://issues.apache.org/jira/browse/IGNITE-26145 Remove "public" modifier
     public JdbcResultSet(
             ClientSyncResultSet rs,
-            Statement statement,
+            @Nullable Statement statement,
             Supplier<ZoneId> zoneIdSupplier,
             boolean closeOnCompletion,
             int maxRows
@@ -135,6 +135,8 @@ public class JdbcResultSet implements ResultSet {
         if (!rs.hasNextResultSet()) {
             return null;
         }
+
+        assert statement != null;
 
         ClientSyncResultSet clientResultSet;
 
@@ -1896,7 +1898,7 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean isClosed() throws SQLException {
-        return closed || statement.isClosed();
+        return closed || (statement != null && statement.isClosed());
     }
 
     /** {@inheritDoc} */
