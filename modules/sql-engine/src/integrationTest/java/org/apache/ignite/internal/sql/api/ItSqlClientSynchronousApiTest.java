@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -86,7 +87,8 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
             ResultSet<SqlRow> rs = client0.sql().execute(null, stmt);
 
             client0.close();
-            rs.close();
+
+            assertDoesNotThrow(rs::close);
         }
     }
 
