@@ -197,6 +197,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             return CompletableFuture.failedFuture(new CursorClosedException());
         }
 
+        // Swap the page to prefetched and prefetch the next one.
         return nextPageFut.thenApply(p -> {
             synchronized (this) {
                 page = p;
