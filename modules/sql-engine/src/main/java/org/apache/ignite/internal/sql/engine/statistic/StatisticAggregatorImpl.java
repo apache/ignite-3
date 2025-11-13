@@ -48,7 +48,6 @@ import org.apache.ignite.internal.table.message.GetEstimatedSizeWithLastModified
 import org.apache.ignite.internal.table.message.PartitionModificationInfoMessage;
 import org.apache.ignite.internal.table.message.TableMessageGroup;
 import org.apache.ignite.internal.table.message.TableMessagesFactory;
-import org.apache.ignite.internal.table.partition.PartitionModificationInfo;
 import org.jetbrains.annotations.Nullable;
 
 /** Statistic aggregator. */

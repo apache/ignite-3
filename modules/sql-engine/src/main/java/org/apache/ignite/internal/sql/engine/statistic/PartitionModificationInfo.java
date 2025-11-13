@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.partition;
+package org.apache.ignite.internal.sql.engine.statistic;
 
 /** Partition modification information holder. */
 public class PartitionModificationInfo {
@@ -29,12 +29,12 @@ public class PartitionModificationInfo {
     }
 
     /** Returns last modification representation. */
-    public long lastModificationCounter() {
+    long lastModificationCounter() {
         return lastModificationCounter;
     }
 
     /** Returns estimated size. */
-    public long getEstimatedSize() {
+    long getEstimatedSize() {
         return estimatedSize;
     }
 }
