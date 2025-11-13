@@ -25,11 +25,15 @@ import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous client SQL API.
@@ -39,7 +43,7 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
 
     @BeforeAll
     public void startClient() {
-        client = IgniteClient.builder().addresses(getClientAddresses(List.of(CLUSTER.aliveNode())).get(0)).build();
+        client = buildClient();
     }
 
     @AfterAll
@@ -62,5 +66,27 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     @Override
     protected IgniteTransactions igniteTx() {
         return client.transactions();
+    }
+
+    @Test
+    void cursorCloseIgnoresErrorOnClientDisconnect() {
+        try (IgniteClient client0 = buildClient()) {
+            Statement stmt = client0.sql().statementBuilder()
+                    .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 1))")
+                    .pageSize(1)
+                    .build();
+
+            ResultSet<SqlRow> cursor = client0.sql().execute(null, stmt);
+
+            client0.close();
+            cursor.close();
+        }
+    }
+
+    private static IgniteClient buildClient() {
+        return IgniteClient
+                .builder()
+                .addresses(getClientAddresses(List.of(CLUSTER.aliveNode())).get(0))
+                .build();
     }
 }
