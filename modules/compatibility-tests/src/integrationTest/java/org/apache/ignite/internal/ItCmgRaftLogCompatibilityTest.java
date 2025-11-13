@@ -60,8 +60,7 @@ public class ItCmgRaftLogCompatibilityTest extends CompatibilityTestBase {
 
         cluster.startEmbedded(nodesCount());
 
-        assertThat(unwrapIgniteImpl(cluster.node(0)).clusterManagementGroupManager().clusterState().thenAccept(Assertions::assertNotNull),
-                willCompleteSuccessfully());
+        verifyClusterState(0);
     }
 
     @Test
@@ -76,7 +75,11 @@ public class ItCmgRaftLogCompatibilityTest extends CompatibilityTestBase {
         ServerRegistration serverRegistration = cluster.startEmbeddedNode(null, lastNodeIndex, finalNodeCount);
         assertThat(serverRegistration.registrationFuture(), willCompleteSuccessfully());
 
-        assertThat(unwrapIgniteImpl(cluster.node(lastNodeIndex)).clusterManagementGroupManager().clusterState()
+        verifyClusterState(lastNodeIndex);
+    }
+
+    private void verifyClusterState(int nodeIndex) {
+        assertThat(unwrapIgniteImpl(cluster.node(nodeIndex)).clusterManagementGroupManager().clusterState()
                 .thenAccept(Assertions::assertNotNull), willCompleteSuccessfully());
     }
 }
