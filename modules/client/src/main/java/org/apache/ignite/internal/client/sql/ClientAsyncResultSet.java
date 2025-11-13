@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
@@ -200,7 +201,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         return nextPageFut.thenApply(p -> {
             page = p;
 
-            if (p.hasMorePages()) {
+            if (p.hasMorePages) {
                 assert resourceId != null : "Resource id must be present when more pages are available";
                 nextPageFut = fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata);
             } else {
@@ -234,7 +235,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Override
     public boolean hasMorePages() {
         Page<T> p = page;
-        return p != null && p.hasMorePages();
+        return p != null && p.hasMorePages;
     }
 
     /** {@inheritDoc} */
@@ -254,6 +255,15 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                         IgniteException igniteEx = (IgniteException) cause;
 
                         if (igniteEx.code() == Client.RESOURCE_NOT_FOUND_ERR) {
+                            try {
+                                if (!nextPageFut.join().hasMorePages) {
+                                    // Closed by prefetch of the last page, no error.
+                                    return null;
+                                }
+                            } catch (CompletionException ignored) {
+                                // Ignore.
+                            }
+
                             throw new IgniteException(
                                     Client.RESOURCE_NOT_FOUND_ERR,
                                     "Failed to find cursor with id: " + resourceId + ". Cursor might have been closed concurrently.",
@@ -346,14 +356,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         Page(List<T> rows, boolean hasMorePages) {
             this.rows = rows;
             this.hasMorePages = hasMorePages;
-        }
-
-        public List<T> rows() {
-            return rows;
-        }
-
-        public boolean hasMorePages() {
-            return hasMorePages;
         }
     }
 }
