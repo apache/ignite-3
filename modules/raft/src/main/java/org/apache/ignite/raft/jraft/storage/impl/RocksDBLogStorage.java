@@ -247,9 +247,11 @@ public class RocksDBLogStorage implements LogStorage, Describer {
                         if (entry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
                             final ConfigurationEntry confEntry = new ConfigurationEntry();
                             confEntry.setId(new LogId(entry.getId().getIndex(), entry.getId().getTerm()));
-                            confEntry.setConf(new Configuration(entry.getPeers(), entry.getLearners()));
+                            confEntry.setConf(new Configuration(entry.getPeers(), entry.getLearners(), entry.getSequenceToken()));
                             if (entry.getOldPeers() != null) {
-                                confEntry.setOldConf(new Configuration(entry.getOldPeers(), entry.getOldLearners()));
+                                confEntry.setOldConf(
+                                        new Configuration(entry.getOldPeers(), entry.getOldLearners(), entry.getOldSequenceToken())
+                                );
                             }
                             if (confManager != null) {
                                 confManager.add(confEntry);

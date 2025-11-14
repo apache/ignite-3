@@ -698,11 +698,11 @@ public class PartitionReplicaLifecycleManager extends
                     storageIndexTracker
             );
 
+            startedReplicationGroups.beforeStartingGroup(zonePartitionId);
+
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
                         try {
-                            startedReplicationGroups.beforeStartingGroup(zonePartitionId);
-
                             // TODO https://issues.apache.org/jira/browse/IGNITE-24654 Properly close storageIndexTracker.
                             //  internalTbl.updatePartitionTrackers is used in order to add storageIndexTracker to some context for further
                             //  storage closing.
@@ -763,7 +763,7 @@ public class PartitionReplicaLifecycleManager extends
                     .thenApply(unused -> true);
         };
 
-        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
+        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments, revision)
                 .whenComplete((res, ex) -> {
                     if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         String errorMessage = String.format(
@@ -1389,7 +1389,9 @@ public class PartitionReplicaLifecycleManager extends
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
             localServicesStartFuture = runAsync(() -> {
-                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
+                inBusyLock(busyLock,
+                        () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision)
+                );
             }, ioExecutor);
         } else {
             localServicesStartFuture = nullCompletedFuture();
@@ -1495,7 +1497,7 @@ public class PartitionReplicaLifecycleManager extends
 
                                         PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
+                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term(), revision)
                                                 .exceptionally(e -> null);
                                     });
                         }))

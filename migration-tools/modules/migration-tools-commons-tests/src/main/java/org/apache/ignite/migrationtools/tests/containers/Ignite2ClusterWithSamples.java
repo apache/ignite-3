@@ -117,7 +117,12 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
     }
 
     protected GenericContainer createSeedDataCountainer(Network network) {
-        return new GenericContainer("ai3-migration-tools/e2e-tests:latest")
+        String imageName = System.getProperty("migrationtools.e2erunner.docker.image");
+        if (imageName == null) {
+            throw new IllegalArgumentException("'migrationtools.e2erunner.docker.image' property must be defined");
+        }
+
+        return new GenericContainer(imageName)
                 .withCopyFileToContainer(MountableFile.forHostPath(FullSampleCluster.CLUSTER_CFG_PATH), "/opt/app/config.xml")
                 .withNetwork(network);
     }

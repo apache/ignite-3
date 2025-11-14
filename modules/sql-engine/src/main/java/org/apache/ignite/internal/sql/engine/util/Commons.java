@@ -842,4 +842,15 @@ public final class Commons {
         }
         return true;
     }
+
+    /**
+     * Creates {@link Mappings.TargetMapping} such that for every given source within provided sourceSize resulting target equals to source
+     * shifted by specified offset (e.g. {@code target = source + offset}).
+     */
+    public static TargetMapping targetOffsetMapping(int sourceCount, int offset) {
+        return Mappings.offsetTarget(
+                Mappings.createIdentity(sourceCount),
+                offset
+        );
+    }
 }

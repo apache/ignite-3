@@ -15,11 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.statistic;
+package org.apache.ignite.internal.replicator;
 
-/** Statistic updates notifier. */
-@FunctionalInterface
-public interface StatisticUpdatesNotifier {
-    /** Changes callback. */
-    void changesNotifier(StatisticUpdatesSupplier updater);
+/**
+ * Assignments as bytes with the revision where they were created.
+ */
+public class VersionedAssignments {
+
+    private final byte[] assignmentsBytes;
+    private final long revision;
+
+    public VersionedAssignments(byte[] assignmentsBytes, long revision) {
+        this.assignmentsBytes = assignmentsBytes;
+        this.revision = revision;
+    }
+
+    /**
+     * Assignments as bytes.
+     */
+    byte[] assignmentsBytes() {
+        return assignmentsBytes;
+    }
+
+    /**
+     * Revision of the assignments.
+     */
+    long revision() {
+        return revision;
+    }
 }

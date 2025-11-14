@@ -23,6 +23,7 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')

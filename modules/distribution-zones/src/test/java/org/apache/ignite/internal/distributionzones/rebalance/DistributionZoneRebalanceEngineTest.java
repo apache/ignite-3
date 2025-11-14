@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
@@ -449,6 +450,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     @Test
     void replicasTriggersAssignmentsChangingOnDefaultZone() throws Exception {
+        createDefaultZone(catalogManager);
+
         createTable(ZONE_NAME_0, TABLE_NAME);
 
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
