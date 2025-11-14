@@ -18,7 +18,18 @@
 def createVersionFile = tasks.register('createVersionFile') {
     def commitHash = project.hasProperty("lastCommitHash")
             ? project.property("lastCommitHash")
-            : 'git rev-parse HEAD'.execute().text.trim()
+            : {
+                try {
+                    def process = 'git rev-parse HEAD'.execute()
+                    process.waitFor()
+                    if (process.exitValue() == 0) {
+                        return process.text.trim()
+                    }
+                } catch (Exception e) {
+                    // Git command not found or failed
+                }
+                return "unknown"
+            }()
 
     def versionFileName = "ignite.version.full"
     def versionFile = file("$buildDir/$versionFileName")
