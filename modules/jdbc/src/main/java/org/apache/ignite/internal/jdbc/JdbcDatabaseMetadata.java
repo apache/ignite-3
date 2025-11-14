@@ -995,7 +995,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         ensureNotClosed();
 
         return createObjectListResultSet(
-                asList(List.of(TYPE_TABLE, TYPE_VIEW)),
+                asList(List.of(TYPE_TABLE), List.of(TYPE_VIEW)),
                 asList(columnMeta("TABLE_TYPE", ColumnType.STRING)), timeZoneSupplier);
     }
 

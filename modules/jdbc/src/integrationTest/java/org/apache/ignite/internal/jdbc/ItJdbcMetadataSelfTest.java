@@ -929,12 +929,14 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         DatabaseMetaData meta = conn.getMetaData();
 
         try (ResultSet rs = meta.getTableTypes()) {
-            ResultSetMetaData metaData = rs.getMetaData();
+            assertTrue(rs.next());
 
-            expectColumn(metaData, 1, "TABLE_TYPE", Types.VARCHAR);
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
 
             assertTrue(rs.next());
-            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+
+            assertEquals("VIEW", rs.getString("TABLE_TYPE"));
+
             assertFalse(rs.next());
         }
     }
