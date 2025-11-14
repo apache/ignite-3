@@ -131,7 +131,9 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
     }
 
     private BitSet nodeListToMap(List<String> nodes) {
-        assert !nodes.isEmpty() : "Empty target is not allowed";
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Empty target is not allowed");
+        }
 
         BitSet nodesSet = new BitSet(nodeNameToId.size());
 

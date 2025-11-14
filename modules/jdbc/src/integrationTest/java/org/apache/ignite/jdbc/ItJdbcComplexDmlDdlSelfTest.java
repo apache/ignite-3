@@ -77,7 +77,7 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
             );
         }
 
-        final int[] cnt = {0};
+        int[] cnt = {0};
 
         sql(new ResultPredicateChecker((Object[] objs) -> {
             int id = ((Integer) objs[0]);
@@ -99,7 +99,7 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
             return true;
         }), "SELECT id, name, age FROM person_t where id < 50");
 
-        assertEquals(cnt[0], 50, "Invalid rows count");
+        assertEquals(50, cnt[0], "Invalid rows count");
 
         // Berkeley is not present in City table, although 25 people have it specified as their city.
         sql(new ResultChecker(new Object[][] {{75L}}),
@@ -130,7 +130,7 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
             return true;
         }), "SELECT * FROM person_t where company = 'New Company'");
 
-        assertEquals(cnt[0], 34, "Invalid rows count");
+        assertEquals(34, cnt[0], "Invalid rows count");
 
         sql(new UpdateChecker(0), "DROP TABLE IF EXISTS city_t");
         sql(new UpdateChecker(0), "DROP TABLE IF EXISTS person_t");
@@ -343,7 +343,9 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
                     rowObjs[i] = rs.getObject(i + 1);
                 }
 
-                assert rowPredicate.apply(rowObjs) : "Invalid row. [row=" + Arrays.toString(rowObjs) + ']';
+                boolean applied = rowPredicate.apply(rowObjs);
+
+                assert applied : "Invalid row. [row=" + Arrays.toString(rowObjs) + ']';
             }
         }
 
