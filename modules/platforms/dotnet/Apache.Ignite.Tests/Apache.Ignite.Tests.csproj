@@ -59,4 +59,14 @@
         </AssemblyAttribute>
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Compute\Executor\NewerDotnetJobs\EchoJob.cs" />
+      <Content Include="Compute\Executor\NewerDotnetJobs\EchoJob.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Compute\Executor\NewerDotnetJobs\NewerDotnetJobs.dll" />
+      <Resource Include="Compute\Executor\NewerDotnetJobs\NewerDotnetJobs.dll" />
+    </ItemGroup>
+
 </Project>
