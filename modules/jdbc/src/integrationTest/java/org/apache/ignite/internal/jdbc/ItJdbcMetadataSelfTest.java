@@ -176,10 +176,14 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             ResultSet rs = stmt.executeQuery("SELECT * FROM META.TEST t");
 
             assertNotNull(rs);
+            assertFalse(rs.isClosed());
 
             ResultSetMetaData meta = rs.getMetaData();
 
             checkMeta(meta);
+
+            rs.close();
+            assertTrue(rs.isClosed());
         } finally {
             stmt.execute("DROP TABLE META.TEST;");
         }

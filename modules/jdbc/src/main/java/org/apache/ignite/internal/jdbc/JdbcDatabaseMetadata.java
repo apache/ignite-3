@@ -24,7 +24,7 @@ import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static org.apache.ignite.internal.jdbc.JdbcDatabaseMetadataUtils.createObjectListResultSet;
+import static org.apache.ignite.internal.jdbc.JdbcUtils.createObjectListResultSet;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
 import java.sql.Connection;
@@ -33,11 +33,13 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -85,6 +87,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     private final Connection connection;
 
+    private final Supplier<ZoneId> timeZoneSupplier;
+
     /**
      * Constructor.
      *
@@ -92,17 +96,20 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      * @param handler Handler.
      * @param url URL
      * @param userName User name,
+     * @param timeZoneSupplier Time zone supplier.
      */
     public JdbcDatabaseMetadata(
             Connection connection,
             JdbcQueryEventHandler handler,
             String url,
-            String userName
+            String userName,
+            Supplier<ZoneId> timeZoneSupplier
     ) {
         this.handler = handler;
         this.connection = connection;
         this.url = url;
         this.userName = userName;
+        this.timeZoneSupplier = timeZoneSupplier;
     }
 
     /** {@inheritDoc} */
@@ -913,7 +920,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.add(tableRow(tblMeta));
             }
 
-            return createObjectListResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -961,7 +968,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.add(row);
             }
 
-            return createObjectListResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -978,7 +985,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         ensureNotClosed();
 
         return createObjectListResultSet(singletonList(singletonList(CATALOG_NAME)),
-                asList(columnMeta("TABLE_CAT", ColumnType.STRING)));
+                asList(columnMeta("TABLE_CAT", ColumnType.STRING)), timeZoneSupplier);
     }
 
     /** {@inheritDoc} */
@@ -989,7 +996,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
         return createObjectListResultSet(
                 asList(List.of(TYPE_TABLE, TYPE_VIEW)),
-                asList(columnMeta("TABLE_TYPE", ColumnType.STRING)));
+                asList(columnMeta("TABLE_TYPE", ColumnType.STRING)), timeZoneSupplier);
     }
 
     /** {@inheritDoc} */
@@ -1042,7 +1049,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.add(columnRow(res.meta().get(i), i + 1));
             }
 
-            return createObjectListResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -1150,7 +1157,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.addAll(primaryKeyRows(pkMeta));
             }
 
-            return createObjectListResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -1346,7 +1353,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 columnMeta("SQL_DATA_TYPE", ColumnType.INT32),
                 columnMeta("SQL_DATETIME_SUB", ColumnType.INT32),
                 columnMeta("NUM_PREC_RADIX", ColumnType.INT32)
-        ));
+        ), timeZoneSupplier);
     }
 
     /** {@inheritDoc} */
@@ -1631,7 +1638,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getClientInfoProperties() throws SQLException {
+    public ResultSet getClientInfoProperties() {
         // We do not check whether connection is closed as 
         // this operation is not expected to do any server calls.  
         return createObjectListResultSet(asList(

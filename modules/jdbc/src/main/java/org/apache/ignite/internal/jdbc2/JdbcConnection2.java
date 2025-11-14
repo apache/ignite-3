@@ -161,7 +161,7 @@ public class JdbcConnection2 implements Connection {
         properties = props;
 
         //noinspection ThisEscapedInObjectConstruction
-        metadata = new JdbcDatabaseMetadata(this, eventHandler, props.getUrl(), props.getUsername());
+        metadata = new JdbcDatabaseMetadata(this, eventHandler, props.getUrl(), props.getUsername(), props::getConnectionTimeZone);
     }
 
     /** {@inheritDoc} */

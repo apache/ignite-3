@@ -23,18 +23,17 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.EnumSet;
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc2.ClientSyncResultSet;
 import org.apache.ignite.internal.jdbc2.JdbcResultSet;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
@@ -43,32 +42,32 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Helper methods for creating a {@link ResultSet} using a list of objects.
  */
-class JdbcDatabaseMetadataUtils {
-    /** List of supported metadata column types. */
-    private static final EnumSet<ColumnType> SUPPORTED_TYPES = EnumSet.of(
-            ColumnType.NULL,
-            ColumnType.BOOLEAN,
-            ColumnType.INT8,
-            ColumnType.INT16,
-            ColumnType.INT32,
-            ColumnType.INT64,
-            ColumnType.STRING
-    );
+public class JdbcUtils {
+    /** System time zone supplier. */
+    private static final Supplier<ZoneId> defaultZoneSupplier = ZoneId::systemDefault;
 
     /** Creates an empty {@link ResultSet} using the provided metadata. */
     static ResultSet createObjectListResultSet(List<ColumnMetadata> columnsMeta) {
-        return createObjectListResultSet(List.of(), columnsMeta);
+        return createObjectListResultSet(List.of(), columnsMeta, defaultZoneSupplier);
     }
 
     /** Creates a {@link ResultSet} using the provided list of objects and metadata. */
-    static ResultSet createObjectListResultSet(List<List<Object>> rows, List<ColumnMetadata> columnsMeta) {
-        ResultSetMetadata meta = new ResultSetMetadataImpl(columnsMeta);
+    public static ResultSet createObjectListResultSet(
+            List<List<Object>> rows,
+            List<ColumnMetadata> columnsMeta,
+            Supplier<ZoneId> timeZoneSupplier
+    ) {
+        return createObjectListResultSet(rows, columnsMeta, timeZoneSupplier, 0);
+    }
 
-        if (IgniteUtils.assertionsEnabled()) {
-            for (ColumnMetadata columnMeta : meta.columns()) {
-                assert SUPPORTED_TYPES.contains(columnMeta.type()) : "Unsupported column type: " + columnMeta.type();
-            }
-        }
+    /** Creates a {@link ResultSet} using the provided list of objects and metadata. */
+    public static ResultSet createObjectListResultSet(
+            List<List<Object>> rows,
+            List<ColumnMetadata> columnsMeta,
+            Supplier<ZoneId> timeZoneSupplier,
+            int maxRows
+    ) {
+        ResultSetMetadata meta = new ResultSetMetadataImpl(columnsMeta);
 
         TransformingIterator<List<Object>, SqlRow> transformer =
                 new TransformingIterator<>(rows.iterator(), ObjectListToSqlRowAdapter::new);
@@ -76,9 +75,9 @@ class JdbcDatabaseMetadataUtils {
         return new JdbcResultSet(
                 new IteratorBasedClientSyncResultSet(transformer, meta),
                 null,
-                null,
+                timeZoneSupplier,
                 false,
-                0
+                maxRows
         );
     }
 
