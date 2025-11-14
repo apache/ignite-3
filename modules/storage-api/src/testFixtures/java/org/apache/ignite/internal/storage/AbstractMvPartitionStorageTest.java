@@ -1502,7 +1502,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    void testRowsStartingWithId() {
+    void testClosestRowId() {
         RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
