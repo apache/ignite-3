@@ -15,12 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.statistic;
+package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.internal.event.EventProducer;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
-/** Statistic manager with reaction on statistic changes. */
-public interface SqlStatisticUpdateManager extends SqlStatisticManager, EventProducer<StatisticChangedEvent, StatisticEventParameters> {
+/** Message for transferring a partition modification info. */
+@Transferable(TableMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE)
+public interface PartitionModificationInfoMessage extends NetworkMessage {
+    /** Table id. */
+    int tableId();
+
+    /** Partition id. */
+    int partId();
+
+    /** Estimated size. */
+    long estimatedSize();
+
+    /** Modification counter. */
+    long lastModificationCounter();
 }

@@ -15,12 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.statistic;
+package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.internal.event.EventProducer;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
-/** Statistic manager with reaction on statistic changes. */
-public interface SqlStatisticUpdateManager extends SqlStatisticManager, EventProducer<StatisticChangedEvent, StatisticEventParameters> {
+/**
+ * Message group for table module.
+ */
+@MessageGroup(groupType = TableMessageGroup.GROUP_TYPE, groupName = "TableMessages")
+public interface TableMessageGroup {
+    /** Table message group type. */
+    short GROUP_TYPE = 17;
+
+    /** Message type for {@link GetEstimatedSizeWithLastModifiedTsRequest}. */
+    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_REQUEST = 1;
+
+    /** Message type for {@link GetEstimatedSizeWithLastModifiedTsResponse}. */
+    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE_RESPONSE = 2;
+
+    /** Message type for {@link PartitionModificationInfoMessage}. */
+    short GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE = 3;
 }
