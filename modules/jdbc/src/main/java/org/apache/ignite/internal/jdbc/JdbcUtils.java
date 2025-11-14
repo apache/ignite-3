@@ -110,11 +110,6 @@ public class JdbcUtils {
         }
 
         @Override
-        public boolean wasApplied() {
-            return false;
-        }
-
-        @Override
         public boolean hasNextResultSet() {
             return false;
         }

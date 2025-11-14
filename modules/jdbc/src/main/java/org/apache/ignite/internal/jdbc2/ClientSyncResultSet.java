@@ -37,8 +37,6 @@ public interface ClientSyncResultSet extends Iterator<SqlRow> {
 
     long affectedRows();
 
-    boolean wasApplied();
-
     boolean hasNextResultSet();
 
     ClientSyncResultSet nextResultSet();
