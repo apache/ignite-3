@@ -128,10 +128,7 @@ public class DeploymentUnitLoaderTests
     {
         using var tempDir = new TempDir();
         var asmName = "NewerDotnetJobs";
-
-        await Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Apache.Ignite.Tests.Compute.Executor.NewerDotnetJobs.NewerDotnetJobs.dll")!
-            .CopyToAsync(File.Create(Path.Combine(tempDir.Path, asmName + ".dll")));
+        await DotNetJobs.WriteNewerDotnetJobsAssembly(tempDir.Path, asmName);
 
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
 

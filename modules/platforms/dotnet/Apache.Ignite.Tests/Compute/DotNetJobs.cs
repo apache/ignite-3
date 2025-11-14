@@ -19,7 +19,9 @@ namespace Apache.Ignite.Tests.Compute;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 using System.Threading;
@@ -37,6 +39,20 @@ public static class DotNetJobs
     public static readonly JobDescriptor<object?, object?> ProcessExit = JobDescriptor.Of(new ProcessExitJob());
     public static readonly JobDescriptor<string, string> ApiTest = new(typeof(ApiTestJob));
     public static readonly JobDescriptor<object?, int> AssemblyLoadContextCount = JobDescriptor.Of(new AssemblyLoadContextCountJob());
+    public static readonly JobDescriptor<string, string> NewerDotNetJob = new(
+        JobClassName: "NewerDotnetJobs.EchoJob, NewerDotnetJobs",
+        Options: new JobExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar));
+
+    public static async Task<string> WriteNewerDotnetJobsAssembly(string tempDirPath, string asmName)
+    {
+        var targetPath = Path.Combine(tempDirPath, asmName + ".dll");
+
+        await Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("Apache.Ignite.Tests.Compute.Executor.NewerDotnetJobs.NewerDotnetJobs.dll")!
+            .CopyToAsync(File.Create(targetPath));
+
+        return targetPath;
+    }
 
     public class AddOneJob : IComputeJob<int, int>
     {

@@ -287,6 +287,12 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreEqual("Job executor type 'DotNetSidecar' is not supported by the server.", ex.Message);
     }
 
+    [Test]
+    public async Task TestNewerDotnetVersionAssembly()
+    {
+        await ExecJobAsync(DotNetJobs.NewerDotNetJob, "test");
+    }
+
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {
         var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;
