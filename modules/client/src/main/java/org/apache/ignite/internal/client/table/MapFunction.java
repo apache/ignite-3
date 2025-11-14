@@ -29,6 +29,8 @@ import java.util.concurrent.CompletableFuture;
 @FunctionalInterface
 interface MapFunction<K, R> {
     /**
+     * Execute a batch.
+     *
      * @param keys Keys to split.
      * @param provider Partition awareness provider.
      * @param txRequired {@code True} if a batch requires explicit transaction.
