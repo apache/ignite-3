@@ -266,6 +266,7 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlStdOperatorTable.MAX);
         ops.add(SqlStdOperatorTable.ANY_VALUE);
         ops.add(SqlStdOperatorTable.SINGLE_VALUE);
+        ops.internal(IgniteSqlOperatorTable.SAME_VALUE);
         ops.internal(SqlStdOperatorTable.FILTER);
 
         ops.add(SqlStdOperatorTable.EVERY);
