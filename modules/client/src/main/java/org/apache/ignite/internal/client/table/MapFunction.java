@@ -15,27 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.client.table;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Write context.
+ * Defines a contract for batch map function.
+ *
+ * @param <K> Key type.
+ * @param <R> Result type.
  */
-public class WriteContext {
-    public @Nullable PartitionMapping pm;
-    public @Nullable Long enlistmentToken;
-    public CompletableFuture<ClientTransaction> firstReqFut;
-    public final HybridTimestampTracker tracker;
-    public boolean readOnly;
-    public @Nullable ClientChannel channel;
-    public final int opCode;
-
-    public WriteContext(HybridTimestampTracker tracker, int opCode) {
-        this.tracker = tracker;
-        this.opCode = opCode;
-    }
+@FunctionalInterface
+interface MapFunction<K, R> {
+    /**
+     * Execute a batch.
+     *
+     * @param keys Keys to split.
+     * @param provider Partition awareness provider.
+     * @param txRequired {@code True} if a batch requires explicit transaction.
+     * @return Map future.
+     */
+    CompletableFuture<R> apply(Collection<K> keys, PartitionAwarenessProvider provider, boolean txRequired);
 }

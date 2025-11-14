@@ -30,19 +30,20 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -192,24 +193,24 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyMapCompletedFuture();
         }
 
-        BiFunction<Collection<K>, PartitionAwarenessProvider, CompletableFuture<Map<K, V>>> clo = (batch, provider) -> {
+        List<Transaction> txns = new ArrayList<>();
+
+        MapFunction<K, Map<K, V>> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
+
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
-                    (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
+                    (s, w, n) -> keySer.writeRecs(tx0, batch, s, w, n, TuplePart.KEY),
                     this::readGetAllResponse,
                     Collections.emptyMap(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
-        }
-
-        return tbl.split(tx, keys, clo, new HashMap<>(), (agg, cur) -> {
+        return tbl.splitAndRun(keys, clo, new HashMap<>(), (agg, cur) -> {
             agg.putAll(cur);
             return agg;
-        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
+        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry), txns);
     }
 
     /** {@inheritDoc} */
@@ -246,21 +247,21 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return trueCompletedFuture();
         }
 
-        BiFunction<Collection<K>, PartitionAwarenessProvider, CompletableFuture<Boolean>> clo = (batch, provider) -> {
+        List<Transaction> txns = new ArrayList<>();
+
+        MapFunction<K, Boolean> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
+
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                    (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
+                    (s, w, n) -> keySer.writeRecs(tx0, batch, s, w, n, TuplePart.KEY),
                     r -> r.in().unpackBoolean(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
-        }
-
-        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
-                (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
+        return tbl.splitAndRun(keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
+                (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry), txns);
     }
 
     /** {@inheritDoc} */
@@ -304,7 +305,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
-        BiFunction<Collection<Entry<K, V>>, PartitionAwarenessProvider, CompletableFuture<Void>> clo = (batch, provider) -> {
+        MapFunction<Entry<K, V>, Void> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> {
@@ -321,10 +322,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         };
 
         if (tx == null) {
-            return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(keySer.mapper(), pairs.keySet().iterator().next()));
+            return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(keySer.mapper(), pairs.keySet().iterator().next()), false);
         }
 
-        return tbl.split(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
+        return tbl.splitAndRun(pairs.entrySet(), clo, null, (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry.getKey()));
     }
 
@@ -471,7 +472,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyCollectionCompletedFuture();
         }
 
-        BiFunction<Collection<K>, PartitionAwarenessProvider, CompletableFuture<Collection<K>>> batchFunc = (batch, provider) -> {
+        MapFunction<K, Collection<K>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
@@ -482,10 +483,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         };
 
         if (tx == null) {
-            return batchFunc.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
+            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()), false);
         }
 
-        return tbl.split(tx, keys, batchFunc, new HashSet<>(), (agg, cur) -> {
+        return tbl.splitAndRun(keys, clo, new HashSet<>(), (agg, cur) -> {
             agg.addAll(cur);
             return agg;
         }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));

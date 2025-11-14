@@ -17,7 +17,10 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_ONLY;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -49,7 +52,7 @@ public class ClientTupleContainsKeyRequest {
             ClockService clockService,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, true, null, tsTracker, true)
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(READ_ONLY, KEY_ONLY))
                 .thenCompose(req -> req.table().recordView().containsAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

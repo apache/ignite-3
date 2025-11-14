@@ -21,16 +21,15 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
+import static org.apache.ignite.internal.client.table.ClientTableMapUtils.mapAndRetry;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.api.PublicApiClientKeyValueView;
 import org.apache.ignite.internal.client.table.api.PublicApiClientRecordView;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.DirectTxUtils;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -70,6 +70,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -468,7 +469,7 @@ public class ClientTable implements Table {
                     @Nullable PartitionMapping pm = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
 
                     // Write context carries request execution details over async chain.
-                    WriteContext ctx = new WriteContext(ch.observableTimestamp());
+                    WriteContext ctx = new WriteContext(ch.observableTimestamp(), opCode);
 
                     CompletableFuture<@Nullable ClientTransaction> txStartFut = DirectTxUtils.ensureStarted(ch, tx, pm, ctx, ch -> {
                         // Enough to check only TX_PIGGYBACK flag - other tx flags are set if this flag is set.
@@ -740,6 +741,29 @@ public class ClientTable implements Table {
     }
 
     /**
+     * Implicit getAll/containsAll transaction is executed as multiple independent transactions with lightweight coordination from a client.
+     * TODO https://issues.apache.org/jira/browse/IGNITE-27040
+     *
+     * @param tx Transaction to check.
+     * @param txns Explicit transactions holder.
+     * @param txRequired {@code True} if explicit tx is required (implicit + multiple batches).
+     *
+     * @return The transaction.
+     */
+    @Nullable Transaction startTxIfNeeded(@Nullable Transaction tx, List<Transaction> txns, boolean txRequired) {
+        if (tx != null || !txRequired) {
+            return tx;
+        }
+
+        // Will use default timeout.
+        ClientLazyTransaction tx0 = new ClientLazyTransaction(channel().observableTimestamp(), new TransactionOptions(), true);
+
+        txns.add(tx0);
+
+        return tx0;
+    }
+
+    /**
      * Batch with indexes.
      *
      * @param <E> Batch type element.
@@ -754,24 +778,24 @@ public class ClientTable implements Table {
         }
     }
 
-    private static <E> void reduceWithKeepOrder(List<E> agg, List<E> cur, List<Integer> originalIndices) {
-        for (int i = 0; i < cur.size(); i++) {
-            E val = cur.get(i);
-            Integer orig = originalIndices.get(i);
-            agg.set(orig, val);
-        }
-    }
-
-    <R, E> CompletableFuture<R> split(
-            Transaction tx,
+    <R, E> CompletableFuture<R> splitAndRun(
             Collection<E> keys,
-            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
+            MapFunction<E, R> fun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
-        assert tx != null;
+        return splitAndRun(keys, fun, initialValue, reducer, hashFunc, List.of());
+    }
 
+    <R, E> CompletableFuture<R> splitAndRun(
+            Collection<E> keys,
+            MapFunction<E, R> mapFun,
+            @Nullable R initialValue,
+            Reducer<R> reducer,
+            BiFunction<ClientSchema, E, Integer> hashFunc,
+            List<Transaction> txns
+    ) {
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
 
@@ -781,11 +805,10 @@ public class ClientTable implements Table {
 
                     @Nullable List<String> aff = partitionsFut.getNow(null);
                     if (aff == null) {
-                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                        return mapFun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
                     }
 
                     Map<Integer, List<E>> mapped = IgniteUtils.newHashMap(aff.size());
-                    List<CompletableFuture<R>> res = new ArrayList<>(aff.size());
 
                     for (E key : keys) {
                         int hash = hashFunc.apply(schema, key);
@@ -793,30 +816,18 @@ public class ClientTable implements Table {
                         mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
                     }
 
-                    for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
-                        res.add(fun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey())));
-                    }
-
-                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
-                        R in = initialValue;
-
-                        for (CompletableFuture<R> val : res) {
-                            in = reducer.reduce(in, val.getNow(null));
-                        }
-
-                        return in;
-                    });
+                    CompletableFuture<R> resFut = new CompletableFuture<>();
+                    mapAndRetry(mapFun, initialValue, reducer, txns, mapped, new long[1], resFut, log);
+                    return resFut;
                 });
     }
 
-    <E> CompletableFuture<List<E>> split(
-            Transaction tx,
+    <E> CompletableFuture<List<E>> splitAndRun(
             Collection<E> keys,
-            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<List<E>>> fun,
-            BiFunction<ClientSchema, E, Integer> hashFunc
+            MapFunction<E, List<E>> fun,
+            BiFunction<ClientSchema, E, Integer> hashFunc,
+            List<Transaction> txns
     ) {
-        assert tx != null;
-
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
 
@@ -826,7 +837,7 @@ public class ClientTable implements Table {
 
                     @Nullable List<String> aff = partitionsFut.getNow(null);
                     if (aff == null) {
-                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
                     }
 
                     Map<Integer, Batch<E>> mapped = IgniteUtils.newHashMap(aff.size());
@@ -839,24 +850,9 @@ public class ClientTable implements Table {
                         idx++;
                     }
 
-                    List<CompletableFuture<List<E>>> res = new ArrayList<>(aff.size());
-                    List<Batch<E>> batches = new ArrayList<>();
-
-                    for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
-                        res.add(fun.apply(entry.getValue().batch, PartitionAwarenessProvider.of(entry.getKey())));
-                        batches.add(entry.getValue());
-                    }
-
-                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
-                        var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
-
-                        for (int i = 0; i < res.size(); i++) {
-                            CompletableFuture<List<E>> f = res.get(i);
-                            reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
-                        }
-
-                        return in;
-                    });
+                    CompletableFuture<List<E>> resFut = new CompletableFuture<>();
+                    mapAndRetry(fun, keys, txns, mapped, new long[1], resFut, log);
+                    return resFut;
                 });
     }
 

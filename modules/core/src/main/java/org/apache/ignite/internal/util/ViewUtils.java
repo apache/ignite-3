@@ -75,9 +75,9 @@ public final class ViewUtils {
             return copyExceptionWithCauseIfPossible((IgniteCheckedException) e);
         }
 
-        e = IgniteExceptionMapperUtil.mapToPublicException(e);
+        var e0 = IgniteExceptionMapperUtil.mapToPublicException(e);
 
-        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+        return new IgniteException(INTERNAL_ERR, e0.getMessage(), e0);
     }
 
     /**
