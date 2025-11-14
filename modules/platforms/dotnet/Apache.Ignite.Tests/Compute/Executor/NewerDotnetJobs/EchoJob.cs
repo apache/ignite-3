@@ -15,6 +15,10 @@
 
 namespace NewerDotnetJobs;
 
+using Apache.Ignite.Compute;
+
 public class EchoJob : IComputeJob<string, string>
 {
+    public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken)
+        => ValueTask.FromResult(arg);
 }
