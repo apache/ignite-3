@@ -3192,9 +3192,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
         SizeSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
-        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(
-                partSizeSupplier, table::stalenessConfiguration
-        );
+
+        PartitionModificationCounter modificationCounter =
+                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration, table.tableId(), partitionId);
+
         registerPartitionModificationCounterMetrics(table, partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(

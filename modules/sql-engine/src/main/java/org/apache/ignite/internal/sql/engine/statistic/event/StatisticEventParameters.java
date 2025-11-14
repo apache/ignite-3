@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.statistic;
+package org.apache.ignite.internal.sql.engine.statistic.event;
 
-import org.apache.ignite.internal.event.EventProducer;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
+import org.apache.ignite.internal.event.EventParameters;
 
-/** Statistic manager with reaction on statistic changes. */
-public interface SqlStatisticUpdateManager extends SqlStatisticManager, EventProducer<StatisticChangedEvent, StatisticEventParameters> {
+/** Event related parameters. */
+public class StatisticEventParameters implements EventParameters {
+    private final int tableId;
+
+    public StatisticEventParameters(int tableId) {
+        this.tableId = tableId;
+    }
+
+    public int tableId() {
+        return tableId;
+    }
 }

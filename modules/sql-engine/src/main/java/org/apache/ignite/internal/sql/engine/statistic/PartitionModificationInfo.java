@@ -17,10 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
-import org.apache.ignite.internal.event.EventProducer;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
+/** Partition modification information holder. */
+public class PartitionModificationInfo {
+    private final long estimatedSize;
+    private final long lastModificationCounter;
 
-/** Statistic manager with reaction on statistic changes. */
-public interface SqlStatisticUpdateManager extends SqlStatisticManager, EventProducer<StatisticChangedEvent, StatisticEventParameters> {
+    /** Constructor. */
+    public PartitionModificationInfo(long estimatedSize, long lastModificationCounter) {
+        this.estimatedSize = estimatedSize;
+        this.lastModificationCounter = lastModificationCounter;
+    }
+
+    /** Returns last modification representation. */
+    long lastModificationCounter() {
+        return lastModificationCounter;
+    }
+
+    /** Returns estimated size. */
+    long getEstimatedSize() {
+        return estimatedSize;
+    }
 }
