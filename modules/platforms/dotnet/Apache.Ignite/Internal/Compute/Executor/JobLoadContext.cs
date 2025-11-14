@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Reflection;
 using System.Runtime.Loader;
 using Ignite.Compute;
@@ -103,27 +104,45 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
     private static Type LoadType(string typeName, AssemblyLoadContext ctx)
     {
-        Assembly? lastLoadedAssembly = null;
-
         try
         {
-            return Type.GetType(
-                       typeName,
-                       assemblyResolver: name =>
-                       {
-                           lastLoadedAssembly = ctx.LoadFromAssemblyName(name);
-                           return lastLoadedAssembly;
-                       },
-                       typeResolver: null,
-                       throwOnError: true)
+            return Type.GetType(typeName, ctx.LoadFromAssemblyName, null, throwOnError: true)
                    ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
+        }
+        catch (FileNotFoundException e)
+        {
+            if (e.FileName != null && e.FileName.StartsWith("System.", StringComparison.Ordinal))
+            {
+                try
+                {
+                    var assemblyName = new AssemblyName(e.FileName);
+                    var requestedRuntimeVersion = assemblyName.Version;
+                    var currentRuntimeVersion = typeof(object).Assembly.GetName().Version;
+
+                    if (requestedRuntimeVersion != null &&
+                        currentRuntimeVersion != null &&
+                        requestedRuntimeVersion.Major > currentRuntimeVersion.Major)
+                    {
+                        throw new InvalidOperationException(
+                            $"Failed to load type '{typeName}' because it depends on a newer .NET runtime version " +
+                            $"(required: {requestedRuntimeVersion}, current: {currentRuntimeVersion}, assembly: {assemblyName}). " +
+                            $"Either target .NET {currentRuntimeVersion} when building the job assembly, or run the .NET job executor with .NET {requestedRuntimeVersion}.");
+                    }
+                }
+                catch (FileLoadException exception)
+                {
+                    Console.WriteLine(exception);
+                    throw;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Failed to load type '{typeName}' from the specified deployment units, " +
+                $"file {e.FileName} not found: {e.Message}",
+                e);
         }
         catch (Exception e)
         {
-            if (lastLoadedAssembly != null)
-            {
-            }
-
             throw new InvalidOperationException($"Failed to load type '{typeName}' from the specified deployment units: {e.Message}", e);
         }
     }
