@@ -86,6 +86,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
+        assertNull(storage.highestRowId());
     }
 
     @Test
@@ -106,6 +107,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
+        assertNull(storage.highestRowId());
     }
 
     @Test

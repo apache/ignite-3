@@ -633,15 +633,22 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException {
+    public @Nullable RowId highestRowId() throws StorageException {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        return map.floorKey(RowId.highestRowId(partitionId));
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
         checkStorageClosedOrInProcessOfRebalance();
 
         List<RowMeta> result = new ArrayList<>();
-        RowId currentLowerBound = lowerBound;
+        RowId currentLowerBound = lowerBoundInclusive;
         for (int i = 0; i < limit; i++) {
             RowMeta row = closestRow(currentLowerBound);
 
-            if (row == null) {
+            if (row == null || row.rowId().compareTo(upperBoundInclusive) > 0) {
                 break;
             }
 

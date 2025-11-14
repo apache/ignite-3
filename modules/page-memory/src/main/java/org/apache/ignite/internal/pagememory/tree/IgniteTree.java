@@ -59,21 +59,21 @@ public interface IgniteTree<L, T> {
     /**
      * Returns a cursor from lower to upper bounds inclusive.
      *
-     * @param lower Lower bound or {@code null} if unbounded.
-     * @param upper Upper bound or {@code null} if unbounded.
+     * @param lowerInclusive Lower bound (inclusive) or {@code null} if unbounded.
+     * @param upperInclusive Upper bound (inclusive) or {@code null} if unbounded.
      * @throws IgniteInternalCheckedException If failed.
      */
-    Cursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException;
+    Cursor<T> find(@Nullable L lowerInclusive, @Nullable L upperInclusive) throws IgniteInternalCheckedException;
 
     /**
      * Returns a cursor from lower to upper bounds inclusive.
      *
-     * @param lower Lower bound or {@code null} if unbounded.
-     * @param upper Upper bound or {@code null} if unbounded.
+     * @param lowerInclusive Lower bound (inclusive) or {@code null} if unbounded.
+     * @param upperInclusive Upper bound (inclusive) or {@code null} if unbounded.
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    Cursor<T> find(@Nullable L lower, @Nullable L upper, @Nullable Object x) throws IgniteInternalCheckedException;
+    Cursor<T> find(@Nullable L lowerInclusive, @Nullable L upperInclusive, @Nullable Object x) throws IgniteInternalCheckedException;
 
     /**
      * Returns a value mapped to the lowest key, or {@code null} if tree is empty.
