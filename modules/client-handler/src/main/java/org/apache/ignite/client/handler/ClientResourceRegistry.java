@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Per-connection resource registry.
@@ -79,7 +81,7 @@ public class ClientResourceRegistry {
             ClientResource res = this.res.get(id);
 
             if (res == null) {
-                throw new IgniteInternalException("Failed to find resource with id: " + id);
+                throw new IgniteException(Client.RESOURCE_NOT_FOUND_ERR, "Failed to find resource with id: " + id);
             }
 
             return res;
@@ -100,7 +102,7 @@ public class ClientResourceRegistry {
             ClientResource res = this.res.remove(id);
 
             if (res == null) {
-                throw new IgniteInternalException("Failed to find resource with id: " + id);
+                throw new IgniteException(Client.RESOURCE_NOT_FOUND_ERR, "Failed to find resource with id: " + id);
             }
 
             return res;

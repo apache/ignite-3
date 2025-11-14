@@ -276,6 +276,9 @@ public class ErrorGroups {
 
         /** Server to client request failed. */
         public static final int SERVER_TO_CLIENT_REQUEST_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
+
+        /** Resource not found. */
+        public static final int RESOURCE_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
     }
 
     /** SQL error group. */

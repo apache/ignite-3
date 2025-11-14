@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -29,7 +28,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Synchronous wrapper over {@link org.apache.ignite.sql.async.AsyncResultSet}.
+ * Synchronous wrapper over {@link AsyncResultSet}.
  */
 public class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** Wrapped async result set. */
@@ -87,11 +86,7 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean hasNext() {
-        if (it == null) {
-            return false;
-        }
-
-        return it.hasNext();
+        return it != null && it.hasNext();
     }
 
     /** {@inheritDoc} */
@@ -107,39 +102,27 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
     private static class IteratorImpl<T> implements Iterator<T> {
         private AsyncResultSet<T> curRes;
 
-        private CompletionStage<? extends AsyncResultSet<T>> nextPageStage;
-
         private Iterator<T> curPage;
 
         IteratorImpl(AsyncResultSet<T> ars) {
             curRes = ars;
-
-            advance();
+            curPage = ars.currentPage().iterator();
         }
 
         @Override
         public boolean hasNext() {
             if (curPage.hasNext()) {
                 return true;
-            } else if (nextPageStage != null) {
-                curRes = sync(nextPageStage.toCompletableFuture());
+            }
 
-                advance();
-
-                return curPage.hasNext();
-            } else {
+            if (!curRes.hasMorePages()) {
                 return false;
             }
-        }
 
-        private void advance() {
+            curRes = sync(curRes.fetchNextPage());
             curPage = curRes.currentPage().iterator();
 
-            if (curRes.hasMorePages()) {
-                nextPageStage = curRes.fetchNextPage();
-            } else {
-                nextPageStage = null;
-            }
+            return curPage.hasNext();
         }
 
         @Override
