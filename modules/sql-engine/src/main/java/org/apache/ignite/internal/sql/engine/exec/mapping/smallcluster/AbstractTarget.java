@@ -39,7 +39,9 @@ abstract class AbstractTarget implements ExecutionTarget {
     final long nodes;
 
     AbstractTarget(long nodes) {
-        assert nodes != 0 : "Empty target is not allowed";
+        if (nodes <= 0) {
+            throw new IllegalArgumentException("Empty target is not allowed [nodes=" + nodes + ']');
+        }
 
         this.nodes = nodes;
     }

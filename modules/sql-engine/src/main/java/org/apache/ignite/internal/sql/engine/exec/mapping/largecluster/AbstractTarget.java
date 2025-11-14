@@ -39,7 +39,9 @@ abstract class AbstractTarget implements ExecutionTarget {
     final BitSet nodes;
 
     AbstractTarget(BitSet nodes) {
-        assert !nodes.isEmpty() : "Empty target is not allowed";
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Empty target is not allowed");
+        }
 
         this.nodes = nodes;
     }

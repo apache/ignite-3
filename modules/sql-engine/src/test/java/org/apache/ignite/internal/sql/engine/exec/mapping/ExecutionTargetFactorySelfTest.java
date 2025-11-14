@@ -82,10 +82,10 @@ public class ExecutionTargetFactorySelfTest {
     @ParameterizedTest
     @MethodSource("clusterFactory")
     void emptyTargets(ExecutionTargetFactory f) {
-        assertThrows(AssertionError.class, () -> f.allOf(List.of()), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.someOf(List.of()), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.oneOf(List.of()), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.partitioned(List.of()), "Empty target is not allowed");
+        assertThrows(IllegalArgumentException.class, () -> f.allOf(List.of()), "Empty target is not allowed");
+        assertThrows(IllegalArgumentException.class, () -> f.someOf(List.of()), "Empty target is not allowed");
+        assertThrows(IllegalArgumentException.class, () -> f.oneOf(List.of()), "Empty target is not allowed");
+        assertThrows(IllegalArgumentException.class, () -> f.partitioned(List.of()), "Empty target is not allowed");
     }
 
     @ParameterizedTest

@@ -137,7 +137,9 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     private long nodeListToMap(List<String> nodes) {
-        assert !nodes.isEmpty() : "Empty target is not allowed";
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Empty target is not allowed");
+        }
 
         long nodesMap = 0;
 

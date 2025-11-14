@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,6 +32,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.GroupingAccumulator;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,11 +42,11 @@ public class GroupingAccumulatorTest {
 
     @Test
     public void testFactory() {
-        assertThrows(AssertionError.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> GroupingAccumulator.newAccumulator(List.of()).get(),
                 "GROUPING function must have at least one argument"
         );
-        assertThrows(AssertionError.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> GroupingAccumulator.newAccumulator(IntStream.range(0, 64).boxed().collect(Collectors.toList())).get(),
                 "GROUPING function with more than 63 arguments is not supported"
         );
@@ -54,6 +56,8 @@ public class GroupingAccumulatorTest {
 
     @Test
     public void emptyState() {
+        assumeTrue(IgniteUtils.assertionsEnabled(), "the test requires that assertions be enabled");
+
         Accumulator acc = newCall(List.of(0));
         AccumulatorsState result = newState();
 
@@ -69,7 +73,7 @@ public class GroupingAccumulatorTest {
         AccumulatorsState state = newState();
 
         assertEquals(IgniteTypeFactory.INSTANCE.createSqlType(SqlTypeName.BIGINT), acc.returnType(IgniteTypeFactory.INSTANCE));
-        assertThrows(AssertionError.class, () -> acc.add(state, new Object[]{1}));
+        assertThrows(UnsupportedOperationException.class, () -> acc.add(state, new Object[]{1}));
 
         assertFalse(state.hasValue());
     }
