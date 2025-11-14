@@ -113,29 +113,30 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         {
             if (e.FileName != null && e.FileName.StartsWith("System.", StringComparison.Ordinal))
             {
+                // System assembly failed to load - potentially due to runtime version mismatch.
                 try
                 {
                     var assemblyName = new AssemblyName(e.FileName);
-                    var requestedRuntimeVersion = assemblyName.Version;
-                    var currentRuntimeVersion = typeof(object).Assembly.GetName().Version;
+                    var requestedRuntimeVersion = assemblyName.Version?.Major;
+                    var currentRuntimeVersion = typeof(object).Assembly.GetName().Version?.Major;
 
                     if (requestedRuntimeVersion != null &&
                         currentRuntimeVersion != null &&
-                        requestedRuntimeVersion.Major > currentRuntimeVersion.Major)
+                        requestedRuntimeVersion > currentRuntimeVersion)
                     {
                         throw new InvalidOperationException(
                             $"Failed to load type '{typeName}' because it depends on a newer .NET runtime version " +
-                            $"(required: {requestedRuntimeVersion}, current: {currentRuntimeVersion}, assembly: {assemblyName}). " +
+                            $"(required: {requestedRuntimeVersion}, current: {currentRuntimeVersion}, missing assembly: {assemblyName}). " +
                             $"Either target .NET {currentRuntimeVersion} when building the job assembly, or run the .NET job executor with .NET {requestedRuntimeVersion}.");
                     }
                 }
-                catch (FileLoadException exception)
+                catch (FileLoadException)
                 {
-                    Console.WriteLine(exception);
-                    throw;
+                    // Could not parse assembly name - ignore.
                 }
             }
 
+            // TODO: Better exception here.
             throw new InvalidOperationException(
                 $"Failed to load type '{typeName}' from the specified deployment units, " +
                 $"file {e.FileName} not found: {e.Message}",
