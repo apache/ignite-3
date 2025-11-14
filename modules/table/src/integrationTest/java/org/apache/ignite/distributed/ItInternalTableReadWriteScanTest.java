@@ -26,6 +26,7 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
 import org.apache.ignite.internal.table.TxContext;
@@ -35,6 +36,9 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
+ */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     /** Timestamp tracker. */
     private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = HybridTimestampTracker.atomicTracker(null);
