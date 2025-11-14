@@ -492,6 +492,7 @@ public class Compactor extends IgniteWorker {
         synchronized (mux) {
             paused = false;
 
+            // Force compaction as we could stop somewhere in the middle and we need to continue compaction.
             addedDeltaFiles = true;
 
             mux.notifyAll();
