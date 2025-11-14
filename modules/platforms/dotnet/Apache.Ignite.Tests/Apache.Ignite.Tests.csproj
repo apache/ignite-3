@@ -66,7 +66,7 @@
 
     <ItemGroup>
       <None Remove="Compute\Executor\NewerDotnetJobs\NewerDotnetJobs.dll" />
-      <Resource Include="Compute\Executor\NewerDotnetJobs\NewerDotnetJobs.dll" />
+      <EmbeddedResource Include="Compute\Executor\NewerDotnetJobs\NewerDotnetJobs.dll" />
     </ItemGroup>
 
 </Project>
