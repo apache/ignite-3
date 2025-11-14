@@ -57,6 +57,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -147,6 +148,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -180,14 +182,19 @@ public class DdlSqlToCommandConverter {
     /** Node filter validator. */
     private final NodeFilterValidator nodeFilterValidator;
 
+    private final Supplier<TableStatsStalenessConfiguration> stalenessProperties;
+
     /**
      * Constructor.
      *
      * @param storageProfileValidator Storage profile names validator.
+     * @param nodeFilterValidator Node filter validator.
+     * @param stalenessProperties Data staleness properties.
      */
     public DdlSqlToCommandConverter(
             StorageProfileValidator storageProfileValidator,
-            NodeFilterValidator nodeFilterValidator
+            NodeFilterValidator nodeFilterValidator,
+            Supplier<TableStatsStalenessConfiguration> stalenessProperties
     ) {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
@@ -238,6 +245,8 @@ public class DdlSqlToCommandConverter {
 
         this.storageProfileValidator = storageProfileValidator;
         this.nodeFilterValidator = nodeFilterValidator;
+
+        this.stalenessProperties = stalenessProperties;
     }
 
     /**
@@ -471,6 +480,11 @@ public class DdlSqlToCommandConverter {
         }
 
         String zone = createTblNode.zone() == null ? null : createTblNode.zone().getSimple();
+
+        TableStatsStalenessConfiguration properties = stalenessProperties.get();
+        tblBuilder
+                .staleRowsFraction(properties.staleRowsFraction())
+                .minStaleRowsCount(properties.minStaleRowsCount());
 
         SqlNodeList propertyList = createTblNode.tableProperties();
         if (propertyList != null) {
