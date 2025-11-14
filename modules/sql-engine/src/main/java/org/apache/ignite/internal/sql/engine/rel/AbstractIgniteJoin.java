@@ -154,7 +154,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                 this.left.getRowType().getFieldCount()
         );
 
-        // Re-hashing of ride side to left.
+        // Re-hashing of right side to left.
         if (leftDistr.getType() == HASH_DISTRIBUTED && left2rightProjectedDistr != random()) {
             computeHashOutputOptions(nodeTraits, left, leftDistr, right, left2rightProjectedDistr, res, offsetByLeftSize);
         }
@@ -287,7 +287,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                 }
 
                 // We cannot provide random distribution without unique constraint on join keys,
-                // so, we require hash distribution (wich satisfies random distribution) instead.
+                // so, we require hash distribution (which satisfies random distribution) instead.
                 IgniteDistribution outDistr = distrType == HASH_DISTRIBUTED
                         ? IgniteDistributions.clone(distribution, joinInfo.leftKeys)
                         : hash(joinInfo.leftKeys);
