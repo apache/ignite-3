@@ -663,7 +663,6 @@ public class Node {
                 new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
                 failureManager,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 

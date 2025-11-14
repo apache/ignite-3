@@ -201,7 +201,9 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void addNodeAndChangeScaleUpTimerToImmediate() throws Exception {
-        String zoneName = "Default";
+        String zoneName = "TestZone";
+
+        createZone(zoneName, STRONG_CONSISTENCY);
 
         // Setup the scale up timer to 50 seconds.
         alterZone(zoneName, 50, null, null);

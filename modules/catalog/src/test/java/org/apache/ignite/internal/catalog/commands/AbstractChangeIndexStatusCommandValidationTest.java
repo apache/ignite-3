@@ -76,7 +76,7 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
         int version = 1;
 
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 version,
                 new CatalogTableDescriptor[]{
                         table(tableId, id++, id++, id++, columnName)

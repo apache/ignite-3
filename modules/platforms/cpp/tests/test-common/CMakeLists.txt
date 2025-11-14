@@ -25,6 +25,7 @@ set(SOURCES
     ignite_runner.cpp ignite_runner.h
     process.cpp
     test_utils.cpp test_utils.h
+    hidden_param.h
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})
