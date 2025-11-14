@@ -70,7 +70,11 @@ public class JdbcUtils {
         ResultSetMetadata meta = new ResultSetMetadataImpl(columnsMeta);
 
         TransformingIterator<List<Object>, SqlRow> transformer =
-                new TransformingIterator<>(rows.iterator(), ObjectListToSqlRowAdapter::new);
+                new TransformingIterator<>(rows.iterator(), row -> {
+                    assert row.size() == meta.columns().size() : "rows=" + rows.size() + ", meta=" + meta.columns().size();
+
+                    return new ObjectListToSqlRowAdapter(row);
+                });
 
         return new JdbcResultSet(
                 new IteratorBasedClientSyncResultSet(transformer, meta),
