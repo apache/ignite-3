@@ -41,7 +41,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Provides batch map utility methods. 
+ * Provides batch map utility methods.
  */
 class ClientTableMapUtils {
     private static final long DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(5000);
@@ -228,7 +228,7 @@ class ClientTableMapUtils {
                 waitCommitFuts.add(fut);
             }
         }
-        
+
         return waitCommitFuts;
     }
 
