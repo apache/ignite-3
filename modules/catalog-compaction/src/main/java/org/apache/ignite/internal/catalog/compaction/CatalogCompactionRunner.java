@@ -60,7 +60,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -151,8 +150,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final TopologyService topologyService;
 
-    private final NodeProperties nodeProperties;
-
     private final RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider;
 
     private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
@@ -181,7 +178,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             TopologyService topologyService,
-            NodeProperties nodeProperties,
             ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
             RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
@@ -193,7 +189,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.topologyService = topologyService;
-        this.nodeProperties = nodeProperties;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
