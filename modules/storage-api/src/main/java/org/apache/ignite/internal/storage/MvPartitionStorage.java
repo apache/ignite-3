@@ -265,7 +265,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
      *
-     * @param lowerBound Lower bound.
+     * @param lowerBound Lower bound (inclusive).
      * @throws StorageException If failed to read data from the storage.
      */
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
@@ -273,7 +273,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Returns a batch of rows with subsequent IDs which IDs are greater or equal than the lower bound.
      *
-     * @param lowerBound Lower bound.
+     * @param lowerBound Lower bound (inclusive).
      * @param limit Maximum number of rows to return.
      * @throws StorageException If failed to read data from the storage.
      */
