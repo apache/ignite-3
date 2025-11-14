@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
@@ -55,6 +56,11 @@ public class ItCmgRaftLogCompatibilityTest extends CompatibilityTestBase {
         cluster.stop();
 
         deleteCmgDbDir(nodeWorkDir);
+    }
+
+    @AfterEach
+    void tearDown()  {
+        cluster.stop();
     }
 
     @Test
