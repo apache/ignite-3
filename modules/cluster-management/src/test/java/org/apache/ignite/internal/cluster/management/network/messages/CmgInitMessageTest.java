@@ -26,7 +26,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class CmgInitMessageTest {
-
     @Test
     void toStringDoesNotContainInitConfiguration() {
         String initClusterConfiguration = "initClusterConfigurationContent";
