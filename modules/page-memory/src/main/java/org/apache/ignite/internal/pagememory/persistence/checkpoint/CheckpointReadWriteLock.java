@@ -176,8 +176,6 @@ public class CheckpointReadWriteLock {
 
     /**
      * Returns {@code true} if there are threads waiting to acquire the write lock.
-     *
-     * @return {@code true} if there are threads waiting to acquire the write lock, {@code false} otherwise.
      */
     public boolean hasQueuedWriters() {
         return checkpointLock.hasQueuedWriters();

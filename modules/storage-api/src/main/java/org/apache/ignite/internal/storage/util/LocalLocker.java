@@ -80,9 +80,6 @@ public class LocalLocker implements Locker {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean shouldRelease() {
         return shouldReleaseSupplier != null && shouldReleaseSupplier.getAsBoolean();
