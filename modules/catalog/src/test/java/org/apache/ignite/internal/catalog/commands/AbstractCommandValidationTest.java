@@ -135,12 +135,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    static Catalog catalogWithDefaultZone() {
-        return catalog(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
-    }
-
     static Catalog catalogWithTable(String name) {
-        return catalog(
+        return catalogWithDefaultZone(
                 createTableCommand(name)
         );
     }
@@ -150,24 +146,24 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
         tableDef.accept(builder);
 
-        return catalog(builder.build());
+        return catalogWithDefaultZone(builder.build());
     }
 
     static Catalog catalogWithZone(String name) {
-        return catalog(
+        return catalogWithDefaultZone(
                 createZoneCommand(name)
         );
     }
 
     static Catalog catalogWithZones(String zone1, String zone2) {
-        return catalog(
+        return catalogWithDefaultZone(
                 createZoneCommand(zone1),
                 createZoneCommand(zone2)
         );
     }
 
     static Catalog catalogWithIndex(String name) {
-        return catalog(
+        return catalogWithDefaultZone(
                 createTableCommand(TABLE_NAME),
                 createIndexCommand(TABLE_NAME, name)
         );
@@ -228,11 +224,15 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return updateContext.catalog();
     }
 
-    static Catalog catalog(CatalogCommand... commandsToApply) {
+    static Catalog catalogWithDefaultZone(CatalogCommand... commandsToApply) {
         return applyCommandsToCatalog(catalogWithDefaultZone(), commandsToApply);
     }
 
-    static Catalog catalog(
+    static Catalog catalogWithDefaultZone() {
+        return catalogWithDefaultZone(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
+    }
+
+    static Catalog catalogWithDefaultZone(
             int version,
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
@@ -251,7 +251,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         systemViews,
                         INITIAL_TIMESTAMP
                 )),
-                DEFAULT_ZONE.id());
+                DEFAULT_ZONE.id()
+        );
     }
 
     static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {

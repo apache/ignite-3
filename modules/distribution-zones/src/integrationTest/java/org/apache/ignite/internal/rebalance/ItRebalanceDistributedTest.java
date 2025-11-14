@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssig
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
@@ -214,6 +213,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
@@ -397,19 +397,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
-
-        // Without default zone preparation we will catch "Critical system error" because test placement driver will return fake primary
-        // replica for default zone out of corresponding assignments.
-        if (colocationEnabled()) {
-            alterDefaultZone(node0);
-
-            assertTrue(
-                    waitForCondition(
-                            () -> getDefaultZonePartitionStableAssignments(node0, 0).size() == NODE_COUNT,
-                            AWAIT_TIMEOUT_MILLIS
-                    )
-            );
-        }
     }
 
     @AfterEach
@@ -554,7 +541,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .localNodes()
                 .stream()
                 .filter(nodeId -> nodeId.groupId().toString().contains("part"))
-                .filter(nodeId -> !nodeId.groupId().toString().contains(defaultZoneId(leaderNode.catalogManager) + "_part"))
+                .filter(nodeId -> !hasDefaultZone(leaderNode.catalogManager)
+                        || (hasDefaultZone(leaderNode.catalogManager)
+                        && !nodeId.groupId().toString().contains(defaultZoneId(leaderNode.catalogManager) + "_part")))
                 .findFirst()
                 .orElseThrow();
 
@@ -590,6 +579,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static int defaultZoneId(CatalogManager catalog) {
         return catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id();
+    }
+
+    private static boolean hasDefaultZone(CatalogManager catalog) {
+        return catalog.catalog(catalog.latestCatalogVersion()).defaultZone() != null;
     }
 
     @Test
@@ -1530,7 +1523,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     view -> new LocalLogStorageFactory(),
                     threadPoolsManager.tableIoExecutor(),
                     replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                            .thenApply(Entry::value),
+                            .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
                     threadPoolsManager.commonScheduler()
             ));
 
@@ -1956,27 +1949,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
-    private static void alterDefaultZone(Node node) {
-        node.waitForMetadataCompletenessAtNow();
-
-        CatalogManager catalog = node.catalogManager;
-
-        DistributionZonesTestUtil.alterZone(
-                catalog,
-                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
-                NODE_COUNT
-        );
-
-        // Setting scaleUp timer to immediate value for default zone is just an optimization for faster tests.
-        DistributionZonesTestUtil.alterZone(
-                catalog,
-                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
-                IMMEDIATE_TIMER_VALUE,
-                null,
-                null
-        );
-    }
-
     private static void createTable(Node node, String zoneName, String tableName) {
         node.waitForMetadataCompletenessAtNow();
 
@@ -1991,10 +1963,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 ),
                 List.of("key")
         );
-    }
-
-    private static @Nullable Integer getTableId(Node node, String tableName) {
-        return TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
     private Node getNode(int nodeIndex) {
@@ -2040,8 +2008,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .flatMap((n) -> {
                     List<JraftGroupEventsListener> nodeRaftGroupServices = new ArrayList<>();
                     n.raftManager.forEach((nodeId, raftGroupService) -> {
+                        CatalogManager catalogManager = nodes.get(0).catalogManager;
                         // Excluded default zone raft services.
-                        if (!raftGroupService.getGroupId().startsWith("" + defaultZoneId(nodes.get(0).catalogManager))) {
+                        if (!hasDefaultZone(catalogManager)
+                                || (hasDefaultZone(catalogManager)
+                                && !raftGroupService.getGroupId().startsWith("" + defaultZoneId(catalogManager)))) {
                             nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
                         }
                     });

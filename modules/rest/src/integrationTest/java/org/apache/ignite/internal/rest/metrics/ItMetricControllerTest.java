@@ -69,7 +69,6 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("transactions", true),
             new MetricSource("resource.vacuum", true),
             new MetricSource("placement-driver", true),
-            new MetricSource("zones.Default", true),
             new MetricSource("clock.service", true)
     };
 
@@ -125,6 +124,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
         List<Matcher<? super NodeMetricSources>> matchers = CLUSTER.runningNodes()
                 .map(ignite -> both(hasNodeName(is(ignite.name()))).and(hasSources(containsInAnyOrder(ALL_METRIC_SOURCES))))
                 .collect(toList());
+
         assertThat(response.body(), containsInAnyOrder(matchers));
     }
 

@@ -26,8 +26,6 @@ import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.block
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -684,12 +682,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     void testLocalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
-        }
-
         insert(0, 0);
         insert(1, 1);
 
@@ -699,9 +691,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(localStateTableFuture, willCompleteSuccessfully());
         Map<ZonePartitionId, LocalPartitionStateByNode> localState = localStateTableFuture.get();
 
-        // A default zone and a custom zone, which was created in `BeforeEach`.
-        // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
-        assertThat(localState, aMapWithSize(27));
+        // A  custom zone, which was created in `BeforeEach` with 2 partitions due to this test's `ZoneParam` annotation's parameter.
+        assertThat(localState, aMapWithSize(2));
 
         int zoneId = zoneId(node);
 
@@ -757,12 +748,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     void testGlobalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
-        }
-
         insert(0, 0);
         insert(1, 1);
 
@@ -772,9 +757,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(globalStatesFuture, willCompleteSuccessfully());
         Map<ZonePartitionId, GlobalPartitionState> globalState = globalStatesFuture.get();
 
-        // A default zone and a custom zone, which was created in `BeforeEach`.
-        // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
-        assertThat(globalState, aMapWithSize(27));
+        // A  custom zone, which was created in `BeforeEach` with 2 partitions due to this test's `ZoneParam` annotation's parameter.
+        assertThat(globalState, aMapWithSize(2));
 
         int zoneId = zoneId(node);
 
@@ -862,14 +846,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         int partitions() default INITIAL_NODES;
 
         int nodes() default INITIAL_NODES;
-    }
-
-    private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
-        IgniteImpl node = unwrapIgniteImpl(node(0));
-        CatalogManager catalogManager = node.catalogManager();
-        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
-
-        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
     }
 
     private static void assertValueOnSpecificNodes(String tableName, Set<IgniteImpl> nodes, int id, int val) throws Exception {
@@ -986,7 +962,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         IgniteImpl nodeToCleanup = findZoneNodeConformingOptions(testZone, primaryReplica, raftLeader);
 
-        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartPartitionsWithCleanup(
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = nodeToCleanup.disasterRecoveryManager().restartPartitionsWithCleanup(
                 Set.of(nodeToCleanup.name()),
                 testZone,
                 Set.of(0)

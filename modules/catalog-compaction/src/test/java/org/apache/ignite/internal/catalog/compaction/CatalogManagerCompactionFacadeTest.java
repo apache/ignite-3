@@ -140,7 +140,7 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
                     from1,
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(4));
+            assertThat(tablesWithParts.keySet(), hasSize(3));
         }
 
         {
@@ -148,7 +148,7 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
                     from2,
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(3));
+            assertThat(tablesWithParts.keySet(), hasSize(2));
         }
 
         {
@@ -156,7 +156,7 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
                     from3,
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(2));
+            assertThat(tablesWithParts.keySet(), hasSize(1));
         }
 
         {
@@ -164,7 +164,7 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
                     clockService.nowLong(),
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(1));
+            assertThat(tablesWithParts.keySet(), hasSize(0));
         }
     }
 

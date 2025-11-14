@@ -214,6 +214,7 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -864,7 +865,6 @@ public class IgniteImpl implements Ignite {
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -927,7 +927,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                        .thenApply(org.apache.ignite.internal.metastorage.Entry::value),
+                        .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
                 threadPoolsManager.commonScheduler()
         );
 

@@ -239,6 +239,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return compactionCoordinatorNodeName;
     }
 
+    @TestOnly
+    public ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider() {
+        return activeLocalTxMinimumRequiredTimeProvider;
+    }
+
     /** Called when the low watermark has been changed. */
     public CompletableFuture<Boolean> onLowWatermarkChanged(HybridTimestamp newLowWatermark) {
         lowWatermark = newLowWatermark;

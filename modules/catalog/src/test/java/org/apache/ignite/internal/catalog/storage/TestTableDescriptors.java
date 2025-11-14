@@ -40,6 +40,8 @@ final class TestTableDescriptors {
             case 1:
             case 2:
                 return tablesV0(state);
+            case 3:
+                return tablesV3(state);
             default:
                 throw new IllegalArgumentException("Unexpected table version: " + version);
         }
@@ -124,5 +126,25 @@ final class TestTableDescriptors {
         );
 
         return list;
+    }
+
+    private static List<CatalogTableDescriptor> tablesV3(TestDescriptorState state) {
+        List<CatalogTableDescriptor> tables = new ArrayList<>(tablesV0(state));
+
+        tables.add(CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(101)
+                .newColumns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(IntList.of(4))
+                .storageProfile("S2")
+                .staleRowsFraction(0.3d)
+                .minStaleRowsCount(state.id() * 10_000L)
+                .build()
+        );
+
+        return tables;
     }
 }

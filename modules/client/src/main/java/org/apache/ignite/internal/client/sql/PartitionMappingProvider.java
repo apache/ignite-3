@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.sql;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.table.ClientColumn;
@@ -46,7 +47,8 @@ public class PartitionMappingProvider {
 
     static PartitionMappingProvider create(
             ClientTable table,
-            ClientPartitionAwarenessMetadata meta
+            ClientPartitionAwarenessMetadata meta,
+            Consumer<Throwable> onErrorCallback
     ) {
         assert table.tableId() == meta.tableId();
 
@@ -57,9 +59,17 @@ public class PartitionMappingProvider {
                 meta.indexes(),
                 meta.hash(),
                 meta.directTxMode(),
-                () -> schemaFuture.getNow(null),
-                () -> table.getPartitionAssignment().getNow(null)
+                () -> nullOnError(schemaFuture, onErrorCallback).getNow(null),
+                () -> nullOnError(table.getPartitionAssignment(), onErrorCallback).getNow(null)
         );
+    }
+
+    private static <T> CompletableFuture<@Nullable T> nullOnError(CompletableFuture<T> future, Consumer<Throwable> onErrorCallback) {
+        return future.exceptionally(throwable -> {
+            onErrorCallback.accept(throwable);
+
+            return null;
+        });
     }
 
     private PartitionMappingProvider(

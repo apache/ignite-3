@@ -94,7 +94,7 @@ class TxStateRocksDbSharedStorageTest {
         TxStateRocksDbStorage zoneStorage = new TxStateRocksDbStorage(zoneId, 2, sharedStorage);
         zoneStorage.start();
 
-        TxStateRocksDbPartitionStorage partitionStorage = zoneStorage.createPartitionStorage(0);
+        TxStateRocksDbPartitionStorage partitionStorage = zoneStorage.getOrCreatePartitionStorage(0);
         partitionStorage.start();
 
         partitionStorage.committedGroupConfiguration(new byte[]{1, 2, 3}, 1, 1);
