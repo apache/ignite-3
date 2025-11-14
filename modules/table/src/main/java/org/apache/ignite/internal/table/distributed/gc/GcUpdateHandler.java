@@ -93,6 +93,10 @@ public class GcUpdateHandler {
                     }
 
                     return true;
+                case SHOULD_RELEASE:
+                    // Storage engine needs resources (e.g., checkpoint needs write lock).
+                    // Exit the closure to allow the engine to proceed.
+                    return true;
                 default:
                     throw new IllegalStateException(vacuumResult.toString());
             }
@@ -106,6 +110,11 @@ public class GcUpdateHandler {
             int count = countHolder.get();
 
             for (int i = 0; i < count; i++) {
+                // Check if the storage engine needs resources before continuing.
+                if (locker.shouldRelease()) {
+                    return VacuumResult.SHOULD_RELEASE;
+                }
+
                 // It is safe for the first iteration to use a lock instead of tryLock, since there will be no deadlock for the first RowId
                 // and a deadlock may happen with subsequent ones.
                 VacuumResult vacuumResult = internalVacuum(lowWatermark, locker, i > 0);
@@ -123,6 +132,11 @@ public class GcUpdateHandler {
 
     private VacuumResult internalVacuum(HybridTimestamp lowWatermark, Locker locker, boolean useTryLock) {
         while (true) {
+            // Check if the storage engine needs resources before continuing.
+            if (locker.shouldRelease()) {
+                return VacuumResult.SHOULD_RELEASE;
+            }
+
             GcEntry gcEntry = storage.peek(lowWatermark);
 
             if (gcEntry == null) {
@@ -156,6 +170,6 @@ public class GcUpdateHandler {
     }
 
     private enum VacuumResult {
-        SUCCESS, NO_GARBAGE_LEFT, FAILED_ACQUIRE_LOCK
+        SUCCESS, NO_GARBAGE_LEFT, FAILED_ACQUIRE_LOCK, SHOULD_RELEASE
     }
 }
