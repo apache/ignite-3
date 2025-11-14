@@ -882,7 +882,8 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         EnumSet<ColumnType> ignoredTypes = EnumSet.of(
                 // TODO https://issues.apache.org/jira/browse/IGNITE-17373
                 ColumnType.DURATION,
-                ColumnType.PERIOD
+                ColumnType.PERIOD,
+                ColumnType.STRUCT
         );
 
         List<Arguments> arguments = new ArrayList<>();

@@ -46,8 +46,8 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.junit.jupiter.api.Test;
 
@@ -56,8 +56,8 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("NumericCastThatLosesPrecision")
 class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
-    private static final RowSchema SINGLE_INT_ROW_SCHEMA = RowSchema.builder()
-            .addField(NativeTypes.INT32)
+    private static final StructNativeType SINGLE_INT_ROW_SCHEMA = NativeTypes.rowBuilder()
+            .addField("C1", NativeTypes.INT32, true)
             .build();
 
     private static final BinaryTupleSchema SINGLE_INT_SCHEMA = BinaryTupleSchema.create(

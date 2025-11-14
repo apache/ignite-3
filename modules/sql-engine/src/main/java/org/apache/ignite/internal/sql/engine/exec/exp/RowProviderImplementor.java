@@ -43,13 +43,13 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
@@ -98,9 +98,9 @@ class RowProviderImplementor {
                 Cache<String, SqlRowProvider<RowT>> cache = cast(this.cache);
 
                 return cache.get(digest, key -> {
-                    RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
+                    StructNativeType rowType = TypeUtils.structuredTypeFromRelTypeList(typeList);
 
-                    return new SqlRowProviderImpl<>(implementInternal(values), rowSchema);
+                    return new SqlRowProviderImpl<>(implementInternal(values), rowType);
                 });
             }
 
@@ -110,8 +110,8 @@ class RowProviderImplementor {
             literalValues.add((RexLiteral) values.get(i));
         }
 
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
-        return new ConstantRow<>(literalValues, types, rowSchema);
+        StructNativeType rowType = TypeUtils.structuredTypeFromRelTypeList(typeList);
+        return new ConstantRow<>(literalValues, types, rowType);
     }
 
     private <RowT> SqlRowProviderExt<RowT> implementInternal(List<RexNode> values) {
@@ -174,8 +174,8 @@ class RowProviderImplementor {
     private static class SqlRowProviderImpl<RowT> extends AbstractRowProvider<RowT> {
         private final SqlRowProviderExt<RowT> rowProvider;
 
-        private SqlRowProviderImpl(SqlRowProviderExt<RowT> rowProvider, RowSchema rowSchema) {
-            super(rowSchema);
+        private SqlRowProviderImpl(SqlRowProviderExt<RowT> rowProvider, StructNativeType rowType) {
+            super(rowType);
 
             this.rowProvider = rowProvider;
         }
@@ -190,8 +190,8 @@ class RowProviderImplementor {
         private final List<RexLiteral> values;
         private final List<Class<?>> types;
 
-        private ConstantRow(List<RexLiteral> values, List<Class<?>> types, RowSchema rowSchema) {
-            super(rowSchema);
+        private ConstantRow(List<RexLiteral> values, List<Class<?>> types, StructNativeType rowType) {
+            super(rowType);
 
             this.values = values;
             this.types = types;
@@ -211,14 +211,14 @@ class RowProviderImplementor {
     }
 
     private abstract static class AbstractRowProvider<RowT> implements SqlRowProvider<RowT> {
-        private final RowSchema rowSchema;
+        private final StructNativeType rowType;
 
-        private AbstractRowProvider(RowSchema rowSchema) {
-            this.rowSchema = rowSchema;
+        private AbstractRowProvider(StructNativeType rowType) {
+            this.rowType = rowType;
         }
 
         private RowBuilder<RowT> builder(ExecutionContext<RowT> context) {
-            return context.rowHandler().factory(rowSchema).rowBuilder();
+            return context.rowHandler().factory(rowType).rowBuilder();
         }
 
         abstract void buildRow(ExecutionContext<RowT> context, RowBuilder<RowT> rowBuilder);

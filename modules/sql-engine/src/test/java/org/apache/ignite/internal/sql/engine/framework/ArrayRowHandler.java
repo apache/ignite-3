@@ -31,12 +31,11 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -84,8 +83,8 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public RowFactory<Object[]> factory(RowSchema rowSchema) {
-        int schemaLen = rowSchema.fields().size();
+    public RowFactory<Object[]> factory(StructNativeType rowType) {
+        int schemaLen = rowType.fields().size();
 
         return new RowFactory<>() {
             /** {@inheritDoc} */
@@ -119,7 +118,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 Object[] row = new Object[tuple.elementCount()];
 
                 for (int i = 0; i < row.length; i++) {
-                    NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(i));
+                    NativeType nativeType = rowType.fields().get(i).type();
 
                     if (nativeType == null) {
                         row[i] = null;
@@ -135,13 +134,13 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
             /** {@inheritDoc} */
             @Override
-            public RowSchema rowSchema() {
-                return rowSchema;
+            public StructNativeType rowSchema() {
+                return rowType;
             }
 
             @Override
             public Object[] map(Object[] row, int[] mapping) {
-                assert mapping.length == rowSchema.fields().size();
+                assert mapping.length == rowType.fields().size();
                 Object[] newRow = new Object[mapping.length];
 
                 for (int i = 0; i < mapping.length; i++) {

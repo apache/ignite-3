@@ -36,11 +36,9 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -51,12 +49,13 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -765,25 +764,26 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
         return ctx.expressionFactory().accumulatorsFactory(type, asList(call), inRowType).get(ctx);
     }
 
-    protected static RowSchema createOutputSchema(
+    protected static StructNativeType createOutputSchema(
             ExecutionContext<Object[]> ctx,
             AggregateCall call,
             RelDataType inRowType,
             ImmutableBitSet grpSet
     ) {
-        RelDataTypeFactory.Builder outputType = new RelDataTypeFactory.Builder(ctx.getTypeFactory());
+        RowTypeBuilder builder = NativeTypes.rowBuilder();
 
         // Add keys
         for (int i = 0; i < grpSet.length(); i++) {
             if (grpSet.get(i)) {
-                outputType.add("F" + i, inRowType.getFieldList().get(i).getType());
+                RelDataType type = inRowType.getFieldList().get(i).getType();
+                builder.addField("F" + i, IgniteTypeFactory.relDataTypeToNative(type), type.isNullable());
             }
         }
 
         // Add aggregation result
-        outputType.add("R0", call.getType());
+        builder.addField("R0", IgniteTypeFactory.relDataTypeToNative(call.getType()), false);
 
-        return TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(outputType.build()));
+        return builder.build();
     }
 
     enum TestAggregateType {

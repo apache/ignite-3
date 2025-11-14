@@ -22,16 +22,16 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link IgniteSqlOperatorTable#SYSTEM_RANGE system range function}. */
 public final class SystemRangeTableFunction<RowT> implements TableFunction<RowT> {
 
-    private final RowSchema rowSchema = RowSchema.builder()
-            .addField(NativeTypes.INT64)
+    private final StructNativeType rowSchema = NativeTypes.rowBuilder()
+            .addField("X", NativeTypes.INT64, false)
             .build();
 
     private final Supplier<Long> startExpr;
