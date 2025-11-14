@@ -60,6 +60,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -96,6 +99,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentPrinter;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragments;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingParameters;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingUtils;
@@ -559,7 +563,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
             }
             case MAPPING:
-                CompletableFuture<List<MappedFragment>> mappedFragments;
+                CompletableFuture<MappedFragments> mappedFragments;
                 if (plan.plan() instanceof MultiStepPlan) {
                     QueryTransactionContext txContext = operationContext.txContext();
 
@@ -577,15 +581,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     MappingParameters mappingParameters =
                             MappingParameters.create(operationContext.parameters(), readOnly, nodeExclusionFilter);
 
-                    mappedFragments = mappingService.map((MultiStepPlan) plan.plan(), mappingParameters);
+                    mappedFragments = mappingService.map2((MultiStepPlan) plan.plan(), mappingParameters);
                 } else {
-                    mappedFragments = completedFuture(List.of(
-                            MappingUtils.createSingleNodeMapping(localNode.name(), plan.plan().getRel())
-                    ));
+                    MappedFragment singleNodeMapping = MappingUtils.createSingleNodeMapping(localNode.name(), plan.plan().getRel());
+                    mappedFragments = completedFuture(new MappedFragments(List.of(singleNodeMapping), 0));
                 }
 
                 CompletableFuture<Iterator<InternalSqlRow>> fragments0 =
-                        mappedFragments.thenApply(mfs -> FragmentPrinter.fragmentsToString(false, mfs))
+                        mappedFragments.thenApply(mfs -> FragmentPrinter.fragmentsToString(false, mfs.fragments()))
                                 .thenApply(InternalSqlRowSingleString::new)
                                 .thenApply(InternalSqlRow.class::cast)
                                 .thenApply(List::of)
@@ -702,7 +705,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void submitFragment(InternalClusterNode initiatorNode, QueryStartRequest msg) {
         DistributedQueryManager queryManager = getOrCreateQueryManager(initiatorNode.name(), msg);
 
-        queryManager.submitFragment(initiatorNode, msg.catalogVersion(), msg.root(), msg.fragmentDescription(), msg.txAttributes());
+        queryManager.submitFragment(
+                initiatorNode, 
+                msg.catalogVersion(), 
+                msg.root(), 
+                msg.fragmentDescription(), 
+                msg.txAttributes(),
+                msg.topologyVersion()
+        );
     }
 
     private void handleError(Throwable ex, String nodeName, QueryStartRequest msg) {
@@ -922,7 +932,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private CompletableFuture<Void> sendFragment(
-                String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes, int catalogVersion
+                String targetNodeName,
+                String serialisedFragment,
+                FragmentDescription desc, 
+                TxAttributes txAttributes, 
+                int catalogVersion,
+                long topologyVersion
         ) {
             QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(executionId.queryId())
@@ -937,6 +952,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .operationTime(ctx.operationTime())
                     .timestamp(clockService.now())
                     .username(ctx.userName())
+                    .topologyVersion(topologyVersion)
                     .build();
 
             return messageService.send(targetNodeName, request);
@@ -1018,7 +1034,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private ExecutionContext<RowT> createContext(
                 InternalClusterNode initiatorNode,
                 FragmentDescription desc,
-                TxAttributes txAttributes
+                TxAttributes txAttributes,
+                @Nullable Long topologyVersion
         ) {
             return new ExecutionContext<>(
                     expressionFactory,
@@ -1034,7 +1051,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     ctx.timeZoneId(),
                     -1,
                     Clock.systemUTC(),
-                    ctx.userName()
+                    ctx.userName(),
+                    topologyVersion
             );
         }
 
@@ -1043,10 +1061,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 int catalogVersion,
                 String fragmentString,
                 FragmentDescription desc,
-                TxAttributes txAttributes
+                TxAttributes txAttributes,
+                @Nullable Long topologyVersion
         ) {
             try {
-                ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
+                ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes, topologyVersion);
                 IgniteRel treeRoot = relationalTreeFromJsonString(catalogVersion, fragmentString);
 
                 ResolvedDependencies resolvedDependencies = dependencyResolver.resolveDependencies(List.of(treeRoot), catalogVersion);
@@ -1091,7 +1110,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             boolean mapOnBackups = tx.isReadOnly();
             MappingParameters mappingParameters = MappingParameters.create(ctx.parameters(), mapOnBackups, nodeExclusionFilter);
 
-            return mappingService.map(multiStepPlan, mappingParameters)
+            return mappingService.map2(multiStepPlan, mappingParameters)
                     .thenComposeAsync(mappedFragments -> sendFragments(tx, multiStepPlan, mappedFragments), taskExecutor)
                     .thenApply(this::wrapRootNode);
         }
@@ -1099,8 +1118,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private CompletableFuture<AsyncCursor<InternalSqlRow>> sendFragments(
                 InternalTransaction tx,
                 MultiStepPlan multiStepPlan,
-                List<MappedFragment> mappedFragments
+                MappedFragments mappedFragmentList
         ) {
+            long topologyVersion = mappedFragmentList.topologyVersion();
+            List<MappedFragment> mappedFragments = mappedFragmentList.fragments();
+
             // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
             // the case when a non-root fragment will fail before the root is processed.
             assert !nullOrEmpty(mappedFragments) && mappedFragments.get(0).fragment().rootFragment()
@@ -1161,7 +1183,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 for (String nodeName : mappedFragment.nodes()) {
                     CompletableFuture<Void> resultOfSending =
-                            sendFragment(nodeName, fragment.serialized(), fragmentDesc, attributes, multiStepPlan.catalogVersion());
+                            sendFragment(nodeName, 
+                                    fragment.serialized(), 
+                                    fragmentDesc, attributes,
+                                    multiStepPlan.catalogVersion(),
+                                    topologyVersion
+                            );
 
                     resultOfSending.whenComplete((ignored, t) -> {
                         if (t == null) {

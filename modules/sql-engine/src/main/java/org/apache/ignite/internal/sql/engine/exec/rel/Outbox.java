@@ -356,7 +356,12 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /** Notifies the outbox that provided node has left the cluster. */
-    public void onNodeLeft(InternalClusterNode node) {
+    public void onNodeLeft(InternalClusterNode node, long version) {
+        Long topologyVersion = context().topologyVersion();
+        if (topologyVersion != null && topologyVersion > version) {
+            return;
+        }
+
         if (node.id().equals(context().originatingNodeId())) {
             this.execute(this::close);
         }

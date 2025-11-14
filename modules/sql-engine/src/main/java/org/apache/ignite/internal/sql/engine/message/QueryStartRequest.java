@@ -70,4 +70,8 @@ public interface QueryStartRequest extends TimestampAware, ExecutionContextAware
     /** Name of user who starts the query. */
     @Nullable
     String username();
+
+    /** The version of the cluster logical topology this query was mapped on. */
+    @Nullable
+    Long topologyVersion();
 }
