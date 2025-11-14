@@ -24,5 +24,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
  */
 public interface ReplicaRequest extends NetworkMessage {
     /** Gets a replication group id. */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522
+    // Consider using ZoneReplicaIdMessage instead of general ReplicationGroupIdMessage.
     ReplicationGroupIdMessage groupId();
 }
