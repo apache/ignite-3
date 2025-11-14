@@ -619,22 +619,25 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+    public List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
             try (Cursor<VersionChain> cursor = renewableState.versionChainTree().find(new VersionChainKey(lowerBound), null)) {
-                if (cursor.hasNext()) {
+                List<RowMeta> result = new ArrayList<>();
+
+                for (int i = 0; i < limit && cursor.hasNext(); i++) {
                     VersionChain versionChain = cursor.next();
-                    return new RowMeta(
+                    RowMeta row = new RowMeta(
                             versionChain.rowId(),
                             versionChain.transactionId(),
                             versionChain.commitTableId(),
                             versionChain.commitPartitionId()
                     );
+                    result.add(row);
                 }
 
-                return null;
+                return result;
             } catch (Exception e) {
                 throw new StorageException("Error occurred while trying to read a row id", e);
             }
