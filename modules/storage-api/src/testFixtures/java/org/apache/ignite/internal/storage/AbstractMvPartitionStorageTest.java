@@ -1521,7 +1521,25 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
+    void testHighestRowId() {
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        assertThat(storage.highestRowId(), is(nullValue()));
+
+        addWrite(rowId1, binaryRow, txId);
+
+        assertThat(storage.highestRowId(), is(rowId1));
+
+        addWrite(rowId2, binaryRow2, txId);
+
+        assertThat(storage.highestRowId(), is(rowId2));
+    }
+
+    @Test
     void testRowsStartingWith() {
+        RowId highestRowId = RowId.highestRowId(PARTITION_ID);
+
         RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
@@ -1532,23 +1550,37 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow2, txId);
 
-        assertThat(storage.rowsStartingWith(rowId0, 0), is(empty()));
+        // Limiting with 0 provides no rows.
+        assertThat(storage.rowsStartingWith(rowId0, highestRowId, 0), is(empty()));
 
-        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, 1));
-        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId0, Integer.MAX_VALUE));
-        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0.increment(), 1));
-        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId0.increment(), Integer.MAX_VALUE));
+        // Starting with rowId0 (which does not exist in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, highestRowId, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId0, highestRowId, Integer.MAX_VALUE));
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0.increment(), highestRowId, 1));
+        assertRowMetasEqual(
+                List.of(expectedRowMeta1, expectedRowMeta2),
+                storage.rowsStartingWith(rowId0.increment(), highestRowId, Integer.MAX_VALUE)
+        );
 
-        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, 1));
-        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId1, Integer.MAX_VALUE));
+        // Starting with rowId1 (which exists in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, highestRowId, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId1, highestRowId, Integer.MAX_VALUE));
 
-        assertRowMetasEqual(List.of(expectedRowMeta2), storage.rowsStartingWith(rowId2, Integer.MAX_VALUE));
+        // Starting with rowId2 (which exists in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta2), storage.rowsStartingWith(rowId2, highestRowId, Integer.MAX_VALUE));
 
-        assertThat(storage.rowsStartingWith(rowId2.increment(), 1), is(empty()));
+        // Starting with a row ID that is greater than the greatest row ID in the storage.
+        assertThat(storage.rowsStartingWith(rowId2.increment(), highestRowId, Integer.MAX_VALUE), is(empty()));
+
+        // Upper bound limits the search
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, rowId1, Integer.MAX_VALUE));
+
+        // Upper bound is inclusive.
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, rowId1, Integer.MAX_VALUE));
     }
 
     private static void assertRowMetasEqual(List<RowMeta> expected, List<RowMeta> actual) {
-        assertThat(expected, is(actual));
+        assertThat(actual, is(expected));
     }
 
     @Test
@@ -1559,7 +1591,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         addWrite(rowId, binaryRow, txId);
 
-        assertRowMetasEqual(List.of(expectedRowMeta), storage.rowsStartingWith(RowId.lowestRowId(PARTITION_ID), Integer.MAX_VALUE));
+        assertRowMetasEqual(
+                List.of(expectedRowMeta),
+                storage.rowsStartingWith(RowId.lowestRowId(PARTITION_ID), RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE)
+        );
     }
 
     @Test

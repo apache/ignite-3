@@ -96,6 +96,7 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -1117,17 +1118,59 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException {
+    public @Nullable RowId highestRowId() throws StorageException {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            ByteBuffer keyBuf = prepareDirectDataIdKeyBuf(lowerBound)
+            ByteBuffer keyBuf = DIRECT_DATA_ID_KEY_BUFFER.get().clear()
                     .position(0)
                     .limit(ROW_PREFIX_SIZE);
 
+            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
+                it.seekToLast();
+
+                if (!it.isValid()) {
+                    it.status();
+
+                    return null;
+                }
+
+                it.key(keyBuf);
+
+                return getRowId(keyBuf);
+            } catch (RocksDBException e) {
+                throw new IgniteRocksDbException("Error finding highest Row ID", e);
+            }
+        });
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            @Nullable RowId upperBoundExclusive = upperBoundInclusive.increment();
+
+            ByteBuffer keyBuf = prepareDirectDataIdKeyBuf(lowerBoundInclusive)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
+            @Nullable ByteBuffer upperBoundBuf;
+            if (upperBoundExclusive != null) {
+                upperBoundBuf = allocate(ROW_PREFIX_SIZE).order(KEY_BYTE_ORDER);
+                writeRowPrefix(upperBoundBuf, upperBoundExclusive);
+            } else {
+                upperBoundBuf = null;
+            }
+
             List<RowMeta> result = new ArrayList<>();
 
-            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
+            try (
+                    @Nullable Slice maybeUpperBound = upperBoundBuf != null ? new Slice(upperBoundBuf.array()) : null;
+                    ReadOptions readOptions = new ReadOptions()
+                            .setIterateUpperBound(maybeUpperBound != null ? maybeUpperBound : helper.upperBound)
+                            .setAutoPrefixMode(true);
+                    RocksIterator it = db.newIterator(helper.partCf, readOptions)
+            ) {
                 it.seek(keyBuf);
 
                 for (int i = 0; i < limit; i++) {
@@ -1162,7 +1205,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     it.next();
                 }
             } catch (RocksDBException e) {
-                throw new IgniteRocksDbException("Error finding closest Row ID", e);
+                throw new IgniteRocksDbException("Error finding following Row IDs", e);
             }
 
             return result;
