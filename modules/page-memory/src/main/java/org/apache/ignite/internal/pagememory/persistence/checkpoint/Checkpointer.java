@@ -223,55 +223,6 @@ public class Checkpointer extends IgniteWorker {
             PartitionDestructionLockManager partitionDestructionLockManager,
             CheckpointMetricSource checkpointMetricSource
     ) {
-        this(
-                igniteInstanceName,
-                detector,
-                failureManager,
-                checkpointWorkFlow,
-                factory,
-                filePageStoreManager,
-                partitionMetaManager,
-                compactor,
-                pageSize,
-                checkpointConfig,
-                logSyncer,
-                partitionDestructionLockManager,
-                new CheckpointMetrics(checkpointMetricSource)
-        );
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param igniteInstanceName Name of the Ignite instance.
-     * @param detector Long JVM pause detector.
-     * @param failureManager Failure processor that is used to handle critical errors.
-     * @param checkpointWorkFlow Implementation of checkpoint.
-     * @param factory Page writer factory.
-     * @param filePageStoreManager File page store manager.
-     * @param partitionMetaManager Partition meta manager.
-     * @param compactor Delta file compactor.
-     * @param pageSize Page size.
-     * @param checkpointConfig Checkpoint configuration.
-     * @param logSyncer Write-ahead log synchronizer.
-     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
-     * @param checkpointMetrics Checkpoint metrics.
-     */
-    Checkpointer(
-            String igniteInstanceName,
-            @Nullable LongJvmPauseDetector detector,
-            FailureManager failureManager,
-            CheckpointWorkflow checkpointWorkFlow,
-            CheckpointPagesWriterFactory factory,
-            FilePageStoreManager filePageStoreManager,
-            PartitionMetaManager partitionMetaManager,
-            Compactor compactor,
-            int pageSize,
-            CheckpointConfiguration checkpointConfig,
-            LogSyncer logSyncer,
-            PartitionDestructionLockManager partitionDestructionLockManager,
-            CheckpointMetrics checkpointMetrics
-    ) {
         super(LOG, igniteInstanceName, "checkpoint-thread");
 
         this.pauseDetector = detector;
@@ -303,7 +254,7 @@ public class Checkpointer extends IgniteWorker {
             checkpointWritePagesPool = null;
         }
 
-        this.checkpointMetrics = checkpointMetrics;
+        checkpointMetrics = new CheckpointMetrics(checkpointMetricSource);
     }
 
     @Override
