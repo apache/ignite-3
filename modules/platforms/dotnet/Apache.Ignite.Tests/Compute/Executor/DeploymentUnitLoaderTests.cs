@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compute.Executor;
 
+using System;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -133,9 +134,15 @@ public class DeploymentUnitLoaderTests
             .CopyToAsync(File.Create(Path.Combine(tempDir.Path, asmName + ".dll")));
 
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
-        IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper($"NewerDotnetJobs.EchoJob, {asmName}");
 
-        var jobRes = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper, "Hello, world!");
-        Assert.AreEqual("Echo: Hello, world!", jobRes);
+        var ex = Assert.Throws<InvalidOperationException>(() => jobCtx.CreateJobWrapper($"NewerDotnetJobs.EchoJob, {asmName}"));
+
+        var expectedMessage =
+            "Failed to load type 'NewerDotnetJobs.EchoJob, NewerDotnetJobs' because it depends on a newer .NET runtime version " +
+            "(required: 10, current: 8, missing assembly: " +
+            "System.Runtime, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a). " +
+            "Either target .NET 8 when building the job assembly, or use .NET 10 on servers to run the job executor.";
+
+        Assert.AreEqual(expectedMessage, ex!.Message);
     }
 }
