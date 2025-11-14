@@ -173,4 +173,10 @@ TEST_F(client_test, heartbeat_disable_connection_is_closed) {
         ignite_error);
 }
 
+TEST_F(client_test, connection_timeout_works) {
+    auto cfg = create_default_client_config();
+
+    cfg.set_operation_timeout(std::chrono::milliseconds{1});
+}
+
 
