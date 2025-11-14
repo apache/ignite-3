@@ -22,14 +22,19 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -202,5 +207,58 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         byte[] readConfig = storage.committedGroupConfiguration();
 
         assertThat(readConfig, is(equalTo(configWhichFitsInOnePage)));
+    }
+
+    @Test
+    void testShouldReleaseReturnsFalseWhenNoCheckpointWaiting() throws Exception {
+        AtomicBoolean shouldReleaseValue = new AtomicBoolean(false);
+
+        storage.runConsistently(locker -> {
+            // Initially, no checkpoint is waiting, so shouldRelease should return false
+            shouldReleaseValue.set(locker.shouldRelease());
+            return null;
+        });
+
+        assertFalse(shouldReleaseValue.get(), "Locker shouldRelease must return false when no checkpoint is waiting");
+    }
+
+    @Test
+    void testNestedRunConsistentlyInheritsLocker() throws Exception {
+        AtomicBoolean outerShouldRelease = new AtomicBoolean(false);
+        AtomicBoolean innerShouldRelease = new AtomicBoolean(false);
+
+        storage.runConsistently(outerLocker -> {
+            // Nested runConsistently should reuse the same locker
+            storage.runConsistently(innerLocker -> {
+                // Both lockers should have the same behavior
+                outerShouldRelease.set(outerLocker.shouldRelease());
+                innerShouldRelease.set(innerLocker.shouldRelease());
+
+                return null;
+            });
+
+            return null;
+        });
+
+        assertEquals(
+                outerShouldRelease.get(),
+                innerShouldRelease.get(),
+                "Inner lockers view of shouldRelease must match"
+        );
+    }
+
+    @Test
+    void testShouldReleaseReturnsTrueWhenWriterIsWaiting() throws Exception {
+        AtomicBoolean shouldReleaseValue = new AtomicBoolean(false);
+
+        storage.runConsistently(locker -> {
+            engine.checkpointManager().scheduleCheckpoint(0, "I want a checkpoint");
+            // Initially, no checkpoint is waiting, so shouldRelease should return false
+            await().pollInSameThread().until(locker::shouldRelease);
+            shouldReleaseValue.set(locker.shouldRelease());
+            return null;
+        });
+
+        assertTrue(shouldReleaseValue.get(), "Locker shouldRelease must return true when checkpoint is scheduled now");
     }
 }

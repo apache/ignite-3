@@ -96,6 +96,20 @@ public class ReentrantReadWriteLockWithTracking implements ReadWriteLock {
     }
 
     /**
+     * Returns {@code true} if there are threads waiting to acquire the write lock.
+     * This method is designed for use in monitoring system state, not for synchronization control.
+     *
+     * @return {@code true} if there may be threads waiting to acquire the write lock, {@code false} otherwise.
+     */
+    public boolean hasQueuedWriters() {
+        // ReentrantReadWriteLock doesn't expose a direct method to check for queued writers only.
+        // We use hasQueuedThreads() as an approximation - it returns true if there are
+        // ANY queued threads, including threads waiting on read lock.
+        // This is acceptable for our use case since readers won't queue each other.
+        return delegate.hasQueuedThreads();
+    }
+
+    /**
      * Tracks long read lock holders.
      */
     private static class ReadLockWithTracking extends ReentrantReadWriteLock.ReadLock {
