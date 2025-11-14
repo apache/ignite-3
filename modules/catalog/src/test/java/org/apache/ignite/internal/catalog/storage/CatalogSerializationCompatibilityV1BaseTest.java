@@ -73,6 +73,9 @@ public abstract class CatalogSerializationCompatibilityV1BaseTest extends Catalo
     @BeforeEach
     public void setup() {
         checker.addClassesManually(true);
+        // Ignoring update timestamp for version 1 because there was a transition from causalityToken(long) to 
+        // updateTimestamp (HybridTimestamp) in CatalogObjectDescriptor during which there were no snapshot updates. 
+        checker.ignoreUpdateTimestamp(true);
     }
 
     @Test

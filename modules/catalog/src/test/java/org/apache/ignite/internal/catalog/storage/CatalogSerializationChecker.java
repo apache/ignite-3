@@ -60,8 +60,6 @@ final class CatalogSerializationChecker {
 
     private final String directory;
 
-    private final int defaultEntryVersion;
-
     private final boolean expectExactProtocolVersion;
 
     private final int protocolVersion;
@@ -72,17 +70,17 @@ final class CatalogSerializationChecker {
 
     private boolean addSerializerManually;
 
+    private boolean ignoreUpdateTimestamp;
+
     CatalogSerializationChecker(
             IgniteLogger log,
             String directory,
-            int defaultEntryVersion,
             boolean expectExactProtocolVersion,
             int protocolVersion,
             Consumer<SerializerClass> recordSerializer
     ) {
         this.log = log;
         this.directory = directory;
-        this.defaultEntryVersion = defaultEntryVersion;
         this.expectExactProtocolVersion = expectExactProtocolVersion;
         this.protocolVersion = protocolVersion;
         this.recordSerializer = recordSerializer;
@@ -98,6 +96,10 @@ final class CatalogSerializationChecker {
 
     void addClassesManually(boolean value) {
         addSerializerManually = value;
+    }
+
+    void ignoreUpdateTimestamp(boolean value) {
+        ignoreUpdateTimestamp = value;
     }
 
     void reset() {
@@ -116,8 +118,7 @@ final class CatalogSerializationChecker {
         var assertion = BDDAssertions.assertThat(expectedEntry.snapshot())
                 .usingRecursiveComparison();
 
-        if (defaultEntryVersion == 1) {
-            // Ignoring update timestamp for version 1.
+        if (ignoreUpdateTimestamp) {
             assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
         }
 
@@ -135,8 +136,7 @@ final class CatalogSerializationChecker {
             var assertion = BDDAssertions.assertThat(actualEntry)
                     .as("entry#" + i).usingRecursiveComparison();
 
-            if (defaultEntryVersion == 1) {
-                // Ignoring update timestamp for version 1.
+            if (ignoreUpdateTimestamp) {
                 assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_REGEX);
             }
 
@@ -185,7 +185,7 @@ final class CatalogSerializationChecker {
         CatalogEntrySerializerProvider defaultProvider = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
         CatalogEntrySerializerProvider provider;
 
-        if (expectExactProtocolVersion) {
+        if (expectExactProtocolVersion && !writeSnapshot) {
             provider = new VersionCheckingProvider(defaultProvider, protocolVersion, expectedEntryVersions);
         } else {
             provider = defaultProvider;

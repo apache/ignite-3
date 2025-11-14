@@ -86,7 +86,6 @@ public abstract class CatalogSerializationCompatibilityTest extends BaseIgniteAb
         checker = new CatalogSerializationChecker(
                 log,
                 dirName(),
-                defaultEntryVersion(),
                 expectExactVersion(),
                 protocolVersion(),
                 this::recordClass
