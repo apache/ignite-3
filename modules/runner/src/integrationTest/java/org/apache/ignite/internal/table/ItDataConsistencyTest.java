@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpd
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
@@ -38,6 +37,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -214,9 +214,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                     tx.commit();
 
                     ops.increment();
-                } catch (IgniteException e) {
-                    assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
-
+                } catch (TransactionException e) {
                     // Don't need to rollback manually if got IgniteException.
                     fails.increment();
                 }
@@ -261,9 +259,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                     assertEquals(TOTAL, sum);
 
                     readOps.increment();
-                } catch (Exception e) {
-                    assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
-
+                } catch (TransactionException e) {
                     readFails.increment();
                 }
             }
@@ -274,11 +270,11 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         return CLUSTER.node(workerId % initialNodes());
     }
 
-    protected Tuple makeKey(long id) {
+    private static Tuple makeKey(long id) {
         return Tuple.create().set("accountNumber", id);
     }
 
-    protected Tuple makeValue(long id, double balance) {
+    private static Tuple makeValue(long id, double balance) {
         return Tuple.create().set("accountNumber", id).set("balance", balance);
     }
 }

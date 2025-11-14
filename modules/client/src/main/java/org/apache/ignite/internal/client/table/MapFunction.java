@@ -19,14 +19,20 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.lang.IgniteTriFunction;
 
 /**
- * Defines alias for batch map function.
+ * Defines a contract for batch map function.
  *
  * @param <K> Key type.
  * @param <R> Result type.
  */
 @FunctionalInterface
-interface MapFunction<K, R> extends IgniteTriFunction<Collection<K>, PartitionAwarenessProvider, Boolean, CompletableFuture<R>> {
+interface MapFunction<K, R> {
+    /**
+     * @param keys Keys to split.
+     * @param provider Partition awareness provider.
+     * @param txRequired {@code True} if a batch requires explicit transaction.
+     * @return Map future.
+     */
+    CompletableFuture<R> apply(Collection<K> keys, PartitionAwarenessProvider provider, boolean txRequired);
 }

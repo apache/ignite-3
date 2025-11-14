@@ -431,7 +431,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, startImplict) -> {
+        MapFunction<Tuple, List<Tuple>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
