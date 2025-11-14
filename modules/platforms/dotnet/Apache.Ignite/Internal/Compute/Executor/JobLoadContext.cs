@@ -109,42 +109,52 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
             return Type.GetType(typeName, ctx.LoadFromAssemblyName, null, throwOnError: true)
                    ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
         }
-        catch (FileNotFoundException e)
-        {
-            if (e.FileName != null && e.FileName.StartsWith("System.", StringComparison.Ordinal))
-            {
-                // System assembly failed to load - potentially due to runtime version mismatch.
-                try
-                {
-                    var assemblyName = new AssemblyName(e.FileName);
-                    var requestedRuntimeVersion = assemblyName.Version?.Major;
-                    var currentRuntimeVersion = typeof(object).Assembly.GetName().Version?.Major;
-
-                    if (requestedRuntimeVersion != null &&
-                        currentRuntimeVersion != null &&
-                        requestedRuntimeVersion > currentRuntimeVersion)
-                    {
-                        throw new InvalidOperationException(
-                            $"Failed to load type '{typeName}' because it depends on a newer .NET runtime version " +
-                            $"(required: {requestedRuntimeVersion}, current: {currentRuntimeVersion}, missing assembly: {assemblyName}). " +
-                            $"Either target .NET {currentRuntimeVersion} when building the job assembly, or run the .NET job executor with .NET {requestedRuntimeVersion}.");
-                    }
-                }
-                catch (FileLoadException)
-                {
-                    // Could not parse assembly name - ignore.
-                }
-            }
-
-            // TODO: Better exception here.
-            throw new InvalidOperationException(
-                $"Failed to load type '{typeName}' from the specified deployment units, " +
-                $"file {e.FileName} not found: {e.Message}",
-                e);
-        }
         catch (Exception e)
         {
+            if (e is FileNotFoundException fe)
+            {
+                CheckRuntimeVersions(typeName, fe.FileName);
+            }
+
             throw new InvalidOperationException($"Failed to load type '{typeName}' from the specified deployment units: {e.Message}", e);
+        }
+    }
+
+    private static void CheckRuntimeVersions(string typeName, string? fileName)
+    {
+        if (fileName == null || !fileName.StartsWith("System.", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // System assembly failed to load - potentially due to runtime version mismatch.
+        if (TryParseAssemblyName(fileName) is not { } assemblyName)
+        {
+            return;
+        }
+
+        int? requestedRuntimeVersion = assemblyName.Version?.Major;
+        int? currentRuntimeVersion = typeof(object).Assembly.GetName().Version?.Major;
+
+        if (requestedRuntimeVersion > currentRuntimeVersion)
+        {
+            throw new InvalidOperationException(
+                $"Failed to load type '{typeName}' because it depends on a newer .NET runtime version " +
+                $"(required: {requestedRuntimeVersion}, current: {currentRuntimeVersion}, missing assembly: {assemblyName}). " +
+                $"Either target .NET {currentRuntimeVersion} when building the job assembly, " +
+                $"or use .NET {requestedRuntimeVersion} on servers to run the job executor.");
+        }
+    }
+
+    private static AssemblyName? TryParseAssemblyName(string assemblyName)
+    {
+        try
+        {
+            return new AssemblyName(assemblyName);
+        }
+        catch (FileLoadException)
+        {
+            return null;
         }
     }
 
