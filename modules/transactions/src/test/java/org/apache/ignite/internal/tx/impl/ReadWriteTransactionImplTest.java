@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.UUID.randomUUID;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
@@ -36,13 +35,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -56,7 +53,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private static final InternalClusterNode CLUSTER_NODE = new ClusterNodeImpl(
             randomUUID(),
@@ -68,7 +64,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private static final int ZONE_ID = 2;
 
     /** Transaction commit partition id. */
-    private final ReplicationGroupId txCommitPart = targetReplicationGroupId(ZONE_ID, 0);
+    private final ReplicationGroupId txCommitPart = new ZonePartitionId(ZONE_ID, 0);
 
     @Mock
     private TxManager txManager;
@@ -78,11 +74,6 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     /** The state is assigned to the transaction after a finalize method (commit or rollback) is called. */
     private TxState txState = null;
 
-    // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new TablePartitionId(tableOrZoneId, partId);
-    }
-
     @Test
     public void effectiveSchemaTimestampIsBeginTimestamp() {
         HybridTimestamp beginTs = clock.now();
@@ -90,7 +81,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(
-                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, colocationEnabled()
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, true
         );
 
         assertThat(tx.schemaTimestamp(), is(beginTs));
@@ -123,13 +114,13 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(
-                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, colocationEnabled()
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, true
         );
 
         tx.assignCommitPartition(txCommitPart);
 
-        tx.enlist(targetReplicationGroupId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L);
-        tx.enlist(targetReplicationGroupId(ZONE_ID, 2), TABLE_ID, CLUSTER_NODE.name(), 0L);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L);
+        tx.enlist(new ZonePartitionId(ZONE_ID, 2), TABLE_ID, CLUSTER_NODE.name(), 0L);
 
         if (commit) {
             if (txState == null) {
@@ -146,13 +137,13 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         }
 
         TransactionException ex = assertThrows(TransactionException.class,
-                () -> tx.enlist(targetReplicationGroupId(ZONE_ID, 5), TABLE_ID, CLUSTER_NODE.name(), 0L));
+                () -> tx.enlist(new ZonePartitionId(ZONE_ID, 5), TABLE_ID, CLUSTER_NODE.name(), 0L));
 
         assertTrue(ex.getMessage().contains(txState.toString()));
 
         ex = assertThrows(
                 TransactionException.class,
-                () -> tx.enlist(targetReplicationGroupId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L)
+                () -> tx.enlist(new ZonePartitionId(ZONE_ID, 0), TABLE_ID, CLUSTER_NODE.name(), 0L)
         );
 
         assertTrue(ex.getMessage().contains(txState.toString()));

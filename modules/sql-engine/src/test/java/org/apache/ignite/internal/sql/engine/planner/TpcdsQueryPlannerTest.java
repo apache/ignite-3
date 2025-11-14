@@ -17,16 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junitpioneer.jupiter.params.IntRangeSource;
@@ -39,7 +36,6 @@ import org.junitpioneer.jupiter.params.IntRangeSource;
         queryLoader = "getQueryString",
         planLoader = "getQueryPlan"
 )
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
 
     private static final IntSet UNSUPPORTED_TESTS = IntSet.of(
@@ -79,9 +75,7 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
             var variantQueryFile = String.format("tpcds/plan/variant_q%d.plan", numericId);
             return loadFromResource(variantQueryFile);
         } else {
-            var queryFile = colocationEnabled()
-                    ? String.format("tpcds/plan/q%s_colocated.plan", numericId)
-                    : String.format("tpcds/plan/q%s.plan", numericId);
+            var queryFile = String.format("tpcds/plan/q%s_colocated.plan", numericId);
 
             return loadFromResource(queryFile);
         }
@@ -113,9 +107,7 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
         if (variant) {
             planLocation = targetDirectory.resolve(String.format("variant_q%d.plan", numericId));
         } else {
-            planLocation = colocationEnabled()
-                    ? targetDirectory.resolve(String.format("q%s_colocated.plan", numericId))
-                    : targetDirectory.resolve(String.format("q%s.plan", numericId));
+            planLocation = targetDirectory.resolve(String.format("q%s_colocated.plan", numericId));
         }
 
         try {

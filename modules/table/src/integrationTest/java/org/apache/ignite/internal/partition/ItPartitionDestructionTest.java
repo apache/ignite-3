@@ -33,7 +33,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.io.FileMatchers.anExistingFile;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectFunction;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -53,7 +52,6 @@ import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.IgnitePaths;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
@@ -61,12 +59,10 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbPartitionStorage;
 import org.apache.ignite.internal.vault.VaultService;
@@ -114,25 +110,6 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      * This tests that, given that
      *
      * <ol>
-     *     <li>Cluster runs with disabled colocation</li>
-     *     <li>A table was created and written to</li>
-     *     <li>Then dropped</li>
-     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
-     * </ol>
-     *
-     * <p>then the table will be destroyed.
-     */
-    @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-    void partitionIsDestroyedOnTableDestructionWithoutColocation() throws Exception {
-        testPartitionIsDestroyedOnTableDestruction(false);
-    }
-
-    /**
-     * This tests that, given that
-     *
-     * <ol>
-     *     <li>Cluster runs with enabled colocation</li>
      *     <li>A table was created and written to</li>
      *     <li>Then dropped</li>
      *     <li>LWM raised highly enough to make the table eligible for destruction</li>
@@ -141,40 +118,26 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      * <p>then the table MV storage will be destroyed.
      */
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-    void partitionIsDestroyedOnTableDestructionWithColocation() throws Exception {
-        testPartitionIsDestroyedOnTableDestruction(true);
-    }
-
-    private void testPartitionIsDestroyedOnTableDestruction(boolean colocationEnabled) throws InterruptedException {
+    void testTableMvDataIsDestroyedOnTableDestruction() throws InterruptedException {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
 
         createZoneAndTableWith1Partition(1);
         makePutInExplicitTxToTestTable();
 
         int tableId = testTableId();
-        TablePartitionId replicationGroupId = new TablePartitionId(tableId, PARTITION_ID);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(tableId), PARTITION_ID);
 
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
 
-        if (colocationEnabled) {
-            makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
-        } else {
-            makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
-        }
+        makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
 
         executeUpdate("DROP TABLE " + TABLE_NAME);
 
-        if (colocationEnabled) {
-            verifyPartitionMvDataGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
-        } else {
-            verifyPartitionGetsFullyRemovedFromDisk(ignite0, tableId, replicationGroupId);
-        }
+        verifyPartitionMvDataGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
     }
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     void partitionIsDestroyedOnZoneDestruction() throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
 
@@ -198,27 +161,6 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      * This tests that, given that
      *
      * <ol>
-     *     <li>Cluster runs with disabled colocation</li>
-     *     <li>A table was created and written to</li>
-     *     <li>Then dropped</li>
-     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
-     *     <li>But the LWM event not handled for some reason (so the table was not destroyed yet)</li>
-     *     <li>The node gets restarted (but the Catalog still mentions the table in its history)</li>
-     * </ol>
-     *
-     * <p>then the table will be destroyed on node start.
-     */
-    @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryWithoutColocation() throws Exception {
-        testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(false);
-    }
-
-    /**
-     * This tests that, given that
-     *
-     * <ol>
-     *     <li>Cluster runs with enabled colocation</li>
      *     <li>A table was created and written to</li>
      *     <li>Then dropped</li>
      *     <li>LWM raised highly enough to make the table eligible for destruction</li>
@@ -229,12 +171,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      * <p>then the table MV storages will be destroyed on node start.
      */
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryWithColocation() throws Exception {
-        testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(true);
-    }
-
-    private void testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(boolean colocationEnabled)
+    void testTableMvDataIsDestroyedOnTableDestructionOnNodeRecovery()
             throws InterruptedException {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
@@ -249,13 +186,9 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         flushTxStateStorageToDisk(ignite0);
 
         int tableId = testTableId();
-        TablePartitionId replicationGroupId = new TablePartitionId(tableId, PARTITION_ID);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(tableId), PARTITION_ID);
 
-        if (colocationEnabled) {
-            makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
-        } else {
-            makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
-        }
+        makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
 
         // We don't want the dropped table to be destroyed before restart.
         disallowLwmRaiseUntilRestart(ignite0);
@@ -271,16 +204,11 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
 
-        if (colocationEnabled) {
-            verifyPartitionMvDataGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
-        } else {
-            verifyPartitionGetsFullyRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
-        }
+        verifyPartitionMvDataGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
     }
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     void partitionIsDestroyedOnZoneDestructionOnNodeRecovery() throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
@@ -321,28 +249,6 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      * This tests that, given that
      *
      * <ol>
-     *     <li>Cluster runs with disabled colocation</li>
-     *     <li>A table was created and written to</li>
-     *     <li>Then dropped</li>
-     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
-     *     <li>But the LWM event not handled for some reason (so the table was not destroyed yet)</li>
-     *     <li>Catalog got compacted so that its history does not contain any mentions of the table anymore</li>
-     *     <li>The node gets restarted</li>
-     * </ol>
-     *
-     * <p>then the table will be destroyed on node start.
-     */
-    @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompactedWithoutColocation() throws Exception {
-        testPartitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompacted(false);
-    }
-
-    /**
-     * This tests that, given that
-     *
-     * <ol>
-     *     <li>Cluster runs with enabled colocation</li>
      *     <li>A table was created and written to</li>
      *     <li>Then dropped</li>
      *     <li>LWM raised highly enough to make the table eligible for destruction</li>
@@ -354,12 +260,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      * <p>then the table MV storages will be destroyed on node start.
      */
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompactedWithColocation() throws Exception {
-        testPartitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompacted(true);
-    }
-
-    private void testPartitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompacted(boolean colocationEnabled)
+    void testTableMvDataIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompacted()
             throws InterruptedException {
         // Node 1 will host the Metastorage and will do Catalog compaction.
         // On node 0, we will verify that storages are destroyed on startup when it seems that the table is not mentioned in the Catalog.
@@ -381,13 +282,9 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         flushTxStateStorageToDisk(ignite0);
 
         int tableId = testTableId();
-        TablePartitionId replicationGroupId = new TablePartitionId(tableId, PARTITION_ID);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(tableId), PARTITION_ID);
 
-        if (colocationEnabled) {
-            makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
-        } else {
-            makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
-        }
+        makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
 
         // We don't want the dropped table to be destroyed before restart on node 0.
         disallowLwmRaiseUntilRestart(ignite0);
@@ -410,11 +307,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
 
-        if (colocationEnabled) {
-            verifyPartitionMvDataGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
-        } else {
-            verifyPartitionGetsFullyRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
-        }
+        verifyPartitionMvDataGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
     }
 
     private static void raisePersistedLwm(Path workDir, HybridTimestamp newLwm) {
@@ -634,26 +527,14 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-    void tablePartitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
-        testPartitionIsDestroyedWhenItIsEvictedFromNode(tableId -> new TablePartitionId(tableId, PARTITION_ID));
-    }
-
-    @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-    void zonePartitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
-        testPartitionIsDestroyedWhenItIsEvictedFromNode(tableId -> new ZonePartitionId(zoneId(tableId), PARTITION_ID));
-    }
-
-    private void testPartitionIsDestroyedWhenItIsEvictedFromNode(Int2ObjectFunction<PartitionGroupId> replicationGroupIdByTableId)
-            throws Exception {
+    void testPartitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
         cluster.startAndInit(2);
 
         createZoneAndTableWith1Partition(2);
         makePutInExplicitTxToTestTable();
 
         int tableId = testTableId();
-        PartitionGroupId replicationGroupId = replicationGroupIdByTableId.apply(tableId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(tableId), PARTITION_ID);
 
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
         IgniteImpl ignite1 = unwrapIgniteImpl(cluster.node(1));
