@@ -21,10 +21,12 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.Cluster.ServerRegistration;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
@@ -48,16 +50,15 @@ public class ItCmgRaftLogCompatibilityTest extends CompatibilityTestBase {
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
+        Path nodeWorkDir = cluster.runnerNodeWorkDir(0);
+
+        cluster.stop();
+
+        deleteCmgDbDir(nodeWorkDir);
     }
 
     @Test
     void testCmgRaftLogReapplication() {
-        cluster.stop();
-
-        String nodeName = cluster.nodeName(0);
-        Path node0CmgDbPath = Path.of("cluster", nodeName, "cmg", "db");
-        deleteIfExists(workDir.resolve(node0CmgDbPath));
-
         cluster.startEmbedded(nodesCount());
 
         verifyClusterState(0);
@@ -65,17 +66,19 @@ public class ItCmgRaftLogCompatibilityTest extends CompatibilityTestBase {
 
     @Test
     void testCmgRaftLogReplication() {
-        final int initialNodeCount = nodesCount();
         final int finalNodeCount = nodesCount() + 1;
         final int lastNodeIndex = finalNodeCount - 1;
 
-        cluster.stop();
-        cluster.startEmbedded(initialNodeCount);
-
-        ServerRegistration serverRegistration = cluster.startEmbeddedNode(null, lastNodeIndex, finalNodeCount);
-        assertThat(serverRegistration.registrationFuture(), willCompleteSuccessfully());
+        cluster.startEmbedded(finalNodeCount);
 
         verifyClusterState(lastNodeIndex);
+    }
+
+    private void deleteCmgDbDir(Path nodeWorkDir) {
+        Path cmgDbDir = new ComponentWorkingDir(nodeWorkDir.resolve("cmg")).dbPath();
+
+        assertTrue(Files.exists(cmgDbDir));
+        assertTrue(deleteIfExists(cmgDbDir));
     }
 
     private void verifyClusterState(int nodeIndex) {
