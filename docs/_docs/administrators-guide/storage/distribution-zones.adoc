@@ -38,7 +38,7 @@ CREATE ZONE PrimaryZone (PARTITIONS 25) STORAGE PROFILES ['default'];
 
 You can control the number of partitions (how many pieces the data is split into) and replicas (how many copies of data are stored) by using the `PARTITIONS` and `REPLICAS` options.
 
-If not specified, the distribution zone creates `(dataNodesCount * coresOnNode * 2) / replicaFactor` partitions, and does not create copies of data. The `dataNodesCount` is the estimated number of nodes that will be in the distribution zone when it  is created, according to its link:administrators-guide/distribution-zones#node-filtering[filter] and link:administrators-guide/storage/storage-overview[storage profiles]. At least 1 partition is always created.
+If not specified, the distribution zone creates `(dataNodesCount * coresOnNode * 2) / replicaFactor` partitions, and does not create copies of data. The `dataNodesCount` is the estimated number of nodes that will be in the distribution zone when it  is created, according to its link:administrators-guide/storage/distribution-zones#node-filtering[filter] and link:administrators-guide/storage/storage-overview[storage profiles]. At least 1 partition is always created.
 
 In the example below, the tables will be split into 50 partitions, and each partition will have 3 copies of itself stored on the cluster:
 
