@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Compute.Executor;
 
+using System.IO;
+using System.Reflection;
 using System.Threading.Tasks;
 using Internal.Compute.Executor;
 using NUnit.Framework;
@@ -118,5 +120,22 @@ public class DeploymentUnitLoaderTests
 
         Assert.AreEqual("Res1", res1);
         Assert.AreEqual("Res2", res2);
+    }
+
+    [Test]
+    public async Task TestNewerDotnetVersionAssembly()
+    {
+        using var tempDir = new TempDir();
+        var asmName = "NewerDotnetJobs";
+
+        await Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream($"Apache.Ignite.Tests.Compute.Executor.NewerDotnetJobs.NewerDotnetJobs.dll")!
+            .CopyToAsync(File.Create(Path.Combine(tempDir.Path, asmName + ".dll")));
+
+        using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
+        IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper($"NewerDotnetJobs.EchoJob, {asmName}");
+
+        var jobRes = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper, "Hello, world!");
+        Assert.AreEqual("Echo: Hello, world!", jobRes);
     }
 }
