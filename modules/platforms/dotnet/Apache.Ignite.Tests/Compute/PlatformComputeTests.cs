@@ -288,9 +288,16 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestNewerDotnetVersionAssembly()
+    public void TestNewerDotnetVersionAssembly()
     {
-        await ExecJobAsync(DotNetJobs.NewerDotNetJob, "test");
+        var ex = Assert.ThrowsAsync<IgniteException>(async() => await ExecJobAsync(DotNetJobs.NewerDotNetJob, "test"));
+
+        StringAssert.StartsWith(
+            ".NET job failed: Failed to load type 'NewerDotnetJobs.EchoJob, NewerDotnetJobs' " +
+            "because it depends on a newer .NET runtime version (required: 10, current: 8",
+            ex.Message);
+
+        Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)

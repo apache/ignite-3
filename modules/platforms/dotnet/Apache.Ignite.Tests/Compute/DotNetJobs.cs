@@ -45,13 +45,15 @@ public static class DotNetJobs
 
     public static async Task<string> WriteNewerDotnetJobsAssembly(string tempDirPath, string asmName)
     {
-        var targetPath = Path.Combine(tempDirPath, asmName + ".dll");
+        var targetFile = Path.Combine(tempDirPath, asmName + ".dll");
+
+        await using var fileStream = File.Create(targetFile);
 
         await Assembly.GetExecutingAssembly()
             .GetManifestResourceStream("Apache.Ignite.Tests.Compute.Executor.NewerDotnetJobs.NewerDotnetJobs.dll")!
-            .CopyToAsync(File.Create(targetPath));
+            .CopyToAsync(fileStream);
 
-        return targetPath;
+        return targetFile;
     }
 
     public class AddOneJob : IComputeJob<int, int>
