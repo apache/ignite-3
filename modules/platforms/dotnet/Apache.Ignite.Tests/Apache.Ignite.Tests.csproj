@@ -59,4 +59,8 @@
         </AssemblyAttribute>
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Compute\Executor\NewerDotnetJobs\" />
+    </ItemGroup>
+
 </Project>
