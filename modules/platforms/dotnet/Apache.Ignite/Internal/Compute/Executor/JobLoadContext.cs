@@ -103,13 +103,27 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
     private static Type LoadType(string typeName, AssemblyLoadContext ctx)
     {
+        Assembly? lastLoadedAssembly = null;
+
         try
         {
-            return Type.GetType(typeName, ctx.LoadFromAssemblyName, null, throwOnError: true)
+            return Type.GetType(
+                       typeName,
+                       assemblyResolver: name =>
+                       {
+                           lastLoadedAssembly = ctx.LoadFromAssemblyName(name);
+                           return lastLoadedAssembly;
+                       },
+                       typeResolver: null,
+                       throwOnError: true)
                    ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
         }
         catch (Exception e)
         {
+            if (lastLoadedAssembly != null)
+            {
+            }
+
             throw new InvalidOperationException($"Failed to load type '{typeName}' from the specified deployment units: {e.Message}", e);
         }
     }
