@@ -48,6 +48,40 @@ abstract class FieldAccessor {
     /** Scale. */
     private final int scale;
 
+    /**
+     * Object field name to bind to.
+     */
+    private String fieldName;
+
+    /**
+     * Row column name to bind to.
+     */
+    private String columnName;
+
+    FieldAccessor withFieldName(String fieldName) {
+        this.fieldName = fieldName;
+        return this;
+    }
+
+    FieldAccessor withColumnName(String columnName) {
+        this.columnName = columnName;
+        return this;
+    }
+
+    /**
+     * Object field name to bind to.
+     */
+    String getFieldName() {
+        return this.fieldName;
+    }
+
+    /**
+     * Row column name to bind to.
+     */
+    String getColumnName() {
+        return this.columnName;
+    }
+
     static FieldAccessor noopAccessor(MarshallerColumn col) {
         return new UnmappedFieldAccessor(col);
     }
@@ -392,13 +426,24 @@ abstract class FieldAccessor {
     }
 
     /**
+     * Reads value from row.
+     *
+     * @param reader MarshallerReader reader.
+     * @return Value.
+     */
+    abstract Object read(MarshallerReader reader);
+
+    /**
      * Reads value fom row to object field.
      *
      * @param reader MarshallerReader reader.
      * @param obj Target object.
      * @throws Exception If failed.
      */
-    abstract void read0(MarshallerReader reader, Object obj) throws Exception;
+    void read0(MarshallerReader reader, Object obj) {
+        Object val = read(reader);
+        set(obj, val);
+    }
 
     /**
      * Reads object field value.
@@ -407,6 +452,14 @@ abstract class FieldAccessor {
      * @return Field value of given object.
      */
     abstract Object value(Object obj);
+
+    /**
+     * Sets value to object.
+     *
+     * @param obj Target object.
+     * @param val Value.
+     */
+    abstract void set(Object obj, Object val);
 
     /**
      * Stubbed accessor for unused columns writes default column value, and ignore value on read access.
@@ -426,8 +479,14 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
+        Object read(MarshallerReader reader) throws MarshallerException {
             reader.skipValue();
+            return null;
+        }
+
+        @Override
+        void read0(MarshallerReader reader, Object obj) {
+            read(reader);
         }
 
         @Override
@@ -438,6 +497,11 @@ abstract class FieldAccessor {
         @Override
         Object value(Object obj) {
             return col.defaultValue();
+        }
+
+        @Override
+        void set(Object obj, Object val) {
+            /* noop */
         }
     }
 
@@ -482,6 +546,7 @@ abstract class FieldAccessor {
          * @param reader MarshallerReader reader.
          * @return Object.
          */
+        @Override
         Object read(MarshallerReader reader) {
             Object obj = readRefValue(reader);
 
@@ -496,9 +561,14 @@ abstract class FieldAccessor {
         Object value(Object obj) {
             return obj;
         }
+
+        @Override
+        void set(Object obj, Object val) {
+            throw new UnsupportedOperationException("Called identity accessor for object field.");
+        }
     }
 
-    private abstract static class VarHandleAccessor extends FieldAccessor {
+    abstract static class VarHandleAccessor extends FieldAccessor {
         private final VarHandle varHandle;
 
         VarHandleAccessor(int colIdx, BinaryMode mode, VarHandle varHandle) {
@@ -517,8 +587,13 @@ abstract class FieldAccessor {
             return (T) varHandle.get(obj);
         }
 
+        @Override
         void set(Object obj, Object val) {
-            varHandle.set(obj, val);
+            try {
+                varHandle.set(obj, val);
+            } catch (Exception ex) {
+                throw new MarshallerException(ex.getMessage(), ex);
+            }
         }
 
         @Override
@@ -549,10 +624,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
-            boolean val = reader.readBoolean();
-
-            set(obj, val);
+        Object read(MarshallerReader reader) {
+            return reader.readBoolean();
         }
     }
 
@@ -578,10 +651,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
-            byte val = reader.readByte();
-
-            set(obj, val);
+        Object read(MarshallerReader reader) {
+            return reader.readByte();
         }
     }
 
@@ -607,10 +678,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
-            short val = reader.readShort();
-
-            set(obj, val);
+        Object read(MarshallerReader reader) {
+            return reader.readShort();
         }
     }
 
@@ -636,10 +705,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
-            int val = reader.readInt();
-
-            set(obj, val);
+        Object read(MarshallerReader reader) {
+            return reader.readInt();
         }
     }
 
@@ -665,10 +732,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
-            long val = reader.readLong();
-
-            set(obj, val);
+        Object read(MarshallerReader reader) {
+            return reader.readLong();
         }
     }
 
@@ -694,10 +759,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
-            float val = reader.readFloat();
-
-            set(obj, val);
+        Object read(MarshallerReader reader) {
+            return reader.readFloat();
         }
     }
 
@@ -723,10 +786,8 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
-            double val = reader.readDouble();
-
-            set(obj, val);
+        Object read(MarshallerReader reader) {
+            return reader.readDouble();
         }
     }
 
@@ -776,11 +837,11 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void read0(MarshallerReader reader, Object obj) {
+        Object read(MarshallerReader reader) {
             Object val = readRefValue(reader);
 
             try {
-                set(obj, typeConverter == null ? val : typeConverter.toObjectType(val));
+                return typeConverter == null ? val : typeConverter.toObjectType(val);
             } catch (Exception e) {
                 throw new IllegalArgumentException(e);
             }

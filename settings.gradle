@@ -234,11 +234,13 @@ dependencyResolutionManagement {
 }
 
 if (JavaVersion.current() >= JavaVersion.VERSION_17) {
+    include(':java-records-tests')
     include(':spring-boot-ignite-client-autoconfigure')
     include(':spring-boot-starter-ignite-client')
     include(':spring-boot-starter-ignite-client-example')
     include(':spring-data-ignite')
 
+    project(":java-records-tests").projectDir = file('modules/java-records-tests')
     project(":spring-boot-starter-ignite-client-example").projectDir = file('modules/spring/spring-boot-starter-ignite-client-example')
     project(":spring-boot-ignite-client-autoconfigure").projectDir = file('modules/spring/spring-boot-ignite-client-autoconfigure')
     project(":spring-boot-starter-ignite-client").projectDir = file('modules/spring/spring-boot-starter-ignite-client')
