@@ -42,7 +42,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
@@ -79,7 +79,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** Name of system view type. */
     public static final String TYPE_VIEW = "VIEW";
 
-    private final JdbcQueryEventHandler handler;
+    private final JdbcDatabaseMetadataHandler handler;
 
     private final String url;
 
@@ -100,7 +100,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      */
     public JdbcDatabaseMetadata(
             Connection connection,
-            JdbcQueryEventHandler handler,
+            JdbcDatabaseMetadataHandler handler,
             String url,
             String userName,
             Supplier<ZoneId> timeZoneSupplier

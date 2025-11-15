@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,8 +32,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.List;
-import org.apache.ignite.internal.jdbc.ConnectionProperties;
-import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.IgniteSql;
@@ -42,7 +40,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
 
 /**
- * Unit tests for {@link JdbcStatement2}.
+ * Unit tests for {@link JdbcStatement}.
  */
 public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
 
@@ -379,7 +377,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
     @Test
     public void closeOnCompletion() throws SQLException {
         try (Statement stmt = createStatement()) {
-            JdbcStatement2 jdbc = stmt.unwrap(JdbcStatement2.class);
+            JdbcStatement jdbc = stmt.unwrap(JdbcStatement.class);
 
             ClientSyncResultSet igniteRs = Mockito.mock(ClientSyncResultSet.class);
             when(igniteRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of()));
@@ -437,11 +435,11 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
 
     protected Statement createStatement() throws SQLException {
         Connection connection = Mockito.mock(Connection.class);
-        JdbcConnection2 connection2 = Mockito.mock(JdbcConnection2.class);
+        JdbcConnection connection2 = Mockito.mock(JdbcConnection.class);
 
         ConnectionProperties properties = new ConnectionPropertiesImpl();
 
-        when(connection.unwrap(JdbcConnection2.class)).thenReturn(connection2);
+        when(connection.unwrap(JdbcConnection.class)).thenReturn(connection2);
         when(connection2.properties()).thenReturn(properties);
 
         return createStatement(connection);
@@ -449,7 +447,7 @@ public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
 
     protected Statement createStatement(Connection connection) {
         IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
-        return new JdbcStatement2(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT);
+        return new JdbcStatement(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
 
     static void expectClosed(Executable method) {

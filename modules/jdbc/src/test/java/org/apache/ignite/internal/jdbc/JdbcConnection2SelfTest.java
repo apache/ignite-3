@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,9 +38,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.jdbc.ConnectionProperties;
-import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.Test;
@@ -48,7 +46,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
 
 /**
- * Tests for {@link JdbcConnection2}.
+ * Tests for {@link JdbcConnection}.
  */
 public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
 
@@ -435,8 +433,8 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
     @Test
     public void wrap() throws SQLException {
         try (Connection conn = createConnection()) {
-            assertTrue(conn.isWrapperFor(JdbcConnection2.class));
-            assertSame(conn, conn.unwrap(JdbcConnection2.class));
+            assertTrue(conn.isWrapperFor(JdbcConnection.class));
+            assertSame(conn, conn.unwrap(JdbcConnection.class));
 
             assertTrue(conn.isWrapperFor(Connection.class));
             assertSame(conn, conn.unwrap(Connection.class));
@@ -461,9 +459,9 @@ public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
 
         setup.accept(properties);
 
-        JdbcQueryEventHandler eventHandler = Mockito.mock(JdbcQueryEventHandler.class);
+        JdbcDatabaseMetadataHandler eventHandler = Mockito.mock(JdbcDatabaseMetadataHandler.class);
 
-        return new JdbcConnection2(ignite, eventHandler, properties);
+        return new JdbcConnection(ignite, eventHandler, properties);
     }
 
     private static void expectClosed(Executable method) {

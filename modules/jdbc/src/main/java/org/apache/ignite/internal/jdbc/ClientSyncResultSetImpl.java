@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;

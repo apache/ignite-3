@@ -36,7 +36,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.jdbc2.JdbcStatement2;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -674,7 +674,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testTimeout() throws SQLException {
-        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
         igniteStmt.setQueryTimeout(1);
 
         int attempts = 10;

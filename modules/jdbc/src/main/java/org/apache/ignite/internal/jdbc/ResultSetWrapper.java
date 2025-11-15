@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
 

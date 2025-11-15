@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -56,8 +56,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.internal.jdbc.ConnectionProperties;
-import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -66,7 +64,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
 
 /**
- * Unit tests for {@link JdbcPreparedStatement2}.
+ * Unit tests for {@link JdbcPreparedStatement}.
  */
 public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
 
@@ -94,7 +92,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void assignAndClearParameters() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = stmt.unwrap(JdbcPreparedStatement2.class);
+            JdbcPreparedStatement ps = stmt.unwrap(JdbcPreparedStatement.class);
 
             stmt.setObject(1, 1);
             stmt.setObject(3, 10L);
@@ -119,7 +117,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @EnumSource(JDBCType.class)
     public void setNull(JDBCType type) throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             int jdbcSqlType = type.getVendorTypeNumber();
 
@@ -151,7 +149,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setBoolean() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setBoolean(1, true);
             assertFalse(ps.getArguments().isEmpty());
@@ -162,7 +160,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setByte() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setByte(1, (byte) 7);
             assertFalse(ps.getArguments().isEmpty());
@@ -173,7 +171,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setShort() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setShort(1, (short) 123);
             assertFalse(ps.getArguments().isEmpty());
@@ -184,7 +182,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setInt() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setInt(1, 42);
             assertFalse(ps.getArguments().isEmpty());
@@ -195,7 +193,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setLong() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setLong(1, 1322L);
             assertFalse(ps.getArguments().isEmpty());
@@ -206,7 +204,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setFloat() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setFloat(1, 1.5f);
             assertFalse(ps.getArguments().isEmpty());
@@ -217,7 +215,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setDouble() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setDouble(1, 2.75d);
             assertFalse(ps.getArguments().isEmpty());
@@ -228,7 +226,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setDecimal() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             BigDecimal dec = new BigDecimal("1234.5678");
             stmt.setBigDecimal(1, dec);
@@ -244,7 +242,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setString() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setString(1, "hello");
             assertFalse(ps.getArguments().isEmpty());
@@ -259,7 +257,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setNationalString() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setNString(1, "Hello");
             assertFalse(ps.getArguments().isEmpty());
@@ -274,7 +272,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setBytes() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             byte[] bytes = {1, 2, 3, 4};
             stmt.setBytes(1, bytes);
@@ -290,7 +288,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setDate() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             LocalDate ld = LocalDate.of(2020, 1, 2);
             stmt.setDate(1, Date.valueOf(ld));
@@ -310,7 +308,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setTime() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             LocalTime lt = LocalTime.of(11, 22, 33);
             stmt.setTime(1, Time.valueOf(lt));
@@ -330,7 +328,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setTimestamp() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             LocalDateTime ldt = LocalDateTime.of(2021, 5, 6, 7, 8, 9);
             stmt.setTimestamp(1, Timestamp.valueOf(ldt));
@@ -350,7 +348,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Test
     public void setObject() throws SQLException {
         try (PreparedStatement stmt = createStatement()) {
-            JdbcPreparedStatement2 ps = (JdbcPreparedStatement2) stmt;
+            JdbcPreparedStatement ps = (JdbcPreparedStatement) stmt;
 
             stmt.setObject(1, null);
             assertNull(ps.getArguments().get(0));
@@ -447,7 +445,7 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
             expectClosed(() -> stmt.setQueryTimeout(1));
             expectClosed(stmt::getQueryTimeout);
 
-            JdbcStatement2 stmt2 = (JdbcStatement2) stmt;
+            JdbcStatement stmt2 = (JdbcStatement) stmt;
             expectClosed(() -> stmt2.setQueryTimeout(-1));
             expectClosed(() -> stmt2.setQueryTimeout(0));
             expectClosed(() -> stmt2.setQueryTimeout(1));
@@ -709,11 +707,11 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Override
     protected PreparedStatement createStatement() throws SQLException {
         Connection connection = Mockito.mock(Connection.class);
-        JdbcConnection2 connection2 = Mockito.mock(JdbcConnection2.class);
+        JdbcConnection connection2 = Mockito.mock(JdbcConnection.class);
 
         ConnectionProperties properties = new ConnectionPropertiesImpl();
 
-        when(connection.unwrap(JdbcConnection2.class)).thenReturn(connection2);
+        when(connection.unwrap(JdbcConnection.class)).thenReturn(connection2);
         when(connection2.properties()).thenReturn(properties);
 
         return createStatement(connection);
@@ -722,6 +720,6 @@ public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
     @Override
     protected PreparedStatement createStatement(Connection connection) {
         IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
-        return new JdbcPreparedStatement2(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT, "SELECT 1");
+        return new JdbcPreparedStatement(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT, "SELECT 1");
     }
 }
