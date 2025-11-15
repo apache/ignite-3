@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.empty;
@@ -638,6 +639,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         ), timestamp, true);
 
         assertPendingAssignments(node0, partId, assignmentsPending);
+
+
+        // need to wait
+        // Need to verify that other nodes managed to switch to the new configuration.
+        // Stopping the leader before the group switched to the new configuration => the other nodes will never progress as they're
+        // on the old configuration. In out case - The first seen one, [1,4,5].
+        // In other words, need to wait:
+        // [%idrrt_tirarp_0%JRaft-FSMCaller-Disruptor_stripe_1-0][StateMachineAdapter] onConfigurationCommitted: idrrt_tirarp_0,idrrt_tirarp_3,idrrt_tirarp_1.
+        List<String> expectedPeers = List.of(node(0).name(), node(1).name(), node(3).name());
+        assertConfigurationApplied(node0, partId, expectedPeers);
 
         stopNode(1);
         waitForScale(node0, 3);
@@ -1462,6 +1473,23 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
             return index == lastLink.configurationIndex() && term == lastLink.configurationTerm();
         }, 10_000));
+    }
+
+    private void assertConfigurationApplied(IgniteImpl node0, int partId, List<String> peers) {
+        await().atMost(10, SECONDS)
+                .until(() -> {
+                    RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
+
+                    TableManager tableManager = node0.distributedTableManager();
+
+                    RaftGroupConfiguration raftGroupConfiguration = raftGroupConfigurationConverter.fromBytes(
+                            tableManager.cachedTable(TABLE_NAME).internalTable().storage().getMvPartition(partId)
+                                    .committedGroupConfiguration()
+                    );
+
+                    logger().info("Configuration Peers: {}", raftGroupConfiguration.peers());
+                    return peers.containsAll(raftGroupConfiguration.peers());
+                });
     }
 
     @Test
