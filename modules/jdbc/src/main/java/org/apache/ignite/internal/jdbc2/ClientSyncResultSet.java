@@ -26,7 +26,8 @@ import org.apache.ignite.sql.SqlRow;
 /**
  * Sync result set.
  */
-interface ClientSyncResultSet extends Iterator<SqlRow> {
+// TODO https://issues.apache.org/jira/browse/IGNITE-26145 Remove "public" modifier
+public interface ClientSyncResultSet extends Iterator<SqlRow> {
 
     ResultSetMetadata EMPTY_METADATA = new ResultSetMetadataImpl(List.of());
 
@@ -35,8 +36,6 @@ interface ClientSyncResultSet extends Iterator<SqlRow> {
     boolean hasRowSet();
 
     long affectedRows();
-
-    boolean wasApplied();
 
     boolean hasNextResultSet();
 

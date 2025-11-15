@@ -53,11 +53,6 @@ final class ClientSyncResultSetImpl implements ClientSyncResultSet {
     }
 
     @Override
-    public boolean wasApplied() {
-        return syncRs.wasApplied();
-    }
-
-    @Override
     public boolean hasNextResultSet() {
         return rs.hasNextResultSet();
     }
