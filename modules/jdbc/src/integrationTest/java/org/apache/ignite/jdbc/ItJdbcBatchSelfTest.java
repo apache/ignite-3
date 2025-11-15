@@ -47,10 +47,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.jdbc.JdbcPreparedStatement;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc2.JdbcPreparedStatement2;
-import org.apache.ignite.internal.jdbc2.JdbcStatement2;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -776,7 +776,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 + "SELECT * FROM TABLE(SYSTEM_RANGE(50, 100)))";
         pstmt = conn.prepareStatement(updateStmt);
 
-        JdbcPreparedStatement2 igniteStmt = pstmt.unwrap(JdbcPreparedStatement2.class);
+        JdbcPreparedStatement igniteStmt = pstmt.unwrap(JdbcPreparedStatement.class);
 
         {
             // Disable timeout
@@ -824,7 +824,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBatchTimeout() throws SQLException {
-        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
 
         {
             // Disable timeout

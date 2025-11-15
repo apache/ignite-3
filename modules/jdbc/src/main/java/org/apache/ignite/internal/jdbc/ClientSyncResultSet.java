@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import java.util.Iterator;
 import java.util.List;
@@ -26,8 +26,7 @@ import org.apache.ignite.sql.SqlRow;
 /**
  * Sync result set.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-26145 Remove "public" modifier
-public interface ClientSyncResultSet extends Iterator<SqlRow> {
+interface ClientSyncResultSet extends Iterator<SqlRow> {
 
     ResultSetMetadata EMPTY_METADATA = new ResultSetMetadataImpl(List.of());
 

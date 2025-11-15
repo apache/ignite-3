@@ -45,7 +45,7 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         String username = String.valueOf(ThreadLocalRandom.current().nextInt(128, 256));
         String jdbcUrl = "jdbc:ignite://localhost:" + ThreadLocalRandom.current().nextInt(1000, 10800);
 
-        JdbcClientQueryEventHandler handler = Mockito.mock(JdbcClientQueryEventHandler.class);
+        JdbcClientDatabaseMetadataHandler handler = Mockito.mock(JdbcClientDatabaseMetadataHandler.class);
         Connection connection = Mockito.mock(Connection.class);
         DatabaseMetaData metaData = new JdbcDatabaseMetadata(connection, handler, jdbcUrl, username, ZoneId::systemDefault);
 

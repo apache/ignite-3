@@ -37,7 +37,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
-import org.apache.ignite.internal.jdbc2.JdbcStatement2;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -842,7 +842,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testTimeout() throws Exception {
-        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
 
         // No timeout
 
@@ -887,7 +887,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testSetTimeoutValues() throws SQLException {
-        JdbcStatement2 igniteStmt = stmt.unwrap(JdbcStatement2.class);
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
 
         igniteStmt.setQueryTimeout(1_234);
         assertEquals(1_234, igniteStmt.getQueryTimeout());

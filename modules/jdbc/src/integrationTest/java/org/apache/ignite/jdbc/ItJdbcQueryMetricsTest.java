@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.jdbc2.JdbcStatement2;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
@@ -142,7 +142,7 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
             SQLException err;
 
             try (var stmt = conn.createStatement()) {
-                JdbcStatement2 jdbc = stmt.unwrap(JdbcStatement2.class);
+                JdbcStatement jdbc = stmt.unwrap(JdbcStatement.class);
                 jdbc.setQueryTimeout(1);
 
                 // Start a script

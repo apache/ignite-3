@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.internal.jdbc.JdbcUtils.createObjectListResultSet;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -43,8 +43,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.jdbc.ColumnDefinition;
-import org.apache.ignite.internal.jdbc.JdbcResultSetBaseSelfTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
@@ -170,8 +168,8 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
         when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
 
-        JdbcStatement2 statement2 = Mockito.mock(JdbcStatement2.class);
-        when(statement.unwrap(JdbcStatement2.class)).thenReturn(statement2);
+        JdbcStatement statement2 = Mockito.mock(JdbcStatement.class);
+        when(statement.unwrap(JdbcStatement.class)).thenReturn(statement2);
 
         ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, true, 0);
 
@@ -188,8 +186,8 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void closeExceptionIsWrapped(boolean closeOnCompletion) throws SQLException {
-        JdbcStatement2 statement = Mockito.mock(JdbcStatement2.class);
-        when(statement.unwrap(JdbcStatement2.class)).thenReturn(statement);
+        JdbcStatement statement = Mockito.mock(JdbcStatement.class);
+        when(statement.unwrap(JdbcStatement.class)).thenReturn(statement);
 
         ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
         when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);

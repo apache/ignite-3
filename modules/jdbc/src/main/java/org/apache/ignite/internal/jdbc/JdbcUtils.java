@@ -29,8 +29,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.jdbc2.ClientSyncResultSet;
-import org.apache.ignite.internal.jdbc2.JdbcResultSet;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnMetadata;

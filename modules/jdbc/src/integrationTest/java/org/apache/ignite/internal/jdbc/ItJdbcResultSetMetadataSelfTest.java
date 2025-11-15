@@ -27,7 +27,6 @@ import java.sql.Statement;
 import java.sql.Types;
 import org.apache.ignite.jdbc.AbstractJdbcSelfTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,7 +65,6 @@ public class ItJdbcResultSetMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
     public void testResultSetMetaData() throws Exception {
         ResultSet rs = stmt.executeQuery(
                 "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");

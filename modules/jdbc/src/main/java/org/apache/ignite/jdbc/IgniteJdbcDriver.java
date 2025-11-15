@@ -47,10 +47,10 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
-import org.apache.ignite.internal.jdbc.JdbcClientQueryEventHandler;
+import org.apache.ignite.internal.jdbc.JdbcClientDatabaseMetadataHandler;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.internal.jdbc.JdbcDatabaseMetadata;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc2.JdbcConnection2;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -210,9 +210,9 @@ public class IgniteJdbcDriver implements Driver {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
 
-        JdbcQueryEventHandler eventHandler = new JdbcClientQueryEventHandler(client);
+        JdbcDatabaseMetadataHandler eventHandler = new JdbcClientDatabaseMetadataHandler(client);
 
-        return new JdbcConnection2(client, eventHandler, connProps);
+        return new JdbcConnection(client, eventHandler, connProps);
     }
 
     /** {@inheritDoc} */

@@ -19,9 +19,9 @@ package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 
 /**
  * Client jdbc request handler.
@@ -37,7 +37,7 @@ public class ClientJdbcConnectRequest {
      */
     public static CompletableFuture<ResponseWriter> execute(
             ClientMessageUnpacker in,
-            JdbcQueryEventHandler handler,
+            JdbcQueryEventHandlerImpl handler,
             String username
     ) {
         String timeZoneIdString = in.unpackString();
