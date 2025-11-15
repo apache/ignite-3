@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.jdbc2;
 
+import static org.apache.ignite.internal.jdbc.JdbcUtils.createObjectListResultSet;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,24 +33,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.ColumnDefinition;
 import org.apache.ignite.internal.jdbc.JdbcResultSetBaseSelfTest;
@@ -59,9 +51,7 @@ import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -243,8 +233,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     @Test
     public void maxRows() throws SQLException {
         ColumnMetadataImpl column = new ColumnMetadataImpl("C1", ColumnType.INT32, 0, 0, false, null);
-        ResultSetMetadata apiMeta = new ResultSetMetadataImpl(List.of(column));
-        Statement statement = Mockito.mock(Statement.class);
+        List<ColumnMetadata> meta = List.of(column);
         Supplier<ZoneId> zoneIdSupplier = ZoneId::systemDefault;
 
         List<List<Object>> rows = List.of(
@@ -254,7 +243,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
                 List.of(4)
         );
 
-        try (ResultSet rs = new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false, 3)) {
+        try (ResultSet rs = createObjectListResultSet(rows, meta, zoneIdSupplier, 3)) {
             assertTrue(rs.next());
             assertTrue(rs.next());
             assertTrue(rs.next());
@@ -265,7 +254,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         // no limit
 
-        try (ResultSet rs = new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false, 0)) {
+        try (ResultSet rs = createObjectListResultSet(rows, meta, zoneIdSupplier, 0)) {
             assertTrue(rs.next());
             assertTrue(rs.next());
             assertTrue(rs.next());
@@ -277,45 +266,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
     @Override
     protected ResultSet createResultSet(@Nullable ZoneId zoneId, List<ColumnDefinition> cols, List<List<Object>> rows) {
-        Statement statement = Mockito.mock(Statement.class);
-
-        return createResultSet(statement, zoneId, cols, rows);
-    }
-
-    private static ResultSet createResultSet(
-            Statement statement,
-            @SuppressWarnings("unused")
-            @Nullable ZoneId zoneId,
-            List<ColumnDefinition> cols,
-            List<List<Object>> rows
-    ) {
-        return createResultSet(statement, zoneId, cols, rows, 0);
-    }
-
-    private static ResultSet createResultSet(
-            Statement statement,
-            @SuppressWarnings("unused")
-            @Nullable ZoneId zoneId,
-            List<ColumnDefinition> cols,
-            List<List<Object>> rows,
-            int maxRows
-    ) {
-
-        Supplier<ZoneId> zoneIdSupplier = () -> {
-            if (zoneId != null) {
-                return zoneId;
-            } else {
-                return ZoneId.systemDefault();
-            }
-        };
-
-        // ResultSet has no metadata
-        if (cols.isEmpty() && rows.isEmpty()) {
-            ClientSyncResultSet rs = Mockito.mock(ClientSyncResultSet.class);
-            when(rs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
-
-            return new JdbcResultSet(rs, statement, zoneIdSupplier, false, 0);
-        }
+        ZoneId timeZone = zoneId == null ? ZoneId.systemDefault() : zoneId;
 
         List<ColumnMetadata> apiCols = new ArrayList<>();
         for (ColumnDefinition c : cols) {
@@ -327,274 +278,6 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             apiCols.add(new ColumnMetadataImpl(c.label, c.type, c.precision, c.scale, nullable, origin));
         }
 
-        ResultSetMetadata apiMeta = new ResultSetMetadataImpl(apiCols);
-
-        return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier, false, maxRows);
-    }
-
-    private static class ResultSetStub implements ClientSyncResultSet {
-        private final ResultSetMetadata meta;
-        private final Iterator<List<Object>> it;
-        private @Nullable List<Object> current;
-
-        ResultSetStub(ResultSetMetadata meta, List<List<Object>> rows) {
-            this.meta = Objects.requireNonNull(meta, "meta");
-            this.it = rows.iterator();
-            this.current = null;
-        }
-
-        @Override
-        public ResultSetMetadata metadata() {
-            return meta;
-        }
-
-        @Override
-        public boolean hasRowSet() {
-            return true;
-        }
-
-        @Override
-        public long affectedRows() {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public boolean wasApplied() {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public boolean hasNextResultSet() {
-            return false;
-        }
-
-        @Override
-        public ClientSyncResultSet nextResultSet() {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public void close() {
-            // Does nothing, checked separately.
-        }
-
-        @Override
-        public boolean hasNext() {
-            return it.hasNext();
-        }
-
-        @Override
-        public SqlRow next() {
-            if (!it.hasNext()) {
-                throw new NoSuchElementException();
-            }
-            current = it.next();
-            return new UnmodifiableSqlRow(current, meta);
-        }
-    }
-
-    private static class UnmodifiableSqlRow implements SqlRow {
-        private final List<Object> values;
-        private final ResultSetMetadata meta;
-
-        UnmodifiableSqlRow(List<Object> values, ResultSetMetadata meta) {
-            this.values = values;
-            this.meta = meta;
-        }
-
-        @Override
-        public ResultSetMetadata metadata() {
-            return meta;
-        }
-
-        @Override
-        public int columnCount() {
-            return meta.columns().size();
-        }
-
-        @Override
-        public String columnName(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public int columnIndex(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public <T> T valueOrDefault(String columnName, T defaultValue) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public Tuple set(String columnName, Object value) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public <T> T value(String columnName) throws IllegalArgumentException {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public <T> T value(int columnIndex) {
-            return (T) values.get(columnIndex);
-        }
-
-        @Override
-        public boolean booleanValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public boolean booleanValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public byte byteValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public byte byteValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public short shortValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public short shortValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public int intValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public int intValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public long longValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public long longValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public float floatValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public float floatValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public double doubleValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public double doubleValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public BigDecimal decimalValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public BigDecimal decimalValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public String stringValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public String stringValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public byte[] bytesValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public byte[] bytesValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public UUID uuidValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public UUID uuidValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public LocalDate dateValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public LocalDate dateValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public LocalTime timeValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public LocalTime timeValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public LocalDateTime datetimeValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public LocalDateTime datetimeValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public Instant timestampValue(String columnName) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public Instant timestampValue(int columnIndex) {
-            throw new IllegalStateException("Should not be called");
-        }
-
-        @Override
-        public Iterator<Object> iterator() {
-            return values.iterator();
-        }
+        return createObjectListResultSet(rows, apiCols, () -> timeZone, 0);
     }
 }

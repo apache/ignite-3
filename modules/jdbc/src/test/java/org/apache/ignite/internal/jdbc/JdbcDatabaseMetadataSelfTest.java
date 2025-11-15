@@ -27,6 +27,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -46,7 +47,7 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
 
         JdbcClientQueryEventHandler handler = Mockito.mock(JdbcClientQueryEventHandler.class);
         Connection connection = Mockito.mock(Connection.class);
-        DatabaseMetaData metaData = new JdbcDatabaseMetadata(connection, handler, jdbcUrl, username);
+        DatabaseMetaData metaData = new JdbcDatabaseMetadata(connection, handler, jdbcUrl, username, ZoneId::systemDefault);
 
         // Basic info
         assertTrue(metaData.allProceduresAreCallable());
