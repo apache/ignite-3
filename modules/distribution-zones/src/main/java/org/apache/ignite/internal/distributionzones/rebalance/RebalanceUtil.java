@@ -582,17 +582,6 @@ public class RebalanceUtil {
     }
 
     /**
-     * Checks if an error is recoverable, so we can retry a rebalance intent.
-     *
-     * @param t The throwable.
-     * @return {@code True} if this is a recoverable exception.
-     */
-    public static boolean recoverable(Throwable t) {
-        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        return true;
-    }
-
-    /**
      * Removes nodes from set of nodes.
      *
      * @param minuend Set to remove nodes from.

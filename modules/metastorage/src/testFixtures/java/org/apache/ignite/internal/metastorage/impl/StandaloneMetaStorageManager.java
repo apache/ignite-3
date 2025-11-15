@@ -95,6 +95,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     @Nullable
     private Consumer<Boolean> afterInvokeInterceptor;
 
+    @Nullable
+    private Consumer<Long> onRevisionAppliedInterceptor;
+
     /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
         return create(TEST_NODE_NAME);
@@ -237,6 +240,19 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     public void setAfterInvokeInterceptor(@Nullable Consumer<Boolean> afterInvokeInterceptor) {
         this.afterInvokeInterceptor = afterInvokeInterceptor;
+    }
+
+    public void setOnRevisionAppliedInterceptor(@Nullable Consumer<Long> onRevisionAppliedInterceptor) {
+        this.onRevisionAppliedInterceptor = onRevisionAppliedInterceptor;
+    }
+
+    @Override
+    protected void onRevisionApplied(long revision) {
+        super.onRevisionApplied(revision);
+
+        if (onRevisionAppliedInterceptor != null) {
+            onRevisionAppliedInterceptor.accept(revision);
+        }
     }
 
     @Override

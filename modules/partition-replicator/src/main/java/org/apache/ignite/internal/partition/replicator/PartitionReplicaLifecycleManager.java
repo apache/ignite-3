@@ -22,7 +22,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -1306,6 +1305,13 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId,
                         pendingAssignments.nodes(),
                         revision);
+            }).whenComplete((v, ex) -> {
+                if (ex != null) {
+                    LOG.warn(
+                            "Failed to handle change pending assignment event "
+                                    + "[zonePartitionId={}, stableAssignments={}, pendingAssignments={}, revision={}, isRecovery={}].",
+                            zonePartitionId, stableAssignments, pendingAssignments, revision, isRecovery, ex);
+                }
             });
         } finally {
             busyLock.leaveBusy();
@@ -1350,22 +1356,7 @@ public class PartitionReplicaLifecycleManager extends
         // For regular pending assignments we use (old) stable set, so that none of new nodes would be able to propose itself as a leader.
         // For forced assignments, we should do the same thing, but only for the subset of stable set that is alive right now. Dead nodes
         // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
-        Assignments computedStableAssignments;
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
-        //  when we will have a proper handling of empty stable assignments
-        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
-            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
-            // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes, pendingAssignments.timestamp());
-        } else if (pendingAssignmentsAreForced) {
-            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
-            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
-            // have a live majority.
-            computedStableAssignments = pendingAssignments;
-        } else {
-            computedStableAssignments = stableAssignments;
-        }
+        Assignments computedStableAssignments = getComputedStableAssignments(stableAssignments, pendingAssignments);
 
         CompletableFuture<?> localServicesStartFuture;
 
@@ -1388,11 +1379,8 @@ public class PartitionReplicaLifecycleManager extends
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> {
-                inBusyLock(busyLock,
-                        () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision)
-                );
-            }, ioExecutor);
+            localServicesStartFuture =
+                    replicaMgr.resetWithRetry(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
@@ -1440,6 +1428,23 @@ public class PartitionReplicaLifecycleManager extends
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    private static Assignments getComputedStableAssignments(@Nullable Assignments stableAssignments, Assignments pendingAssignments) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
+        //  when we will have a proper handling of empty stable assignments
+        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
+            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
+            // In this case new initial configuration must match new forced assignments.
+            return Assignments.forced(pendingAssignments.nodes(), pendingAssignments.timestamp());
+        } else if (pendingAssignments.force()) {
+            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
+            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
+            // have a live majority.
+            return pendingAssignments;
+        } else {
+            return stableAssignments;
+        }
     }
 
     private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {
