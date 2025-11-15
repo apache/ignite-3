@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.function.Predicate.not;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -61,7 +60,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -80,11 +78,10 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Updat
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -153,8 +150,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final TopologyService topologyService;
 
-    private final NodeProperties nodeProperties;
-
     private final RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider;
 
     private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
@@ -183,7 +178,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             TopologyService topologyService,
-            NodeProperties nodeProperties,
             ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
             RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
@@ -195,7 +189,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.topologyService = topologyService;
-        this.nodeProperties = nodeProperties;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
@@ -444,9 +437,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Int2IntMap idsWithPartitions = nodeProperties.colocationEnabled()
-                            ? catalogManagerFacade.collectZonesWithPartitionsBetween(txBeginTime, nowTs.longValue())
-                            : catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
+                    Int2IntMap idsWithPartitions = catalogManagerFacade.collectZonesWithPartitionsBetween(txBeginTime, nowTs.longValue());
 
                     ObjectIterator<Entry> itr = idsWithPartitions.int2IntEntrySet().iterator();
 
@@ -580,18 +571,17 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         int partitions = zone.partitions();
 
-        List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
+        List<ZonePartitionId> replicationGroupIds = new ArrayList<>(partitions);
 
         for (int p = 0; p < partitions; p++) {
-            replicationGroupIds.add(nodeProperties.colocationEnabled() ? new ZonePartitionId(table.zoneId(), p)
-                    : new TablePartitionId(table.id(), p));
+            replicationGroupIds.add(new ZonePartitionId(table.zoneId(), p));
         }
 
         return placementDriver.getAssignments(replicationGroupIds, nowTs)
                 .thenAccept(tokenizedAssignments -> {
                     assert tokenizedAssignments.size() == replicationGroupIds.size();
 
-                    if (nodeProperties.colocationEnabled() && currentCatalog.table(table.id()) == null) {
+                    if (currentCatalog.table(table.id()) == null) {
                         // Table no longer exists
                         deletedTables.put(table.id(), true);
 
@@ -661,8 +651,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
 
         for (int p = 0; p < partitions; p++) {
-            ReplicationGroupId groupReplicationId = nodeProperties.colocationEnabled()
-                    ? new ZonePartitionId(id, p) : new TablePartitionId(id, p);
+            ZonePartitionId groupReplicationId = new ZonePartitionId(id, p);
 
             CompletableFuture<?> fut = placementDriver
                     .getPrimaryReplica(groupReplicationId, nowTs)
@@ -678,9 +667,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             return CompletableFutures.nullCompletedFuture();
                         }
 
-                        ReplicationGroupIdMessage groupIdMessage = nodeProperties.colocationEnabled()
-                                ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) groupReplicationId)
-                                : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) groupReplicationId);
+                        ZonePartitionIdMessage groupIdMessage = toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, groupReplicationId);
 
                         UpdateMinimumActiveTxBeginTimeReplicaRequest msg = REPLICATION_MESSAGES_FACTORY
                                 .updateMinimumActiveTxBeginTimeReplicaRequest()
