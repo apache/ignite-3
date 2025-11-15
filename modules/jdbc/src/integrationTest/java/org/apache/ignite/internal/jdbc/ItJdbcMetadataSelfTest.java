@@ -36,10 +36,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.UUID;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc2.JdbcResultSetMetadata;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.jdbc.AbstractJdbcSelfTest;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -77,24 +82,27 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try {
             DatabaseMetaData dbMeta = conn.getMetaData();
 
-            List<JdbcColumnMeta> columnsMeta = new ArrayList<>();
+            List<ColumnMetadata> columnsMeta = new ArrayList<>();
             try (ResultSet rs = dbMeta.getColumns(null, "META", "TEST", null)) {
                 while (rs.next()) {
-                    JdbcColumnMeta meta = new JdbcColumnMeta(
-                            rs.getString("COLUMN_NAME"),
+                    ColumnOrigin origin = new ColumnOriginImpl(
                             rs.getString("TABLE_SCHEM"),
                             rs.getString("TABLE_NAME"),
+                            rs.getString("COLUMN_NAME")
+                    );
+                    ColumnMetadata meta = new ColumnMetadataImpl(
                             rs.getString("COLUMN_NAME"),
                             dataTypeToColumnType(rs.getInt("DATA_TYPE"), rs.getString("TYPE_NAME")),
-                            rs.getShort("COLUMN_SIZE"),
-                            rs.getShort("DECIMAL_DIGITS"),
-                            "YES".equals(rs.getString("IS_NULLABLE"))
+                            rs.getInt("COLUMN_SIZE"),
+                            rs.getInt("DECIMAL_DIGITS"),
+                            "YES".equals(rs.getString("IS_NULLABLE")),
+                            origin
                     );
                     columnsMeta.add(meta);
                 }
             }
 
-            ResultSetMetaData rsMeta = new JdbcResultSetMetadata(columnsMeta);
+            ResultSetMetaData rsMeta = new JdbcResultSetMetadata(new ResultSetMetadataImpl(columnsMeta));
             checkMeta(rsMeta);
         } finally {
             stmt.execute("DROP TABLE META.TEST;");
@@ -161,7 +169,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
     public void testResultSetMetaDataColumns() throws Exception {
         createMetaTable();
 
@@ -169,10 +176,14 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             ResultSet rs = stmt.executeQuery("SELECT * FROM META.TEST t");
 
             assertNotNull(rs);
+            assertFalse(rs.isClosed());
 
             ResultSetMetaData meta = rs.getMetaData();
 
             checkMeta(meta);
+
+            rs.close();
+            assertTrue(rs.isClosed());
         } finally {
             stmt.execute("DROP TABLE META.TEST;");
         }
@@ -371,13 +382,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             expectColumn(metaData, 2, "TABLE_SCHEM", Types.VARCHAR);
             expectColumn(metaData, 3, "TABLE_NAME", Types.VARCHAR);
             expectColumn(metaData, 4, "COLUMN_NAME", Types.VARCHAR);
-            expectColumn(metaData, 5, "DATA_TYPE", Types.SMALLINT);
+            expectColumn(metaData, 5, "DATA_TYPE", Types.INTEGER);
             expectColumn(metaData, 6, "TYPE_NAME", Types.VARCHAR);
             expectColumn(metaData, 7, "COLUMN_SIZE", Types.INTEGER);
             expectColumn(metaData, 8, "BUFFER_LENGTH", Types.INTEGER);
             expectColumn(metaData, 9, "DECIMAL_DIGITS", Types.INTEGER);
             expectColumn(metaData, 10, "NUM_PREC_RADIX", Types.SMALLINT);
-            expectColumn(metaData, 11, "NULLABLE", Types.SMALLINT);
+            expectColumn(metaData, 11, "NULLABLE", Types.INTEGER);
             expectColumn(metaData, 12, "REMARKS", Types.VARCHAR);
             expectColumn(metaData, 13, "COLUMN_DEF", Types.VARCHAR);
             expectColumn(metaData, 14, "SQL_DATA_TYPE", Types.INTEGER);
@@ -923,7 +934,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             expectColumn(metaData, 1, "TABLE_TYPE", Types.VARCHAR);
 
             assertTrue(rs.next());
+
             assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+
+            assertTrue(rs.next());
+
+            assertEquals("VIEW", rs.getString("TABLE_TYPE"));
+
             assertFalse(rs.next());
         }
     }
