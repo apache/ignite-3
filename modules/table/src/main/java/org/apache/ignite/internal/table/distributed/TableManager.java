@@ -182,7 +182,7 @@ import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlace
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -1507,8 +1507,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return null;
     }
 
-    private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
-        return new PartitionMover(
+    private ChangePeersAndLearnersWithRetry createChangePeersAndLearnersWithRetry(TablePartitionId replicaGrpId) {
+        return new ChangePeersAndLearnersWithRetry(
                 busyLock,
                 rebalanceScheduler,
                 () -> partitionRaftClient(replicaGrpId)
@@ -1519,7 +1519,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
         if (replicaFut == null) {
             return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                    + " in zone " + replicaGrpId.tableId()));
+                    + " in table " + replicaGrpId.tableId()));
         }
         return replicaFut.thenApply(Replica::raftClient);
     }
@@ -1530,7 +1530,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 failureProcessor,
                 replicaGrpId,
                 busyLock,
-                createPartitionMover(replicaGrpId),
+                createChangePeersAndLearnersWithRetry(replicaGrpId),
                 this::calculateAssignments,
                 rebalanceScheduler,
                 rebalanceRetryDelayConfiguration

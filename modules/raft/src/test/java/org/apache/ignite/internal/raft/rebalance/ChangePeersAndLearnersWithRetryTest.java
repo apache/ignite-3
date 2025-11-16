@@ -49,10 +49,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests for the {@link PartitionMover} class.
+ * Tests for the {@link ChangePeersAndLearnersWithRetry} class.
  */
 @ExtendWith(ExecutorServiceExtension.class)
-class PartitionMoverTest extends BaseIgniteAbstractTest {
+class ChangePeersAndLearnersWithRetryTest extends BaseIgniteAbstractTest {
     private static final long TERM = 123;
 
     private static final PeersAndLearners PEERS_AND_LEARNERS = PeersAndLearners.fromConsistentIds(
@@ -75,9 +75,10 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
                 .thenReturn(failedFuture(new IOException()))
                 .thenReturn(nullCompletedFuture());
 
-        var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), rebalanceScheduler, () -> completedFuture(raftService));
+        var changePeersAndLearnersWithRetry =
+                new ChangePeersAndLearnersWithRetry(new IgniteSpinBusyLock(), rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.execute(
+        assertThat(changePeersAndLearnersWithRetry.execute(
                 PEERS_AND_LEARNERS,
                 Configuration.NO_SEQUENCE_TOKEN,
                 raft -> completedFuture(new RaftWithTerm(raft, TERM))
@@ -93,12 +94,13 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
 
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        var partitionMover = new PartitionMover(lock, rebalanceScheduler, () -> completedFuture(raftService));
+        var changePeersAndLearnersWithRetry =
+                new ChangePeersAndLearnersWithRetry(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
         lock.block();
 
         assertThrowsWithCause(() ->
-                        partitionMover.execute(
+                        changePeersAndLearnersWithRetry.execute(
                                 PEERS_AND_LEARNERS,
                                 Configuration.NO_SEQUENCE_TOKEN,
                                 raft -> completedFuture(new RaftWithTerm(raft, TERM))
@@ -115,9 +117,10 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
         when(raftService.changePeersAndLearnersAsync(any(), anyLong(), anyLong()))
                 .then(invocation -> CompletableFuture.runAsync(lock::block));
 
-        var partitionMover = new PartitionMover(lock, rebalanceScheduler, () -> completedFuture(raftService));
+        var changePeersAndLearnersWithRetry =
+                new ChangePeersAndLearnersWithRetry(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(partitionMover.execute(
+        assertThat(changePeersAndLearnersWithRetry.execute(
                         PEERS_AND_LEARNERS,
                         Configuration.NO_SEQUENCE_TOKEN,
                         raft -> completedFuture(new RaftWithTerm(raft, TERM))

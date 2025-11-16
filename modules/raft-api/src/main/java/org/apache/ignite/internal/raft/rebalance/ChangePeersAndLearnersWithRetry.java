@@ -40,8 +40,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Helper class that executes change peers and learners async with retries.
  */
-public class PartitionMover {
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionMover.class);
+public class ChangePeersAndLearnersWithRetry {
+    private static final IgniteLogger LOG = Loggers.forClass(ChangePeersAndLearnersWithRetry.class);
 
     private static final long MOVE_RESCHEDULE_DELAY_MILLIS = 100;
 
@@ -52,13 +52,13 @@ public class PartitionMover {
     private final Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier;
 
     /**
-     * Creates a new instance of PartitionMover.
+     * Creates a new instance of ChangePeersAndLearnersWithRetry.
      *
      * @param busyLock The busy lock.
      * @param rebalanceScheduler The scheduler for rebalance tasks.
      * @param raftGroupServiceSupplier The supplier of raft group service.
      */
-    public PartitionMover(
+    public ChangePeersAndLearnersWithRetry(
             IgniteBusyLock busyLock,
             ScheduledExecutorService rebalanceScheduler,
             Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier

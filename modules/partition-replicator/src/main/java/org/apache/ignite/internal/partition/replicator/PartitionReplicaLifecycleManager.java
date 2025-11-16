@@ -142,7 +142,7 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
 import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -797,8 +797,8 @@ public class PartitionReplicaLifecycleManager extends
                 ));
     }
 
-    private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
-        return new PartitionMover(
+    private ChangePeersAndLearnersWithRetry createChangePeersAndLearnersWithRetry(ZonePartitionId replicaGrpId) {
+        return new ChangePeersAndLearnersWithRetry(
                 busyLock,
                 rebalanceScheduler,
                 () -> partitionRaftClient(replicaGrpId)
@@ -820,7 +820,7 @@ public class PartitionReplicaLifecycleManager extends
                 failureProcessor,
                 zonePartitionId,
                 busyLock,
-                createPartitionMover(zonePartitionId),
+                createChangePeersAndLearnersWithRetry(zonePartitionId),
                 rebalanceScheduler,
                 this::calculateZoneAssignments,
                 rebalanceRetryDelayConfiguration
@@ -1472,7 +1472,7 @@ public class PartitionReplicaLifecycleManager extends
         // According to the rebalance logic, it's safe to react to pending assignments change in async manner.
         PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-        PartitionMover mover = createPartitionMover(replicaGrpId);
+        ChangePeersAndLearnersWithRetry mover = createChangePeersAndLearnersWithRetry(replicaGrpId);
 
         mover.execute(
                         newConfiguration,

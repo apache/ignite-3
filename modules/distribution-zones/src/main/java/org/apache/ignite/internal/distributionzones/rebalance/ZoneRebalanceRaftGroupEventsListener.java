@@ -76,7 +76,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
-import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
 import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -133,7 +133,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Performs reconfiguration of a Raft group of a partition. */
-    private final PartitionMover partitionMover;
+    private final ChangePeersAndLearnersWithRetry changePeersAndLearnersWithRetry;
 
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts = new AtomicInteger(0);
@@ -150,7 +150,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param metaStorageMgr Meta storage manager.
      * @param zonePartitionId Partition id.
      * @param busyLock Busy lock.
-     * @param partitionMover Class that moves partition between nodes.
+     * @param changePeersAndLearnersWithRetry Class that moves partition between nodes.
      * @param rebalanceScheduler Executor for scheduling rebalance retries.
      * @param calculateAssignmentsFn Function that calculates assignments for zone's partition.
      * @param retryDelayConfiguration Configuration property for rebalance retries delay.
@@ -160,7 +160,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             FailureProcessor failureProcessor,
             ZonePartitionId zonePartitionId,
             IgniteSpinBusyLock busyLock,
-            PartitionMover partitionMover,
+            ChangePeersAndLearnersWithRetry changePeersAndLearnersWithRetry,
             ScheduledExecutorService rebalanceScheduler,
             BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
             SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration
@@ -169,7 +169,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         this.failureProcessor = failureProcessor;
         this.zonePartitionId = zonePartitionId;
         this.busyLock = busyLock;
-        this.partitionMover = partitionMover;
+        this.changePeersAndLearnersWithRetry = changePeersAndLearnersWithRetry;
         this.rebalanceScheduler = rebalanceScheduler;
         this.calculateAssignmentsFn = calculateAssignmentsFn;
         this.retryDelayConfiguration = retryDelayConfiguration;
@@ -257,7 +257,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                             PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
-                            partitionMover.execute(
+                            changePeersAndLearnersWithRetry.execute(
                                     peersAndLearners,
                                     entry.revision(),
                                     raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
@@ -382,7 +382,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), zonePartitionId);
 
             try {
-                partitionMover.execute(
+                changePeersAndLearnersWithRetry.execute(
                         peersAndLearners,
                         revision,
                         raftClient -> completedFuture(new RaftWithTerm(raftClient, term))

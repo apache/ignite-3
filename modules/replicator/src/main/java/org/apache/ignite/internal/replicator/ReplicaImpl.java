@@ -45,7 +45,7 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
 import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -88,7 +88,7 @@ public class ReplicaImpl implements Replica {
 
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpired = this::unregisterFailoverCallback;
 
-    private final PartitionMover partitionMover;
+    private final ChangePeersAndLearnersWithRetry changePeersAndLearnersWithRetry;
 
     /**
      * The constructor of a replica server.
@@ -122,7 +122,7 @@ public class ReplicaImpl implements Replica {
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
         this.failureProcessor = failureProcessor;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
-        this.partitionMover = new PartitionMover(
+        this.changePeersAndLearnersWithRetry = new ChangePeersAndLearnersWithRetry(
                 this.busyLock,
                 this.rebalanceScheduler,
                 () -> completedFuture(raftClient)
@@ -240,7 +240,7 @@ public class ReplicaImpl implements Replica {
                     newConfiguration.learners()
             );
 
-            return partitionMover.execute(
+            return changePeersAndLearnersWithRetry.execute(
                     newConfiguration,
                     versionedAssignments.revision(),
                     raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
