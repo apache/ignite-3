@@ -640,13 +640,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertPendingAssignments(node0, partId, assignmentsPending);
 
-
         // need to wait
         // Need to verify that other nodes managed to switch to the new configuration.
         // Stopping the leader before the group switched to the new configuration => the other nodes will never progress as they're
         // on the old configuration. In out case - The first seen one, [1,4,5].
         // In other words, need to wait:
-        // [%idrrt_tirarp_0%JRaft-FSMCaller-Disruptor_stripe_1-0][StateMachineAdapter] onConfigurationCommitted: idrrt_tirarp_0,idrrt_tirarp_3,idrrt_tirarp_1.
+        // [StateMachineAdapter] onConfigurationCommitted: idrrt_tirarp_0,idrrt_tirarp_3,idrrt_tirarp_1.
         List<String> expectedPeers = List.of(node(0).name(), node(1).name(), node(3).name());
         assertConfigurationApplied(node0, partId, expectedPeers);
 
