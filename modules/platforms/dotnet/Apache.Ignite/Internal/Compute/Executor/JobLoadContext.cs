@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Reflection;
 using System.Runtime.Loader;
 using Ignite.Compute;
@@ -110,7 +111,50 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
         catch (Exception e)
         {
+            if (e is FileNotFoundException fe)
+            {
+                CheckRuntimeVersions(typeName, fe.FileName);
+            }
+
             throw new InvalidOperationException($"Failed to load type '{typeName}' from the specified deployment units: {e.Message}", e);
+        }
+    }
+
+    private static void CheckRuntimeVersions(string typeName, string? fileName)
+    {
+        if (fileName == null || !fileName.StartsWith("System.", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // System assembly failed to load - potentially due to runtime version mismatch.
+        if (TryParseAssemblyName(fileName) is not { } assemblyName)
+        {
+            return;
+        }
+
+        int? requestedRuntimeVersion = assemblyName.Version?.Major;
+        int? currentRuntimeVersion = typeof(object).Assembly.GetName().Version?.Major;
+
+        if (requestedRuntimeVersion > currentRuntimeVersion)
+        {
+            throw new InvalidOperationException(
+                $"Failed to load type '{typeName}' because it depends on a newer .NET runtime version " +
+                $"(required: {requestedRuntimeVersion}, current: {currentRuntimeVersion}, missing assembly: {assemblyName}). " +
+                $"Either target .NET {currentRuntimeVersion} when building the job assembly, " +
+                $"or use .NET {requestedRuntimeVersion} on servers to run the job executor.");
+        }
+    }
+
+    private static AssemblyName? TryParseAssemblyName(string assemblyName)
+    {
+        try
+        {
+            return new AssemblyName(assemblyName);
+        }
+        catch (FileLoadException)
+        {
+            return null;
         }
     }
 

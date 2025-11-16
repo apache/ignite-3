@@ -26,6 +26,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Apache.Ignite.Compute;
+using Compute;
 using Internal.Common;
 using NUnit.Framework;
 
@@ -103,7 +104,9 @@ public static class ManagementApi
 
     public static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
     {
+        using var tempDir = new TempDir();
         var testsDll = typeof(ManagementApi).Assembly.Location;
+        var newerDotNetDll = await DotNetJobs.WriteNewerDotnetJobsAssembly(tempDir.Path, "NewerDotnetJobs");
 
         var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
         var unitVersion0 = unitVersion ?? GetRandomUnitVersion();
@@ -111,7 +114,7 @@ public static class ManagementApi
         return await UnitDeploy(
             unitId: unitId0,
             unitVersion: unitVersion0,
-            unitContent: [testsDll]);
+            unitContent: [testsDll, newerDotNetDll]);
     }
 
     public static string GetRandomUnitVersion() => DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
