@@ -99,7 +99,9 @@ class IndexBuildTask {
 
     private final InternalClusterNode node;
 
-    private final List<IndexBuildCompletionListener> listeners;
+    private final List<IndexBuildCompletionListener> buildCompletionListeners;
+
+    private final IndexBuildTaskListener taskListener;
 
     private final long enlistmentConsistencyToken;
 
@@ -125,7 +127,8 @@ class IndexBuildTask {
             IgniteSpinBusyLock busyLock,
             int batchSize,
             InternalClusterNode node,
-            List<IndexBuildCompletionListener> listeners,
+            List<IndexBuildCompletionListener> buildCompletionListeners,
+            IndexBuildTaskListener taskListener,
             long enlistmentConsistencyToken,
             boolean afterDisasterRecovery,
             HybridTimestamp initialOperationTimestamp
@@ -142,7 +145,8 @@ class IndexBuildTask {
         this.batchSize = batchSize;
         this.node = node;
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
-        this.listeners = listeners;
+        this.buildCompletionListeners = buildCompletionListeners;
+        this.taskListener = taskListener;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
         this.afterDisasterRecovery = afterDisasterRecovery;
         this.initialOperationTimestamp = initialOperationTimestamp;
@@ -156,24 +160,34 @@ class IndexBuildTask {
             return;
         }
 
-        LOG.info("Start building the index: [{}]", createCommonIndexInfo());
+        if (afterDisasterRecovery) {
+            LOG.warn("Start building the index: [{}] due to disaster recovery of an AVAILABLE index. This shouldn't normally occur",
+                    createCommonIndexInfo()
+            );
+        } else {
+            LOG.info("Start building the index: [{}]", createCommonIndexInfo());
+        }
 
         try {
+            taskListener.onIndexBuildStarted(taskId);
+
             supplyAsync(partitionStorage::highestRowId, executor)
                     .thenApplyAsync(this::handleNextBatch, executor)
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
+                            String errorMessage = String.format("Index build error: [%s]", createCommonIndexInfo());
                             if (ignorable(throwable)) {
-                                LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
+                                LOG.info(errorMessage, throwable);
                             } else {
-                                String errorMessage = String.format("Index build error: [%s]", createCommonIndexInfo());
                                 failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
 
                             taskFuture.completeExceptionally(throwable);
+                            taskListener.onIndexBuildFailure(taskId, throwable);
                         } else {
                             taskFuture.complete(null);
+                            taskListener.onIndexBuildSuccess(taskId);
                         }
                     });
         } catch (Throwable t) {
@@ -221,9 +235,18 @@ class IndexBuildTask {
 
         try {
             return createBatchToIndex(highestRowId)
-                    .thenCompose(batch -> {
-                        return replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp));
-                    })
+                    .thenCompose(batch ->
+                            replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
+                                    .whenComplete((unused, throwable) -> {
+                                        if (throwable == null) {
+                                            taskListener.onRaftCallSuccess(taskId);
+                                        } else {
+                                            taskListener.onRaftCallFailure(taskId);
+                                        }
+                                    })
+                                    .thenApply(unused -> batch)
+                    )
+                    .thenAccept(batch -> taskListener.onBatchProcessed(taskId, batch.rowIds.size()))
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
@@ -236,7 +259,7 @@ class IndexBuildTask {
                             // Index has been built.
                             LOG.info("Index build completed: [{}]", createCommonIndexInfo());
 
-                            notifyListeners(taskId);
+                            notifyBuildCompletionListeners(taskId);
 
                             return CompletableFutures.<Void>nullCompletedFuture();
                         }
@@ -301,7 +324,12 @@ class IndexBuildTask {
 
         ZonePartitionId commitGroupId = new ZonePartitionId(commitPartitionId.commitZoneId, commitPartitionId.commitPartitionId);
 
-        return finalTransactionStateResolver.resolveFinalTxState(transactionId, commitGroupId);
+        return finalTransactionStateResolver.resolveFinalTxState(transactionId, commitGroupId)
+                .thenApply(txState -> {
+                    taskListener.onWriteIntentResolved(taskId, txState);
+
+                    return txState;
+                });
     }
 
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(BatchToIndex batch, HybridTimestamp initialOperationTimestamp) {
@@ -338,8 +366,8 @@ class IndexBuildTask {
         );
     }
 
-    private void notifyListeners(IndexBuildTaskId taskId) {
-        for (IndexBuildCompletionListener listener : listeners) {
+    private void notifyBuildCompletionListeners(IndexBuildTaskId taskId) {
+        for (IndexBuildCompletionListener listener : buildCompletionListeners) {
             if (afterDisasterRecovery) {
                 listener.onBuildCompletionAfterDisasterRecovery(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
             } else {

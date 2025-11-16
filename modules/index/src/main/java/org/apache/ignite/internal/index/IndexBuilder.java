@@ -81,7 +81,7 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
+    private final List<IndexBuildCompletionListener> buildCompletionListeners = new CopyOnWriteArrayList<>();
 
     /** Constructor. */
     IndexBuilder(
@@ -133,7 +133,7 @@ class IndexBuilder implements ManuallyCloseable {
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
-                for (IndexBuildCompletionListener listener : listeners) {
+                for (IndexBuildCompletionListener listener : buildCompletionListeners) {
                     listener.onBuildCompletion(indexId, tableId, partitionId);
                 }
 
@@ -141,6 +141,8 @@ class IndexBuilder implements ManuallyCloseable {
             }
 
             var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
+            boolean afterDisasterRecovery = false;
+            var taskListener = new IndexBuildTaskStatisticsLoggingListener(taskId, afterDisasterRecovery);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -154,9 +156,10 @@ class IndexBuilder implements ManuallyCloseable {
                     busyLock,
                     BATCH_SIZE,
                     node,
-                    listeners,
+                    buildCompletionListeners,
+                    taskListener,
                     enlistmentConsistencyToken,
-                    false,
+                    afterDisasterRecovery,
                     initialOperationTimestamp
             );
 
@@ -205,6 +208,8 @@ class IndexBuilder implements ManuallyCloseable {
             }
 
             var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
+            boolean afterDisasterRecovery = true;
+            var taskListener = new IndexBuildTaskStatisticsLoggingListener(taskId, afterDisasterRecovery);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -218,9 +223,10 @@ class IndexBuilder implements ManuallyCloseable {
                     busyLock,
                     BATCH_SIZE,
                     node,
-                    listeners,
+                    buildCompletionListeners,
+                    taskListener,
                     enlistmentConsistencyToken,
-                    true,
+                    afterDisasterRecovery,
                     initialOperationTimestamp
             );
 
@@ -280,12 +286,12 @@ class IndexBuilder implements ManuallyCloseable {
 
     /** Adds a listener. */
     public void listen(IndexBuildCompletionListener listener) {
-        listeners.add(listener);
+        buildCompletionListeners.add(listener);
     }
 
     /** Removes a listener. */
     public void stopListen(IndexBuildCompletionListener listener) {
-        listeners.remove(listener);
+        buildCompletionListeners.remove(listener);
     }
 
     private void putAndStartTaskIfAbsent(IndexBuildTaskId taskId, IndexBuildTask task) {
