@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
@@ -75,6 +76,8 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
+import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -254,25 +257,25 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                             PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
-                            partitionMover.movePartition(peersAndLearners, term, entry.revision())
-                                    .whenComplete((unused, ex) -> {
-                                        // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(ex, TimeoutException.class)
-                                        if (ex != null && !hasCause(ex, NodeStoppingException.class) && !hasCause(ex,
-                                                TimeoutException.class)) {
-                                            String errorMessage = String.format(
-                                                    "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                                                    zonePartitionId,
-                                                    term
-                                            );
-                                            failureProcessor.process(new FailureContext(ex, errorMessage));
-                                        }
-                                    });
+                            partitionMover.execute(
+                                    peersAndLearners,
+                                    entry.revision(),
+                                    raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
+                            ).whenComplete((unused, ex) -> {
+                                if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                    String errorMessage = String.format(
+                                            "Unable to start rebalance [zonePartitionId=%s, term=%s]",
+                                            zonePartitionId,
+                                            term
+                                    );
+                                    failureProcessor.process(new FailureContext(ex, errorMessage));
+                                }
+                            });
                         }
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(e, TimeoutException.class)
-                    if (!hasCause(e, NodeStoppingException.class) && !hasCause(e, TimeoutException.class)) {
+                    if (!hasCause(e, NodeStoppingException.class)) {
                         String errorMessage = String.format(
                                 "Unable to start rebalance [zonePartitionId=%s, term=%s]",
                                 zonePartitionId,
@@ -379,13 +382,16 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), zonePartitionId);
 
             try {
-                partitionMover.movePartition(peersAndLearners, term, revision)
-                        .whenComplete((unused, ex) -> {
-                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
-                                failureProcessor.process(new FailureContext(ex, errorMessage));
-                            }
-                        });
+                partitionMover.execute(
+                        peersAndLearners,
+                        revision,
+                        raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
+                ).whenComplete((unused, ex) -> {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                        String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
+                    }
+                });
             } finally {
                 busyLock.leaveBusy();
             }

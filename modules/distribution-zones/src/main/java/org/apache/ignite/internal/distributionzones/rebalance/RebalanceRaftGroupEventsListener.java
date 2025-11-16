@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
@@ -68,6 +69,8 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
+import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.TestOnly;
@@ -269,13 +272,16 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), tablePartitionId);
 
             try {
-                partitionMover.movePartition(peersAndLearners, term, sequenceToken)
-                        .whenComplete((unused, ex) -> {
-                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                String errorMessage = String.format("Failure while moving partition [partId=%s]", tablePartitionId);
-                                failureProcessor.process(new FailureContext(ex, errorMessage));
-                            }
-                        });
+                partitionMover.execute(
+                        peersAndLearners,
+                        sequenceToken,
+                        raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
+                ).whenComplete((unused, ex) -> {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                        String errorMessage = String.format("Failure while moving partition [partId=%s]", tablePartitionId);
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
+                    }
+                });
             } finally {
                 busyLock.leaveBusy();
             }

@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.rebalance;
+package org.apache.ignite.internal.raft.rebalance;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.raft.rebalance.ExceptionUtils.recoverable;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.concurrent.CompletableFuture;
@@ -33,28 +34,32 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Class for moving partitions.
+ * Helper class that executes change peers and learners async with retries.
  */
 public class PartitionMover {
-    /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMover.class);
 
     private static final long MOVE_RESCHEDULE_DELAY_MILLIS = 100;
 
-    private final IgniteSpinBusyLock busyLock;
+    private final IgniteBusyLock busyLock;
 
     private final ScheduledExecutorService rebalanceScheduler;
 
     private final Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier;
 
     /**
-     * Constructor.
+     * Creates a new instance of PartitionMover.
+     *
+     * @param busyLock The busy lock.
+     * @param rebalanceScheduler The scheduler for rebalance tasks.
+     * @param raftGroupServiceSupplier The supplier of raft group service.
      */
     public PartitionMover(
-            IgniteSpinBusyLock busyLock,
+            IgniteBusyLock busyLock,
             ScheduledExecutorService rebalanceScheduler,
             Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier
     ) {
@@ -70,7 +75,10 @@ public class PartitionMover {
      *
      * @return Function which performs {@link RaftGroupService#changePeersAndLearnersAsync}.
      */
-    public CompletableFuture<Void> movePartition(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
+    public CompletableFuture<Void> execute(
+            PeersAndLearners peersAndLearners,
+            long sequenceToken,
+            Function<RaftGroupService, CompletableFuture<@Nullable RaftWithTerm>> termFilter) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -78,8 +86,15 @@ public class PartitionMover {
         try {
             return raftGroupServiceSupplier
                     .get()
-                    .thenCompose(raftGroupService ->
-                            raftGroupService.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken))
+                    .thenCompose(termFilter)
+                    .thenCompose(raftWithTerm -> {
+                        if (raftWithTerm == null) {
+                            return nullCompletedFuture();
+                        }
+
+                        return raftWithTerm.raftClient()
+                                .changePeersAndLearnersAsync(peersAndLearners, raftWithTerm.term(), sequenceToken);
+                    })
                     .handle((resp, err) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -92,8 +107,12 @@ public class PartitionMover {
                                 } else {
                                     // TODO: IGNITE-19087 Ideally, rebalance, which has initiated this invocation should be canceled,
                                     // TODO: Also it might be reasonable to delegate such exceptional case to a general failure handler.
-                                    // TODO: At the moment, we repeat such intents as well.
-                                    LOG.debug("Unrecoverable error received during changePeersAndLearnersAsync invocation, retrying", err);
+                                    // TODO: At the moment, there is only one type of unrecoverable error - stale configuration update.
+                                    LOG.debug(
+                                            "Unrecoverable error received during changePeersAndLearnersAsync invocation. Stop retrying",
+                                            err
+                                    );
+                                    return CompletableFuture.<Void>failedFuture(err);
                                 }
 
                                 CompletableFuture<Void> future = new CompletableFuture<>();
@@ -101,7 +120,7 @@ public class PartitionMover {
                                 // We don't bother with ScheduledFuture as the delay is very short, so it will not delay the scheduler
                                 // stop for long.
                                 rebalanceScheduler.schedule(() -> {
-                                    movePartition(peersAndLearners, term, sequenceToken).whenComplete(copyStateTo(future));
+                                    execute(peersAndLearners, sequenceToken, termFilter).whenComplete(copyStateTo(future));
                                 }, MOVE_RESCHEDULE_DELAY_MILLIS, MILLISECONDS);
 
                                 return future;

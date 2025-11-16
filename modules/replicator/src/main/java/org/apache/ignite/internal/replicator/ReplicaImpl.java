@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -43,8 +45,11 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.util.IgniteBusyLock;
 
 /**
  * Replica server.
@@ -58,6 +63,10 @@ public class ReplicaImpl implements Replica {
 
     /** Replica listener. */
     private final ReplicaListener listener;
+
+    private final IgniteBusyLock busyLock;
+
+    private final ScheduledExecutorService rebalanceScheduler;
 
     /** Topology aware Raft client. */
     private final TopologyAwareRaftGroupService raftClient;
@@ -79,6 +88,8 @@ public class ReplicaImpl implements Replica {
 
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpired = this::unregisterFailoverCallback;
 
+    private final PartitionMover partitionMover;
+
     /**
      * The constructor of a replica server.
      *
@@ -97,16 +108,25 @@ public class ReplicaImpl implements Replica {
             PlacementDriver placementDriver,
             Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             FailureProcessor failureProcessor,
-            PlacementDriverMessageProcessor placementDriverMessageProcessor
+            PlacementDriverMessageProcessor placementDriverMessageProcessor,
+            IgniteBusyLock busyLock,
+            ScheduledExecutorService rebalanceScheduler
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
+        this.busyLock = busyLock;
+        this.rebalanceScheduler = rebalanceScheduler;
         this.raftClient = raftClient();
         this.localNode = localNode;
         this.placementDriver = placementDriver;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
         this.failureProcessor = failureProcessor;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
+        this.partitionMover = new PartitionMover(
+                this.busyLock,
+                this.rebalanceScheduler,
+                () -> completedFuture(raftClient)
+        );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpired);
@@ -220,8 +240,11 @@ public class ReplicaImpl implements Replica {
                     newConfiguration.learners()
             );
 
-            // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
-            return raftClient.changePeersAndLearnersAsync(newConfiguration, term, versionedAssignments.revision());
+            return partitionMover.execute(
+                    newConfiguration,
+                    versionedAssignments.revision(),
+                    raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
+            );
         }).exceptionally(e -> {
             LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicaGrpId, term);
 

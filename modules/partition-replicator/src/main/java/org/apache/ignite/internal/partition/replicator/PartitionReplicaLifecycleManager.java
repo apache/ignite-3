@@ -96,7 +96,6 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -143,8 +142,11 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.rebalance.PartitionMover;
+import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
@@ -796,14 +798,20 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
-            CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
-            if (replicaFut == null) {
-                return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                        + " in zone " + replicaGrpId.zoneId()));
-            }
-            return replicaFut.thenApply(Replica::raftClient);
-        });
+        return new PartitionMover(
+                busyLock,
+                rebalanceScheduler,
+                () -> partitionRaftClient(replicaGrpId)
+        );
+    }
+
+    private CompletableFuture<RaftGroupService> partitionRaftClient(ZonePartitionId replicaGrpId) {
+        CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
+        if (replicaFut == null) {
+            return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                    + " in zone " + replicaGrpId.zoneId()));
+        }
+        return replicaFut.thenApply(Replica::raftClient);
     }
 
     private RaftGroupEventsListener createRaftGroupEventsListener(ZonePartitionId zonePartitionId) {
@@ -1301,7 +1309,6 @@ public class PartitionReplicaLifecycleManager extends
                 }
 
                 changePeersOnRebalance(
-                        replicaMgr,
                         zonePartitionId,
                         pendingAssignments.nodes(),
                         revision);
@@ -1458,59 +1465,58 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private void changePeersOnRebalance(
-            ReplicaManager replicaMgr,
             ZonePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
             long revision
     ) {
         // According to the rebalance logic, it's safe to react to pending assignments change in async manner.
-        replicaMgr.replica(replicaGrpId)
-                .thenApply(Replica::raftClient)
-                .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
-                        .exceptionally(throwable -> {
-                            if (hasCause(throwable, TimeoutException.class)) {
-                                LOG.info(
-                                        "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
-                                        replicaGrpId
-                                );
-                            } else if (hasCause(throwable, ComponentStoppingException.class)) {
-                                LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
-                            } else {
-                                LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
-                            }
+        PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                            return LeaderWithTerm.NO_LEADER;
-                        })
-                        .thenCompose(leaderWithTerm -> {
-                            if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
-                                return nullCompletedFuture();
-                            }
+        PartitionMover mover = createPartitionMover(replicaGrpId);
 
-                            // run update of raft configuration if this node is a leader
-                            LOG.info("Current node={} is the leader of partition raft group={}. "
-                                            + "Initiate rebalance process for partition={}, zoneId={}",
-                                    leaderWithTerm.leader(), replicaGrpId, replicaGrpId.partitionId(), replicaGrpId.zoneId());
-
-                            return metaStorageMgr.get(pendingPartAssignmentsQueueKey(replicaGrpId))
-                                    .thenCompose(latestPendingAssignmentsEntry -> {
-                                        // Do not change peers of the raft group if this is a stale event.
-                                        // Note that we start raft node before for the sake of the consistency in a
-                                        // starting and stopping raft nodes.
-                                        if (revision < latestPendingAssignmentsEntry.revision()) {
-                                            return nullCompletedFuture();
-                                        }
-
-                                        PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
-
-                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term(), revision)
-                                                .exceptionally(e -> null);
-                                    });
-                        }))
+        mover.execute(
+                        newConfiguration,
+                        revision,
+                        raftClient -> ensureLeader(replicaGrpId, raftClient)
+                                .whenComplete((raftWithTerm, ex) -> {
+                                    if (raftWithTerm != null) {
+                                        LOG.info("Current node={} is the leader of partition raft group={}. "
+                                                        + "Initiate rebalance process for partition={}, zoneId={}",
+                                                localNode().name(), replicaGrpId, replicaGrpId.partitionId(), replicaGrpId.zoneId());
+                                    }
+                                })
+                )
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class)) {
                         LOG.warn("Failed to change peers [grp={}].", ex, replicaGrpId);
                     }
+                });
+    }
+
+    private CompletableFuture<@Nullable RaftWithTerm> ensureLeader(
+            ZonePartitionId replicaGrpId,
+            RaftGroupService raftClient
+    ) {
+        return raftClient.refreshAndGetLeaderWithTerm()
+                .exceptionally(throwable -> {
+                    if (hasCause(throwable, TimeoutException.class)) {
+                        LOG.info(
+                                "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
+                                replicaGrpId
+                        );
+                    } else if (hasCause(throwable, ComponentStoppingException.class)) {
+                        LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
+                    } else {
+                        LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
+                    }
+
+                    return LeaderWithTerm.NO_LEADER;
+                }).thenApply(leaderWithTerm -> {
+                    if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
+                        return null;
+                    }
+
+                    return new RaftWithTerm(raftClient, leaderWithTerm.term());
                 });
     }
 

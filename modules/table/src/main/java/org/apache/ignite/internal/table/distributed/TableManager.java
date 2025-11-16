@@ -123,7 +123,6 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.event.EventListener;
@@ -183,6 +182,7 @@ import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlace
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.rebalance.PartitionMover;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -1508,25 +1508,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
-            CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
-            if (replicaFut == null) {
-                return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                        + " in table " + replicaGrpId.tableId()));
-            }
-            return replicaFut.thenApply(Replica::raftClient);
-        });
+        return new PartitionMover(
+                busyLock,
+                rebalanceScheduler,
+                () -> partitionRaftClient(replicaGrpId)
+        );
+    }
+
+    private CompletableFuture<RaftGroupService> partitionRaftClient(TablePartitionId replicaGrpId) {
+        CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
+        if (replicaFut == null) {
+            return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                    + " in zone " + replicaGrpId.tableId()));
+        }
+        return replicaFut.thenApply(Replica::raftClient);
     }
 
     private RaftGroupEventsListener createRaftGroupEventsListener(TablePartitionId replicaGrpId) {
-        PartitionMover partitionMover = createPartitionMover(replicaGrpId);
-
         return new RebalanceRaftGroupEventsListener(
                 metaStorageMgr,
                 failureProcessor,
                 replicaGrpId,
                 busyLock,
-                partitionMover,
+                createPartitionMover(replicaGrpId),
                 this::calculateAssignments,
                 rebalanceScheduler,
                 rebalanceRetryDelayConfiguration

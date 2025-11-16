@@ -652,7 +652,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 placementDriver,
                                 getPendingAssignmentsSupplier,
                                 failureProcessor,
-                                placementDriverMessageProcessor
+                                placementDriverMessageProcessor,
+                                busyLock,
+                                replicaLifecycleExecutor
                         );
                     }
             );
