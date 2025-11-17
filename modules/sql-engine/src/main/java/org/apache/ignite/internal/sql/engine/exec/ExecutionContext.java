@@ -361,6 +361,7 @@ public class ExecutionContext<RowT> implements DataContext {
         }
     }
 
+    /** Returns the topology version the query was mapped on. */
     public @Nullable Long topologyVersion() {
         return topologyVersion;
     }

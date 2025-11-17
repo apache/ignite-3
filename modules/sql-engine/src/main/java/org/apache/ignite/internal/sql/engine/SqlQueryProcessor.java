@@ -396,7 +396,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
         queriesViewProvider.init(queryExecutor, prepareSvc);
 
-        clusterSrvc.topologyService().addEventHandler(executionSrvc);
+        logicalTopologyService.addEventListener(executionSrvc);
 
         registerService(sqlStatisticManager);
 

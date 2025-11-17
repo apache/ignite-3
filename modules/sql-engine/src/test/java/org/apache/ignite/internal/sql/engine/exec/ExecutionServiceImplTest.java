@@ -570,7 +570,18 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         // start response trigger
         CountDownLatch startResponse = new CountDownLatch(1);
 
+        AtomicLong currentTopologyVersion = new AtomicLong();
+
         nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNode, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                QueryStartRequest startRequest = (QueryStartRequest) msg;
+                Long topologyVersion = startRequest.topologyVersion();
+                if (topologyVersion == null) {
+                    throw new IllegalStateException("Topology version is missing");
+                }
+                currentTopologyVersion.set(topologyVersion);
+            }
+
             if (node.node.name().equals(nodeNames.get(0))) {
                 // On node_1, hang until an exception from another node fails the query to make sure that the root fragment does not execute
                 // before other fragments.
@@ -603,7 +614,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         CompletableFuture<BatchedResult<InternalSqlRow>> resFut = cursor.requestNextAsync(9);
 
         startResponse.await();
-        execService.onDisappeared(firstNode);
+        execService.onNodeLeft(
+                new LogicalNode(firstNode, Map.of()), 
+                new LogicalTopologySnapshot(currentTopologyVersion.get(), List.of(), randomUUID())
+        );
 
         nodeFailedLatch.countDown();
 
@@ -1037,7 +1051,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 if (topologyVersion == null) {
                     throw new IllegalStateException("Topology version is missing");
                 }
-                
+
                 InternalClusterNode node = clusterNode(nodeNames.get(2));
                 // This emulates situation, when request prepared on newer topology outruns event processing from previous topology change.
                 testCluster.node(nodeNames.get(2)).notifyNodeLeft(node, topologyVersion - 1);
@@ -1071,7 +1085,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 if (msg instanceof QueryStartRequest
                         // Fragment without target is a root.
                         && ((QueryStartRequest) msg).fragmentDescription().target() == null) {
-                    
+
                     QueryStartRequest queryStartRequest = (QueryStartRequest) msg;
                     Long topologyVersion = queryStartRequest.topologyVersion();
                     if (topologyVersion == null) {
@@ -1100,7 +1114,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 }
             });
         }
-        
+
         SqlOperationContext ctx = createContext();
 
         CompletableFuture<AsyncDataCursor<InternalSqlRow>> cursorFuture = executionServices.get(0).executePlan(plan, ctx);

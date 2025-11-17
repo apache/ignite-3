@@ -73,7 +73,6 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -144,7 +143,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Provide ability to execute SQL query plan and retrieve results of the execution.
  */
-public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler, Debuggable {
+public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopologyEventListener, Debuggable {
     private static final int CACHE_SIZE = 1024;
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
@@ -389,7 +388,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static SqlOperationContext createOperationContext(
-            UUID queryId, ZoneId timeZoneId, Object[] params, HybridTimestamp operationTime, @Nullable String username
+            UUID queryId, 
+            ZoneId timeZoneId, 
+            Object[] params, 
+            HybridTimestamp operationTime, 
+            @Nullable String username,
+            @Nullable Long topologyVersion
     ) {
         return SqlOperationContext.builder()
                 .queryId(queryId)
@@ -397,6 +401,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .timeZoneId(timeZoneId)
                 .operationTime(operationTime)
                 .userName(username)
+                .topologyVersion(topologyVersion)
                 .build();
     }
 
@@ -689,8 +694,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     /** {@inheritDoc} */
     @Override
-    public void onDisappeared(InternalClusterNode member) {
-        queryManagerMap.values().forEach(qm -> qm.onNodeLeft(member.name()));
+    public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+        queryManagerMap.values().forEach(qm -> qm.onNodeLeft(leftNode.name(), newTopology.version()));
     }
 
     /** Returns local fragments for the query with given id. */
@@ -724,7 +729,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(new ExecutionId(msg.queryId(), msg.executionToken()), key -> {
             SqlOperationContext operationContext = createOperationContext(
-                    key.queryId(), ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime(), msg.username()
+                    key.queryId(), 
+                    ZoneId.of(msg.timeZoneId()), 
+                    msg.parameters(), 
+                    msg.operationTime(), 
+                    msg.username(),
+                    msg.topologyVersion()
             );
 
             return new DistributedQueryManager(key, coordinatorNodeName, operationContext);
@@ -897,6 +907,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
+        /** On the initiator this field is assigned when mapping completes. */
+        private volatile @Nullable Long topologyVersion;
+
         private DistributedQueryManager(
                 ExecutionId executionId,
                 String coordinatorNodeName,
@@ -921,9 +934,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             } else {
                 this.root = null;
             }
+
+            this.topologyVersion = ctx.topologyVersion();
         }
 
-        private DistributedQueryManager(ExecutionId executionId, String coordinatorNodeName, SqlOperationContext ctx) {
+        private DistributedQueryManager(
+                ExecutionId executionId,
+                String coordinatorNodeName, 
+                SqlOperationContext ctx
+        ) {
             this(executionId, coordinatorNodeName, false, ctx);
         }
 
@@ -984,7 +1003,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             });
         }
 
-        private void onNodeLeft(String nodeName) {
+        private void onNodeLeft(String nodeName, long topologyVersion) {
+            Long mappingTopologyVersion = this.topologyVersion;
+            if (mappingTopologyVersion != null && mappingTopologyVersion > topologyVersion) {
+                return;
+            }
             remoteFragmentInitCompletion.entrySet().stream()
                     .filter(e -> nodeName.equals(e.getKey().nodeName()))
                     .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException(nodeName)));
@@ -1121,6 +1144,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 MappedFragments mappedFragmentList
         ) {
             long topologyVersion = mappedFragmentList.topologyVersion();
+            this.topologyVersion = topologyVersion;
+
             List<MappedFragment> mappedFragments = mappedFragmentList.fragments();
 
             // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
