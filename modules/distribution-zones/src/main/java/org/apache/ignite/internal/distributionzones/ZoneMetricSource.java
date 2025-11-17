@@ -20,6 +20,8 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -31,7 +33,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Distribution metric source for a specific zone.
@@ -59,6 +60,8 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
     /** Zone name. */
     private final String zoneName;
 
+    private final List<Metric> borrowedMetrics;
+
     /**
      * Creates a new zone metric source for a specific zone.
      *
@@ -74,6 +77,7 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
         this.zoneId = zoneDescriptor.id();
         this.partitions = zoneDescriptor.partitions();
         this.zoneName = zoneDescriptor.name();
+        this.borrowedMetrics = Collections.emptyList();
     }
 
     /**
@@ -90,7 +94,7 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
             CatalogZoneDescriptor zoneDescriptor,
             ZoneMetricSource source
     ) {
-        super(sourceName(zoneDescriptor.name()), "Distribution zone metrics.", "zones", Holder.copyFrom(source));
+        super(sourceName(zoneDescriptor.name()), "Distribution zone metrics.", "zones");
 
         assert zoneDescriptor.id() == source.zoneId :
                 "Zone ID mismatch [expected=" + zoneDescriptor.id() + ", actual=" + source.zoneId + ']';
@@ -102,6 +106,13 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
         this.zoneId = zoneDescriptor.id();
         this.partitions = zoneDescriptor.partitions();
         this.zoneName = zoneDescriptor.name();
+
+        Holder h = source.holder();
+        if (h == null) {
+            this.borrowedMetrics = Collections.emptyList();
+        } else {
+            this.borrowedMetrics = new ArrayList<>(h.metrics);
+        }
     }
 
     /**
@@ -116,7 +127,13 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
 
     @Override
     protected Holder createHolder() {
-        return new Holder(zoneId, partitions, metaStorageManager, nodeName);
+        if (borrowedMetrics.isEmpty()) {
+            return new Holder(zoneId, partitions, metaStorageManager, nodeName);
+        }
+
+        Holder h = new Holder(borrowedMetrics);
+        borrowedMetrics.clear();
+        return h;
     }
 
     /**
@@ -133,10 +150,8 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
         /** List of actual metrics. */
         private final List<Metric> metrics;
 
-        static @Nullable Holder copyFrom(ZoneMetricSource source) {
-            // All metrics are gauge and must relate to the same zone.
-            // So, we can safely reuse the existing holder.
-            return source.holder();
+        Holder(List<Metric> borrowedMetrics) {
+            this.metrics = new ArrayList<>(borrowedMetrics);
         }
 
         Holder(int zoneId, int partitions, MetaStorageManager metaStorageManager, String nodeName) {

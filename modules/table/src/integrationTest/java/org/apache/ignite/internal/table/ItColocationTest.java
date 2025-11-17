@@ -106,6 +106,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -373,7 +374,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 () -> 10_000L,
                 () -> 10_000L,
                 colocationEnabled(),
-                new TableMetricSource(QualifiedName.fromSimple("TEST"))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("TEST")))
         );
     }
 

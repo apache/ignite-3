@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.metrics;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
@@ -118,6 +120,8 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
 
     private final QualifiedName tableName;
 
+    private final List<Metric> borrowedMetrics;
+
     /**
      * Creates a new instance of {@link TableMetricSource}.
      *
@@ -126,6 +130,25 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
     public TableMetricSource(QualifiedName tableName) {
         super(sourceName(tableName), "Table metrics.", "tables");
         this.tableName = tableName;
+        this.borrowedMetrics = Collections.emptyList();
+    }
+
+    /**
+     * Creates a new instance of {@link TableMetricSource}.
+     *
+     * @param tableName Qualified table name.
+     * @param source Source to copy metrics from.
+     */
+    public TableMetricSource(QualifiedName tableName, TableMetricSource source) {
+        super(sourceName(tableName), "Table metrics.", "tables");
+        this.tableName = tableName;
+
+        Holder h = source.holder();
+        if (h != null) {
+            this.borrowedMetrics = new ArrayList<>(h.metrics);
+        } else {
+            this.borrowedMetrics = Collections.emptyList();
+        }
     }
 
     /**
@@ -167,6 +190,7 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
     /**
      * Adds the given {@code x} to a counter of reads.
      *
+     * @param x Value to add.
      * @param readOnly {@code true} if read operation is executed within read-only transaction, and {@code false} otherwise.
      */
     public void onRead(int x, boolean readOnly) {
@@ -194,6 +218,8 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
 
     /**
      * Adds the given {@code x} to a counter of writes.
+     *
+     * @param x Value to add.
      */
     public void onWrite(int x) {
         Holder holder = holder();
@@ -205,24 +231,64 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
 
     @Override
     protected Holder createHolder() {
-        return new Holder();
+        if (borrowedMetrics.isEmpty()) {
+            return new Holder();
+        }
+
+        Holder h = new Holder(borrowedMetrics);
+        borrowedMetrics.clear();
+        return h;
     }
 
     /** Actual metrics holder. */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final LongAdderMetric roReads = new LongAdderMetric(
-                RO_READS,
-                "The total number of reads executed within read-write transactions.");
+        private final LongAdderMetric roReads;
+        private final LongAdderMetric rwReads;
+        private final LongAdderMetric writes;
 
-        private final LongAdderMetric rwReads = new LongAdderMetric(
-                RW_READS,
-                "The total number of reads executed within read-only transactions.");
+        private final List<Metric> metrics;
 
-        private final LongAdderMetric writes = new LongAdderMetric(
-                WRITES,
-                "The total number of writes executed within read-write transactions.");
+        Holder() {
+            roReads = new LongAdderMetric(
+                    RO_READS,
+                    "The total number of reads executed within read-write transactions.");
 
-        private final List<Metric> metrics = List.of(roReads, rwReads, writes);
+            rwReads = new LongAdderMetric(
+                    RW_READS,
+                    "The total number of reads executed within read-only transactions.");
+
+            writes = new LongAdderMetric(
+                    WRITES,
+                    "The total number of writes executed within read-write transactions.");
+
+            metrics = List.of(roReads, rwReads, writes);
+        }
+
+        Holder(List<Metric> borrowedMetrics) {
+            LongAdderMetric roReads = null;
+            LongAdderMetric rwReads = null;
+            LongAdderMetric writes = null;
+
+            for (Metric m : borrowedMetrics) {
+                if (m.name().equals(RO_READS) && m instanceof LongAdderMetric) {
+                    roReads = (LongAdderMetric) m;
+                } else if (m.name().equals(RW_READS) && m instanceof LongAdderMetric) {
+                    rwReads = (LongAdderMetric) m;
+                } else if (m.name().equals(WRITES) && m instanceof LongAdderMetric) {
+                    writes = (LongAdderMetric) m;
+                }
+            }
+
+            assert roReads != null : "Missing borrowed metric: " + RO_READS;
+            assert rwReads != null : "Missing borrowed metric: " + RW_READS;
+            assert writes != null : "Missing borrowed metric: " + WRITES;
+
+            this.roReads = roReads;
+            this.rwReads = rwReads;
+            this.writes = writes;
+
+            metrics = List.of(roReads, rwReads, writes);
+        }
 
         @Override
         public Iterable<Metric> metrics() {

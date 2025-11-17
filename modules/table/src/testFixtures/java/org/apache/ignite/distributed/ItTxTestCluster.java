@@ -170,6 +170,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -688,7 +689,7 @@ public class ItTxTestCluster {
                 () -> 10_000L,
                 () -> 10_000L,
                 colocationEnabled(),
-                new TableMetricSource(QualifiedName.fromSimple(tableName))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple(tableName)))
         );
 
         TableImpl table = new TableImpl(
@@ -1127,7 +1128,7 @@ public class ItTxTestCluster {
                 lowWatermark,
                 new NoOpFailureManager(),
                 new SystemPropertiesNodeProperties(),
-                new TableMetricSource(QualifiedName.fromSimple("test_table"))
+                new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("test_table")))
         );
     }
 

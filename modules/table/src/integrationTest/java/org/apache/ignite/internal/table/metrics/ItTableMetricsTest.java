@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.table.metrics.TableMetricSource.RO_READ
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RW_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.WRITES;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -42,6 +43,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -52,9 +54,6 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
     private static final String SORTED_IDX = "SORTED_IDX";
     private static final String HASH_IDX = "HASH_IDX";
-
-    private static final String METRIC_SOURCE_NAME = TableMetricSource.SOURCE_NAME + '.'
-            + QualifiedName.fromSimple(TABLE_NAME).toCanonicalForm();
 
     @Override
     protected int initialNodes() {
@@ -70,32 +69,34 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * Returns a key value view for the table {@link #TABLE_NAME}.
+     * Returns a key value view for the given table.
      *
+     * @param tableName Table name.
      * @param nodeIndex Node index to create a key value view.
      * @return Key value view.
      */
-    private static KeyValueView<Integer, String> keyValueView(int nodeIndex) {
-        return CLUSTER.node(nodeIndex).tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
+    private static KeyValueView<Integer, String> keyValueView(String tableName, int nodeIndex) {
+        return CLUSTER.node(nodeIndex).tables().table(tableName).keyValueView(Integer.class, String.class);
     }
 
     /**
-     * Returns a record view for the table {@link #TABLE_NAME}.
+     * Returns a record view for the given table.
      *
+     * @param tableName Table name.
      * @param nodeIndex Node index to create a key value view.
      * @return Record view.
      */
-    private static RecordView<Tuple> recordView(int nodeIndex) {
-        return CLUSTER.node(nodeIndex).tables().table(TABLE_NAME).recordView();
+    private static RecordView<Tuple> recordView(String tableName, int nodeIndex) {
+        return CLUSTER.node(nodeIndex).tables().table(tableName).recordView();
     }
 
     @Test
     void get() {
         // Implicit read-only transaction.
-        testKeyValueViewOperation(RO_READS, 1, view -> view.get(null, 12));
+        testKeyValueViewOperation(TABLE_NAME, RO_READS, 1, view -> view.get(null, 12));
 
         // Explicit read-write transaction.
-        testKeyValueViewOperation(RW_READS, 1, view -> {
+        testKeyValueViewOperation(TABLE_NAME, RW_READS, 1, view -> {
             Transaction tx = node(0).transactions().begin();
 
             view.get(tx, 12);
@@ -109,19 +110,19 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         List<Integer> keys = of(12, 15, 17, 19, 23);
 
         // Implicit getAll operation starts a read-write transaction when all keys are not mapped to the same partition.
-        testKeyValueViewOperation(RW_READS, keys.size(), view -> view.getAll(null, keys));
+        testKeyValueViewOperation(TABLE_NAME, RW_READS, keys.size(), view -> view.getAll(null, keys));
 
         // Single key getAll operation starts a read-only transaction.
         List<Integer> roKeys = of(12);
-        testKeyValueViewOperation(RO_READS, 1, view -> view.getAll(null, roKeys));
+        testKeyValueViewOperation(TABLE_NAME, RO_READS, 1, view -> view.getAll(null, roKeys));
 
         List<Integer> nonUniqueKeys = of(12, 15, 12);
-        testKeyValueViewOperation(RW_READS, nonUniqueKeys.size(), view -> view.getAll(null, nonUniqueKeys));
+        testKeyValueViewOperation(TABLE_NAME, RW_READS, nonUniqueKeys.size(), view -> view.getAll(null, nonUniqueKeys));
     }
 
     @Test
     void getOrDefault() {
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
 
         Integer existingKey = 12;
         Integer nonExistingKey = -1;
@@ -129,12 +130,12 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.put(null, existingKey, "value_12");
         kvView.remove(null, nonExistingKey);
 
-        testKeyValueViewOperation(RO_READS, 2, view -> {
+        testKeyValueViewOperation(TABLE_NAME, RO_READS, 2, view -> {
             view.getOrDefault(null, existingKey, "default");
             view.getOrDefault(null, nonExistingKey, "default");
         });
 
-        testKeyValueViewOperation(RW_READS, 2, view -> {
+        testKeyValueViewOperation(TABLE_NAME, RW_READS, 2, view -> {
             Transaction tx = node(0).transactions().begin();
 
             view.getOrDefault(tx, existingKey, "default");
@@ -146,9 +147,9 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void contains() {
-        testKeyValueViewOperation(RO_READS, 1, view -> view.contains(null, 12));
+        testKeyValueViewOperation(TABLE_NAME, RO_READS, 1, view -> view.contains(null, 12));
 
-        testKeyValueViewOperation(RW_READS, 1, view -> {
+        testKeyValueViewOperation(TABLE_NAME, RW_READS, 1, view -> {
             Transaction tx = node(0).transactions().begin();
 
             view.contains(tx, 12);
@@ -162,165 +163,165 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         List<Integer> keys = of(12, 15, 17, 19, 23);
 
         // Implicit containsAll operation starts a read-write transaction when all keys are not mapped to the same partition.
-        testKeyValueViewOperation(RW_READS, keys.size(), view -> view.containsAll(null, keys));
+        testKeyValueViewOperation(TABLE_NAME, RW_READS, keys.size(), view -> view.containsAll(null, keys));
 
         // Single key.
         List<Integer> roKeys = of(12);
-        testKeyValueViewOperation(RO_READS, 1, view -> view.containsAll(null, roKeys));
+        testKeyValueViewOperation(TABLE_NAME, RO_READS, 1, view -> view.containsAll(null, roKeys));
     }
 
     @Test
     void put() {
-        testKeyValueViewOperation(WRITES, 1, view -> view.put(null, 42, "value_42"));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, 1, view -> view.put(null, 42, "value_42"));
     }
 
     @Test
     void putAll() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.putAll(null, values));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, values.size(), view -> view.putAll(null, values));
     }
 
     @Test
     void getAndPut() {
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.getAndPut(null, 12, "value"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 1L), view -> view.getAndPut(null, 12, "value"));
     }
 
     @Test
     void remove() {
         Integer key = 12;
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.put(null, key, "value_42");
 
         // Remove existing key.
-        testKeyValueViewOperation(WRITES, 1, view -> view.remove(null, key));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, 1, view -> view.remove(null, key));
 
         // Remove non existing key.
-        testKeyValueViewOperation(WRITES, 0, view -> view.remove(null, key));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, 0, view -> view.remove(null, key));
     }
 
     @Test
     void exactRemove() {
         Integer key = 12;
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.put(null, key, "value_42");
 
         // Remove existing key and non-matching value.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.remove(null, key, "wrong-value"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.remove(null, key, "wrong-value"));
 
         // Remove existing key and matching value.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.remove(null, key, "value_42"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 1L), view -> view.remove(null, key, "value_42"));
 
         // Remove non existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.remove(null, key, "value_42"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.remove(null, key, "value_42"));
     }
 
     @Test
     void removeAll() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.removeAll(null);
         kvView.putAll(null, values);
 
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.removeAll(null));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, values.size(), view -> view.removeAll(null));
     }
 
     @Test
     void removeCollectionKeys() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.putAll(null, values);
 
         // Remove existing keys.
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.removeAll(null, values.keySet()));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, values.size(), view -> view.removeAll(null, values.keySet()));
 
         // Remove non-existing keys.
-        testKeyValueViewOperation(WRITES, 0, view -> view.removeAll(null, values.keySet()));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, 0, view -> view.removeAll(null, values.keySet()));
 
         kvView.putAll(null, values);
 
         // Remove non-unique keys.
         List<Integer> nonUniqueKeys = of(12, 15, 12, 17, 19, 23);
-        testKeyValueViewOperation(WRITES, nonUniqueKeys.size() - 1, view -> view.removeAll(null, nonUniqueKeys));
+        testKeyValueViewOperation(TABLE_NAME, WRITES, nonUniqueKeys.size() - 1, view -> view.removeAll(null, nonUniqueKeys));
     }
 
     @Test
     void putIfAbsent() {
         Integer key = 12;
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.remove(null, key);
 
         // Insert absent key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.putIfAbsent(null, key, "value"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 1L), view -> view.putIfAbsent(null, key, "value"));
 
         // Insert existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.putIfAbsent(null, key, "value-42"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.putIfAbsent(null, key, "value-42"));
     }
 
     @Test
     void getAndRemove() {
         Integer key = 12;
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.put(null, key, "value_42");
 
         // Remove existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.getAndRemove(null, key));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 1L), view -> view.getAndRemove(null, key));
 
         // Remove non-existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.getAndRemove(null, key));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.getAndRemove(null, key));
     }
 
     @Test
     void replace() {
         Integer key = 12;
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.put(null, key, "value");
 
         // Replace existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.replace(null, key, "replaced"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 1L), view -> view.replace(null, key, "replaced"));
 
         kvView.remove(null, key);
 
         // Replace non-existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "value"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "value"));
     }
 
     @Test
     void conditionalReplace() {
         Integer key = 12;
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.put(null, key, "value");
 
         // Replace existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "wrong", "replaced"));
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.replace(null, key, "value", "replaced"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "wrong", "replaced"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 1L), view -> view.replace(null, key, "value", "replaced"));
 
         kvView.remove(null, key);
 
         // Replace non-existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "replaced", "value"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "replaced", "value"));
     }
 
     @Test
     void getAndReplace() {
         Integer key = 12;
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.put(null, key, "value");
 
         // Replace existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.getAndReplace(null, key, "replaced"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 1L), view -> view.getAndReplace(null, key, "replaced"));
 
         kvView.remove(null, key);
 
         // Replace non-existing key.
-        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "replaced"));
+        testKeyValueViewOperation(TABLE_NAME, of(RW_READS, WRITES), of(1L, 0L), view -> view.replace(null, key, "replaced"));
     }
 
     @Test
@@ -328,18 +329,22 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         List<Tuple> keys = of(Tuple.create().set("id", 12), Tuple.create().set("id", 42));
         List<Tuple> recs = keys.stream().map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id"))).collect(toList());
 
-        recordView(0).deleteAll(null, keys);
+        recordView(TABLE_NAME, 0).deleteAll(null, keys);
 
         // Insert non-existing keys.
-        testRecordViewOperation(of(WRITES, RW_READS), of((long) recs.size(), (long) recs.size()), view -> view.insertAll(null, recs));
+        testRecordViewOperation(
+                TABLE_NAME,
+                of(WRITES, RW_READS),
+                of((long) recs.size(), (long) recs.size()),
+                view -> view.insertAll(null, recs));
 
         // Insert existing keys.
-        testRecordViewOperation(of(WRITES, RW_READS), of(0L, (long) recs.size()), view -> view.insertAll(null, recs));
+        testRecordViewOperation(TABLE_NAME, of(WRITES, RW_READS), of(0L, (long) recs.size()), view -> view.insertAll(null, recs));
 
-        recordView(0).delete(null, keys.get(0));
+        recordView(TABLE_NAME, 0).delete(null, keys.get(0));
 
         // Insert one non-existing key.
-        testRecordViewOperation(of(WRITES, RW_READS), of(1L, (long) recs.size()), view -> view.insertAll(null, recs));
+        testRecordViewOperation(TABLE_NAME, of(WRITES, RW_READS), of(1L, (long) recs.size()), view -> view.insertAll(null, recs));
 
         // Insert non-unique keys.
         List<Tuple> nonUniqueKeys = of(
@@ -351,9 +356,10 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
                 .map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id")))
                 .collect(toList());
 
-        recordView(0).deleteAll(null, keys);
+        recordView(TABLE_NAME, 0).deleteAll(null, keys);
 
         testRecordViewOperation(
+                TABLE_NAME,
                 of(WRITES, RW_READS),
                 of((long) nonUniqueKeys.size() - 1, (long) nonUniqueKeys.size()),
                 view -> view.insertAll(null, nonUniqueValues));
@@ -364,18 +370,18 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         List<Tuple> keys = of(Tuple.create().set("id", 12), Tuple.create().set("id", 42));
         List<Tuple> recs = keys.stream().map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id"))).collect(toList());
 
-        recordView(0).upsertAll(null, recs);
+        recordView(TABLE_NAME, 0).upsertAll(null, recs);
 
         // Delete existing keys.
-        testRecordViewOperation(WRITES, recs.size(), view -> view.deleteAll(null, keys));
+        testRecordViewOperation(TABLE_NAME, WRITES, recs.size(), view -> view.deleteAll(null, keys));
 
         // Delete non-existing keys.
-        testRecordViewOperation(WRITES, 0L, view -> view.deleteAll(null, keys));
+        testRecordViewOperation(TABLE_NAME, WRITES, 0L, view -> view.deleteAll(null, keys));
 
-        recordView(0).insert(null, recs.get(0));
+        recordView(TABLE_NAME, 0).insert(null, recs.get(0));
 
         // Delete one non-existing key.
-        testRecordViewOperation(WRITES, 1L, view -> view.deleteAll(null, keys));
+        testRecordViewOperation(TABLE_NAME, WRITES, 1L, view -> view.deleteAll(null, keys));
 
         // Non-unique keys.
         List<Tuple> nonUniqueKeys = of(
@@ -387,9 +393,9 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
                 .map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id")))
                 .collect(toList());
 
-        recordView(0).upsertAll(null, nonUniqueRecs);
+        recordView(TABLE_NAME, 0).upsertAll(null, nonUniqueRecs);
 
-        testRecordViewOperation(WRITES, 2L, view -> view.deleteAll(null, nonUniqueKeys));
+        testRecordViewOperation(TABLE_NAME, WRITES, 2L, view -> view.deleteAll(null, nonUniqueKeys));
     }
 
     @Test
@@ -397,23 +403,26 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         List<Tuple> keys = of(Tuple.create().set("id", 12), Tuple.create().set("id", 42));
         List<Tuple> recs = keys.stream().map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id"))).collect(toList());
 
-        recordView(0).upsertAll(null, recs);
+        recordView(TABLE_NAME, 0).upsertAll(null, recs);
 
         // Delete existing keys.
-        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), (long) recs.size()), view -> view.deleteAllExact(null, recs));
+        testRecordViewOperation(
+                TABLE_NAME,
+                of(RW_READS, WRITES), of((long) recs.size(), (long) recs.size()),
+                view -> view.deleteAllExact(null, recs));
 
         // Delete non-existing keys.
-        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), 0L), view -> view.deleteAllExact(null, recs));
+        testRecordViewOperation(TABLE_NAME, of(RW_READS, WRITES), of((long) recs.size(), 0L), view -> view.deleteAllExact(null, recs));
 
-        recordView(0).insert(null, recs.get(0));
+        recordView(TABLE_NAME, 0).insert(null, recs.get(0));
 
         // Delete one non-existing key.
-        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), 1L), view -> view.deleteAllExact(null, recs));
+        testRecordViewOperation(TABLE_NAME, of(RW_READS, WRITES), of((long) recs.size(), 1L), view -> view.deleteAllExact(null, recs));
 
-        recordView(0).upsertAll(null, recs);
+        recordView(TABLE_NAME, 0).upsertAll(null, recs);
         List<Tuple> nonExact = keys.stream().map(t -> Tuple.copy(t).set("val", "value_xyz_" + t.intValue("id"))).collect(toList());
 
-        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), 0L), view -> view.deleteAllExact(null, nonExact));
+        testRecordViewOperation(TABLE_NAME, of(RW_READS, WRITES), of((long) recs.size(), 0L), view -> view.deleteAllExact(null, nonExact));
 
         // Non-unique keys.
         List<Tuple> nonUniqueKeys = of(
@@ -425,9 +434,10 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
                 .map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id")))
                 .collect(toList());
 
-        recordView(0).upsertAll(null, nonUniqueRecs);
+        recordView(TABLE_NAME, 0).upsertAll(null, nonUniqueRecs);
 
         testRecordViewOperation(
+                TABLE_NAME,
                 of(RW_READS, WRITES),
                 of((long) nonUniqueRecs.size(), 2L),
                 view -> view.deleteAllExact(null, nonUniqueRecs));
@@ -437,11 +447,11 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     void scan() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.removeAll(null);
         kvView.putAll(null, values);
 
-        testKeyValueViewOperation(of(RO_READS, RW_READS), of(0L, (long) values.size()), view -> {
+        testKeyValueViewOperation(TABLE_NAME, of(RO_READS, RW_READS), of(0L, (long) values.size()), view -> {
             Transaction tx = node(0).transactions().begin();
 
             Object[] emptyArgs = new Object[0];
@@ -450,7 +460,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
             tx.commit();
         });
 
-        testKeyValueViewOperation(of(RO_READS, RW_READS), of((long) values.size(), 0L), view -> {
+        testKeyValueViewOperation(TABLE_NAME, of(RO_READS, RW_READS), of((long) values.size(), 0L), view -> {
             Object[] emptyArgs = new Object[0];
             sql(0, null, "select * from " + TABLE_NAME, emptyArgs);
         });
@@ -460,16 +470,16 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     void sortedIndexScan() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.removeAll(null);
         kvView.putAll(null, values);
 
-        testKeyValueViewOperation(of(RO_READS, RW_READS), of(2L, 0L), view -> {
+        testKeyValueViewOperation(TABLE_NAME, of(RO_READS, RW_READS), of(2L, 0L), view -> {
             Object[] emptyArgs = new Object[0];
             sql(0, null, "select /*+ force_index (" + SORTED_IDX + ") */ * from " + TABLE_NAME + " where id > 15 and id < 20", emptyArgs);
         });
 
-        testKeyValueViewOperation(of(RO_READS, RW_READS), of(0L, 2L), view -> {
+        testKeyValueViewOperation(TABLE_NAME, of(RO_READS, RW_READS), of(0L, 2L), view -> {
             Transaction tx = node(0).transactions().begin();
 
             Object[] emptyArgs = new Object[0];
@@ -483,16 +493,16 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     void hashIndexScan() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        KeyValueView<Integer, String> kvView = keyValueView(0);
+        KeyValueView<Integer, String> kvView = keyValueView(TABLE_NAME, 0);
         kvView.removeAll(null);
         kvView.putAll(null, values);
 
-        testKeyValueViewOperation(of(RO_READS, RW_READS), of(1L, 0L), view -> {
+        testKeyValueViewOperation(TABLE_NAME, of(RO_READS, RW_READS), of(1L, 0L), view -> {
             Object[] emptyArgs = new Object[0];
             sql(0, null, "select /*+ force_index (" + HASH_IDX + ") */ * from " + TABLE_NAME + " where val = '19'", emptyArgs);
         });
 
-        testKeyValueViewOperation(of(RO_READS, RW_READS), of(0L, 1L), view -> {
+        testKeyValueViewOperation(TABLE_NAME, of(RO_READS, RW_READS), of(0L, 1L), view -> {
             Transaction tx = node(0).transactions().begin();
 
             Object[] emptyArgs = new Object[0];
@@ -503,76 +513,111 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
+     * Tests that table metrics are not affected by table renaming.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19484")
+    void tableRename() {
+        String initialTableName = "TABLE_TO_RENAME";
+        String newTableName = initialTableName + "_RENAMED";
+
+        sql("CREATE TABLE " + initialTableName + " (id INT PRIMARY KEY, val VARCHAR)");
+
+        testKeyValueViewOperation(initialTableName, WRITES, 1L, view -> view.put(null, 42, "value_42"));
+
+        Map<String, Long> initialValues = metricValues(initialTableName, of(RO_READS, RW_READS, WRITES));
+
+        sql("alter table " + initialTableName + " rename to " + newTableName);
+
+        Map<String, Long> newValues = metricValues(newTableName, of(RO_READS, RW_READS, WRITES));
+
+        assertThat(newValues, equalTo(initialValues));
+    }
+
+    /**
      * Tests that the given operation increases the specified metric by the expected value.
      *
+     * @param tableName Table name.
      * @param metricName Metric name to be checked.
      * @param expectedValue Expected value to increase the metric.
      * @param op Operation to be executed.
      */
-    private void testKeyValueViewOperation(String metricName, long expectedValue, Consumer<KeyValueView<Integer, String>> op) {
-        testKeyValueViewOperation(of(metricName), of(expectedValue), op);
+    private void testKeyValueViewOperation(
+            String tableName,
+            String metricName,
+            long expectedValue,
+            Consumer<KeyValueView<Integer, String>> op
+    ) {
+        testKeyValueViewOperation(tableName, of(metricName), of(expectedValue), op);
     }
 
     /**
      * Tests that the given operation increases the specified metrics by the expected values.
      *
+     * @param tableName Table name.
      * @param metricNames Metric names to be checked.
      * @param expectedValues Expected values to increase the metrics.
      * @param op Operation to be executed.
      */
     private void testKeyValueViewOperation(
+            String tableName,
             List<String> metricNames,
             List<Long> expectedValues,
             Consumer<KeyValueView<Integer, String>> op
     ) {
-        testOperation(metricNames, expectedValues, () -> op.accept(keyValueView(0)));
+        testOperation(tableName, metricNames, expectedValues, () -> op.accept(keyValueView(tableName, 0)));
     }
 
     /**
      * Tests that the given operation increases the specified metric by the expected value.
      *
+     * @param tableName Table name.
      * @param metricName Metric name to be checked.
      * @param expectedValue Expected value to increase the metric.
      * @param op Operation to be executed.
      */
-    private void testRecordViewOperation(String metricName, long expectedValue, Consumer<RecordView<Tuple>> op) {
-        testRecordViewOperation(of(metricName), of(expectedValue), op);
+    private void testRecordViewOperation(String tableName, String metricName, long expectedValue, Consumer<RecordView<Tuple>> op) {
+        testRecordViewOperation(tableName, of(metricName), of(expectedValue), op);
     }
 
     /**
      * Tests that the given operation increases the specified metrics by the expected values.
      *
+     * @param tableName Table name.
      * @param metricNames Metric names to be checked.
      * @param expectedValues Expected values to increase the metrics.
      * @param op Operation to be executed.
      */
     private void testRecordViewOperation(
+            String tableName,
             List<String> metricNames,
             List<Long> expectedValues,
             Consumer<RecordView<Tuple>> op
     ) {
-        testOperation(metricNames, expectedValues, () -> op.accept(recordView(0)));
+        testOperation(tableName, metricNames, expectedValues, () -> op.accept(recordView(tableName, 0)));
     }
 
     /**
      * Tests that the given operation increases the specified metrics by the expected values.
      *
+     * @param tableName Table name.
      * @param metricNames Metric names to be checked.
      * @param expectedValues Expected values to increase the metrics.
      * @param op Operation to be executed.
      */
     private void testOperation(
+            String tableName,
             List<String> metricNames,
             List<Long> expectedValues,
             Runnable op
     ) {
         assertThat(metricNames.size(), is(expectedValues.size()));
 
-        Map<String, Long> initialValues = metricValues(metricNames);
+        Map<String, Long> initialValues = metricValues(tableName, metricNames);
 
         op.run();
 
-        Map<String, Long> actualValues = metricValues(metricNames);
+        Map<String, Long> actualValues = metricValues(tableName, metricNames);
 
         for (int i = 0; i < metricNames.size(); ++i) {
             String metricName = metricNames.get(i);
@@ -593,10 +638,11 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     /**
      * Returns the sum of the specified metrics on all nodes.
      *
+     * @param tableName Table name.
      * @param metricNames Metric names.
      * @return Map of metric names to their values.
      */
-    private Map<String, Long> metricValues(List<String> metricNames) {
+    private Map<String, Long> metricValues(String tableName, List<String> metricNames) {
         Map<String, Long> values = new HashMap<>(metricNames.size());
 
         for (int i = 0; i < initialNodes(); ++i) {
@@ -604,7 +650,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
                     .metricManager()
                     .metricSnapshot()
                     .metrics()
-                    .get(METRIC_SOURCE_NAME);
+                    .get(TableMetricSource.sourceName(QualifiedName.fromSimple(tableName)));
 
             metricNames.forEach(metricName ->
                     values.compute(metricName, (k, v) -> {

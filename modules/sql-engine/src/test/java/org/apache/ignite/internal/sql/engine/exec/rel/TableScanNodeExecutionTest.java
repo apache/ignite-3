@@ -87,6 +87,7 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -341,7 +342,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     () -> 10_000L,
                     () -> 10_000L,
                     colocationEnabled(),
-                    new TableMetricSource(QualifiedName.fromSimple("test"))
+                    new TableMetrics(new TableMetricSource(QualifiedName.fromSimple("test")))
             );
             this.dataAmount = dataAmount;
 

@@ -238,6 +238,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -1186,7 +1187,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            unregisterMetricsSource(startedTables.get(parameters.tableId()));
+            unregisterMetricsSources(startedTables.get(parameters.tableId()));
 
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
@@ -1248,6 +1249,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     TableViewInternal table = tables.get(parameters.tableId());
+
+                    replaceMetricsSourcesOnRename(table, parameters.newTableName());
 
                     // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
                     ((TableImpl) table).name(parameters.newTableName());
@@ -1843,7 +1846,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
                 nodeProperties.colocationEnabled(),
-                createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
+                createAndRegisterMetricsSources(tableStorage.getTableDescriptor(), tableName)
         );
 
         return new TableImpl(
@@ -3346,7 +3349,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (destroyTableEventFired) {
                         // prepareTableResourcesOnRecovery registers a table metric source, so we need to unregister it here,
                         // just because the table is being dropped and there is no need to keep the metric source.
-                        unregisterMetricsSource(tables.get(tableId));
+                        unregisterMetricsSources(tables.get(tableId));
                     }
                 } else {
                     startTableFuture = createTableLocally(recoveryRevision, ver, tableDescriptor, true);
@@ -3656,7 +3659,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private TableMetricSource createAndRegisterMetricsSource(StorageTableDescriptor tableDescriptor, QualifiedName tableName) {
+    private TableMetrics createAndRegisterMetricsSources(StorageTableDescriptor tableDescriptor, QualifiedName tableName) {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
 
         // Engine can be null sometimes, see "TableManager.createTableStorage".
@@ -3683,10 +3686,64 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             LOG.warn("Failed to register metrics source for table [id={}, name={}].", e, tableDescriptor.getId(), tableName);
         }
 
-        return source;
+        return new TableMetrics(source);
     }
 
-    private void unregisterMetricsSource(TableViewInternal table) {
+    private void replaceMetricsSourcesOnRename(TableViewInternal table, String newName) {
+        QualifiedName qnName = table.qualifiedName();
+        QualifiedName qnNewName = QualifiedName.of(qnName.schemaName(), newName);
+
+        try {
+            boolean isEnabled = table.metrics().delegate().enabled();
+
+            TableMetricSource source = new TableMetricSource(qnNewName, table.metrics().delegate());
+
+            metricManager.unregisterSource(TableMetricSource.sourceName(qnName));
+
+            metricManager.registerSource(source);
+            table.metrics().replaceDelegate(source);
+
+            if (isEnabled) {
+                metricManager.enable(source);
+            }
+        } catch (Exception e) {
+            String message = "Failed to replace metrics source for table [id={}, name={}, renamedTo={}].";
+            LOG.warn(message, e, table.tableId(), qnName, qnNewName);
+        }
+
+        String storageProfile = table.internalTable().storage().getTableDescriptor().getStorageProfile();
+        StorageEngine engine = dataStorageMgr.engineByStorageProfile(storageProfile);
+        // Engine can be null sometimes, see "TableManager.createTableStorage".
+        if (engine != null) {
+            try {
+                String oldSourceName = StorageEngineTablesMetricSource.sourceName(engine.name(), qnName);
+                StorageEngineTablesMetricSource oldSource = metricManager
+                        .metricSources()
+                        .stream()
+                        .filter(source -> source.name().equals(oldSourceName))
+                        .map(StorageEngineTablesMetricSource.class::cast)
+                        .findFirst()
+                        .orElse(null);
+
+                boolean isEnabled = oldSource == null || oldSource.enabled();
+
+                StorageEngineTablesMetricSource engineMetricSource =
+                        new StorageEngineTablesMetricSource(engine.name(), qnNewName, oldSource);
+
+                metricManager.unregisterSource(oldSourceName);
+
+                metricManager.registerSource(engineMetricSource);
+                if (isEnabled) {
+                    metricManager.enable(engineMetricSource);
+                }
+            } catch (Exception e) {
+                String message = "Failed to replace storage engine metrics source for table [id={}, name={}, renamedTo={}].";
+                LOG.warn(message, e, table.tableId(), qnName, qnNewName);
+            }
+        }
+    }
+
+    private void unregisterMetricsSources(TableViewInternal table) {
         if (table == null) {
             return;
         }

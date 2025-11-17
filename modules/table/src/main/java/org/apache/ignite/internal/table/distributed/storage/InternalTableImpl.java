@@ -122,7 +122,7 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.TableMetrics;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -215,7 +215,7 @@ public class InternalTableImpl implements InternalTable {
 
     private final boolean colocationEnabled;
 
-    private final TableMetricSource metrics;
+    private final TableMetrics metrics;
 
     /**
      * Constructor.
@@ -256,7 +256,7 @@ public class InternalTableImpl implements InternalTable {
             Supplier<Long> defaultRwTxTimeout,
             Supplier<Long> defaultReadTxTimeout,
             boolean colocationEnabled,
-            TableMetricSource metrics
+            TableMetrics metrics
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -2399,7 +2399,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public TableMetricSource metrics() {
+    public TableMetrics metrics() {
         return metrics;
     }
 }
