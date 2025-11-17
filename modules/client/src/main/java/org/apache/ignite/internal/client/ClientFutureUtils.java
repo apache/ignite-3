@@ -60,6 +60,8 @@ class ClientFutureUtils {
 
                 Throwable resErr = null;
 
+                // This code is executed by different threads, but not concurrently.
+                // Use synchronized block to modify ctx for simplicity (instead of volatile).
                 synchronized (ctx) {
                     if (ctx.errors == null) {
                         ctx.errors = new ArrayList<>();
