@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -82,7 +81,6 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Named;
@@ -308,8 +306,6 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("transactions")
     public void testIndexScanInvalidCondition(NoOpTransaction tx) {
-        assumeTrue(IgniteUtils.assertionsEnabled(), "the test requires that assertions be enabled");
-
         TestInput input = new TestInput();
         input.addRow(binaryRow, 1);
 
@@ -322,7 +318,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         // Bound columns != input columns.
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
-        AssertionError err = assertThrows(AssertionError.class,
+        IllegalStateException err = assertThrows(IllegalStateException.class,
                 () -> tester.indexScan(partitionId, consistencyToken, tx, indexId, condition));
         assertEquals("Invalid range condition", err.getMessage());
 

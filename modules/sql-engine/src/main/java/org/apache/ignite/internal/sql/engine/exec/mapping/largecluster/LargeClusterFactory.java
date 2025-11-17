@@ -160,6 +160,7 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
         return nodesSet;
     }
 
+    /** Throws {@link MappingException} if provided list of target nodes (assignments) is empty. */
     public static void ensureNonEmptyTarget(List<?> nodes) {
         if (nodes.isEmpty()) {
             throw new MappingException("Empty target is not allowed");
