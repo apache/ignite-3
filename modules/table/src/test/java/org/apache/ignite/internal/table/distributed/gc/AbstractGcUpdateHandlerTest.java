@@ -25,15 +25,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -57,6 +58,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * Abstract class for testing {@link GcUpdateHandler} using different implementations of {@link MvPartitionStorage}.
@@ -264,21 +266,14 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     @Test
     void testShouldReleaseExitsEarly() {
         // Given: A partition storage with controllable shouldRelease() behavior
-        AtomicBoolean shouldRelease = new AtomicBoolean(false);
-        AtomicBoolean shouldReleaseCalled = new AtomicBoolean(false);
-
-        BooleanSupplier shouldReleaseSupplier = () -> {
-            shouldReleaseCalled.set(true);
-            return shouldRelease.get();
-        };
-
+        BooleanSupplier shouldReleaseSupplier = Mockito.mock();
         TestPartitionDataStorage partitionStorage = createTestMvPartitionStorage(shouldReleaseSupplier);
         IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
 
         HybridTimestamp lowWatermark = HybridTimestamp.MAX_VALUE;
 
-        // Given: Multiple rows with garbage to collect (10 rows with 2 versions each)
+        // Given: Multiple rows with garbage to collect (20 rows with 2 versions each)
         for (int i = 0; i < 10; i++) {
             RowId rowId = new RowId(PARTITION_ID);
             BinaryRow row = binaryRow(new TestKey(i, "key" + i), new TestValue(i, "value" + i));
@@ -287,38 +282,21 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionStorage, rowId, row, clock.now());
         }
 
-        // When: Vacuum runs with shouldRelease() returning false
-        shouldRelease.set(false);
-        boolean hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 100, true);
-
-        // Then: All garbage is processed and shouldRelease() was checked
-        assertFalse(hasGarbageLeft, "Expected no garbage left after full vacuum");
-        assertTrue(shouldReleaseCalled.get(), "Expected shouldRelease() to be called during vacuum");
-
-        // Given: More rows with garbage to collect (another 10 rows with 2 versions each)
-        for (int i = 10; i < 20; i++) {
-            RowId rowId = new RowId(PARTITION_ID);
-            BinaryRow row = binaryRow(new TestKey(i, "key" + i), new TestValue(i, "value" + i));
-
-            addWriteCommitted(partitionStorage, rowId, row, clock.now());
-            addWriteCommitted(partitionStorage, rowId, row, clock.now());
-        }
-
         // When: Vacuum runs with shouldRelease() returning true (simulating lock contention)
-        shouldRelease.set(true);
-        shouldReleaseCalled.set(false);
-        hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 10, true);
+        when(shouldReleaseSupplier.getAsBoolean()).thenReturn(true);
+        boolean hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 10, true);
 
         // Then: Vacuum exits early and reports garbage remaining
         assertTrue(hasGarbageLeft, "Expected garbage to remain after early exit");
-        assertTrue(shouldReleaseCalled.get(), "Expected shouldRelease() to be called during vacuum");
+        verify(shouldReleaseSupplier).getAsBoolean();
 
         // When: Vacuum runs again with shouldRelease() returning false
-        shouldRelease.set(false);
+        when(shouldReleaseSupplier.getAsBoolean()).thenReturn(false);
         hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 100, true);
 
         // Then: All remaining garbage is processed
         assertFalse(hasGarbageLeft, "Expected no garbage left after completing vacuum");
+        verify(shouldReleaseSupplier, atLeastOnce()).getAsBoolean();
     }
 
     private TestPartitionDataStorage createPartitionDataStorage() {
