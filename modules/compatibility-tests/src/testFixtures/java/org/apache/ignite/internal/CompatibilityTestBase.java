@@ -244,9 +244,6 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     public static List<String> baseVersions(String... skipVersions) {
         Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
         return IgniteVersions.INSTANCE.versions().keySet().stream()
-                // In 3.0 colocation is effectively disabled (meaning that there's no colocation code) thus it's not compatible with 3.2
-                // where non-colocation code was removed.
-                .filter(baseVersion -> Version.parseVersion(baseVersion).compareTo(Version.parseVersion("3.1")) >= 0)
                 .filter(Predicate.not(skipSet::contains))
                 .collect(Collectors.toList());
     }
