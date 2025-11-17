@@ -57,6 +57,8 @@ import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMa
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Partition file page store manager.
@@ -113,6 +115,21 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Failure processor. */
     private final FailureManager failureManager;
 
+    /** File operation metrics. */
+    private final StorageFilesMetrics metrics;
+
+    /** Count of currently open file page stores. */
+    private final AtomicInteger openFilesCount = new AtomicInteger(0);
+
+    /** Total size of all file page stores in bytes. */
+    private final AtomicLong totalFileSize = new AtomicLong(0);
+
+    /** Count of delta files. */
+    private final AtomicInteger deltaFilesCount = new AtomicInteger(0);
+
+    /** Total size of all delta files in bytes. */
+    private final AtomicLong deltaFilesTotalSize = new AtomicLong(0);
+
     /**
      * Constructor.
      *
@@ -137,7 +154,17 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
 
-        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
+        // Create file operation metrics
+        StorageFilesMetricSource metricSource = new StorageFilesMetricSource();
+        this.metrics = new StorageFilesMetrics(
+                metricSource,
+                openFilesCount::get,
+                totalFileSize::get,
+                deltaFilesCount::get,
+                deltaFilesTotalSize::get
+        );
+
+        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize, metrics);
     }
 
     /**

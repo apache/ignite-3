@@ -42,13 +42,15 @@ public class FilePageStoreIo extends AbstractFilePageStoreIo {
      * @param ioFactory {@link FileIo} factory.
      * @param filePath File page store path.
      * @param header File page store header.
+     * @param metrics Storage files metrics.
      */
     public FilePageStoreIo(
             FileIoFactory ioFactory,
             Path filePath,
-            FilePageStoreHeader header
+            FilePageStoreHeader header,
+            StorageFilesMetrics metrics
     ) {
-        super(ioFactory, filePath);
+        super(ioFactory, filePath, metrics);
 
         this.header = header;
     }

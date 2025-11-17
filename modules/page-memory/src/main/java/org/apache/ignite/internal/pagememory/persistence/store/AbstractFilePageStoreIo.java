@@ -71,15 +71,20 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      */
     private @Nullable Boolean fileExists;
 
+    /** Storage files metrics. */
+    protected final StorageFilesMetrics metrics;
+
     /**
      * Constructor.
      *
      * @param ioFactory {@link FileIo} factory.
      * @param filePath File page store path.
+     * @param metrics Storage files metrics.
      */
-    AbstractFilePageStoreIo(FileIoFactory ioFactory, Path filePath) {
+    AbstractFilePageStoreIo(FileIoFactory ioFactory, Path filePath, StorageFilesMetrics metrics) {
         this.ioFactory = ioFactory;
         this.filePath = filePath;
+        this.metrics = metrics;
     }
 
     /**
@@ -239,6 +244,8 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     public void sync() throws IgniteInternalCheckedException {
         ensure();
 
+        long startTime = System.nanoTime();
+
         readWriteLock.readLock().lock();
 
         try {
@@ -246,6 +253,8 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
             if (fileIo != null) {
                 fileIo.force();
+
+                metrics.fileSyncTime().add(System.nanoTime() - startTime);
             }
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to fsync file [filePath=" + filePath + ']', e);
@@ -278,6 +287,10 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      */
     void ensure() throws IgniteInternalCheckedException {
         if (!initialized) {
+            long startTime = System.nanoTime();
+            boolean fileCreated = false;
+            boolean fileOpened = false;
+
             readWriteLock.writeLock().lock();
 
             try {
@@ -297,8 +310,12 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                                 if (fileIo.size() < headerSize()) {
                                     fileIo.writeFully(headerBuffer().rewind(), 0);
+                                    fileCreated = true;
+                                    metrics.fileCreateTotal().increment();
                                 } else {
                                     checkHeader(fileIo);
+                                    fileOpened = true;
+                                    metrics.fileOpenTotal().increment();
                                 }
 
                                 if (interrupted) {
@@ -314,7 +331,17 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                         }
 
                         initialized = true;
+
+                        // Record timing after successful initialization
+                        long duration = System.nanoTime() - startTime;
+                        if (fileCreated) {
+                            metrics.fileCreateTime().add(duration);
+                        } else if (fileOpened) {
+                            metrics.fileOpenTime().add(duration);
+                        }
                     } catch (IOException e) {
+                        metrics.fileOpenErrors().increment();
+
                         err = new IgniteInternalCheckedException("Failed to initialize partition file: " + filePath, e);
 
                         throw err;

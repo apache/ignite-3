@@ -346,7 +346,8 @@ public class FilePageStore implements PageStore {
             newDeltaFilePageStoreIo = new DeltaFilePageStoreIo(
                     filePageStoreIo.ioFactory,
                     deltaFilePathFunction.apply(nextIndex),
-                    header
+                    header,
+                    filePageStoreIo.metrics
             );
 
             newValue = new ArrayList<>(previousValue.size() + 1);
