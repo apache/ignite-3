@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -84,6 +85,9 @@ public class Loza implements RaftManager {
 
     /** Raft client pool size. Size was taken from jraft's TimeManager. */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
+
+    /** Name of the system property to configure is {@link NodeOptions#getSnapshotIntervalSecs()}. */
+    private static final String RAFT_SNAPSHOT_INTERVAL_SECS_PROPERTY_NAME = "raftSnapshotIntervalSecs";
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
@@ -165,11 +169,12 @@ public class Loza implements RaftManager {
         this.raftConfiguration = raftConfiguration;
         this.metricManager = metricManager;
 
-        // TODO: IGNITE-27081 Вот тут надо будет читать системную пропертю
         NodeOptions options = new NodeOptions();
 
         options.setClock(clock);
         options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
+
+        setSnapshotIntervalSecs(options, systemLocalConfiguration);
 
         this.opts = options;
 
@@ -705,5 +710,21 @@ public class Loza implements RaftManager {
     @TestOnly
     public Set<RaftNodeId> localNodes() {
         return raftServer.localNodes();
+    }
+
+    private static void setSnapshotIntervalSecs(NodeOptions options, SystemLocalConfiguration systemLocalConfiguration) {
+        SystemPropertyConfiguration systemPropertyConfig = systemLocalConfiguration
+                .properties()
+                .get(RAFT_SNAPSHOT_INTERVAL_SECS_PROPERTY_NAME);
+
+        if (systemPropertyConfig == null) {
+            return;
+        }
+
+        try {
+            options.setSnapshotIntervalSecs(Integer.parseInt(systemPropertyConfig.propertyValue().value()));
+        } catch (NumberFormatException e) {
+            LOG.warn("Failed to set NodeOptions.getSnapshotIntervalSecs, default value will be used", e);
+        }
     }
 }
