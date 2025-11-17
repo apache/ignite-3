@@ -20,10 +20,8 @@ package org.apache.ignite.internal.storage.util;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Default {@link Locker} implementation, that collects all locked row IDs in a private, non-thread-local, collection..
@@ -36,30 +34,12 @@ public class LocalLocker implements Locker {
     private Object locked;
 
     /**
-     * Supplier to check if the engine needs resources.
-     * {@code null} means the engine never needs resources.
-     */
-    private final @Nullable BooleanSupplier shouldReleaseSupplier;
-
-    /**
      * Constructor.
      *
      * @param locks Shared instance.
      */
     public LocalLocker(LockByRowId locks) {
-        this(locks, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param locks Shared instance.
-     * @param shouldReleaseSupplier Supplier to check if the engine needs resources.
-     *        {@code null} means the engine never needs resources.
-     */
-    public LocalLocker(LockByRowId locks, @Nullable BooleanSupplier shouldReleaseSupplier) {
         this.locks = locks;
-        this.shouldReleaseSupplier = shouldReleaseSupplier;
     }
 
     @Override
@@ -82,7 +62,7 @@ public class LocalLocker implements Locker {
 
     @Override
     public boolean shouldRelease() {
-        return shouldReleaseSupplier != null && shouldReleaseSupplier.getAsBoolean();
+        return false;
     }
 
     /**
