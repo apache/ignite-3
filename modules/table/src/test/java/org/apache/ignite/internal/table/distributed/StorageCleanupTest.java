@@ -63,7 +63,9 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -964,8 +966,11 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         HybridTimestamp lastCommitTs = commitTs.subtractPhysicalTime(100);
 
         // Last commit time is before the time of the previously committed value => this should not happen.
-        assertThrows(AssertionError.class, () ->
-                storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row3, true, null, null, lastCommitTs, null));
+        IgniteTestUtils.assertThrows(
+                IgniteException.class,
+                () -> storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row3, true, null, null, lastCommitTs, null),
+                String.format("Primary commit timestamp %s is earlier than local commit timestamp", lastCommitTs)
+        );
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 

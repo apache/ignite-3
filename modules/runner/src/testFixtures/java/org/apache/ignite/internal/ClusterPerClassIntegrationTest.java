@@ -657,7 +657,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @param ignite Node.
      * @param indexName Index name that is being checked.
      */
-    protected static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
+    public static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 

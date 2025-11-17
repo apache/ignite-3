@@ -92,6 +92,9 @@ public class Compactor extends IgniteWorker {
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
 
+    /** Guarded by {@link #mux}. */
+    private boolean paused;
+
     /**
      * Creates new ignite worker with given parameters.
      *
@@ -164,7 +167,7 @@ public class Compactor extends IgniteWorker {
     void waitDeltaFiles() {
         try {
             synchronized (mux) {
-                while (!addedDeltaFiles && !isCancelled()) {
+                while ((!addedDeltaFiles || paused) && !isCancelled()) {
                     blockingSectionBegin();
 
                     try {
@@ -353,6 +356,8 @@ public class Compactor extends IgniteWorker {
         }
 
         synchronized (mux) {
+            paused = false;
+
             // Do not interrupt runner thread.
             isCancelled.set(true);
 
@@ -386,11 +391,7 @@ public class Compactor extends IgniteWorker {
         for (long pageIndex : deltaFilePageStore.pageIndexes()) {
             updateHeartbeat();
 
-            if (isCancelled()) {
-                return;
-            }
-
-            if (filePageStore.isMarkedToDestroy()) {
+            if (shouldStopCompaction(filePageStore)) {
                 return;
             }
 
@@ -409,11 +410,7 @@ public class Compactor extends IgniteWorker {
 
             updateHeartbeat();
 
-            if (isCancelled()) {
-                return;
-            }
-
-            if (filePageStore.isMarkedToDestroy()) {
+            if (shouldStopCompaction(filePageStore)) {
                 return;
             }
 
@@ -425,11 +422,7 @@ public class Compactor extends IgniteWorker {
         // Fsync the file page store.
         updateHeartbeat();
 
-        if (isCancelled()) {
-            return;
-        }
-
-        if (filePageStore.isMarkedToDestroy()) {
+        if (shouldStopCompaction(filePageStore)) {
             return;
         }
 
@@ -438,11 +431,7 @@ public class Compactor extends IgniteWorker {
         // Removing the delta file page store from a file page store.
         updateHeartbeat();
 
-        if (isCancelled()) {
-            return;
-        }
-
-        if (filePageStore.isMarkedToDestroy()) {
+        if (shouldStopCompaction(filePageStore)) {
             return;
         }
 
@@ -484,5 +473,40 @@ public class Compactor extends IgniteWorker {
             this.groupPartitionFilePageStore = groupPartitionFilePageStore;
             this.deltaFilePageStoreIo = deltaFilePageStoreIo;
         }
+    }
+
+    /**
+     * Pauses the compactor until it is resumed or compactor is stopped. It is expected that this method will not be called multiple times
+     * in parallel and subsequent calls will strictly be calls after {@link #resume}.
+     */
+    public void pause() {
+        synchronized (mux) {
+            assert !paused : "It is expected that a further pause will only occur after resume";
+
+            paused = true;
+        }
+    }
+
+    /** Resumes the compactor if it was paused. It is expected that this method will not be called multiple times in parallel. */
+    public void resume() {
+        synchronized (mux) {
+            paused = false;
+
+            // Force compaction as we could stop somewhere in the middle and we need to continue compaction.
+            addedDeltaFiles = true;
+
+            mux.notifyAll();
+        }
+    }
+
+    /** Must be called before each IO operation to pause the current compaction and to provide IO resources to other components. */
+    private boolean isPaused() {
+        synchronized (mux) {
+            return paused;
+        }
+    }
+
+    private boolean shouldStopCompaction(FilePageStore filePageStore) {
+        return isCancelled() || filePageStore.isMarkedToDestroy() || isPaused();
     }
 }

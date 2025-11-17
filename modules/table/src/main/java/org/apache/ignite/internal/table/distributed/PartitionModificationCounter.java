@@ -45,12 +45,9 @@ public class PartitionModificationCounter {
             SizeSupplier partitionSizeSupplier,
             StalenessConfigurationSupplier stalenessConfigurationSupplier
     ) {
-        Objects.requireNonNull(initTimestamp, "initTimestamp");
-        Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
-        Objects.requireNonNull(stalenessConfigurationSupplier, "configurationProvider");
-
-        this.partitionSizeSupplier = partitionSizeSupplier;
-        this.stalenessConfigurationSupplier = stalenessConfigurationSupplier;
+        lastMilestoneReachedTimestamp = Objects.requireNonNull(initTimestamp, "initTimestamp");
+        this.partitionSizeSupplier = Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
+        this.stalenessConfigurationSupplier = Objects.requireNonNull(stalenessConfigurationSupplier, "configurationProvider");
 
         TableStatsStalenessConfiguration tableStatsStalenessConfiguration = stalenessConfigurationSupplier.get();
 
@@ -59,12 +56,16 @@ public class PartitionModificationCounter {
                 tableStatsStalenessConfiguration.staleRowsFraction(),
                 tableStatsStalenessConfiguration.minStaleRowsCount()
         );
-        lastMilestoneReachedTimestamp = initTimestamp;
     }
 
     /** Returns the current counter value. */
     public long value() {
         return counter.get();
+    }
+
+    /** Returns partition estimated size. */
+    public long estimatedSize() {
+        return partitionSizeSupplier.get();
     }
 
     /**
