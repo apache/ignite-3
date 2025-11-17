@@ -21,8 +21,6 @@ import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.Tuple;
@@ -91,19 +89,11 @@ class NextColocatedWorkerSelector<K> extends PrimaryReplicaNextWorkerSelector {
     }
 
     @Override
-    protected PartitionGroupId partitionGroupId() {
+    protected ZonePartitionId partitionGroupId() {
         if (key != null && keyMapper != null) {
-            if (nodeProperties.colocationEnabled()) {
-                return new ZonePartitionId(table.zoneId(), table.partitionId(key, keyMapper));
-            } else {
-                return new TablePartitionId(table.tableId(), table.partitionId(key, keyMapper));
-            }
+            return new ZonePartitionId(table.zoneId(), table.partitionId(key, keyMapper));
         } else {
-            if (nodeProperties.colocationEnabled()) {
-                return new ZonePartitionId(table.zoneId(), table.partitionId(tuple));
-            } else {
-                return new TablePartitionId(table.tableId(), table.partitionId(tuple));
-            }
+            return new ZonePartitionId(table.zoneId(), table.partitionId(tuple));
         }
     }
 }
