@@ -242,10 +242,20 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         return storage.runConsistently(locker -> {
+            // Check if the storage engine needs resources before starting.
+            if (locker.shouldRelease()) {
+                return lastUnprocessedEntry;
+            }
+
             List<RowId> processedRowIds = new ArrayList<>();
             int batchLength = 0;
             Entry<UUID, TimedBinaryRow> entryToProcess = lastUnprocessedEntry;
             while (entryToProcess != null) {
+                // Check if the storage engine needs resources before processing each row.
+                if (!processedRowIds.isEmpty() && locker.shouldRelease()) {
+                    break;
+                }
+
                 RowId rowId = new RowId(partitionId, entryToProcess.getKey());
                 BinaryRow row = entryToProcess.getValue() == null ? null : entryToProcess.getValue().binaryRow();
 
