@@ -259,7 +259,9 @@ public class Accumulators {
         public void end(AccumulatorsState state, AccumulatorsState result) {
             ImmutableBitSet groupKey = (ImmutableBitSet) state.get();
 
-            assert groupKey != null;
+            if (groupKey == null) {
+                throw new IllegalStateException("Invalid accumulator state");
+            }
 
             long res = 0;
             long bit = 1L << (argList.size() - 1);

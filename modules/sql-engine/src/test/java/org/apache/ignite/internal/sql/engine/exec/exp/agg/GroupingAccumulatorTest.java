@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,7 +31,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.GroupingAccumulator;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,12 +54,10 @@ public class GroupingAccumulatorTest {
 
     @Test
     public void emptyState() {
-        assumeTrue(IgniteUtils.assertionsEnabled(), "the test requires that assertions be enabled");
-
         Accumulator acc = newCall(List.of(0));
         AccumulatorsState result = newState();
 
-        assertThrows(AssertionError.class, () -> acc.end(newState(), result));
+        assertThrows(IllegalStateException.class, () -> acc.end(newState(), result));
 
         assertNull(result.get());
     }

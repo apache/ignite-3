@@ -53,6 +53,8 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public ExecutionTarget allOf(List<String> nodes) {
+        ensureNonEmptyTarget(nodes);
+
         BitSet nodesSet = new BitSet(nodeNameToId.size());
 
         for (String name : nodes) {
@@ -64,21 +66,31 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
             nodesSet.set(id);
         }
 
+        if (nodesSet.isEmpty()) {
+            throw new MappingException("Mandatory nodes were excluded from mapping: " + nodes);
+        }
+
         return new AllOfTarget(nodesSet);
     }
 
     @Override
     public ExecutionTarget oneOf(List<String> nodes) {
+        ensureNonEmptyTarget(nodes);
+
         return new OneOfTarget(nodeListToMap(nodes));
     }
 
     @Override
     public ExecutionTarget someOf(List<String> nodes) {
+        ensureNonEmptyTarget(nodes);
+
         return new SomeOfTarget(nodeListToMap(nodes));
     }
 
     @Override
     public ExecutionTarget partitioned(List<TokenizedAssignments> assignments) {
+        ensureNonEmptyTarget(assignments);
+
         BitSet[] partitionNodes = new BitSet[assignments.size()];
         long[] enlistmentConsistencyTokens = new long[assignments.size()];
 
@@ -99,7 +111,7 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
                         .map(Assignment::consistentId)
                         .collect(Collectors.toList());
 
-                throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes0);
+                throw new MappingException("Mandatory nodes were excluded from mapping: " + nodes0);
             }
 
             finalised = finalised && nodes.cardinality() < 2;
@@ -131,10 +143,6 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
     }
 
     private BitSet nodeListToMap(List<String> nodes) {
-        if (nodes.isEmpty()) {
-            throw new IllegalArgumentException("Empty target is not allowed");
-        }
-
         BitSet nodesSet = new BitSet(nodeNameToId.size());
 
         for (String name : nodes) {
@@ -146,9 +154,15 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
         }
 
         if (nodesSet.isEmpty()) {
-            throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
+            throw new MappingException("Mandatory nodes were excluded from mapping: " + nodes);
         }
 
         return nodesSet;
+    }
+
+    public static void ensureNonEmptyTarget(List<?> nodes) {
+        if (nodes.isEmpty()) {
+            throw new MappingException("Empty target is not allowed");
+        }
     }
 }
