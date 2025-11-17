@@ -58,29 +58,28 @@ class ClientFutureUtils {
                     return;
                 }
 
-                if (ctx.errors == null) {
-                    ctx.errors = new ArrayList<>();
-                }
-
-                ctx.errors.add(err);
-
-                if (retryPredicate.test(ctx)) {
-                    ctx.attempt++;
-
-                    doWithRetryAsync(func, retryPredicate, resFut, ctx);
-                } else {
-                    if (ctx.errors == null || ctx.errors.isEmpty()) {
-                        // Should not happen.
-                        resFut.completeExceptionally(new IllegalStateException("doWithRetry failed without exception"));
-                    } else {
-                        var resErr = ctx.errors.get(0);
-
-                        for (int i = 1; i < ctx.errors.size(); i++) {
-                            resErr.addSuppressed(ctx.errors.get(i));
-                        }
-
-                        resFut.completeExceptionally(resErr);
+                synchronized (ctx) {
+                    if (ctx.errors == null) {
+                        ctx.errors = new ArrayList<>();
                     }
+
+                    ctx.errors.add(err);
+
+                    if (retryPredicate.test(ctx)) {
+                        ctx.attempt++;
+
+                        doWithRetryAsync(func, retryPredicate, resFut, ctx);
+
+                        return;
+                    }
+
+                    Throwable resErr = ctx.errors.get(0);
+
+                    for (int i = 1; i < ctx.errors.size(); i++) {
+                        resErr.addSuppressed(ctx.errors.get(i));
+                    }
+
+                    resFut.completeExceptionally(resErr);
                 }
             } catch (Throwable t) {
                 resFut.completeExceptionally(t);
