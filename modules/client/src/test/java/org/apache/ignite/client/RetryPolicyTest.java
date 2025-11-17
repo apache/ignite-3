@@ -300,6 +300,33 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testNodesLeave() {
+        UUID clusterId = UUID.randomUUID();
+
+        server = createServer(reqId -> false, clusterId);
+        server2 = createServer(reqId -> false, clusterId);
+        server3 = createServer(reqId -> false, clusterId);
+
+        var clientBuilder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:" + server2.port(), "127.0.0.1:" + server3.port())
+                .loggerFactory(new ConsoleLoggerFactory("testUnstableCluster"));
+
+        try (var client = clientBuilder.build()) {
+            for (int i = 0; i < ITER; i++) {
+                assertDoesNotThrow(() -> client.tables().tables());
+
+                if (i == ITER / 3) {
+                    server2.close();
+                }
+
+                if (i == 2 * ITER / 3) {
+                    server3.close();
+                }
+            }
+        }
+    }
+
     private IgniteClient getClient(@Nullable RetryPolicy retryPolicy) {
         return getClient(retryPolicy, null);
     }
