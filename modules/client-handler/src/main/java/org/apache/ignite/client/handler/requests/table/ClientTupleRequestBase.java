@@ -90,7 +90,7 @@ class ClientTupleRequestBase {
             ClientResourceRegistry resources,
             TxManager txManager,
             @Nullable NotificationSender notificationSender,
-            @Nullable HybridTimestampTracker tsTracker,
+            HybridTimestampTracker tsTracker,
             EnumSet<RequestOptions> options
     ) {
         int tableId = in.unpackInt();
