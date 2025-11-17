@@ -204,6 +204,9 @@ namespace Apache.Ignite
 
             /// <summary> ServerToClientRequest error. </summary>
             public const int ServerToClientRequest = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> ResourceNotFound error. </summary>
+            public const int ResourceNotFound = (GroupCode << 16) | (10 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>

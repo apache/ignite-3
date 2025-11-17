@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import org.apache.ignite.internal.event.EventProducer;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
+
 /** Statistic manager with reaction on statistic changes. */
-public interface SqlStatisticUpdateManager extends SqlStatisticManager, StatisticUpdatesNotifier {
+public interface SqlStatisticUpdateManager extends SqlStatisticManager, EventProducer<StatisticChangedEvent, StatisticEventParameters> {
 }
