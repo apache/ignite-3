@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
@@ -666,27 +665,6 @@ public final class ReliableChannel implements AutoCloseable {
                 },
                 Objects::nonNull,
                 ctx -> shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx, null));
-    }
-
-    private CompletableFuture<ClientChannel> getCurChannelAsync() {
-        if (closed) {
-            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "ReliableChannel is closed", null));
-        }
-
-        curChannelsGuard.readLock().lock();
-
-        try {
-            var hld = channels.get(defaultChIdx);
-
-            if (hld == null) {
-                return nullCompletedFuture();
-            }
-
-            CompletableFuture<ClientChannel> fut = hld.getOrCreateChannelAsync();
-            return fut == null ? nullCompletedFuture() : fut;
-        } finally {
-            curChannelsGuard.readLock().unlock();
-        }
     }
 
     /** Determines whether specified operation should be retried. */
