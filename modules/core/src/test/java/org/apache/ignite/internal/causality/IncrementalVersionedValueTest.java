@@ -51,6 +51,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -99,7 +101,11 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         assertEquals(TEST_VALUE + incrementCount, fut.get());
 
-        assertThrows(AssertionError.class, () -> versionedValue.update(1L, (i, t) -> nullCompletedFuture()));
+        IgniteTestUtils.assertThrows(
+                IgniteException.class,
+                () -> versionedValue.update(1L, (i, t) -> nullCompletedFuture()),
+                "Causality token is outdated, previous token 1, got 1"
+        );
     }
 
     /**
