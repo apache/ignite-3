@@ -152,10 +152,17 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException {
+    public @Nullable RowId highestRowId() throws StorageException {
         assertThreadAllowsToRead();
 
-        return partitionStorage.rowsStartingWith(lowerBound, limit);
+        return partitionStorage.highestRowId();
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.rowsStartingWith(lowerBoundInclusive, upperBoundInclusive, limit);
     }
 
     @Override

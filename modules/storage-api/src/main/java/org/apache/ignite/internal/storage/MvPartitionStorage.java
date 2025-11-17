@@ -286,13 +286,21 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
+     * Returns the greatest row ID, existing in the storage. {@code null} if the storage is empty.
+     *
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable RowId highestRowId() throws StorageException;
+
+    /**
      * Returns a batch of rows with subsequent IDs which IDs are greater or equal than the lower bound.
      *
-     * @param lowerBound Lower bound (inclusive).
+     * @param lowerBoundInclusive Lower bound (inclusive).
+     * @param upperBoundInclusive Upper bound (inclusive).
      * @param limit Maximum number of rows to return.
      * @throws StorageException If failed to read data from the storage.
      */
-    List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException;
+    List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException;
 
     /**
      * Returns the head of GC queue.
