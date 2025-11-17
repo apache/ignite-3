@@ -44,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * Provides batch map utility methods.
  */
 class ClientTableMapUtils {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27073
     private static final long DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(5000);
 
     static <R, E> void mapAndRetry(
@@ -69,7 +70,7 @@ class ClientTableMapUtils {
             List<CompletableFuture<Void>> waitCommitFuts = List.of();
             if (!txns.isEmpty()) {
                 if (err != null) {
-                    boolean needRetry = rollbackIfNeeded(txns, res, log);
+                    boolean needRetry = unlockOnRetry(txns, res, log);
 
                     long nowRelative = System.nanoTime();
                     if (needRetry && nowRelative - startTs[0] < DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS) {
@@ -140,7 +141,7 @@ class ClientTableMapUtils {
             List<CompletableFuture<Void>> waitCommitFuts = List.of();
             if (!txns.isEmpty()) {
                 if (err != null) {
-                    boolean needRetry = rollbackIfNeeded(txns, res, log);
+                    boolean needRetry = unlockOnRetry(txns, res, log);
 
                     long nowRelative = System.nanoTime();
                     if (needRetry && nowRelative - startTs[0] < DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS) {
@@ -186,7 +187,7 @@ class ClientTableMapUtils {
         });
     }
 
-    private static <E> boolean rollbackIfNeeded(
+    private static <E> boolean unlockOnRetry(
             List<Transaction> txns,
             List<CompletableFuture<E>> res,
             IgniteLogger log
@@ -198,7 +199,7 @@ class ClientTableMapUtils {
                 try {
                     fut0.join();
                 } catch (CompletionException e) {
-                    allRetryableExceptions = ExceptionUtils.matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR);
+                    allRetryableExceptions = allRetryableExceptions && ExceptionUtils.matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR);
                 }
             }
             Transaction tx0 = txns.get(i);

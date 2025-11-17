@@ -932,15 +932,18 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx1.commit();
 
         // Test if we don't stuck in locks in subsequent rw txn.
-        CompletableFuture.runAsync(() -> {
+        CompletableFuture<Void> fut0 = CompletableFuture.runAsync(() -> {
             Transaction tx0 = client().transactions().begin();
             view.put(tx0, tuples0.get(0), val("newval0"));
             tx0.commit();
-        }).join();
+        });
 
-        CompletableFuture.runAsync(() -> {
+        CompletableFuture<Void> fut1 = CompletableFuture.runAsync(() -> {
             view.put(null, tuples1.get(0), val("newval1"));
-        }).join();
+        });
+
+        fut0.join();
+        fut1.join();
     }
 
     @Test
