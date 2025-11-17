@@ -85,6 +85,13 @@ public class TxCleanupRequestSender {
         this.txStateVolatileStorage = txStateVolatileStorage;
     }
 
+    // Node A Is Primary
+    // TxCleanupMessageRequest // we actually don't know whether A is primary or not
+    // Node B is a new Primary
+    // Node A vacuumized
+    // A.WIRR
+    // TxCleanupMessageResponse
+
     /**
      * Starts the request sender.
      */

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.app;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNSUPPORTED_TABLE_BASED_REPLICATION_ERR;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -69,11 +70,8 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
         VaultEntry entry = vaultManager.get(ZONE_BASED_REPLICATION_KEY);
         if (entry != null) {
             colocationEnabled = entry.value()[0] == 1;
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
-            // It's a temporary code that will be removed when !colocation mode will be fully dropped. That's the reason why instead of
-            // introducing new error code, existing somewhat related is used.
             if (!colocationEnabled) {
-                throw new IgniteException(ILLEGAL_ARGUMENT_ERR, "Table based replication is no longer supported.");
+                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported.");
             }
             logComment = "from Vault";
         } else {

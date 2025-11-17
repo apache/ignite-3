@@ -19,19 +19,17 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.configuration.IgnitePaths;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Test;
 
 class ItColocationStatusHandlingTest extends ClusterPerTestIntegrationTest {
     @Override
@@ -39,14 +37,30 @@ class ItColocationStatusHandlingTest extends ClusterPerTestIntegrationTest {
         return 0;
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void freshNodeTakesStatusFromSystemProperty(boolean colocationStatusFromSystemProps) {
-        runWithColocationProperty(String.valueOf(colocationStatusFromSystemProps), () -> {
-            cluster.startAndInit(1);
-
-            assertColocationStatusOnNodeIs(colocationStatusFromSystemProps);
+    @Test
+    void freshNodeStartWithColocationDisabledFailsWithUnableToStart() {
+        runWithColocationProperty("false", () -> {
+            assertThrowsWithCause(
+                    () -> cluster.startAndInit(1),
+                    IgniteException.class,
+                    "Table based replication is no longer supported, consider restarting the node in zone based replication mode.");
         });
+    }
+
+    @Test
+    void usedNodeStartWithColocationDisabledFailsWithUnableToStart() {
+        cluster.startAndInit(1);
+
+        Path workDir = unwrappedNode().workDir();
+
+        cluster.stopNode(0);
+
+        setPersistedColocationDisabledStatus(workDir);
+
+        assertThrowsWithCause(
+                () -> cluster.startNode(0),
+                IgniteException.class,
+                "Table based replication is no longer supported.");
     }
 
     private static void runWithColocationProperty(String propertyValue, Runnable action) {
@@ -64,60 +78,16 @@ class ItColocationStatusHandlingTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void assertColocationStatusOnNodeIs(boolean enableColocation) {
-        IgniteImpl ignite = unwrappedNode();
-
-        assertThat(ignite.nodeProperties().colocationEnabled(), is(enableColocation));
-    }
-
     private IgniteImpl unwrappedNode() {
         return unwrapIgniteImpl(cluster.node(0));
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void usedNodeTakesStatusFromVaultIfSaved(boolean originalColocationStatus) {
-        runWithColocationProperty(String.valueOf(originalColocationStatus), () -> {
-            cluster.startAndInit(1);
-            cluster.stopNode(0);
-        });
-
-        boolean oppositeColocationStatus = !originalColocationStatus;
-        runWithColocationProperty(String.valueOf(oppositeColocationStatus), () -> {
-            cluster.startNode(0);
-
-            assertColocationStatusOnNodeIs(originalColocationStatus);
-        });
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void usedNodeWithoutStatusInVaultConsidersColocationDisabled(boolean colocationStatusFromSystemProps) {
-        AtomicReference<Path> workDirRef = new AtomicReference<>();
-
-        runWithColocationProperty(String.valueOf(false), () -> {
-            cluster.startAndInit(1);
-
-            workDirRef.set(unwrappedNode().workDir());
-
-            cluster.stopNode(0);
-        });
-
-        removePersistedColocationStatus(workDirRef.get());
-
-        runWithColocationProperty(String.valueOf(colocationStatusFromSystemProps), () -> {
-            cluster.startNode(0);
-
-            assertColocationStatusOnNodeIs(false);
-        });
-    }
-
-    private static void removePersistedColocationStatus(Path workDir) {
+    private static void setPersistedColocationDisabledStatus(Path workDir) {
         VaultService vaultService = new PersistentVaultService(IgnitePaths.vaultPath(workDir));
 
         try {
             vaultService.start();
-            vaultService.remove(NodePropertiesImpl.ZONE_BASED_REPLICATION_KEY);
+            vaultService.put(NodePropertiesImpl.ZONE_BASED_REPLICATION_KEY, new byte[]{(byte) 0});
         } finally {
             vaultService.close();
         }

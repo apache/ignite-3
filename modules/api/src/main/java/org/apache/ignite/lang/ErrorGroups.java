@@ -207,6 +207,9 @@ public class ErrorGroups {
          * should be considered as a non-recoverable error
          */
         public static final int INTERNAL_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 0xFFFF);
+
+        /** This error code indicates that a node is attempting to start over an unsupported table based replication mode. */
+        public static final int UNSUPPORTED_TABLE_BASED_REPLICATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 10);
     }
 
     /** Tables error group. */
