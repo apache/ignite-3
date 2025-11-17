@@ -58,6 +58,8 @@ class ClientFutureUtils {
                     return;
                 }
 
+                Throwable resErr = null;
+
                 synchronized (ctx) {
                     if (ctx.errors == null) {
                         ctx.errors = new ArrayList<>();
@@ -67,19 +69,19 @@ class ClientFutureUtils {
 
                     if (retryPredicate.test(ctx)) {
                         ctx.attempt++;
+                    } else {
+                        resErr = ctx.errors.get(0);
 
-                        doWithRetryAsync(func, retryPredicate, resFut, ctx);
-
-                        return;
+                        for (int i = 1; i < ctx.errors.size(); i++) {
+                            resErr.addSuppressed(ctx.errors.get(i));
+                        }
                     }
+                }
 
-                    Throwable resErr = ctx.errors.get(0);
-
-                    for (int i = 1; i < ctx.errors.size(); i++) {
-                        resErr.addSuppressed(ctx.errors.get(i));
-                    }
-
+                if (resErr != null) {
                     resFut.completeExceptionally(resErr);
+                } else {
+                    doWithRetryAsync(func, retryPredicate, resFut, ctx);
                 }
             } catch (Throwable t) {
                 resFut.completeExceptionally(t);
