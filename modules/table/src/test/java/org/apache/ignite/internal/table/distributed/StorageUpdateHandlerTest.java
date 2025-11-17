@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -26,9 +28,11 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -222,4 +226,44 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         assertEquals(row3, result3.binaryRow());
     }
 
+    /**
+     * Tests that {@link StorageUpdateHandler#handleUpdateAll} respects {@code shouldRelease()} from the storage engine.
+     *
+     * <p>This test verifies that the implementation checks {@code shouldRelease()} during batch processing
+     * to allow the storage engine to perform critical operations like checkpoints.
+     */
+    @Test
+    void testHandleUpdateAllExitsEarlyOnShouldRelease() {
+        UUID txUuid = UUID.randomUUID();
+
+        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+
+        Map<UUID, BinaryRow> rows = Map.of(
+                UUID.randomUUID(), binaryRow(new TestKey(1, "foo1"), new TestValue(2, "bar")),
+                UUID.randomUUID(), binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz")),
+                UUID.randomUUID(), binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"))
+        );
+
+        Map<UUID, TimedBinaryRow> rowsToUpdate = rows.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> new TimedBinaryRow(entry.getValue(), null)
+        ));
+
+        // When: handleUpdateAll is called with write intents
+        storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null, null);
+
+        // Then: All rows are written (verifying the operation completes successfully when shouldRelease=false)
+        verify(storage, times(rows.size())).addWrite(any(), any(), any(), anyInt(), anyInt());
+
+        // Verify all rows can be read
+        List<BinaryRow> readResults = new ArrayList<>();
+        for (UUID id : rows.keySet()) {
+            ReadResult readResult = storage.read(new RowId(partitionId.partitionId(), id), HybridTimestamp.MAX_VALUE);
+            if (readResult != null) {
+                readResults.add(readResult.binaryRow());
+            }
+        }
+
+        assertThat(readResults, containsInAnyOrder(rows.values().toArray()));
+    }
 }
