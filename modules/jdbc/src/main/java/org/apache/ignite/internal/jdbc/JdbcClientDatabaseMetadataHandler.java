@@ -31,7 +31,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 
 /**
- * Jdbc query network event handler implementation.
+ * Jdbc database metadata requests handler implementation.
  */
 public class JdbcClientDatabaseMetadataHandler implements JdbcDatabaseMetadataHandler {
     /** Channel. */
