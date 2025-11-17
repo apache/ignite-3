@@ -87,8 +87,7 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
                 }
                 logComment = "from system properties on a fresh node";
             } else {
-                colocationEnabled = false;
-                logComment = "node of an older version was run without zone based replication";
+                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported.");
             }
 
             saveToVault(colocationEnabled);

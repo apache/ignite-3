@@ -48,7 +48,7 @@ class ItColocationStatusHandlingTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void usedNodeStartWithColocationDisabledFailsWithUnableToStart() {
+    void usedNodeStartWithColocationDisabledInVaultFailsWithUnableToStart() {
         cluster.startAndInit(1);
 
         Path workDir = unwrappedNode().workDir();
@@ -61,6 +61,33 @@ class ItColocationStatusHandlingTest extends ClusterPerTestIntegrationTest {
                 () -> cluster.startNode(0),
                 IgniteException.class,
                 "Table based replication is no longer supported.");
+    }
+
+    @Test
+    void usedNodeStartWithoutStatusInVaultFailsWithUnableToStart() {
+        cluster.startAndInit(1);
+
+        Path workDir = unwrappedNode().workDir();
+
+        cluster.stopNode(0);
+
+        removePersistedColocationStatus(workDir);
+
+        assertThrowsWithCause(
+                () -> cluster.startNode(0),
+                IgniteException.class,
+                "Table based replication is no longer supported.");
+    }
+
+    private static void removePersistedColocationStatus(Path workDir) {
+        VaultService vaultService = new PersistentVaultService(IgnitePaths.vaultPath(workDir));
+
+        try {
+            vaultService.start();
+            vaultService.remove(NodePropertiesImpl.ZONE_BASED_REPLICATION_KEY);
+        } finally {
+            vaultService.close();
+        }
     }
 
     private static void runWithColocationProperty(String propertyValue, Runnable action) {
