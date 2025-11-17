@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -34,8 +33,6 @@ import org.jetbrains.annotations.Nullable;
  * @param <K> type of the key for the colocated table.
  */
 class NextColocatedWorkerSelector<K> extends PrimaryReplicaNextWorkerSelector {
-    private final NodeProperties nodeProperties;
-
     @Nullable
     private final K key;
 
@@ -51,37 +48,33 @@ class NextColocatedWorkerSelector<K> extends PrimaryReplicaNextWorkerSelector {
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
-            NodeProperties nodeProperties,
             TableViewInternal table,
             K key,
             Mapper<K> keyMapper
     ) {
-        this(placementDriver, topologyService, clock, nodeProperties, table, key, keyMapper, null);
+        this(placementDriver, topologyService, clock, table, key, keyMapper, null);
     }
 
     NextColocatedWorkerSelector(
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
-            NodeProperties nodeProperties,
             TableViewInternal table,
             Tuple tuple
     ) {
-        this(placementDriver, topologyService, clock, nodeProperties, table, null, null, tuple);
+        this(placementDriver, topologyService, clock, table, null, null, tuple);
     }
 
     private NextColocatedWorkerSelector(
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
-            NodeProperties nodeProperties,
             TableViewInternal table,
             @Nullable K key,
             @Nullable Mapper<K> keyMapper,
             @Nullable Tuple tuple
     ) {
         super(placementDriver, topologyService, clock);
-        this.nodeProperties = nodeProperties;
         this.table = table;
         this.key = key;
         this.keyMapper = keyMapper;
