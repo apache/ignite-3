@@ -38,6 +38,7 @@ pmdTest {
 dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-network')
     implementation project(':ignite-rocksdb-common')
@@ -75,6 +76,7 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-configuration-system')
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))

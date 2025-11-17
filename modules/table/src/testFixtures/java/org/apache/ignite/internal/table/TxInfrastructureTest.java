@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.distributed.ItTxTestCluster;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -118,6 +119,9 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    protected SystemLocalConfiguration systemLocalConfiguration;
+
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     protected SystemDistributedConfiguration systemDistributedConfiguration;
 
@@ -177,6 +181,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                systemLocalConfiguration,
                 systemDistributedConfiguration,
                 workDir,
                 nodes(),

@@ -29,6 +29,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -119,6 +120,7 @@ public class Loza implements RaftManager {
             ClusterService clusterService,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             HybridClock hybridClock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager
@@ -127,6 +129,7 @@ public class Loza implements RaftManager {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 failureManager,
@@ -141,6 +144,7 @@ public class Loza implements RaftManager {
      * @param clusterNetSvc Cluster network service.
      * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
+     * @param systemLocalConfiguration Local system configuration.
      * @param clock A hybrid logical clock.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
@@ -150,6 +154,7 @@ public class Loza implements RaftManager {
             ClusterService clusterNetSvc,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager,
@@ -160,6 +165,7 @@ public class Loza implements RaftManager {
         this.raftConfiguration = raftConfiguration;
         this.metricManager = metricManager;
 
+        // TODO: IGNITE-27081 Вот тут надо будет читать системную пропертю
         NodeOptions options = new NodeOptions();
 
         options.setClock(clock);
