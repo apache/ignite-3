@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
@@ -57,6 +58,8 @@ public class ConnectionHeartBeat implements ConnectionEventListener {
 
     private final AtomicBoolean connected = new AtomicBoolean(false);
 
+    private final AtomicReference<String> lastKnownUrl = new AtomicReference<>(null);
+
     private final Lock lock = new ReentrantLock();
 
     /**
@@ -84,6 +87,8 @@ public class ConnectionHeartBeat implements ConnectionEventListener {
             eventPublisher.publish(Events.connectionRestored());
         }
 
+        lastKnownUrl.set(sessionInfo.nodeUrl());
+
         lock.lock();
         try {
             if (scheduledConnectionHeartbeatExecutor == null) {
@@ -92,7 +97,7 @@ public class ConnectionHeartBeat implements ConnectionEventListener {
 
                 // Start connection heart beat
                 scheduledConnectionHeartbeatExecutor.scheduleAtFixedRate(
-                        () -> pingConnection(sessionInfo.nodeUrl()),
+                        this::pingConnection,
                         0,
                         cliCheckConnectionPeriodSecond,
                         TimeUnit.SECONDS
@@ -119,9 +124,9 @@ public class ConnectionHeartBeat implements ConnectionEventListener {
         }
     }
 
-    private void pingConnection(String nodeUrl) {
+    public void pingConnection() {
         try {
-            new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeState();
+            new NodeManagementApi(clientFactory.getClient(lastKnownUrl.get())).nodeState();
             if (connected.compareAndSet(false, true)) {
                 eventPublisher.publish(Events.connectionRestored());
             }

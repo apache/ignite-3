@@ -42,8 +42,8 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
             .setSpeedUnit(ChronoUnit.SECONDS)
             .setInitialMax(100)
             .hideEta()
-            .setTaskName("")
-            .showSpeed();
+            .showSpeed()
+            .setUpdateIntervalMillis(60);
 
     private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
 
@@ -110,14 +110,20 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
         return this;
     }
 
-    @Override
-    public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose) {
-        this.verbose = verbose;
+    public AsyncCallExecutionPipelineBuilder<I, T> enableSpinner(String prefix) {
+        SpinnerRenderer renderer = new SpinnerRenderer(prefix);
+        this.progressBarBuilder.setRenderer((progress, maxLength) -> renderer.render(maxLength));
         return this;
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> name(String name) {
-        this.progressBarBuilder.setTaskName(name);
+    public AsyncCallExecutionPipelineBuilder<I, T> updateIntervalMillis(int updateIntervalMillis) {
+        this.progressBarBuilder.setUpdateIntervalMillis(updateIntervalMillis);
+        return this;
+    }
+
+    @Override
+    public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose) {
+        this.verbose = verbose;
         return this;
     }
 

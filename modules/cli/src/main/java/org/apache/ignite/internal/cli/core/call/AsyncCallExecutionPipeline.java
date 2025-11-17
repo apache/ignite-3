@@ -62,7 +62,6 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
                 output.flush();
             }
         });
-        progressBarBuilder.setUpdateIntervalMillis(60);
 
         try {
             ProgressBarTracker tracker = new ProgressBarTracker(progressBarBuilder);

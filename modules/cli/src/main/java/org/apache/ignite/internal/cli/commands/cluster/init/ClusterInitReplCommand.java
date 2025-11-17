@@ -18,17 +18,24 @@
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION;
+import static org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitConstants.SPINNER_PREFIX;
+import static org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitConstants.SPINNER_UPDATE_INTERVAL_MILLIS;
+import static org.apache.ignite.internal.cli.core.call.CallExecutionPipeline.asyncBuilder;
 import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
 import static picocli.CommandLine.Command;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
+import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
+import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent;
 import picocli.CommandLine.Mixin;
 
@@ -45,18 +52,19 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     private ClusterInitOptions clusterInitOptions;
 
     @Inject
-    private ClusterInitCall call;
+    private ClusterInitCallFactory callFactory;
 
     @Inject
     private ConnectToClusterQuestion question;
 
-    /** {@inheritDoc} */
+    @Inject
+    private ConnectionHeartBeat connectionHeartBeat;
+
     @Override
     public void run() {
         runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .then(askQuestionIfConfigIsPath().build())
-                .then(Flows.fromCall(call))
-                .print()
+                .then(Flows.mono(this::runAsync))
         );
     }
 
@@ -88,5 +96,21 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
                 .clusterUrl(clusterUrl)
                 .fromClusterInitOptions(clusterInitOptions)
                 .build();
+    }
+
+    private int runAsync(ClusterInitCallInput input) {
+        return runPipeline(
+                asyncBuilder(this::createCall)
+                        .inputProvider(() -> input)
+                        .enableSpinner(SPINNER_PREFIX)
+                        .updateIntervalMillis(SPINNER_UPDATE_INTERVAL_MILLIS)
+        );
+    }
+
+    private AsyncCall<ClusterInitCallInput, String> createCall(ProgressTracker tracker) {
+        ClusterInitCall delegate = callFactory.create(tracker);
+        return input -> delegate.execute(input)
+                // Refresh connected state immediately after execution because node state is unavailable during cluster initialization
+                .whenComplete((output, throwable) -> connectionHeartBeat.pingConnection());
     }
 }
