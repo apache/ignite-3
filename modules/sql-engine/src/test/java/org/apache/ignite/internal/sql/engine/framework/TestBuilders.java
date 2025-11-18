@@ -132,8 +132,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
-import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -696,8 +694,6 @@ public class TestBuilders {
             Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
                     DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-            AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
-
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
@@ -711,7 +707,7 @@ public class TestBuilders {
                     schemaManager,
                     clockService::currentLong,
                     scheduledExecutor,
-                    producer
+                    mock(AbstractEventProducer.class)
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();

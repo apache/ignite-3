@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -872,13 +873,14 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     void createTableWithNonDefaultStalenessConfig() throws SqlParseException {
-        long staleRowsCount = DEFAULT_MIN_STALE_ROWS_COUNT / 2;
-        double staleRowsFraction = DEFAULT_STALE_ROWS_FRACTION / 2;
+        AtomicReference<Long> staleRowsCount = new AtomicReference<>(DEFAULT_MIN_STALE_ROWS_COUNT / 2);
+        AtomicReference<Double> staleRowsFraction = new AtomicReference<>(DEFAULT_STALE_ROWS_FRACTION / 2);
 
-        assert staleRowsCount != 0 && staleRowsFraction != 0.0d;
+        assert staleRowsCount.get() != 0 && staleRowsFraction.get() != 0.0d;
 
         Supplier<TableStatsStalenessConfiguration> statStalenessProperties =
-                () -> new TableStatsStalenessConfiguration(staleRowsFraction, staleRowsCount);
+                () -> new TableStatsStalenessConfiguration(staleRowsFraction.get(), staleRowsCount.get());
+
         converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null),
                 statStalenessProperties);
 
@@ -888,8 +890,18 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
 
-        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(staleRowsCount));
-        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(staleRowsFraction));
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(staleRowsCount.get()));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(staleRowsFraction.get()));
+
+        staleRowsCount.set(staleRowsCount.get() + 1);
+        staleRowsFraction.set(staleRowsFraction.get() + 0.1d);
+
+        cmd = convert("CREATE TABLE t2 (id INT PRIMARY KEY, val INT)");
+
+        newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(staleRowsCount.get()));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(staleRowsFraction.get()));
     }
 
     @Test

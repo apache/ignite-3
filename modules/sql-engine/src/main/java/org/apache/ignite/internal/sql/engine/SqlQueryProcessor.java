@@ -294,11 +294,13 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
         var nodeFilterValidator = new ClusterWideNodeFilterValidator(logicalTopologyService);
 
-        CreateTableDefaultsView tablePropertiesView = clusterCfg.createTable().value();
-
-        Supplier<TableStatsStalenessConfiguration> stalenessProperties = () -> new TableStatsStalenessConfiguration(
-                tablePropertiesView.staleRowsFraction(),
-                tablePropertiesView.minStaleRowsCount());
+        Supplier<TableStatsStalenessConfiguration> stalenessProperties = () -> {
+            CreateTableDefaultsView tablePropertiesView = clusterCfg.createTable().value();
+            return new TableStatsStalenessConfiguration(
+                    tablePropertiesView.staleRowsFraction(),
+                    tablePropertiesView.minStaleRowsCount()
+            );
+        };
 
         var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator, stalenessProperties);
 
