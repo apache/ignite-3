@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 
@@ -32,9 +31,5 @@ public interface MappingService {
      * @param multiStepPlan A plan to map.
      * @return A list of fragments with metadata related to a fragment topology.
      */
-    CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters);
-
-    default CompletableFuture<MappedFragments> map2(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        return map(multiStepPlan, parameters).thenApply(f -> new MappedFragments(f, 0));
-    }
+    CompletableFuture<MappedFragments> map(MultiStepPlan multiStepPlan, MappingParameters parameters);
 }

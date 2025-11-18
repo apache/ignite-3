@@ -586,7 +586,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                     MappingParameters mappingParameters =
                             MappingParameters.create(operationContext.parameters(), readOnly, nodeExclusionFilter);
 
-                    mappedFragments = mappingService.map2((MultiStepPlan) plan.plan(), mappingParameters);
+                    mappedFragments = mappingService.map((MultiStepPlan) plan.plan(), mappingParameters);
                 } else {
                     MappedFragment singleNodeMapping = MappingUtils.createSingleNodeMapping(localNode.name(), plan.plan().getRel());
                     mappedFragments = completedFuture(new MappedFragments(List.of(singleNodeMapping), 0));
@@ -1006,7 +1006,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         private void onNodeLeft(String nodeName, long topologyVersion) {
             Long mappingTopologyVersion = this.topologyVersion;
             if (mappingTopologyVersion != null && mappingTopologyVersion > topologyVersion) {
-                return;
+                return; // Ignore outdated event.
             }
             remoteFragmentInitCompletion.entrySet().stream()
                     .filter(e -> nodeName.equals(e.getKey().nodeName()))
@@ -1133,7 +1133,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             boolean mapOnBackups = tx.isReadOnly();
             MappingParameters mappingParameters = MappingParameters.create(ctx.parameters(), mapOnBackups, nodeExclusionFilter);
 
-            return mappingService.map2(multiStepPlan, mappingParameters)
+            return mappingService.map(multiStepPlan, mappingParameters)
                     .thenComposeAsync(mappedFragments -> sendFragments(tx, multiStepPlan, mappedFragments), taskExecutor)
                     .thenApply(this::wrapRootNode);
         }

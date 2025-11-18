@@ -143,14 +143,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     @Override
-    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        return map2(multiStepPlan, parameters).thenApply(MappedFragments::fragments);
-    }
-
-    @Override
-    public CompletableFuture<MappedFragments> map2(MultiStepPlan multiStepPlan,
-            MappingParameters parameters) {
-
+    public CompletableFuture<MappedFragments> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         if (initialTopologyFuture.isDone()) {
             return map0(multiStepPlan, parameters);
         }

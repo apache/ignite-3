@@ -359,7 +359,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void onNodeLeft(InternalClusterNode node, long version) {
         Long topologyVersion = context().topologyVersion();
         if (topologyVersion != null && topologyVersion > version) {
-            return;
+            return; // Ignore outdated event.
         }
 
         if (node.id().equals(context().originatingNodeId())) {

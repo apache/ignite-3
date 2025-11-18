@@ -395,7 +395,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     public void onNodeLeft(InternalClusterNode node, long version) {
         Long topologyVersion = context().topologyVersion();
         if (topologyVersion != null && topologyVersion > version) {
-            return;
+            return; // Ignore outdated event.
         }
 
         if (srcNodeNames.contains(node.name())) {
