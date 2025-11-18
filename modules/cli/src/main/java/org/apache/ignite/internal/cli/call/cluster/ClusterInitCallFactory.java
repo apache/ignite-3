@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.cli.call.cluster;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
+import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
 /** Factory for {@link ClusterInitCall}. */
 @Singleton
-public class ClusterInitCallFactory {
+public class ClusterInitCallFactory implements AsyncCallFactory<ClusterInitCallInput, String> {
 
     private final ApiClientFactory factory;
 
@@ -31,7 +33,8 @@ public class ClusterInitCallFactory {
         this.factory = factory;
     }
 
-    public ClusterInitCall create(ProgressTracker tracker) {
+    @Override
+    public AsyncCall<ClusterInitCallInput, String> create(ProgressTracker tracker) {
         return new ClusterInitCall(tracker, factory);
     }
 }

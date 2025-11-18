@@ -17,27 +17,13 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-/** Pipeline that executes a call. */
+/**
+ * Async call factory.
+ *
+ * @param <IT> Input type.
+ * @param <OT> Output type.
+ */
 @FunctionalInterface
-public interface CallExecutionPipeline<I extends CallInput, T> {
-    /**
-     * Builder helper method.
-     *
-     * @return builder for {@link CallExecutionPipeline}.
-     */
-    static <I extends CallInput, T> SingleCallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
-        return new SingleCallExecutionPipelineBuilder<>(call);
-    }
-
-    /** Builder helper method. */
-    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(AsyncCallFactory<I, T> callFactory) {
-        return new AsyncCallExecutionPipelineBuilder<>(callFactory);
-    }
-
-    /**
-     * Runs the pipeline.
-     *
-     * @return exit code.
-     */
-    int runPipeline();
+public interface AsyncCallFactory<IT extends CallInput, OT> {
+    AsyncCall<IT, OT> create(ProgressTracker tracker);
 }

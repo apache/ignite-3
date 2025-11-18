@@ -124,6 +124,9 @@ public class ConnectionHeartBeat implements ConnectionEventListener {
         }
     }
 
+    /**
+     * Checks connection to last connected node.
+     */
     public void pingConnection() {
         try {
             new NodeManagementApi(clientFactory.getClient(lastKnownUrl.get())).nodeState();

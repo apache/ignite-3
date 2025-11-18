@@ -19,14 +19,22 @@ package org.apache.ignite.internal.cli.commands;
 
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
+import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.internal.cli.call.cluster.topology.LogicalTopologyCall;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
 import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCall;
 import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
@@ -46,10 +54,16 @@ import org.apache.ignite.internal.cli.call.recovery.restart.RestartPartitionsCal
 import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCall;
 import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCallInput;
 import org.apache.ignite.internal.cli.call.unit.ListUnitCallInput;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
+import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -57,6 +71,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Test for --profile override for --url options.
  */
+@MicronautTest(resolveParameters = false)
+@ExtendWith(WorkDirectoryExtension.class)
 public class ProfileMixinTest extends CliCommandTestBase {
     /**
      * Cluster URL from default profile in integration_tests.ini.
@@ -73,6 +89,16 @@ public class ProfileMixinTest extends CliCommandTestBase {
      */
     private static final String URL_FROM_CMD = "http://localhost:10302";
 
+    @WorkDirectory
+    private static Path WORK_DIR;
+
+    private static String TEMP_FILE_PATH;
+
+    @BeforeAll
+    public static void createTempFile() throws IOException {
+        TEMP_FILE_PATH = Files.createFile(WORK_DIR.resolve("temp.txt")).toString();
+    }
+
     @ParameterizedTest
     @DisplayName("Should take URL from default profile")
     @MethodSource("allCallsProvider")
@@ -86,6 +112,19 @@ public class ProfileMixinTest extends CliCommandTestBase {
     }
 
     @ParameterizedTest
+    @DisplayName("Should take URL from default profile")
+    @MethodSource("allAsyncCallsProvider")
+    <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>> void defaultUrlAsync(
+            String command,
+            Class<FT> callFactoryClass,
+            Class<T> callClass,
+            Class<IT> callInputClass,
+            Function<IT, String> urlSupplier
+    ) {
+        checkParametersAsync(command, callFactoryClass, callClass, callInputClass, urlSupplier, "", DEFAULT_URL);
+    }
+
+    @ParameterizedTest
     @DisplayName("Should take URL from specified profile")
     @MethodSource("allCallsProvider")
     <IT extends CallInput, OT, T extends Call<IT, OT>> void profileUrl(
@@ -95,6 +134,19 @@ public class ProfileMixinTest extends CliCommandTestBase {
             Function<IT, String> urlSupplier
     ) {
         checkParameters(command, callClass, callInputClass, urlSupplier, "--profile test", URL_FROM_PROFILE);
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should take URL from specified profile")
+    @MethodSource("allAsyncCallsProvider")
+    <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>> void profileUrlAsync(
+            String command,
+            Class<FT> callFactoryClass,
+            Class<T> callClass,
+            Class<IT> callInputClass,
+            Function<IT, String> urlSupplier
+    ) {
+        checkParametersAsync(command, callFactoryClass, callClass, callInputClass, urlSupplier, "--profile test", URL_FROM_PROFILE);
     }
 
     @ParameterizedTest
@@ -122,6 +174,19 @@ public class ProfileMixinTest extends CliCommandTestBase {
     }
 
     @ParameterizedTest
+    @DisplayName("Should take cluster endpoint URL from command line")
+    @MethodSource("clusterAsyncCallsProvider")
+    <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>> void commandClusterUrlAsync(
+            String command,
+            Class<FT> callFactoryClass,
+            Class<T> callClass,
+            Class<IT> callInputClass,
+            Function<IT, String> urlSupplier
+    ) {
+        checkParametersAsync(command, callFactoryClass, callClass, callInputClass, urlSupplier, "--url " + URL_FROM_CMD, URL_FROM_CMD);
+    }
+
+    @ParameterizedTest
     @DisplayName("Node URL from command line should override specified profile")
     @MethodSource("nodeCallsProvider")
     <IT extends CallInput, OT, T extends Call<IT, OT>> void commandNodeUrlOverridesProfile(
@@ -143,6 +208,21 @@ public class ProfileMixinTest extends CliCommandTestBase {
             Function<IT, String> urlSupplier
     ) {
         checkParameters(command, callClass, callInputClass, urlSupplier, "--profile test --url " + URL_FROM_CMD, URL_FROM_CMD);
+    }
+
+    @ParameterizedTest
+    @DisplayName("Cluster endpoint URL from command line should override specified profile")
+    @MethodSource("clusterAsyncCallsProvider")
+    <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>>
+    void commandClusterUrlOverridesProfileAsync(
+            String command,
+            Class<FT> callFactoryClass,
+            Class<T> callClass,
+            Class<IT> callInputClass,
+            Function<IT, String> urlSupplier
+    ) {
+        checkParametersAsync(command, callFactoryClass, callClass, callInputClass, urlSupplier, "--profile test --url " + URL_FROM_CMD,
+                URL_FROM_CMD);
     }
 
     private static Stream<Arguments> nodeCallsProvider() {
@@ -189,12 +269,6 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         (Function<ClusterConfigUpdateCallInput, String>) ClusterConfigUpdateCallInput::getClusterUrl
                 ),
                 arguments(
-                        "cluster init --name cluster --metastorage-group node",
-                        ClusterInitCall.class,
-                        ClusterInitCallInput.class,
-                        (Function<ClusterInitCallInput, String>) ClusterInitCallInput::getClusterUrl
-                ),
-                arguments(
                         "cluster topology physical",
                         PhysicalTopologyCall.class,
                         UrlCallInput.class,
@@ -212,13 +286,6 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         UrlCallInput.class,
                         (Function<UrlCallInput, String>) UrlCallInput::getUrl
                 ),
-                // Doesn't work because this command is special - it uses AsyncCall and call factory
-                // arguments(
-                //         "cluster unit deploy",
-                //         DeployUnitCall.class,
-                //         DeployUnitCallInput.class,
-                //         (Function<DeployUnitCallInput, String>) DeployUnitCallInput::clusterUrl
-                // ),
                 arguments(
                         "cluster unit list",
                         ClusterListUnitCall.class,
@@ -251,9 +318,31 @@ public class ProfileMixinTest extends CliCommandTestBase {
                 )
         );
     }
+    private static Stream<Arguments> clusterAsyncCallsProvider() {
+        return Stream.of(
+                arguments(
+                        "cluster init --name cluster --metastorage-group node",
+                        ClusterInitCallFactory.class,
+                        ClusterInitCall.class,
+                        ClusterInitCallInput.class,
+                        (Function<ClusterInitCallInput, String>) ClusterInitCallInput::getClusterUrl
+                ),
+                 arguments(
+                         "cluster unit deploy foo --version=1 --path=" + TEMP_FILE_PATH,
+                         DeployUnitCallFactory.class,
+                         DeployUnitCall.class,
+                         DeployUnitCallInput.class,
+                         (Function<DeployUnitCallInput, String>) DeployUnitCallInput::clusterUrl
+                 )
+        );
+    }
 
     private static Stream<Arguments> allCallsProvider() {
         return Stream.concat(nodeCallsProvider(), clusterCallsProvider());
+    }
+
+    private static Stream<Arguments> allAsyncCallsProvider() {
+        return clusterAsyncCallsProvider();
     }
 
     @Override

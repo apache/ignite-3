@@ -47,7 +47,7 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
 
     @Override
     public Integer call() {
-        return runPipeline(asyncBuilder(callFactory::create)
+        return runPipeline(asyncBuilder(callFactory)
                 .inputProvider(this::buildCallInput)
                 .enableSpinner(SPINNER_PREFIX)
                 .updateIntervalMillis(SPINNER_UPDATE_INTERVAL_MILLIS)

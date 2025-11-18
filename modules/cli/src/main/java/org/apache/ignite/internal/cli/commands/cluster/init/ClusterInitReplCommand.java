@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComp
 import static picocli.CommandLine.Command;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -108,7 +107,7 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     }
 
     private AsyncCall<ClusterInitCallInput, String> createCall(ProgressTracker tracker) {
-        ClusterInitCall delegate = callFactory.create(tracker);
+        AsyncCall<ClusterInitCallInput, String> delegate = callFactory.create(tracker);
         return input -> delegate.execute(input)
                 // Refresh connected state immediately after execution because node state is unavailable during cluster initialization
                 .whenComplete((output, throwable) -> connectionHeartBeat.pingConnection());
