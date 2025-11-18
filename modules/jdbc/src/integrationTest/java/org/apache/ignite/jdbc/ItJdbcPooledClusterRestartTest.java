@@ -17,7 +17,12 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ConfigTemplates;
@@ -35,19 +40,46 @@ public class ItJdbcPooledClusterRestartTest {
 
     @Test
     public void test(TestInfo testInfo) throws Exception {
-        var cluster = startCluster(testInfo);
+        var cluster = getCluster(testInfo);
+        startCluster(testInfo, cluster);
 
-        cluster.shutdown();
+        var url = "jdbc:ignite:thin://127.0.0.1:10800";
+
+        try (ComboPooledDataSource c3p0Pool = new ComboPooledDataSource()) {
+            c3p0Pool.setJdbcUrl(url);
+
+            for (int i = 0; i < 5; i++) {
+                try (Connection conn = c3p0Pool.getConnection()) {
+                    try (var stmt = conn.createStatement()) {
+                        stmt.setFetchSize(100);
+                        try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(0, 2000)")) {
+                            int cnt = 0;
+
+                            while (rs.next()) {
+                                assertEquals(cnt, rs.getInt(1));
+                                cnt++;
+                            }
+
+                            assertEquals(2001, cnt);
+                        }
+                    }
+                }
+
+                cluster.shutdown();
+                cluster = getCluster(testInfo);
+                startCluster(testInfo, cluster);
+            }
+        }
     }
 
-    private Cluster startCluster(TestInfo testInfo) {
+    private static void startCluster(TestInfo testInfo, Cluster cluster) {
+        cluster.startAndInit(testInfo, 1, new int[]{0}, initParametersBuilder -> {});
+    }
+
+    private static Cluster getCluster(TestInfo testInfo) {
         ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR)
                 .defaultNodeBootstrapConfigTemplate(ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE);
 
-        var cluster = new Cluster(clusterConfiguration.build());
-
-        cluster.startAndInit(testInfo, 1, new int[]{0}, initParametersBuilder -> {});
-
-        return cluster;
+        return new Cluster(clusterConfiguration.build());
     }
 }

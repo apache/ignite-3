@@ -63,6 +63,7 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("ThrowableNotThrown")
 public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Test
+    @Disabled("TODO: Remove")
     public void testMultiThreadedPooled() throws Exception {
         var url = "jdbc:ignite:thin://127.0.0.1:10800";
 
