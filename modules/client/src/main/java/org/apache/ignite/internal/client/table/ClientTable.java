@@ -21,8 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
-import static org.apache.ignite.internal.client.table.ClientTableMapUtils.mapAndRetryCollectionResult;
-import static org.apache.ignite.internal.client.table.ClientTableMapUtils.mapAndRetryScalarResult;
+import static org.apache.ignite.internal.client.table.ClientTableMapUtils.mapAndRetry;
 import static org.apache.ignite.internal.client.table.ClientTableMapUtils.reduceWithKeepOrder;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -812,16 +811,26 @@ public class ClientTable implements Table {
                         return mapFun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
                     }
 
-                    Map<Integer, List<E>> mapped = IgniteUtils.newHashMap(aff.size());
+                    Map<Integer, IgniteBiTuple<Integer, List<E>>> partMap = IgniteUtils.newHashMap(aff.size());
 
                     for (E key : keys) {
                         int hash = hashFunc.apply(schema, key);
                         Integer part = Math.abs(hash % aff.size());
-                        mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
+                        partMap.computeIfAbsent(part, k -> new IgniteBiTuple<>(part, new ArrayList<>())).get2().add(key);
                     }
 
+                    var mapped = new ArrayList<>(partMap.values());
+
                     CompletableFuture<R> resFut = new CompletableFuture<>();
-                    mapAndRetryScalarResult(mapFun, initialValue, reducer, txns, mapped, new long[1], resFut, log);
+                    mapAndRetry(mapFun, txns, mapped, new long[1], resFut, log, res -> {
+                        R in = initialValue;
+
+                        for (CompletableFuture<R> val : res) {
+                            in = reducer.reduce(in, val.getNow(null));
+                        }
+
+                        return in;
+                    }, b -> b.get2(), b -> b.get1());
                     return resFut;
                 });
     }
@@ -861,7 +870,7 @@ public class ClientTable implements Table {
                     List<Batch<E>> mapped = new ArrayList<>(partMap.values());
 
                     CompletableFuture<List<E>> resFut = new CompletableFuture<>();
-                    mapAndRetryCollectionResult(fun, txns, mapped, new long[1], resFut, log, (res) -> {
+                    mapAndRetry(fun, txns, mapped, new long[1], resFut, log, (res) -> {
                         var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
 
                         for (int i = 0; i < res.size(); i++) {
@@ -870,7 +879,7 @@ public class ClientTable implements Table {
                         }
 
                         return in;
-                    });
+                    }, b -> b.batch, b -> b.partition);
 
                     return resFut;
                 });

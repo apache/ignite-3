@@ -22,22 +22,18 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import org.apache.ignite.internal.client.table.ClientTable.Batch;
-import org.apache.ignite.internal.client.table.ClientTable.Reducer;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides batch map utility methods.
@@ -46,92 +42,25 @@ class ClientTableMapUtils {
     // TODO https://issues.apache.org/jira/browse/IGNITE-27073
     private static final long DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(5000);
 
-    static <R, E> void mapAndRetryScalarResult(
-            MapFunction<E, R> mapFun,
-            @Nullable R initialValue, Reducer<R> reducer,
+    static <K, R, M> void mapAndRetry(
+            MapFunction<K, R> mapFun,
             List<Transaction> txns,
-            Map<Integer, List<E>> mapped,
+            List<M> mapped,
             long[] startTs,
             CompletableFuture<R> resFut,
-            IgniteLogger log
-    ) {
-        if (startTs[0] == 0) {
-            startTs[0] = System.nanoTime();
-        }
-
-        List<CompletableFuture<R>> res = new ArrayList<>();
-
-        for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
-            res.add(mapFun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey()), mapped.size() > 1));
-        }
-
-        CompletableFutures.allOf(res).handle((ignored, err) -> {
-            List<CompletableFuture<Void>> waitCommitFuts = List.of();
-            if (!txns.isEmpty()) {
-                if (err != null) {
-                    boolean needRetry = unlockOnRetry(txns, res, log);
-
-                    long nowRelative = System.nanoTime();
-                    if (needRetry && nowRelative - startTs[0] < DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS) {
-                        startTs[0] = nowRelative;
-                        txns.clear(); // The collection is re-filled on next map attempt.
-
-                        mapAndRetryScalarResult(mapFun, initialValue, reducer, txns, mapped, startTs, resFut, log);
-
-                        return null;
-                    }
-
-                    resFut.completeExceptionally(err);
-
-                    return null;
-                }
-
-                waitCommitFuts = unlockFragments(txns, log);
-            } else {
-                if (err != null) {
-                    resFut.completeExceptionally(err);
-
-                    return null;
-                }
-            }
-
-            R in = initialValue;
-
-            for (CompletableFuture<R> val : res) {
-                in = reducer.reduce(in, val.getNow(null));
-            }
-
-            if (waitCommitFuts.isEmpty()) {
-                resFut.complete(in);
-            } else {
-                R finalIn = in;
-                CompletableFutures.allOf(waitCommitFuts).whenComplete((r, e) -> {
-                    // Ignore errors.
-                    resFut.complete(finalIn);
-                });
-            }
-
-            return null;
-        });
-    }
-
-    static <E> void mapAndRetryCollectionResult(
-            MapFunction<E, List<E>> mapFun,
-            List<Transaction> txns,
-            List<Batch<E>> mapped,
-            long[] startTs,
-            CompletableFuture<List<E>> resFut,
             IgniteLogger log,
-            Function<List<CompletableFuture<List<E>>>, List<E>> reduceClo
+            Function<List<CompletableFuture<R>>, R> reduceClo,
+            Function<M, Collection<K>> keyProvider,
+            Function<M, Integer> partProvider
     ) {
         if (startTs[0] == 0) {
             startTs[0] = System.nanoTime();
         }
 
-        List<CompletableFuture<List<E>>> res = new ArrayList<>(mapped.size());
+        List<CompletableFuture<R>> res = new ArrayList<>(mapped.size());
 
-        for (Batch<E> batch : mapped) {
-            var fut = mapFun.apply(batch.batch, PartitionAwarenessProvider.of(batch.partition), mapped.size() > 1);
+        for (M batch : mapped) {
+            var fut = mapFun.apply(keyProvider.apply(batch), PartitionAwarenessProvider.of(partProvider.apply(batch)), mapped.size() > 1);
             res.add(fut);
         }
 
@@ -146,7 +75,7 @@ class ClientTableMapUtils {
                         startTs[0] = nowRelative;
                         txns.clear(); // The collection is re-filled on next map attempt.
 
-                        mapAndRetryCollectionResult(mapFun, txns, mapped, startTs, resFut, log, reduceClo);
+                        mapAndRetry(mapFun, txns, mapped, startTs, resFut, log, reduceClo, keyProvider, partProvider);
 
                         return null;
                     }
@@ -165,7 +94,7 @@ class ClientTableMapUtils {
                 }
             }
 
-            List<E> in = reduceClo.apply(res);
+            R in = reduceClo.apply(res);
 
             if (waitCommitFuts.isEmpty()) {
                 resFut.complete(in);
