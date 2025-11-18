@@ -47,6 +47,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -104,6 +105,9 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration("mock: { maxClockSkewMillis: 500 }")
     private SchemaSynchronizationConfiguration schemaSynchronizationConfiguration;
@@ -367,6 +371,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
             raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     new RaftGroupEventsClientListener()
             );

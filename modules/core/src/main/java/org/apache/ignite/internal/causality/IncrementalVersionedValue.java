@@ -27,6 +27,8 @@ import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -219,13 +221,21 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     public CompletableFuture<T> update(long causalityToken, BiFunction<T, Throwable, CompletableFuture<T>> updater) {
         synchronized (updateMutex) {
             if (expectedToken == -1) {
-                assert causalityToken > lastCompleteToken
-                        : String.format("Causality token is outdated, previous token %d, got %d", lastCompleteToken, causalityToken);
+                if (causalityToken <= lastCompleteToken) {
+                    throw new IgniteException(
+                            Common.INTERNAL_ERR,
+                            String.format("Causality token is outdated, previous token %d, got %d", lastCompleteToken, causalityToken)
+                    );
+                }
 
                 expectedToken = causalityToken;
             } else {
-                assert expectedToken == causalityToken
-                        : String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken);
+                if (expectedToken != causalityToken) {
+                    throw new IgniteException(
+                            Common.INTERNAL_ERR,
+                            String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken)
+                    );
+                }
             }
 
             updaterFuture = updaterFuture

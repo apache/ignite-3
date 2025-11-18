@@ -57,6 +57,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -136,8 +137,11 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.retryTimeoutMillis = 10000")
     private RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100")
-    private SystemDistributedConfiguration systemConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutorService;
@@ -166,7 +170,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         Node(
                 TestInfo testInfo,
                 RaftConfiguration raftConfiguration,
-                SystemDistributedConfiguration systemConfiguration,
+                SystemLocalConfiguration systemLocalConfiguration,
+                SystemDistributedConfiguration systemDistributedConfiguration,
                 Path workDir,
                 int index,
                 ScheduledExecutorService scheduledExecutorService
@@ -194,7 +199,13 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     workingDir.raftLogPath()
             );
 
-            raftManager = TestLozaFactory.create(clusterService, raftConfiguration, clock, raftGroupEventsClientListener);
+            raftManager = TestLozaFactory.create(
+                    clusterService,
+                    raftConfiguration,
+                    systemLocalConfiguration,
+                    clock,
+                    raftGroupEventsClientListener
+            );
 
             var logicalTopologyService = mock(LogicalTopologyService.class);
 
@@ -235,7 +246,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    systemConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -555,7 +566,15 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         nodes = new ArrayList<>();
 
         for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, systemConfiguration, workDir, i, scheduledExecutorService);
+            Node node = new Node(
+                    testInfo,
+                    raftConfiguration,
+                    systemLocalConfiguration,
+                    systemDistributedConfiguration,
+                    workDir,
+                    i,
+                    scheduledExecutorService
+            );
             nodes.add(node);
         }
 
