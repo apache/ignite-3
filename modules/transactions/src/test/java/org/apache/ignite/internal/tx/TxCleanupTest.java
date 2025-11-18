@@ -129,7 +129,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
         cleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, mock(
-                VolatileTxStateMetaStorage.class));
+                VolatileTxStateMetaStorage.class), LOCAL_NODE.name(), clockService);
     }
 
     @Test

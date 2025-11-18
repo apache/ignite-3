@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
@@ -36,12 +36,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
@@ -69,21 +71,32 @@ public class TxCleanupRequestSender {
     /** Local transaction state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage;
 
+    /** Local node's consistent id. */
+    private final String nodeName;
+
+    private ClockService clockService;
+
     /**
      * The constructor.
      *
      * @param txMessageSender Message sender.
      * @param placementDriverHelper Placement driver helper.
      * @param txStateVolatileStorage Volatile transaction state storage.
+     * @param nodeName Local node's consistent id.
+     * @param clockService Clock service.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
-            VolatileTxStateMetaStorage txStateVolatileStorage
+            VolatileTxStateMetaStorage txStateVolatileStorage,
+            String nodeName,
+            ClockService clockService
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
         this.txStateVolatileStorage = txStateVolatileStorage;
+        this.nodeName = nodeName;
+        this.clockService = clockService;
     }
 
     /**
@@ -123,24 +136,29 @@ public class TxCleanupRequestSender {
     private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        txStateVolatileStorage.updateMeta(txId, oldMeta -> {
-                    if (oldMeta == null && isFinalState(state)) {
-                        // To prevent further problems in write intent resolution.
-                        return null;
-                    } else {
-                        return new TxStateMeta(
-                                oldMeta == null ? state : oldMeta.txState(),
-                                oldMeta == null ? null : oldMeta.txCoordinatorId(),
-                                commitPartitionId,
-                                oldMeta == null ? null : oldMeta.commitTimestamp(),
-                                oldMeta == null ? null : oldMeta.tx(),
-                                oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
-                                cleanupCompletionTimestamp,
-                                oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
-                        );
-                    }
-                }
+        final HybridTimestamp commitTimestamp;
+        if (state == COMMITTED && txStateVolatileStorage.state(txId) == null) {
+            TransactionMeta transactionMeta = txMessageSender.resolveTxStateFromCommitPartition(
+                    nodeName,
+                    txId,
+                    commitPartitionId,
+                    clockService.currentLong()).join();
+            commitTimestamp = transactionMeta.commitTimestamp();
+        } else {
+            commitTimestamp = null;
+        }
 
+        txStateVolatileStorage.updateMeta(txId, oldMeta ->
+                new TxStateMeta(
+                        oldMeta == null ? state : oldMeta.txState(),
+                        oldMeta == null ? null : oldMeta.txCoordinatorId(),
+                        commitPartitionId,
+                        oldMeta == null ? commitTimestamp : oldMeta.commitTimestamp(),
+                        oldMeta == null ? null : oldMeta.tx(),
+                        oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
+                        cleanupCompletionTimestamp,
+                        oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
+                )
         );
     }
 
