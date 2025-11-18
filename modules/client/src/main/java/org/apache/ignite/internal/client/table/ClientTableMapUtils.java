@@ -22,14 +22,13 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.apache.ignite.internal.client.table.ClientTable.Batch;
 import org.apache.ignite.internal.client.table.ClientTable.Reducer;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
@@ -47,7 +46,7 @@ class ClientTableMapUtils {
     // TODO https://issues.apache.org/jira/browse/IGNITE-27073
     private static final long DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(5000);
 
-    static <R, E> void mapAndRetry(
+    static <R, E> void mapAndRetryScalarResult(
             MapFunction<E, R> mapFun,
             @Nullable R initialValue, Reducer<R> reducer,
             List<Transaction> txns,
@@ -77,7 +76,7 @@ class ClientTableMapUtils {
                         startTs[0] = nowRelative;
                         txns.clear(); // The collection is re-filled on next map attempt.
 
-                        mapAndRetry(mapFun, initialValue, reducer, txns, mapped, startTs, resFut, log);
+                        mapAndRetryScalarResult(mapFun, initialValue, reducer, txns, mapped, startTs, resFut, log);
 
                         return null;
                     }
@@ -116,25 +115,24 @@ class ClientTableMapUtils {
         });
     }
 
-    static <E> void mapAndRetry(
+    static <E> void mapAndRetryCollectionResult(
             MapFunction<E, List<E>> mapFun,
-            Collection<E> keys,
             List<Transaction> txns,
-            Map<Integer, Batch<E>> mapped,
+            List<Batch<E>> mapped,
             long[] startTs,
             CompletableFuture<List<E>> resFut,
-            IgniteLogger log
+            IgniteLogger log,
+            Function<List<CompletableFuture<List<E>>>, List<E>> reduceClo
     ) {
         if (startTs[0] == 0) {
             startTs[0] = System.nanoTime();
         }
 
         List<CompletableFuture<List<E>>> res = new ArrayList<>(mapped.size());
-        List<Batch<E>> batches = new ArrayList<>(mapped.size());
 
-        for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
-            res.add(mapFun.apply(entry.getValue().batch, PartitionAwarenessProvider.of(entry.getKey()), mapped.size() > 1));
-            batches.add(entry.getValue());
+        for (Batch<E> batch : mapped) {
+            var fut = mapFun.apply(batch.batch, PartitionAwarenessProvider.of(batch.partition), mapped.size() > 1);
+            res.add(fut);
         }
 
         CompletableFutures.allOf(res).handle((ignored, err) -> {
@@ -148,7 +146,7 @@ class ClientTableMapUtils {
                         startTs[0] = nowRelative;
                         txns.clear(); // The collection is re-filled on next map attempt.
 
-                        mapAndRetry(mapFun, keys, txns, mapped, startTs, resFut, log);
+                        mapAndRetryCollectionResult(mapFun, txns, mapped, startTs, resFut, log, reduceClo);
 
                         return null;
                     }
@@ -167,12 +165,7 @@ class ClientTableMapUtils {
                 }
             }
 
-            var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
-
-            for (int i = 0; i < res.size(); i++) {
-                CompletableFuture<List<E>> f = res.get(i);
-                reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
-            }
+            List<E> in = reduceClo.apply(res);
 
             if (waitCommitFuts.isEmpty()) {
                 resFut.complete(in);
@@ -187,9 +180,9 @@ class ClientTableMapUtils {
         });
     }
 
-    private static <E> boolean unlockOnRetry(
+    private static <R, C> boolean unlockOnRetry(
             List<Transaction> txns,
-            List<CompletableFuture<E>> res,
+            List<CompletableFuture<R>> res,
             IgniteLogger log
     ) {
         boolean allRetryableExceptions = true;
@@ -233,7 +226,7 @@ class ClientTableMapUtils {
         return waitCommitFuts;
     }
 
-    private static <E> void reduceWithKeepOrder(List<E> agg, List<E> cur, List<Integer> originalIndices) {
+    static <E> void reduceWithKeepOrder(List<E> agg, List<E> cur, List<Integer> originalIndices) {
         for (int i = 0; i < cur.size(); i++) {
             E val = cur.get(i);
             Integer orig = originalIndices.get(i);

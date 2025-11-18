@@ -21,13 +21,16 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
-import static org.apache.ignite.internal.client.table.ClientTableMapUtils.mapAndRetry;
+import static org.apache.ignite.internal.client.table.ClientTableMapUtils.mapAndRetryCollectionResult;
+import static org.apache.ignite.internal.client.table.ClientTableMapUtils.mapAndRetryScalarResult;
+import static org.apache.ignite.internal.client.table.ClientTableMapUtils.reduceWithKeepOrder;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -769,6 +772,7 @@ public class ClientTable implements Table {
      * @param <E> Batch type element.
      */
     static class Batch<E> {
+        public int partition;
         List<E> batch = new ArrayList<>();
         List<Integer> originalIndices = new ArrayList<>();
 
@@ -817,7 +821,7 @@ public class ClientTable implements Table {
                     }
 
                     CompletableFuture<R> resFut = new CompletableFuture<>();
-                    mapAndRetry(mapFun, initialValue, reducer, txns, mapped, new long[1], resFut, log);
+                    mapAndRetryScalarResult(mapFun, initialValue, reducer, txns, mapped, new long[1], resFut, log);
                     return resFut;
                 });
     }
@@ -840,18 +844,34 @@ public class ClientTable implements Table {
                         return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER, false);
                     }
 
-                    Map<Integer, Batch<E>> mapped = IgniteUtils.newHashMap(aff.size());
+                    Map<Integer, Batch<E>> partMap = IgniteUtils.newHashMap(aff.size());
 
                     int idx = 0;
                     for (E key : keys) {
                         int hash = hashFunc.apply(schema, key);
                         int part = Math.abs(hash % aff.size());
-                        mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
+                        partMap.computeIfAbsent(part, k -> {
+                            var b = new Batch<E>();
+                            b.partition = part;
+                            return b;
+                        }).add(key, idx);
                         idx++;
                     }
 
+                    List<Batch<E>> mapped = new ArrayList<>(partMap.values());
+
                     CompletableFuture<List<E>> resFut = new CompletableFuture<>();
-                    mapAndRetry(fun, keys, txns, mapped, new long[1], resFut, log);
+                    mapAndRetryCollectionResult(fun, txns, mapped, new long[1], resFut, log, (res) -> {
+                        var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
+
+                        for (int i = 0; i < res.size(); i++) {
+                            CompletableFuture<List<E>> f = res.get(i);
+                            reduceWithKeepOrder(in, f.getNow(null), mapped.get(i).originalIndices);
+                        }
+
+                        return in;
+                    });
+
                     return resFut;
                 });
     }
