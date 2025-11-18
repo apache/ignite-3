@@ -823,15 +823,11 @@ void sql_connection::on_observable_timestamp(std::int64_t timestamp) {
 }
 
 void sql_connection::send_heartbeat() {
-    network::data_buffer_owning response;
-    auto success = catch_errors([&] {
-        response = sync_request(protocol::client_operation::HEARTBEAT, [&](protocol::writer &) {});
+    catch_errors([&] {
+        sync_request(protocol::client_operation::HEARTBEAT, [&](protocol::writer &) {});
     });
 
-    UNUSED_VALUE(response);
-
-    if (success)
-        plan_heartbeat(m_heartbeat_interval);
+    plan_heartbeat(m_heartbeat_interval);
 }
 
 void sql_connection::on_heartbeat_timeout() {
