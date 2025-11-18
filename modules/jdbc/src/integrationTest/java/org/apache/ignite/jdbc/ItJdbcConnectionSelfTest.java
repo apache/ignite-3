@@ -91,15 +91,16 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             IgniteTestUtils.runMultiThreaded(() -> {
                 try (Connection conn = c3p0Pool.getConnection()) {
-                    try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM TABLE(SYSTEM_RANGE(1, 5000)")) {
-                        stmt.setFetchSize(10);
-                        try (ResultSet rs = stmt.executeQuery()) {
-                            int cnt = 0;
+                    try (var stmt = conn.createStatement()) {
+                        try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(1, 500000)")) {
+                            int cnt = 1;
 
                             while (rs.next()) {
                                 assertEquals(cnt, rs.getInt(1));
                                 cnt++;
                             }
+
+                            assertEquals(500_000, stmt.getFetchSize());
                         }
                     }
                 }
