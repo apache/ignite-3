@@ -83,6 +83,8 @@ const char *attr_id_to_string(uint16_t id) {
 
 namespace ignite {
 
+using sql_connection_ptr = sql_environment::sql_connection_ptr;
+
 diagnosable *diagnosable_from_handle(SQLSMALLINT handle_type, void *handle) {
     switch (handle_type) {
         case SQL_HANDLE_ENV: {
@@ -90,8 +92,8 @@ diagnosable *diagnosable_from_handle(SQLSMALLINT handle_type, void *handle) {
             return static_cast<diagnosable *>(env);
         }
         case SQL_HANDLE_DBC: {
-            auto *conn = reinterpret_cast<sql_connection *>(handle);
-            return static_cast<diagnosable *>(conn);
+            auto *conn = reinterpret_cast<sql_connection_ptr*>(handle);
+            return static_cast<diagnosable *>(conn->get());
         }
         case SQL_HANDLE_STMT: {
             auto *statement = reinterpret_cast<sql_statement *>(handle);
@@ -109,14 +111,14 @@ SQLRETURN SQLGetInfo(
                                   << std::hex << reinterpret_cast<size_t>(infoValue) << ", " << infoValueMax << ", "
                                   << std::hex << reinterpret_cast<size_t>(length));
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
 
     if (!connection)
         return SQL_INVALID_HANDLE;
 
-    connection->get_info(infoType, infoValue, infoValueMax, length);
+    (*connection)->get_info(infoType, infoValue, infoValueMax, length);
 
-    return connection->get_diagnostic_records().get_return_code();
+    return (*connection)->get_diagnostic_records().get_return_code();
 }
 
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE *result) {
@@ -131,7 +133,7 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE *result) 
             return SQLAllocStmt(parent, result);
 
         case SQL_HANDLE_DESC: {
-            auto *connection = reinterpret_cast<sql_connection *>(parent);
+            auto *connection = reinterpret_cast<sql_connection_ptr *>(parent);
 
             if (!connection)
                 return SQL_INVALID_HANDLE;
@@ -139,8 +141,8 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE *result) 
             if (result)
                 *result = nullptr;
 
-            connection->get_diagnostic_records().reset();
-            connection->add_status_record(sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
+            (*connection)->get_diagnostic_records().reset();
+            (*connection)->add_status_record(sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
                 "The HandleType argument was SQL_HANDLE_DESC, and "
                 "the driver does not support allocating a descriptor handle");
 
@@ -174,7 +176,7 @@ SQLRETURN SQLAllocConnect(SQLHENV env, SQLHDBC *conn) {
     if (!environment)
         return SQL_INVALID_HANDLE;
 
-    sql_connection *connection = environment->create_connection();
+    sql_connection_ptr *connection = environment->create_connection();
     if (!connection)
         return environment->get_diagnostic_records().get_return_code();
 
@@ -188,16 +190,16 @@ SQLRETURN SQLAllocStmt(SQLHDBC conn, SQLHSTMT *stmt) {
 
     *stmt = SQL_NULL_HDBC;
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
 
     if (!connection)
         return SQL_INVALID_HANDLE;
 
-    auto *statement = connection->create_statement();
+    auto *statement = (*connection)->create_statement();
 
     *stmt = reinterpret_cast<SQLHSTMT>(statement);
 
-    return connection->get_diagnostic_records().get_return_code();
+    return (*connection)->get_diagnostic_records().get_return_code();
 }
 
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
@@ -234,11 +236,11 @@ SQLRETURN SQLFreeEnv(SQLHENV env) {
 SQLRETURN SQLFreeConnect(SQLHDBC conn) {
     LOG_MSG("SQLFreeConnect called");
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
-    connection->deregister();
+    (*connection)->deregister();
 
     delete connection;
 
@@ -281,14 +283,14 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle, SQLCHAR *inConnec
     if (inConnectionString)
         LOG_MSG("Connection String: [" << inConnectionString << "]");
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
     std::string connectStr = sql_string_to_string(inConnectionString, inConnectionStringLen);
-    connection->establish(connectStr, windowHandle);
+    (*connection)->establish(connectStr, windowHandle);
 
-    diagnostic_record_storage &diag = connection->get_diagnostic_records();
+    diagnostic_record_storage &diag = (*connection)->get_diagnostic_records();
     if (!diag.is_successful())
         return diag.get_return_code();
 
@@ -309,7 +311,7 @@ SQLRETURN SQLConnect(SQLHDBC conn, SQLCHAR *server_name, SQLSMALLINT server_name
 
     LOG_MSG("SQLConnect called\n");
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
@@ -321,21 +323,21 @@ SQLRETURN SQLConnect(SQLHDBC conn, SQLCHAR *server_name, SQLSMALLINT server_name
     std::string auth_identity = sql_string_to_string(user_name, user_name_len);
     std::string auth_secret = sql_string_to_string(auth, auth_len);
 
-    connection->establish({auth_identity, auth_secret});
+    (*connection)->establish({auth_identity, auth_secret});
 
-    return connection->get_diagnostic_records().get_return_code();
+    return (*connection)->get_diagnostic_records().get_return_code();
 }
 
 SQLRETURN SQLDisconnect(SQLHDBC conn) {
     LOG_MSG("SQLDisconnect called");
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
-    connection->release();
+    (*connection)->release();
 
-    return connection->get_diagnostic_records().get_return_code();
+    return (*connection)->get_diagnostic_records().get_return_code();
 }
 
 SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER query_len) {
@@ -836,16 +838,16 @@ SQLRETURN SQLEndTran(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT comp
         }
 
         case SQL_HANDLE_DBC: {
-            auto *conn = reinterpret_cast<sql_connection *>(handle);
+            auto *conn = reinterpret_cast<sql_connection_ptr *>(handle);
             if (!conn)
                 return SQL_INVALID_HANDLE;
 
             if (completion_type == SQL_COMMIT)
-                conn->transaction_commit();
+                (*conn)->transaction_commit();
             else
-                conn->transaction_rollback();
+                (*conn)->transaction_rollback();
 
-            result = conn->get_diagnostic_records().get_return_code();
+            result = (*conn)->get_diagnostic_records().get_return_code();
 
             break;
         }
@@ -1015,25 +1017,25 @@ SQLRETURN SQL_API SQLGetConnectAttr(
     SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_buf, SQLINTEGER value_buf_len, SQLINTEGER *value_res_len) {
     LOG_MSG("SQLGetConnectAttr called");
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
-    connection->get_attribute(attr, value_buf, value_buf_len, value_res_len);
+    (*connection)->get_attribute(attr, value_buf, value_buf_len, value_res_len);
 
-    return connection->get_diagnostic_records().get_return_code();
+    return (*connection)->get_diagnostic_records().get_return_code();
 }
 
 SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value, SQLINTEGER value_len) {
     LOG_MSG("SQLSetConnectAttr called(" << attr << ", " << value << ")");
 
-    auto *connection = reinterpret_cast<sql_connection *>(conn);
+    auto *connection = reinterpret_cast<sql_connection_ptr *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
-    connection->set_attribute(attr, value, value_len);
+    (*connection)->set_attribute(attr, value, value_len);
 
-    return connection->get_diagnostic_records().get_return_code();
+    return (*connection)->get_diagnostic_records().get_return_code();
 }
 
 } // namespace ignite

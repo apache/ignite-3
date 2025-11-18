@@ -70,6 +70,10 @@ std::vector<ignite::end_point> collect_addresses(const ignite::configuration &cf
 
 namespace ignite {
 
+sql_connection::~sql_connection() {
+    deregister();
+}
+
 void sql_connection::get_info(connection_info::info_type type, void *buf, short buffer_len, short *result_len) {
     LOG_MSG("SQLGetInfo called: " << type << " (" << connection_info::info_type_to_string(type) << "), " << std::hex
                                   << reinterpret_cast<size_t>(buf) << ", " << buffer_len << ", " << std::hex
@@ -178,6 +182,19 @@ sql_result sql_connection::internal_establish(const configuration &cfg) {
 
     bool errors = get_diagnostic_records().get_status_records_number() > 0;
 
+    auto heartbeat_ms = m_config.get_heartbeat_interval().get_value().count();
+
+    if (heartbeat_ms) {
+        assert(heartbeat_ms > 0);
+
+        heartbeat_ms = std::max(MIN_HEARTBEAT_INTERVAL.count(), heartbeat_ms);
+    }
+    m_heartbeat_interval = std::chrono::milliseconds(heartbeat_ms);
+
+    if (heartbeat_ms) {
+        plan_heartbeat(m_heartbeat_interval);
+    }
+
     return errors ? sql_result::AI_SUCCESS_WITH_INFO : sql_result::AI_SUCCESS;
 }
 
@@ -264,6 +281,9 @@ sql_connection::operation_result sql_connection::send_all(
     }
 
     assert(static_cast<std::size_t>(sent) == len);
+
+    // Update the last message timestamp only in case operation was successful and there was no timeout.
+    m_last_message_ts = std::chrono::steady_clock::now();
 
     return operation_result::SUCCESS;
 }
@@ -799,6 +819,40 @@ void sql_connection::on_observable_timestamp(std::int64_t timestamp) {
         if (success)
             return;
         expected = m_observable_timestamp.load();
+    }
+}
+
+void sql_connection::send_heartbeat() {
+    network::data_buffer_owning response;
+    auto success = catch_errors([&] {
+        response = sync_request(protocol::client_operation::HEARTBEAT, [&](protocol::writer &) {});
+    });
+
+    UNUSED_VALUE(response);
+
+    if (success)
+        plan_heartbeat(m_heartbeat_interval);
+}
+
+void sql_connection::on_heartbeat_timeout() {
+    auto idle_for = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - m_last_message_ts);
+
+    if (idle_for > m_heartbeat_interval) {
+        send_heartbeat();
+    } else {
+        auto sleep_for = m_heartbeat_interval - idle_for;
+        plan_heartbeat(sleep_for);
+    }
+}
+
+void sql_connection::plan_heartbeat(std::chrono::milliseconds timeout) {
+    if (auto timer_thread = m_timer_thread.lock()) {
+        timer_thread->add(timeout, [self_weak = weak_from_this()] {
+            if (auto self = self_weak.lock()) {
+                self->on_heartbeat_timeout();
+            }
+        });
     }
 }
 

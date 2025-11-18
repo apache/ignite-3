@@ -24,9 +24,9 @@
 #include "ignite/protocol/protocol_context.h"
 #include "ignite/common/end_point.h"
 
+#include <chrono>
 #include <cstdint>
 #include <string>
-
 
 namespace ignite {
 
@@ -57,6 +57,9 @@ public:
 
         /** Default value for SSL mode. */
         static inline const ssl_mode_t ssl_mode{ssl_mode_t::DISABLE};
+
+        /** Default heartbeat interval. */
+        static inline const std::chrono::milliseconds heartbeat_interval{std::chrono::milliseconds{2000}};
     };
 
     // Default.
@@ -208,6 +211,22 @@ public:
     void set_ssl_ca_file(std::string ssl_ca_file) { m_ssl_ca_file = {std::move(ssl_ca_file), true}; }
 
     /**
+     * Get the heartbeat interval.
+     *
+     * @return Heartbeat interval.
+     */
+    [[nodiscard]] const value_with_default<std::chrono::milliseconds> &get_heartbeat_interval() const {
+        return m_heartbeat_interval;
+    }
+
+    /**
+     * Set heartbeat interval.
+     *
+     * @param interval Heartbeat interval in ms.
+     */
+    void set_heartbeat_interval(std::chrono::milliseconds interval) { m_heartbeat_interval = {interval, true}; }
+
+    /**
      * Fill from configuration params.
      *
      * @throw odbc_error On parsing error.
@@ -248,6 +267,9 @@ private:
 
     /** SSL certificate authority file path. */
     value_with_default<std::string> m_ssl_ca_file{{}, false};
+
+    /** Heartbeat interval. */
+    value_with_default<std::chrono::milliseconds> m_heartbeat_interval{default_value::heartbeat_interval, false};
 };
 
 } // namespace ignite

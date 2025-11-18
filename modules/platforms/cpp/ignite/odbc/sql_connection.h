@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "detail/thread_timer.h"
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/config/connection_info.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
@@ -40,8 +41,11 @@ class sql_statement;
 /**
  * ODBC node connection.
  */
-class sql_connection : public diagnosable_adapter {
+class sql_connection : public diagnosable_adapter, public std::enable_shared_from_this<sql_connection>  {
     friend class sql_environment;
+
+    /** Minimal heartbeat interval. */
+    constexpr static auto MIN_HEARTBEAT_INTERVAL = std::chrono::milliseconds(500);
 
 public:
     /**
@@ -57,6 +61,8 @@ public:
     sql_connection(const sql_connection &) = delete;
     sql_connection &operator=(sql_connection &&) = delete;
     sql_connection &operator=(const sql_connection &) = delete;
+
+    ~sql_connection() override;
 
     /**
      * Get connection info.
@@ -521,10 +527,28 @@ private:
     /**
      * Constructor.
      */
-    explicit sql_connection(sql_environment *env)
+    explicit sql_connection(sql_environment *env, std::weak_ptr<detail::thread_timer> timer_thread)
         : m_env(env)
         , m_config()
-        , m_info(m_config) {}
+        , m_info(m_config)
+        , m_timer_thread(std::move(timer_thread)) {
+    }
+
+    /**
+     * Send a heartbeat message.
+     */
+    void send_heartbeat();
+
+    /**
+     * Heartbeat timeout event handler.
+     */
+    void on_heartbeat_timeout();
+
+    /**
+     * Plan the next heartbeat message within the specified timeout.
+     * @param timeout Timeout.
+     */
+    void plan_heartbeat(std::chrono::milliseconds timeout);
 
     /** Parent. */
     sql_environment *m_env;
@@ -561,6 +585,15 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** Heartbeat interval. */
+    std::chrono::milliseconds m_heartbeat_interval{0};
+
+    /** Last message timestamp. */
+    std::chrono::steady_clock::time_point m_last_message_ts{};
+
+    /** Timer thread. */
+    std::weak_ptr<detail::thread_timer> m_timer_thread;
 };
 
 } // namespace ignite

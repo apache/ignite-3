@@ -60,6 +60,9 @@ static inline const std::string ssl_cert_file{"ssl_cert_file"};
 /** Key for the SSL certificate authority file path. */
 static inline const std::string ssl_ca_file{"ssl_ca_file"};
 
+/** Key for the heartbeat interval in ms. */
+static inline const std::string heartbeat_interval{"heartbeat_interval"};
+
 } // namespace key
 
 namespace ignite {
@@ -125,6 +128,16 @@ void configuration::from_config_map(const config_map &config_params) {
     try_get_string_param(m_ssl_key_file, config_params, key::ssl_key_file);
     try_get_string_param(m_ssl_cert_file, config_params, key::ssl_cert_file);
     try_get_string_param(m_ssl_ca_file, config_params, key::ssl_ca_file);
+
+    auto heartbeat_interval_it = config_params.find(key::heartbeat_interval);
+    if (heartbeat_interval_it != config_params.end()) {
+        auto heartbeat_interval_opt = parse_int<std::int32_t>(heartbeat_interval_it->second);
+        if (!heartbeat_interval_opt)
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                "Invalid page size value: " + heartbeat_interval_it->second);
+
+        m_heartbeat_interval = {std::chrono::milliseconds{*heartbeat_interval_opt}, true};
+    }
 }
 
 } // namespace ignite
