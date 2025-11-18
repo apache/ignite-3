@@ -294,7 +294,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
                 .loggerFactory(new ConsoleLoggerFactory("testUnstableCluster"));
 
         try (var client = clientBuilder.build()) {
-            for (int i = 0; i < ITER; i++) {
+            for (int i = 0; i < 1_000_000; i++) {
                 assertDoesNotThrow(() -> client.tables().tables());
             }
         }

@@ -18,12 +18,9 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
 import io.netty.util.ResourceLeakDetector;
@@ -39,6 +36,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeClusterService;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -67,9 +65,6 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
@@ -80,9 +75,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
-import org.mockito.Mockito;
 
 /**
  * Test server.
@@ -105,6 +98,8 @@ public class TestServer implements AutoCloseable {
     private final FakeCatalogService catalogService;
 
     private final FakeIgnite ignite;
+
+    private final FakeClusterService clusterService;
 
     /**
      * Constructor.
@@ -211,13 +206,7 @@ public class TestServer implements AutoCloseable {
 
         this.nodeName = nodeName;
         this.ignite = ignite;
-
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
-        Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));
-        Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
-                i -> getClusterNode(i.getArgument(0, String.class)));
+        this.clusterService = new FakeClusterService(nodeName);
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
@@ -326,7 +315,7 @@ public class TestServer implements AutoCloseable {
      * @return Node ID.
      */
     public UUID nodeId() {
-        return getNodeId(nodeName);
+        return clusterService.topologyService().localMember().id();
     }
 
     /**
@@ -373,14 +362,6 @@ public class TestServer implements AutoCloseable {
         if (module instanceof ClientHandlerModule) {
             ((ClientHandlerModule) module).enable();
         }
-    }
-
-    private InternalClusterNode getClusterNode(String name) {
-        return new ClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
-    }
-
-    private static UUID getNodeId(String name) {
-        return deriveUuidFrom(name);
     }
 
     private static int getFreePort() {
