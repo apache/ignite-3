@@ -28,6 +28,7 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
+import static org.apache.ignite.internal.sql.engine.util.Commons.cluster;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.mchange.v2.c3p0.ComboPooledDataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
@@ -50,6 +52,7 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -83,12 +86,26 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testDefaults() throws Exception {
         var url = "jdbc:ignite:thin://127.0.0.1:10800";
 
-        try (Connection conn = DriverManager.getConnection(url)) {
-            // No-op.
-        }
+        try (ComboPooledDataSource c3p0Pool = new ComboPooledDataSource()) {
+            c3p0Pool.setJdbcUrl(url);
 
-        try (Connection conn = DriverManager.getConnection(url + "/")) {
-            // No-op.
+            IgniteTestUtils.runMultiThreaded(() -> {
+                try (Connection conn = c3p0Pool.getConnection()) {
+                    try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM TABLE(SYSTEM_RANGE(1, 50_000)")) {
+                        stmt.setFetchSize(10);
+                        try (ResultSet rs = stmt.executeQuery()) {
+                            int cnt = 0;
+
+                            while (rs.next()) {
+                                assertEquals(cnt, rs.getInt(1));
+                                cnt++;
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }, 10, "c3p0-test-thread");
         }
     }
 
