@@ -41,7 +41,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
             .continuousUpdate()
             .setSpeedUnit(ChronoUnit.SECONDS)
             .setInitialMax(100)
-            .hideETA()
+            .hideEta()
             .setTaskName("")
             .showSpeed();
 

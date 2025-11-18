@@ -53,6 +53,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-schema'))
     testImplementation testFixtures(project(':ignite-page-memory'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation libs.awaitility
     testImplementation libs.jmh.core
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')

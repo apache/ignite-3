@@ -513,6 +513,8 @@ public class IgniteImpl implements Ignite {
 
     private final ClockServiceMetricSource clockServiceMetricSource;
 
+    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+
     /**
      * The Constructor.
      *
@@ -683,6 +685,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
+                systemConfiguration,
                 clock,
                 raftGroupEventsClientListener,
                 failureManager,
@@ -1115,8 +1118,7 @@ public class IgniteImpl implements Ignite {
                 metricManager
         );
 
-        PartitionModificationCounterFactory partitionModificationCounterFactory =
-                new PartitionModificationCounterFactory(clockService::current);
+        partitionModificationCounterFactory = new PartitionModificationCounterFactory(clockService::current, clusterSvc.messagingService());
 
         distributedTblMgr = new TableManager(
                 name,
@@ -1488,6 +1490,8 @@ public class IgniteImpl implements Ignite {
 
             metricManager.registerSource(clockServiceMetricSource);
             metricManager.enable(clockServiceMetricSource);
+
+            partitionModificationCounterFactory.start();
 
             // Start the components that are required to join the cluster.
             // TODO https://issues.apache.org/jira/browse/IGNITE-22570

@@ -37,54 +37,53 @@ class ClientFutureUtils {
 
     static <T> CompletableFuture<T> doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
-            @Nullable Predicate<T> resultValidator,
             Predicate<RetryContext> retryPredicate) {
         CompletableFuture<T> resFut = new CompletableFuture<>();
         RetryContext ctx = new RetryContext();
 
-        doWithRetryAsync(func, resultValidator, retryPredicate, resFut, ctx);
+        doWithRetryAsync(func, retryPredicate, resFut, ctx);
 
         return resFut;
     }
 
     private static <T> void doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
-            @Nullable Predicate<T> validator,
             Predicate<RetryContext> retryPredicate,
             CompletableFuture<T> resFut,
             RetryContext ctx) {
         func.get().whenComplete((res, err) -> {
             try {
-                if (err == null && (validator == null || validator.test(res))) {
+                if (err == null) {
                     resFut.complete(res);
                     return;
                 }
 
-                if (err != null) {
+                Throwable resErr = null;
+
+                // This code is executed by different threads, but not concurrently.
+                // Use synchronized block to modify ctx for simplicity (instead of volatile).
+                synchronized (ctx) {
                     if (ctx.errors == null) {
                         ctx.errors = new ArrayList<>();
                     }
 
                     ctx.errors.add(err);
-                }
 
-                if (retryPredicate.test(ctx)) {
-                    ctx.attempt++;
-
-                    doWithRetryAsync(func, validator, retryPredicate, resFut, ctx);
-                } else {
-                    if (ctx.errors == null || ctx.errors.isEmpty()) {
-                        // Should not happen.
-                        resFut.completeExceptionally(new IllegalStateException("doWithRetry failed without exception"));
+                    if (retryPredicate.test(ctx)) {
+                        ctx.attempt++;
                     } else {
-                        var resErr = ctx.errors.get(0);
+                        resErr = ctx.errors.get(0);
 
                         for (int i = 1; i < ctx.errors.size(); i++) {
                             resErr.addSuppressed(ctx.errors.get(i));
                         }
-
-                        resFut.completeExceptionally(resErr);
                     }
+                }
+
+                if (resErr != null) {
+                    resFut.completeExceptionally(resErr);
+                } else {
+                    doWithRetryAsync(func, retryPredicate, resFut, ctx);
                 }
             } catch (Throwable t) {
                 resFut.completeExceptionally(t);

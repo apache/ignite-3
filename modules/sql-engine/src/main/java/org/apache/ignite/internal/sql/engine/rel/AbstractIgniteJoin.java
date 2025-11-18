@@ -50,8 +50,8 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -117,30 +117,22 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     /** {@inheritDoc} */
     @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
-        // There are several rules:
-        // 1) any join is possible on broadcast or single distribution
-        // 2) hash distributed join is possible when join keys are superset of source distribution keys
-        // 3) hash and broadcast distributed tables can be joined when join keys equal to hash
-        //    distributed table distribution keys and:
-        //      3.1) it's a left join and a hash distributed table is at left
-        //      3.2) it's a right join and a hash distributed table is at right
-        //      3.3) it's an inner join, this case a hash distributed table may be at any side
-
         RelTraitSet left = inputTraits.get(0);
         RelTraitSet right = inputTraits.get(1);
 
         List<Pair<RelTraitSet, List<RelTraitSet>>> res = new ArrayList<>();
 
-        final IgniteDistribution leftDistr = TraitUtils.distribution(left);
-        final IgniteDistribution rightDistr = TraitUtils.distribution(right);
+        IgniteDistribution leftDistr = TraitUtils.distribution(left);
+        IgniteDistribution rightDistr = TraitUtils.distribution(right);
 
-        final IgniteDistribution left2rightProjectedDistr = leftDistr.apply(buildTransposeMapping(true));
-        final IgniteDistribution right2leftProjectedDistr = rightDistr.apply(buildTransposeMapping(false));
+        IgniteDistribution left2rightProjectedDistr = leftDistr.apply(buildTransposeMapping(true));
+        IgniteDistribution right2leftProjectedDistr = rightDistr.apply(buildTransposeMapping(false));
 
         RelTraitSet outTraits;
         RelTraitSet leftTraits;
         RelTraitSet rightTraits;
 
+        // Any join is possible with single and broadcast distributions.
         if (leftDistr == broadcast() && rightDistr == broadcast()) {
             outTraits = nodeTraits.replace(broadcast());
             leftTraits = left.replace(broadcast());
@@ -157,32 +149,75 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
             return List.copyOf(res);
         }
 
+        TargetMapping offsetByLeftSize = Commons.targetOffsetMapping(
+                this.right.getRowType().getFieldCount(),
+                this.left.getRowType().getFieldCount()
+        );
+
+        // Re-hashing of right side to left.
         if (leftDistr.getType() == HASH_DISTRIBUTED && left2rightProjectedDistr != random()) {
-            outTraits = nodeTraits.replace(leftDistr);
-            leftTraits = left.replace(leftDistr);
-            rightTraits = right.replace(left2rightProjectedDistr);
-
-            res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
+            computeHashOutputOptions(nodeTraits, left, leftDistr, right, left2rightProjectedDistr, res, offsetByLeftSize);
         }
 
+        // Re-hashing of left side to right.
         if (rightDistr.getType() == HASH_DISTRIBUTED && right2leftProjectedDistr != random()) {
-            outTraits = nodeTraits.replace(rightDistr);
-            leftTraits = left.replace(right2leftProjectedDistr);
-            rightTraits = right.replace(rightDistr);
-
-            res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
+            computeHashOutputOptions(nodeTraits, left, right2leftProjectedDistr, right, rightDistr, res, offsetByLeftSize);
         }
 
-        leftTraits = left.replace(hash(joinInfo.leftKeys, DistributionFunction.hash()));
-        rightTraits = right.replace(hash(joinInfo.rightKeys, DistributionFunction.hash()));
-
-        outTraits = nodeTraits.replace(hash(joinInfo.leftKeys, DistributionFunction.hash()));
-        res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
-
-        outTraits = nodeTraits.replace(hash(joinInfo.rightKeys, DistributionFunction.hash()));
-        res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
+        // Full re-hashing by join keys. 
+        computeHashOutputOptions(
+                nodeTraits, left, hash(joinInfo.leftKeys), right, hash(joinInfo.rightKeys), res, offsetByLeftSize
+        );
 
         return List.copyOf(res);
+    }
+
+    private void computeHashOutputOptions(
+            RelTraitSet nodeCurrent,
+            RelTraitSet leftCurrent,
+            IgniteDistribution newLeftDistribution,
+            RelTraitSet rightCurrent,
+            IgniteDistribution newRightDistribution,
+            List<Pair<RelTraitSet, List<RelTraitSet>>> res,
+            TargetMapping offsetByLeftSize
+    ) {
+        if (newLeftDistribution.getType() != HASH_DISTRIBUTED 
+                || newRightDistribution.getType() != HASH_DISTRIBUTED) {
+            // Throw this error explicitly, otherwise we might get incorrect plan which
+            // emits wrong result.
+            throw new AssertionError("Only hash-based distribution is allowed");
+        }
+
+        RelTraitSet leftTraits = leftCurrent.replace(newLeftDistribution);
+        RelTraitSet rightTraits = rightCurrent.replace(newRightDistribution);
+
+        RelTraitSet outTraits;
+
+        // Depending on the type of the join, we may produce output distribution based
+        // on left keys, right keys, or both.
+        if (shouldEmitLeftSideDistribution(joinType)) {
+            outTraits = nodeCurrent.replace(newLeftDistribution);
+            res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
+        }
+
+        if (shouldEmitRightSideDistribution(joinType)) {
+            outTraits = nodeCurrent.replace(newRightDistribution.apply(offsetByLeftSize));
+            res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
+        }
+
+        // If we can emit anything meaningful, then emit output with random distribution.
+        if (!shouldEmitLeftSideDistribution(joinType) && !shouldEmitRightSideDistribution(joinType)) {
+            outTraits = nodeCurrent.replace(random());
+            res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
+        }
+    }
+
+    private static boolean shouldEmitLeftSideDistribution(JoinRelType joinType) {
+        return !joinType.generatesNullsOnLeft();
+    }
+
+    private static boolean shouldEmitRightSideDistribution(JoinRelType joinType) {
+        return joinType.projectsRight() && !joinType.generatesNullsOnRight();
     }
 
     /** {@inheritDoc} */
@@ -252,7 +287,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                 }
 
                 // We cannot provide random distribution without unique constraint on join keys,
-                // so, we require hash distribution (wich satisfies random distribution) instead.
+                // so, we require hash distribution (which satisfies random distribution) instead.
                 IgniteDistribution outDistr = distrType == HASH_DISTRIBUTED
                         ? IgniteDistributions.clone(distribution, joinInfo.leftKeys)
                         : hash(joinInfo.leftKeys);

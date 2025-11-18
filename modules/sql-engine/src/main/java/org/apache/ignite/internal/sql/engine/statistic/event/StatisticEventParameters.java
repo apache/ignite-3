@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.sql.engine.statistic.event;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.event.EventParameters;
 
-// TODO: IGNITE-22522 - remove this class and switch ItInternalTableReadWriteScanTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class ItInternalTableReadWriteScanColocationTest extends ItInternalTableReadWriteScanTest {
-    @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
+/** Event related parameters. */
+public class StatisticEventParameters implements EventParameters {
+    private final int tableId;
+
+    public StatisticEventParameters(int tableId) {
+        this.tableId = tableId;
+    }
+
+    public int tableId() {
+        return tableId;
     }
 }

@@ -15,18 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
-// TODO: IGNITE-22522 - remove this class and switch ReadWriteTransactionImplTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class ReadWriteTransactionImplColocationTest extends ReadWriteTransactionImplTest {
-    @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
-    }
+/** Message for transferring a partition modification info. */
+@Transferable(TableMessageGroup.GET_ESTIMATED_SIZE_WITH_MODIFIED_TS_MESSAGE)
+public interface PartitionModificationInfoMessage extends NetworkMessage {
+    /** Table id. */
+    int tableId();
+
+    /** Partition id. */
+    int partId();
+
+    /** Estimated size. */
+    long estimatedSize();
+
+    /** Modification counter. */
+    long lastModificationCounter();
 }

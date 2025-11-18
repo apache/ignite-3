@@ -20,7 +20,10 @@ package org.apache.ignite.internal.pagememory.persistence.compaction;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -33,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -91,21 +95,8 @@ public class CompactorTest extends BaseIgniteAbstractTest {
     void testMergeDeltaFileToMainFile() throws Throwable {
         Compactor compactor = newCompactor();
 
-        FilePageStore filePageStore = mock(FilePageStore.class);
-        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
-
-        when(filePageStore.removeDeltaFile(eq(deltaFilePageStoreIo))).thenReturn(true);
-
-        when(deltaFilePageStoreIo.pageIndexes()).thenReturn(new int[]{0});
-
-        when(deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(ByteBuffer.class), anyBoolean()))
-                .then(answer -> {
-                    ByteBuffer buffer = answer.getArgument(2);
-
-                    PageIo.setPageId(bufferAddress(buffer), 1);
-
-                    return true;
-                });
+        DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo();
+        FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
 
         compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
 
@@ -209,6 +200,71 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         waitDeltaFilesFuture.get(100, MILLISECONDS);
     }
 
+    @Test
+    void testPauseResume() throws Exception {
+        Compactor compactor = spy(newCompactor());
+
+        compactor.pause();
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo();
+        FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
+
+        assertThat(
+                runAsync(() -> compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker())),
+                willCompleteSuccessfully()
+        );
+
+        verify(filePageStore, never()).write(anyLong(), any());
+        verify(filePageStore, never()).sync();
+        verify(filePageStore, never()).removeDeltaFile(any());
+
+        verify(deltaFilePageStoreIo, never()).readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(), anyBoolean());
+        verify(deltaFilePageStoreIo, never()).markMergedToFilePageStore();
+        verify(deltaFilePageStoreIo, never()).stop(anyBoolean());
+
+        compactor.resume();
+
+        assertThat(
+                runAsync(() -> compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker())),
+                willCompleteSuccessfully()
+        );
+
+        verify(filePageStore).write(anyLong(), any());
+        verify(filePageStore).sync();
+        verify(filePageStore).removeDeltaFile(any());
+
+        verify(deltaFilePageStoreIo).readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(), anyBoolean());
+        verify(deltaFilePageStoreIo).markMergedToFilePageStore();
+        verify(deltaFilePageStoreIo).stop(anyBoolean());
+    }
+
+    @Test
+    void testTriggerCompactionAfterPause() {
+        Compactor compactor = spy(newCompactor());
+
+        compactor.pause();
+
+        CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
+        assertThat(waitDeltaFilesFuture, willTimeoutFast());
+
+        compactor.triggerCompaction();
+        assertThat(waitDeltaFilesFuture, willTimeoutFast());
+
+        compactor.resume();
+        assertThat(waitDeltaFilesFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testWaitDeltaFilesAfterResume() {
+        Compactor compactor = spy(newCompactor());
+
+        CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
+        assertThat(waitDeltaFilesFuture, willTimeoutFast());
+
+        compactor.resume();
+        assertThat(waitDeltaFilesFuture, willCompleteSuccessfully());
+    }
+
     private Compactor newCompactor() {
         return newCompactor(mock(FilePageStoreManager.class));
     }
@@ -223,5 +279,30 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 mock(FailureManager.class),
                 new PartitionDestructionLockManager()
         );
+    }
+
+    private static DeltaFilePageStoreIo createDeltaFilePageStoreIo() throws Exception {
+        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
+
+        when(deltaFilePageStoreIo.pageIndexes()).thenReturn(new int[]{0});
+
+        when(deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(ByteBuffer.class), anyBoolean()))
+                .then(answer -> {
+                    ByteBuffer buffer = answer.getArgument(2);
+
+                    PageIo.setPageId(bufferAddress(buffer), 1);
+
+                    return true;
+                });
+
+        return deltaFilePageStoreIo;
+    }
+
+    private static FilePageStore createFilePageStore(DeltaFilePageStoreIo deltaFilePageStoreIo) {
+        FilePageStore filePageStore = mock(FilePageStore.class);
+
+        when(filePageStore.removeDeltaFile(eq(deltaFilePageStoreIo))).thenReturn(true);
+
+        return filePageStore;
     }
 }
