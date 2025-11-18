@@ -44,8 +44,9 @@ public interface RaftGroupEventsListener {
      * @param configuration New Raft group configuration.
      * @param term Term on which the new configuration was applied.
      * @param index Index on which the new configuration was applied.
+     * @param sequenceToken Sequence token of this change.
      */
-    default void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index) {}
+    default void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index, long sequenceToken) {}
 
     /**
      * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.

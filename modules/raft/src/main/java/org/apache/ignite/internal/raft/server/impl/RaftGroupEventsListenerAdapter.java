@@ -82,8 +82,14 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
     }
 
     @Override
-    public void onNewPeersConfigurationApplied(Collection<PeerId> peerIds, Collection<PeerId> learnerIds, long term, long index) {
-        delegate.onNewPeersConfigurationApplied(configuration(peerIds, learnerIds), term, index);
+    public void onNewPeersConfigurationApplied(
+            Collection<PeerId> peerIds,
+            Collection<PeerId> learnerIds,
+            long term,
+            long index,
+            long sequenceToken
+    ) {
+        delegate.onNewPeersConfigurationApplied(configuration(peerIds, learnerIds), term, index, sequenceToken);
     }
 
     @Override
