@@ -133,6 +133,9 @@ namespace Apache.Ignite
 
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
+
+            /// <summary> UnsupportedTableBasedReplication error. </summary>
+            public const int UnsupportedTableBasedReplication = (GroupCode << 16) | (9 & 10xFFFF);
         }
 
         /// <summary> Table errors. </summary>
