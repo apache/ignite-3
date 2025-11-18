@@ -321,6 +321,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
     private SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
@@ -1319,6 +1322,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     metricManager,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     hybridClock,
                     raftGroupEventsClientListener,
                     new NoOpFailureManager()
