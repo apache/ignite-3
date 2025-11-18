@@ -62,6 +62,37 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
+    @Test
+    public void testMultiThreadedPooled() throws Exception {
+        var url = "jdbc:ignite:thin://127.0.0.1:10800";
+
+        try (ComboPooledDataSource c3p0Pool = new ComboPooledDataSource()) {
+            c3p0Pool.setJdbcUrl(url);
+
+            IgniteTestUtils.runMultiThreaded(() -> {
+                for (int i = 0; i < 5000; i++) {
+                    try (Connection conn = c3p0Pool.getConnection()) {
+                        try (var stmt = conn.createStatement()) {
+                            stmt.setFetchSize(100);
+                            try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(0, 500000)")) {
+                                int cnt = 0;
+
+                                while (rs.next()) {
+                                    assertEquals(cnt, rs.getInt(1));
+                                    cnt++;
+                                }
+
+                                assertEquals(500_001, cnt);
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }, 12, "c3p0-test-thread");
+        }
+    }
+
     /**
      * Test JDBC loading via ServiceLoader.
      */
@@ -86,28 +117,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testDefaults() throws Exception {
         var url = "jdbc:ignite:thin://127.0.0.1:10800";
 
-        try (ComboPooledDataSource c3p0Pool = new ComboPooledDataSource()) {
-            c3p0Pool.setJdbcUrl(url);
+        try (Connection conn = DriverManager.getConnection(url)) {
+            // No-op.
+        }
 
-             IgniteTestUtils.runMultiThreaded(() -> {
-                try (Connection conn = c3p0Pool.getConnection()) {
-                    try (var stmt = conn.createStatement()) {
-                        stmt.setFetchSize(100);
-                        try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(0, 500000)")) {
-                            int cnt = 0;
-
-                            while (rs.next()) {
-                                assertEquals(cnt, rs.getInt(1));
-                                cnt++;
-                            }
-
-                            assertEquals(500_001, cnt);
-                        }
-                    }
-                }
-
-                return null;
-             }, 10, "c3p0-test-thread");
+        try (Connection conn = DriverManager.getConnection(url + "/")) {
+            // No-op.
         }
     }
 
