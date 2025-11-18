@@ -66,10 +66,6 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
             nodesSet.set(id);
         }
 
-        if (nodesSet.isEmpty()) {
-            throw new MappingException("Mandatory nodes were excluded from mapping: " + nodes);
-        }
-
         return new AllOfTarget(nodesSet);
     }
 

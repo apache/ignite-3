@@ -72,10 +72,6 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             nodesMap |= node;
         }
 
-        if (nodesMap == 0) {
-            throw new MappingException("Mandatory nodes were excluded from mapping: " + nodes);
-        }
-
         return new AllOfTarget(nodesMap);
     }
 
