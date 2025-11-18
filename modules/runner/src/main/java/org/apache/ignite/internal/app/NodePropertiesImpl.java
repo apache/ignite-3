@@ -71,7 +71,8 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
         if (entry != null) {
             colocationEnabled = entry.value()[0] == 1;
             if (!colocationEnabled) {
-                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported.");
+                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported."
+                        + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
             }
             logComment = "from Vault";
         } else {
@@ -87,7 +88,8 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
                 }
                 logComment = "from system properties on a fresh node";
             } else {
-                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported.");
+                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported."
+                        + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
             }
 
             saveToVault(colocationEnabled);

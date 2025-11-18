@@ -60,7 +60,8 @@ class ItColocationStatusHandlingTest extends ClusterPerTestIntegrationTest {
         assertThrowsWithCause(
                 () -> cluster.startNode(0),
                 IgniteException.class,
-                "Table based replication is no longer supported.");
+                "Table based replication is no longer supported."
+                        + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
     }
 
     @Test
@@ -76,7 +77,8 @@ class ItColocationStatusHandlingTest extends ClusterPerTestIntegrationTest {
         assertThrowsWithCause(
                 () -> cluster.startNode(0),
                 IgniteException.class,
-                "Table based replication is no longer supported.");
+                "Table based replication is no longer supported."
+                        + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
     }
 
     private static void removePersistedColocationStatus(Path workDir) {
