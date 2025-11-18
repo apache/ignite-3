@@ -40,7 +40,7 @@ class CatalogManagerCompactionFacade {
     /**
      * Scans catalog versions in a given time interval (including interval boundaries).
      * Extracts all zones contained in these catalog versions and creates a mapping
-     * zoneId -> number of partitions in this table.
+     * zoneId -> number of partitions in the corresponding distribution zone.
      *
      * @param minTsInclusive Lower timestamp (inclusive).
      * @param maxTsInclusive Upper timestamp (inclusive).

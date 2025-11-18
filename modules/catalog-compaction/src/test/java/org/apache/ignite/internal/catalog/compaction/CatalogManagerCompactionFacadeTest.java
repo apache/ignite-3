@@ -70,35 +70,35 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
 
         // Take into account that there is the default zone.
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+            Int2IntMap zonesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
                     from1,
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(3));
+            assertThat(zonesWithParts.keySet(), hasSize(3));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+            Int2IntMap zonesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
                     from2,
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(2));
+            assertThat(zonesWithParts.keySet(), hasSize(2));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+            Int2IntMap zonesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
                     from3,
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(1));
+            assertThat(zonesWithParts.keySet(), hasSize(1));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
+            Int2IntMap zonesWithParts = catalogManagerFacade.collectZonesWithPartitionsBetween(
                     clockService.nowLong(),
                     clockService.nowLong());
 
-            assertThat(tablesWithParts.keySet(), hasSize(0));
+            assertThat(zonesWithParts.keySet(), hasSize(0));
         }
     }
 
