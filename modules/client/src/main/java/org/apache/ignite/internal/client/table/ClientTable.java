@@ -819,10 +819,8 @@ public class ClientTable implements Table {
                         partMap.computeIfAbsent(part, k -> new IgniteBiTuple<>(part, new ArrayList<>())).get2().add(key);
                     }
 
-                    var mapped = new ArrayList<>(partMap.values());
-
                     CompletableFuture<R> resFut = new CompletableFuture<>();
-                    mapAndRetry(mapFun, txns, mapped, new long[1], resFut, log, res -> {
+                    mapAndRetry(mapFun, txns, partMap.values(), new long[1], resFut, log, res -> {
                         R in = initialValue;
 
                         for (CompletableFuture<R> val : res) {

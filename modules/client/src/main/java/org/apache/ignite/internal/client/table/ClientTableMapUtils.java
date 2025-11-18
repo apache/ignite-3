@@ -45,7 +45,7 @@ class ClientTableMapUtils {
     static <K, R, M> void mapAndRetry(
             MapFunction<K, R> mapFun,
             List<Transaction> txns,
-            List<M> mapped,
+            Collection<M> mapped,
             long[] startTs,
             CompletableFuture<R> resFut,
             IgniteLogger log,
