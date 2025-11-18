@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_CRITICAL
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Checkpoint lock for outer usage which should be used to protect data during writing to memory. It contains complex logic for the correct
@@ -65,6 +67,15 @@ public class CheckpointTimeoutLock {
     /** Failure processor. */
     private final FailureManager failureManager;
 
+    /** Checkpoint read lock metrics, nullable if metrics not enabled. */
+    private final @Nullable CheckpointReadLockMetrics metrics;
+
+    /** ThreadLocal to track lock acquisition timestamp for hold time calculation. */
+    private static final ThreadLocal<Long> lockAcquisitionTime = new ThreadLocal<>();
+
+    /** Counter for threads currently waiting for checkpoint read lock. */
+    private final AtomicInteger waitingThreads = new AtomicInteger(0);
+
     /**
      * Constructor.
      *
@@ -72,6 +83,7 @@ public class CheckpointTimeoutLock {
      * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
      * @param urgencySupplier {@link PersistentPageMemory#checkpointUrgency()}  Checkpoint urgency check} for all page memories.
      * @param checkpointer Service for triggering the checkpoint.
+     * @param failureManager Failure manager.
      */
     public CheckpointTimeoutLock(
             CheckpointReadWriteLock checkpointReadWriteLock,
@@ -80,11 +92,33 @@ public class CheckpointTimeoutLock {
             Checkpointer checkpointer,
             FailureManager failureManager
     ) {
+        this(checkpointReadWriteLock, checkpointReadLockTimeout, urgencySupplier, checkpointer, failureManager, null);
+    }
+
+    /**
+     * Constructor with metrics.
+     *
+     * @param checkpointReadWriteLock Checkpoint read-write lock.
+     * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
+     * @param urgencySupplier {@link PersistentPageMemory#checkpointUrgency()}  Checkpoint urgency check} for all page memories.
+     * @param checkpointer Service for triggering the checkpoint.
+     * @param failureManager Failure manager.
+     * @param metrics Checkpoint read lock metrics, or null to disable metrics.
+     */
+    public CheckpointTimeoutLock(
+            CheckpointReadWriteLock checkpointReadWriteLock,
+            long checkpointReadLockTimeout,
+            Supplier<CheckpointUrgency> urgencySupplier,
+            Checkpointer checkpointer,
+            FailureManager failureManager,
+            @Nullable CheckpointReadLockMetrics metrics
+    ) {
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointReadLockTimeout = checkpointReadLockTimeout;
         this.urgencySupplier = urgencySupplier;
         this.checkpointer = checkpointer;
         this.failureManager = failureManager;
+        this.metrics = metrics;
     }
 
     /**
@@ -118,13 +152,28 @@ public class CheckpointTimeoutLock {
             return;
         }
 
+        // Track metrics: start time for acquisition duration
+        long acquisitionStartNanos = metrics != null ? System.nanoTime() : 0;
+        boolean lockAcquired = false;
+        boolean hadContention = false;
+
         long timeout = checkpointReadLockTimeout;
 
         long start = coarseCurrentTimeMillis();
 
         boolean interrupted = false;
 
+        // Track metrics: increment waiting threads counter
+        if (metrics != null) {
+            waitingThreads.incrementAndGet();
+        }
+
         try {
+            // Track metrics: increment acquisitions counter
+            if (metrics != null) {
+                metrics.acquisitions().increment();
+            }
+
             for (; ; ) {
                 try {
                     if (timeout > 0 && (coarseCurrentTimeMillis() - start) >= timeout) {
@@ -134,6 +183,11 @@ public class CheckpointTimeoutLock {
                     try {
                         if (timeout > 0) {
                             if (!checkpointReadWriteLock.tryReadLock(timeout - (coarseCurrentTimeMillis() - start), MILLISECONDS)) {
+                                // Track metrics: lock not immediately available, mark as contention
+                                if (metrics != null && !hadContention) {
+                                    metrics.contentionCount().increment();
+                                    hadContention = true;
+                                }
                                 failCheckpointReadLock();
                             }
                         } else {
@@ -157,6 +211,13 @@ public class CheckpointTimeoutLock {
                             || checkpointer.runner() == null
                             || (urgency = urgencySupplier.get()) == CheckpointUrgency.NOT_REQUIRED
                     ) {
+                        // Track metrics: lock successfully acquired, record acquisition time and store timestamp for hold time
+                        if (metrics != null && !lockAcquired) {
+                            long acquisitionDurationNanos = System.nanoTime() - acquisitionStartNanos;
+                            metrics.acquisitionTime().add(acquisitionDurationNanos);
+                            lockAcquisitionTime.set(System.nanoTime());
+                            lockAcquired = true;
+                        }
                         return;
                     } else {
                         // If the checkpoint is triggered outside the lock,
@@ -168,10 +229,24 @@ public class CheckpointTimeoutLock {
                             // Allow to take the checkpoint read lock, if urgency is not "must trigger". We optimistically assume that
                             // triggered checkpoint will start soon, without us having to explicitly wait for it and without page memory
                             // overflow.
+
+                            // Track metrics: lock successfully acquired
+                            if (metrics != null && !lockAcquired) {
+                                long acquisitionDurationNanos = System.nanoTime() - acquisitionStartNanos;
+                                metrics.acquisitionTime().add(acquisitionDurationNanos);
+                                lockAcquisitionTime.set(System.nanoTime());
+                                lockAcquired = true;
+                            }
                             return;
                         }
 
                         checkpointReadWriteLock.readUnlock();
+
+                        // Track metrics: had to release and wait, mark as contention
+                        if (metrics != null && !hadContention) {
+                            metrics.contentionCount().increment();
+                            hadContention = true;
+                        }
 
                         long elapsed = coarseCurrentTimeMillis() - start;
                         if (timeout > 0 && elapsed >= timeout) {
@@ -199,6 +274,11 @@ public class CheckpointTimeoutLock {
                 }
             }
         } finally {
+            // Track metrics: decrement waiting threads counter
+            if (metrics != null) {
+                waitingThreads.decrementAndGet();
+            }
+
             if (interrupted) {
                 Thread.currentThread().interrupt();
             }
@@ -218,6 +298,16 @@ public class CheckpointTimeoutLock {
      * Releases the checkpoint read lock.
      */
     public void checkpointReadUnlock() {
+        // Track metrics: calculate hold time if we have the acquisition timestamp
+        if (metrics != null) {
+            Long acquisitionTimeNanos = lockAcquisitionTime.get();
+            if (acquisitionTimeNanos != null) {
+                long holdDurationNanos = System.nanoTime() - acquisitionTimeNanos;
+                metrics.holdTime().add(holdDurationNanos);
+                lockAcquisitionTime.remove(); // Clean up ThreadLocal
+            }
+        }
+
         checkpointReadWriteLock.readUnlock();
     }
 
@@ -253,6 +343,16 @@ public class CheckpointTimeoutLock {
      */
     public boolean shouldReleaseReadLock() {
         return checkpointReadWriteLock.hasQueuedWriters();
+    }
+
+    /**
+     * Returns the current number of threads waiting for checkpoint read lock.
+     * Used for metrics tracking.
+     *
+     * @return Number of waiting threads.
+     */
+    public int waitingThreadsCount() {
+        return waitingThreads.get();
     }
 
     private void failCheckpointReadLock() throws CheckpointReadLockTimeoutException {

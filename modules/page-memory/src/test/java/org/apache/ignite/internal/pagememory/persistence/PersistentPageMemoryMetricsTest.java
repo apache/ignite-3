@@ -102,6 +102,74 @@ public class PersistentPageMemoryMetricsTest extends BaseIgniteAbstractTest {
         checkMetricValue("PagesWritten", "3");
     }
 
+    @Test
+    void testPageCacheHits() {
+        checkMetricValue("PageCacheHits", "0");
+
+        metrics.incrementPageCacheHit();
+        metrics.incrementPageCacheHit();
+
+        checkMetricValue("PageCacheHits", "2");
+    }
+
+    @Test
+    void testPageCacheMisses() {
+        checkMetricValue("PageCacheMisses", "0");
+
+        metrics.incrementPageCacheMiss();
+
+        checkMetricValue("PageCacheMisses", "1");
+    }
+
+    @Test
+    void testPageAcquireTime() {
+        // Simulate page acquisition (100 microseconds)
+        metrics.recordPageAcquireTime(100_000);
+        metrics.recordPageAcquireTime(200_000);
+
+        MetricSet metricsSet = metricManager.metricSnapshot().metrics().get(metricSource.name());
+        Metric metric = metricsSet.get("PageAcquireTime");
+
+        assertNotNull(metric, "PageAcquireTime");
+    }
+
+    @Test
+    void testPageCacheHitRate() {
+        // Simulate cache hits and misses
+        metrics.incrementPageCacheHit();
+        metrics.incrementPageCacheHit();
+        metrics.incrementPageCacheMiss();
+
+        MetricSet metricsSet = metricManager.metricSnapshot().metrics().get(metricSource.name());
+        Metric metric = metricsSet.get("PageCacheHitRate");
+
+        assertNotNull(metric, "PageCacheHitRate");
+    }
+
+    @Test
+    void testPageReplacements() {
+        checkMetricValue("PageReplacements", "0");
+
+        metrics.incrementPageReplacement();
+        metrics.incrementPageReplacement();
+
+        checkMetricValue("PageReplacements", "2");
+    }
+
+    @Test
+    void testLoadedPages() {
+        when(pageMemory.loadedPages()).thenReturn(100L);
+
+        checkMetricValue("LoadedPages", "100");
+    }
+
+    @Test
+    void testDirtyPages() {
+        when(pageMemory.dirtyPagesCount()).thenReturn(50);
+
+        checkMetricValue("DirtyPages", "50");
+    }
+
     private void checkMetricValue(String metricName, String exp) {
         MetricSet metricsSet = metricManager.metricSnapshot().metrics().get(metricSource.name());
 

@@ -172,13 +172,26 @@ public class CheckpointManager {
                 checkpointMetricSource
         );
 
+        // Create checkpoint read lock metrics with lazy supplier for waiting threads count
+        // Use array as mutable container to work around final field initialization order
+        CheckpointTimeoutLock[] lockHolder = new CheckpointTimeoutLock[1];
+
+        CheckpointReadLockMetricSource readLockMetricSource = new CheckpointReadLockMetricSource();
+        CheckpointReadLockMetrics readLockMetrics = new CheckpointReadLockMetrics(
+                readLockMetricSource,
+                () -> lockHolder[0] != null ? lockHolder[0].waitingThreadsCount() : 0
+        );
+
         checkpointTimeoutLock = new CheckpointTimeoutLock(
                 checkpointReadWriteLock,
                 checkpointConfig.readLockTimeoutMillis(),
                 () -> checkpointUrgency(dataRegions),
                 checkpointer,
-                failureManager
+                failureManager,
+                readLockMetrics
         );
+
+        lockHolder[0] = checkpointTimeoutLock;
     }
 
     /**

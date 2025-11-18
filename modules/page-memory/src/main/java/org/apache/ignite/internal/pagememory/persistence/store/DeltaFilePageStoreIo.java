@@ -49,15 +49,20 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      * @param ioFactory {@link FileIo} factory.
      * @param filePath File page store path.
      * @param header Delta file page store header.
+     * @param metrics Storage files metrics.
      */
     public DeltaFilePageStoreIo(
             FileIoFactory ioFactory,
             Path filePath,
-            DeltaFilePageStoreIoHeader header
+            DeltaFilePageStoreIoHeader header,
+            StorageFilesMetrics metrics
     ) {
-        super(ioFactory, filePath);
+        super(ioFactory, filePath, metrics);
 
         this.header = header;
+
+        // Increment delta file creation counter
+        metrics.deltaFileCreateTotal().increment();
     }
 
     /** {@inheritDoc} */

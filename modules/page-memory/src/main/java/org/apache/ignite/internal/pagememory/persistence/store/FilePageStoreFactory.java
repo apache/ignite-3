@@ -36,15 +36,19 @@ public class FilePageStoreFactory {
 
     private final int pageSize;
 
+    private final StorageFilesMetrics metrics;
+
     /**
      * Constructor.
      *
      * @param fileIoFactory File IO factory.
      * @param pageSize Page size in bytes.
+     * @param metrics Storage files metrics.
      */
-    public FilePageStoreFactory(FileIoFactory fileIoFactory, int pageSize) {
+    public FilePageStoreFactory(FileIoFactory fileIoFactory, int pageSize, StorageFilesMetrics metrics) {
         this.fileIoFactory = fileIoFactory;
         this.pageSize = pageSize;
+        this.metrics = metrics;
     }
 
     /**
@@ -112,7 +116,7 @@ public class FilePageStoreFactory {
             DeltaFilePageStoreIo... deltaFileIos
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
-            return new FilePageStore(new FilePageStoreIo(fileIoFactory, filePath, header), deltaFileIos);
+            return new FilePageStore(new FilePageStoreIo(fileIoFactory, filePath, header, metrics), deltaFileIos);
         }
 
         throw new IgniteInternalCheckedException(String.format(
@@ -127,7 +131,7 @@ public class FilePageStoreFactory {
             DeltaFilePageStoreIoHeader header
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.DELTA_FILE_VERSION_1) {
-            return new DeltaFilePageStoreIo(fileIoFactory, filePath, header);
+            return new DeltaFilePageStoreIo(fileIoFactory, filePath, header, metrics);
         }
 
         throw new IgniteInternalCheckedException(String.format(
