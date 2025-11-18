@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -266,7 +267,6 @@ public final class ReliableChannel implements AutoCloseable {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName)
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
-                null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
     }
 
@@ -292,7 +292,6 @@ public final class ReliableChannel implements AutoCloseable {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> channelResolver.get()
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
-                null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
     }
 
@@ -318,7 +317,6 @@ public final class ReliableChannel implements AutoCloseable {
                             int opCode = opCodeFunc.applyAsInt(ch);
                             return serviceAsyncInternal(opCode, payloadWriter, payloadReader, false, ch);
                         }),
-                null,
                 ctx -> shouldRetry(retryOpType, ctx, null));
     }
 
@@ -664,29 +662,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                     return hld.getOrCreateChannelAsync();
                 },
-                Objects::nonNull,
                 ctx -> shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx, null));
-    }
-
-    private CompletableFuture<ClientChannel> getCurChannelAsync() {
-        if (closed) {
-            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "ReliableChannel is closed", null));
-        }
-
-        curChannelsGuard.readLock().lock();
-
-        try {
-            var hld = channels.get(defaultChIdx);
-
-            if (hld == null) {
-                return nullCompletedFuture();
-            }
-
-            CompletableFuture<ClientChannel> fut = hld.getOrCreateChannelAsync();
-            return fut == null ? nullCompletedFuture() : fut;
-        } finally {
-            curChannelsGuard.readLock().unlock();
-        }
     }
 
     /** Determines whether specified operation should be retried. */
@@ -856,7 +832,8 @@ public final class ReliableChannel implements AutoCloseable {
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
             if (close) {
-                return nullCompletedFuture();
+                return failedFuture(
+                        new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", chCfg.getAddress().toString()));
             }
 
             var chFut0 = chFut;
@@ -867,7 +844,8 @@ public final class ReliableChannel implements AutoCloseable {
 
             synchronized (this) {
                 if (close) {
-                    return nullCompletedFuture();
+                    return failedFuture(
+                            new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", chCfg.getAddress().toString()));
                 }
 
                 chFut0 = chFut;
