@@ -39,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
  * Provides batch map utility methods.
  */
 class ClientTableMapUtils {
-    // TODO https://issues.apache.org/jira/browse/IGNITE-27073
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27073 Propagate default server tx timeout to a client.
     private static final long DEFAULT_IMPLICIT_GET_ALL_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(5000);
 
     static <K, R, M> void mapAndRetry(

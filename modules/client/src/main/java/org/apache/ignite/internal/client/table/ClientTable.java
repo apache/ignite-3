@@ -744,7 +744,7 @@ public class ClientTable implements Table {
 
     /**
      * Implicit getAll/containsAll transaction is executed as multiple independent transactions with lightweight coordination from a client.
-     * TODO https://issues.apache.org/jira/browse/IGNITE-27040
+     * TODO https://issues.apache.org/jira/browse/IGNITE-27040 Allow direct mapping for implicit RW transactions.
      *
      * @param tx Transaction to check.
      * @param txns Explicit transactions holder.

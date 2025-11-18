@@ -436,11 +436,11 @@ public class ClientTableCommon {
                 long timeoutMillis = in.unpackLong();
 
                 var builder = InternalTxOptions.builder().timeoutMillis(timeoutMillis);
-                if (options.contains(RequestOptions.HAS_PRIORITY))  {
+                if (options.contains(RequestOptions.HAS_PRIORITY)) {
                     boolean lowPriority = in.unpackBoolean();
                     // Currently we use low priority with getAll fragments to avoid conflicts with subsequent explicit RW transactions,
                     // because locks are released asynchronously. This makes client's getAll a subject for starvation.
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-27039
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-27039 Avoid starvation on implicit transaction retries.
                     if (lowPriority) {
                         builder.priority(TxPriority.LOW);
                     }

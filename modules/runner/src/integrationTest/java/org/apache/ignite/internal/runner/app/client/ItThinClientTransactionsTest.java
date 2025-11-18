@@ -531,6 +531,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         return keys;
     }
 
+    @SuppressWarnings("unused")
     static List<Tuple> generateKeysForPartition(
             int start,
             int count,
@@ -570,6 +571,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         return count.size();
     }
 
+    @SuppressWarnings("unused")
     private List<Tuple> retainSinglePartitionKeys(List<Tuple> list, int count) {
         List<Tuple> keys = new ArrayList<>();
 
@@ -926,7 +928,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Retry transaction without other locker.
         assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
 
-        // Retry expliti transaction.
+        // Retry explicit transaction.
         Transaction tx1 = client().transactions().begin();
         assertEquals(batch.size(), view.getAll(tx1, batch.keySet()).size());
         tx1.commit();
@@ -994,7 +996,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Retry transaction without other locker.
         assertEquals(recsBatch.size(), view.getAll(null, keys).size());
 
-        // Retry explitit transaction.
+        // Retry explicit transaction.
         Transaction tx1 = client().transactions().begin();
         assertEquals(recsBatch.size(), view.getAll(tx1, keys).size());
         tx1.commit();
