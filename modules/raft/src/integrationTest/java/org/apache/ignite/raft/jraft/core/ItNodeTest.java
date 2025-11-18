@@ -3833,8 +3833,14 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         var raftGrpEvtsLsnr = new JraftGroupEventsListener() {
             @Override
-            public void onLeaderElected(long term, long configurationTerm, long configurationIndex, Collection<PeerId> peers,
-                    Collection<PeerId> learners, long sequenceToken) {
+            public void onLeaderElected(
+                    long term,
+                    long configurationTerm,
+                    long configurationIndex,
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long sequenceToken
+            ) {
             }
 
             @Override
@@ -3849,8 +3855,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term,
-                    long sequenceToken) {
+            public void onReconfigurationError(
+                    Status status,
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long term,
+                    long sequenceToken
+            ) {
             }
         };
         cluster = new TestCluster(
@@ -3891,7 +3902,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 leader.getCurrentTerm(), done);
         assertEquals(done.await(), Status.OK());
 
-        assertTrue(waitForCondition(() -> appliedToken.get()==6, 10_000));
+        assertTrue(waitForCondition(() -> appliedToken.get() == 6, 10_000));
 
         // change peer to new conf containing only new node
         done = new SynchronizedClosure();
