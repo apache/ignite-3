@@ -89,9 +89,10 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (ComboPooledDataSource c3p0Pool = new ComboPooledDataSource()) {
             c3p0Pool.setJdbcUrl(url);
 
-            IgniteTestUtils.runMultiThreaded(() -> {
+             IgniteTestUtils.runMultiThreaded(() -> {
                 try (Connection conn = c3p0Pool.getConnection()) {
                     try (var stmt = conn.createStatement()) {
+                        stmt.setFetchSize(100);
                         try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(1, 500000)")) {
                             int cnt = 1;
 
@@ -100,13 +101,13 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                                 cnt++;
                             }
 
-                            assertEquals(500_000, stmt.getFetchSize());
+                            assertEquals(500_000, cnt);
                         }
                     }
                 }
 
                 return null;
-            }, 10, "c3p0-test-thread");
+             }, 10, "c3p0-test-thread");
         }
     }
 
