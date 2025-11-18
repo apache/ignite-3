@@ -402,6 +402,7 @@ public class Node {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager()
