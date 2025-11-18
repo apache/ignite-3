@@ -1374,7 +1374,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 for (int i = 0; i < CatalogUtils.DEFAULT_PARTITION_COUNT; i++) {
-                    // TODO sanpwc use ZonePartitionId instead.
                     values.put(new TablePartitionId(table.id(), i), minTime);
                 }
             }
