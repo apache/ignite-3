@@ -23,7 +23,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
-import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
 import org.apache.ignite.internal.cli.event.ConnectionEventListener;
@@ -49,7 +49,7 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, ConnectionEve
 
     @Nullable
     private Config fetchConfig(SessionInfo sessionInfo) {
-        CallOutput<JsonString> result = nodeConfigShowCall.execute(
+        DefaultCallOutput<JsonString> result = nodeConfigShowCall.execute(
                 // todo https://issues.apache.org/jira/browse/IGNITE-17416
                 NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
         );
