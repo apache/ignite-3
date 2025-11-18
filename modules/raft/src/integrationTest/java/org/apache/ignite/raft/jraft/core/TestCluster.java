@@ -534,16 +534,15 @@ public class TestCluster {
         return ret;
     }
 
-    public void ensureSame() throws InterruptedException {
+    public void ensureSame() {
         ensureSame(addr -> false);
     }
 
     /**
      * @param filter The node to exclude filter.
      * @return {@code True} if all FSM state are the same.
-     * @throws InterruptedException
      */
-    public void ensureSame(Predicate<PeerId> filter) throws InterruptedException {
+    public void ensureSame(Predicate<PeerId> filter) {
         this.lock.lock();
 
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
@@ -610,6 +609,71 @@ public class TestCluster {
             LOG.info("End ensureSame, leader={}", leader1);
 
             assertSame(leader, leader1, "Leader shouldn't change while comparing fsms");
+        }
+    }
+
+    /**
+     * @return {@code True} if all configurations that was applied to FSM are the same.
+     */
+    public void ensureSameConf() {
+        this.lock.lock();
+
+        List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
+
+        if (fsmList.size() <= 1) {
+            LOG.warn("ensureSame is skipped because only one node in the group");
+            this.lock.unlock();
+            return;
+        }
+
+        Node leader = getLeader();
+
+        assertNotNull(leader);
+
+        MockStateMachine first = fsms.get(leader.getNodeId().getPeerId());
+
+        LOG.info("Start ensureSameConf, leader={}", leader);
+
+        try {
+            assertTrue(TestUtils.waitForCondition(() -> {
+                first.lock();
+
+                try {
+                    for (int i = 0; i < fsmList.size(); i++) {
+                        MockStateMachine fsm = fsmList.get(i);
+
+                        if (fsm == first)
+                            continue;
+
+                        fsm.lock();
+
+                        try {
+                            Configuration conf0 = first.getConf();
+                            Configuration conf1 = fsm.getConf();
+
+                            if (!conf0.equals(conf1))
+                                return false;
+                        }
+                        finally {
+                            fsm.unlock();
+                        }
+                    }
+                }
+                finally {
+                    first.unlock();
+                }
+
+                return true;
+            }, 20_000));
+        }
+        finally {
+            this.lock.unlock();
+
+            Node leader1 = getLeader();
+
+            LOG.info("End ensureSameConf, leader={}", leader1);
+
+            assertSame(leader, leader1, "Leader shouldn't change while comparing fsms configurations");
         }
     }
 
