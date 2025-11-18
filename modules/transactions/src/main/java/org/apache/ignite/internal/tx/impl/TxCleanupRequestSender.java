@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
@@ -137,7 +136,7 @@ public class TxCleanupRequestSender {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
         final HybridTimestamp commitTimestamp;
-        if (state == COMMITTED && txStateVolatileStorage.state(txId) == null) {
+        if (state == TxState.COMMITTED && txStateVolatileStorage.state(txId) == null) {
             TransactionMeta transactionMeta = txMessageSender.resolveTxStateFromCommitPartition(
                     nodeName,
                     txId,
