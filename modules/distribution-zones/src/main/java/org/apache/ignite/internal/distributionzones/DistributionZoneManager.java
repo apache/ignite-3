@@ -175,6 +175,22 @@ public class DistributionZoneManager extends
 
     private final String localNodeName;
 
+    private final PartitionResetClosure partitionResetClosure = (revision, zoneDescriptor) -> {
+        if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
+            return;
+        }
+
+        fireEvent(
+                HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                new HaZoneTopologyUpdateEventParams(zoneDescriptor.id(), revision)
+        ).exceptionally(th -> {
+            LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                    + " event processing", th);
+
+            return null;
+        });
+    };
+
     @TestOnly
     @Nullable
     private Predicate<NodeWithAttributes> additionalNodeFilter = null;
@@ -271,7 +287,7 @@ public class DistributionZoneManager extends
                 catalogManager,
                 clockService,
                 failureProcessor,
-                this::fireTopologyReduceLocalEvent,
+                partitionResetClosure,
                 partitionDistributionResetTimeoutConfiguration::currentValue,
                 this::logicalTopology
         );
@@ -468,7 +484,7 @@ public class DistributionZoneManager extends
             dataNodesManager.onUpdatePartitionDistributionReset(
                     zoneId,
                     partitionDistributionResetTimeoutSeconds,
-                    () -> fireTopologyReduceLocalEvent(causalityToken, zoneId)
+                    () -> partitionResetClosure.run(causalityToken, zoneDescriptor)
             );
         }
     }
@@ -758,18 +774,6 @@ public class DistributionZoneManager extends
         }
     }
 
-    private void fireTopologyReduceLocalEvent(long revision, int zoneId) {
-        fireEvent(
-                HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                new HaZoneTopologyUpdateEventParams(zoneId, revision)
-        ).exceptionally(th -> {
-            LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
-                    + " event processing", th);
-
-            return null;
-        });
-    }
-
     @TestOnly
     public DataNodesManager dataNodesManager() {
         return dataNodesManager;
@@ -951,5 +955,13 @@ public class DistributionZoneManager extends
         public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology);
         }
+    }
+
+    /**
+     * Closure called when partition distribution reset is triggered for a zone.
+     */
+    @FunctionalInterface
+    public interface PartitionResetClosure {
+        void run(long revision, CatalogZoneDescriptor zoneDescriptor);
     }
 }

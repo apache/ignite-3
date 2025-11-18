@@ -516,18 +516,22 @@ public class FSMCallerImpl implements FSMCaller {
                         LogId logId = logEntry.getId();
                         ConfigurationEntry configurationEntry = new ConfigurationEntry(
                                 logId.copy(),
-                                new Configuration(logEntry.getPeers(), logEntry.getLearners()),
-                                new Configuration()
+                                new Configuration(logEntry.getPeers(), logEntry.getLearners(), logEntry.getSequenceToken()),
+                                new Configuration(logEntry.getOldSequenceToken())
                         );
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
-                            configurationEntry.setOldConf(new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners()));
+                            configurationEntry.setOldConf(
+                                    new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners(), logEntry.getOldSequenceToken())
+                            );
                         }
 
                         this.fsm.onRawConfigurationCommitted(configurationEntry, logId.getIndex(), logId.getTerm());
 
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             // Joint stage is not supposed to be noticeable by end users.
-                            this.fsm.onConfigurationCommitted(new Configuration(iterImpl.entry().getPeers()));
+                            this.fsm.onConfigurationCommitted(
+                                    new Configuration(iterImpl.entry().getPeers(), iterImpl.entry().getSequenceToken())
+                            );
                         }
                     }
                     if (iterImpl.done() != null) {
@@ -707,14 +711,16 @@ public class FSMCallerImpl implements FSMCaller {
                     new LogId(meta.cfgIndex(), meta.cfgTerm()),
                     new Configuration(
                             meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
-                            meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())
+                            meta.learnersList().stream().map(PeerId::parsePeer).collect(toList()),
+                            meta.sequenceToken()
                     ),
-                    new Configuration()
+                    new Configuration(meta.oldSequenceToken())
             );
             if (meta.oldPeersList() != null && !meta.oldPeersList().isEmpty()) {
                 configurationEntry.setOldConf(new Configuration(
                         meta.oldPeersList().stream().map(PeerId::parsePeer).collect(toList()),
-                        meta.oldLearnersList().stream().map(PeerId::parsePeer).collect(toList())
+                        meta.oldLearnersList().stream().map(PeerId::parsePeer).collect(toList()),
+                        meta.oldSequenceToken()
                 ));
             }
 
@@ -723,7 +729,7 @@ public class FSMCallerImpl implements FSMCaller {
 
         if (meta.oldPeersList() == null) {
             // Joint stage is not supposed to be noticeable by end users.
-            final Configuration conf = new Configuration();
+            final Configuration conf = new Configuration(meta.sequenceToken());
             if (meta.peersList() != null) {
                 for (String metaPeer : meta.peersList()) {
                     final PeerId peer = new PeerId();

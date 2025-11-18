@@ -18,9 +18,13 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableNavigableMap;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -44,6 +48,8 @@ public class IndexMeta {
 
     @IgniteToStringInclude
     private final Map<MetaIndexStatus, MetaIndexStatusChange> statusChanges;
+
+    private final NavigableMap<Long, MetaIndexStatus> statusActivationTimeline;
 
     /**
      * Constructor.
@@ -72,6 +78,12 @@ public class IndexMeta {
         this.indexName = indexName;
         this.currentStatus = currentStatus;
         this.statusChanges = unmodifiableMap(statusChanges);
+
+        NavigableMap<Long, MetaIndexStatus> timeline = new TreeMap<>();
+        for (Entry<MetaIndexStatus, MetaIndexStatusChange> entry : statusChanges.entrySet()) {
+            timeline.put(entry.getValue().activationTimestamp(), entry.getKey());
+        }
+        this.statusActivationTimeline = unmodifiableNavigableMap(timeline);
     }
 
     /**
@@ -178,6 +190,11 @@ public class IndexMeta {
                 newStatus,
                 newStatuses
         );
+    }
+
+    public @Nullable MetaIndexStatus statusAt(long timestamp) {
+        Entry<Long, MetaIndexStatus> floorEntry = statusActivationTimeline.floorEntry(timestamp);
+        return floorEntry != null ? floorEntry.getValue() : null;
     }
 
     /** Returns a map of index statuses with change info (for example catalog version) in which they appeared. */

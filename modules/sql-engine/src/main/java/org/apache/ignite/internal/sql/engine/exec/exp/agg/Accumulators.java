@@ -26,8 +26,10 @@ import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -39,6 +41,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
@@ -93,6 +96,8 @@ public class Accumulators {
                 return minMaxFactory(false, call);
             case "SINGLE_VALUE":
                 return singleValueFactory(call);
+            case "SAME_VALUE":
+                return sameValueFactory(call);
             case "ANY_VALUE":
                 return anyValueFactory(call);
             case "LITERAL_AGG":
@@ -206,6 +211,16 @@ public class Accumulators {
         }
 
         return SingleVal.newAccumulator(type);
+    }
+
+    private Supplier<Accumulator> sameValueFactory(AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return SameVal.newAccumulator(type);
     }
 
     private Supplier<Accumulator> anyValueFactory(AggregateCall call) {
@@ -325,6 +340,88 @@ public class Accumulators {
             return type;
         }
     }
+
+    /**
+     * {@code SAME_VALUE(SUBQUERY)} accumulator. Pseudo accumulator that returns a first value produced by a subquery and an error if
+     * subsequent values produced by the subquery differs from that first value.
+     */
+    public static class SameVal implements Accumulator {
+
+        private final RelDataType type;
+
+        /** Creates a factory for SameVal accumulator. */
+        public static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            if (SqlTypeUtil.isBinary(type)) {
+                return () -> new SameBinaryVal(type);
+            } else {
+                return () -> new SameVal(type);
+            }
+        }
+
+        private SameVal(RelDataType type) {
+            this.type = type;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void add(AccumulatorsState state, Object... args) {
+            assert args.length == 1;
+
+            if (state.hasValue()) {
+                Object current = state.get();
+                if (!compareValues(current, args[0])) {
+                    throw new SqlException(Sql.RUNTIME_ERR, "Subquery produced different values.");
+                }
+            } else {
+                state.set(args[0]);
+            }
+        }
+
+        protected boolean compareValues(@Nullable Object current, @Nullable Object newValue) {
+            return Objects.equals(current, newValue);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            result.set(state.get());
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), true));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return type;
+        }
+    }
+
+    /**
+     * {@code SAME_VALUE} accumulator for binary types.
+     *
+     * @see SameVal
+     */
+    private static final class SameBinaryVal extends SameVal {
+
+        private SameBinaryVal(RelDataType type) {
+            super(type);
+        }
+
+        @Override
+        protected boolean compareValues(@Nullable Object current, @Nullable Object newValue) {
+            if (newValue != null && current != null) {
+                byte[] argBytes = (byte[]) newValue;
+                byte[] currentBytes = (byte[]) current;
+                return Arrays.equals(argBytes, currentBytes);
+            } else {
+                return super.compareValues(current, newValue);
+            }
+        }
+    } 
 
     /**
      * {@code LITERAL_AGG} accumulator. Pseudo accumulator that accepts a single literal as an operand and returns that literal.

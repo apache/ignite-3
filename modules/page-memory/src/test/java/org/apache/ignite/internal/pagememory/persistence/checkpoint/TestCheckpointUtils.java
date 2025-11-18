@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -48,5 +49,42 @@ class TestCheckpointUtils {
      */
     static DirtyFullPageId dirtyFullPageId(int groupId, int partitionId) {
         return new DirtyFullPageId(pageId(partitionId, FLAG_DATA, 0), groupId, 1);
+    }
+
+    /** Creates an array of dirty pages. */
+    static DirtyFullPageId[] dirtyFullPageIds(int groupId, int partitionId, PageIndexesWithPartitionGeneration... pageIndexes) {
+        return Arrays.stream(pageIndexes)
+                .flatMap(indexes -> Arrays.stream(indexes.pageIndexes)
+                        .mapToLong(index -> pageId(partitionId, flag(index), index))
+                        .mapToObj(pageId -> new DirtyFullPageId(pageId, groupId, indexes.partGen))
+                ).toArray(DirtyFullPageId[]::new);
+    }
+
+    /** Unions arrays of dirty pages. */
+    static DirtyFullPageId[] union(DirtyFullPageId[]... dirtyFullPageIds) {
+        return Arrays.stream(dirtyFullPageIds)
+                .flatMap(Arrays::stream)
+                .toArray(DirtyFullPageId[]::new);
+    }
+
+    private static byte flag(int pageIndex) {
+        return pageIndex % 2 == 0 ? FLAG_DATA : FLAG_AUX;
+    }
+
+    /** Page indexes with partition generation. */
+    static class PageIndexesWithPartitionGeneration {
+        private final int partGen;
+
+        private final int[] pageIndexes;
+
+        private PageIndexesWithPartitionGeneration(int partGen, int[] pageIndexes) {
+            this.partGen = partGen;
+            this.pageIndexes = pageIndexes;
+        }
+
+        /** Creates page indexes with partition generation. */
+        static PageIndexesWithPartitionGeneration pageIndexesWithPartGen(int partGen, int... pageIndexes) {
+            return new PageIndexesWithPartitionGeneration(partGen, pageIndexes);
+        }
     }
 }

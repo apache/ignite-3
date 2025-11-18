@@ -53,6 +53,8 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -94,6 +96,7 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -1115,16 +1118,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+    public @Nullable RowId highestRowId() throws StorageException {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            ByteBuffer keyBuf = prepareDirectDataIdKeyBuf(lowerBound)
+            ByteBuffer keyBuf = DIRECT_DATA_ID_KEY_BUFFER.get().clear()
                     .position(0)
                     .limit(ROW_PREFIX_SIZE);
 
             try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
-                it.seek(keyBuf);
+                it.seekToLast();
 
                 if (!it.isValid()) {
                     it.status();
@@ -1132,27 +1135,80 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     return null;
                 }
 
-                keyBuf.rewind();
-                int keyLength = it.key(keyBuf);
-                boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
+                it.key(keyBuf);
 
-                RowId rowId = getRowId(keyBuf);
+                return getRowId(keyBuf);
+            } catch (RocksDBException e) {
+                throw new IgniteRocksDbException("Error finding highest Row ID", e);
+            }
+        });
+    }
 
-                if (isWriteIntent) {
-                    ByteBuffer transactionState = ByteBuffer.wrap(it.value());
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-                    readDataIdFromTxState(transactionState);
-                    UUID txId = new UUID(transactionState.getLong(), transactionState.getLong());
-                    int commitTableId = transactionState.getInt();
-                    int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
+            @Nullable RowId upperBoundExclusive = upperBoundInclusive.increment();
 
-                    return new RowMeta(rowId, txId, commitTableId, commitPartitionId);
-                } else {
-                    return RowMeta.withoutWriteIntent(rowId);
+            ByteBuffer keyBuf = prepareDirectDataIdKeyBuf(lowerBoundInclusive)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
+            @Nullable ByteBuffer upperBoundBuf;
+            if (upperBoundExclusive != null) {
+                upperBoundBuf = allocate(ROW_PREFIX_SIZE).order(KEY_BYTE_ORDER);
+                writeRowPrefix(upperBoundBuf, upperBoundExclusive);
+            } else {
+                upperBoundBuf = null;
+            }
+
+            List<RowMeta> result = new ArrayList<>();
+
+            try (
+                    @Nullable Slice maybeUpperBound = upperBoundBuf != null ? new Slice(upperBoundBuf.array()) : null;
+                    ReadOptions readOptions = new ReadOptions()
+                            .setIterateUpperBound(maybeUpperBound != null ? maybeUpperBound : helper.upperBound)
+                            .setAutoPrefixMode(true);
+                    RocksIterator it = db.newIterator(helper.partCf, readOptions)
+            ) {
+                it.seek(keyBuf);
+
+                for (int i = 0; i < limit; i++) {
+                    if (!it.isValid()) {
+                        it.status();
+
+                        break;
+                    }
+
+                    keyBuf.rewind();
+                    int keyLength = it.key(keyBuf);
+                    boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
+
+                    RowId rowId = getRowId(keyBuf);
+
+                    RowMeta row;
+                    if (isWriteIntent) {
+                        ByteBuffer transactionState = ByteBuffer.wrap(it.value());
+
+                        readDataIdFromTxState(transactionState);
+                        UUID txId = new UUID(transactionState.getLong(), transactionState.getLong());
+                        int commitTableId = transactionState.getInt();
+                        int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
+
+                        row = new RowMeta(rowId, txId, commitTableId, commitPartitionId);
+                    } else {
+                        row = RowMeta.withoutWriteIntent(rowId);
+                    }
+
+                    result.add(row);
+
+                    it.next();
                 }
             } catch (RocksDBException e) {
-                throw new IgniteRocksDbException("Error finding closest Row ID", e);
+                throw new IgniteRocksDbException("Error finding following Row IDs", e);
             }
+
+            return result;
         });
     }
 

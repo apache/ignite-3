@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 
 public abstract class ShutdownAbleThread implements Runnable {
     private static final IgniteLogger LOG = Loggers.forClass(ShutdownAbleThread.class);
@@ -47,6 +48,7 @@ public abstract class ShutdownAbleThread implements Runnable {
         }
         this.stopped = false;
         this.thread = new Thread(this, getServiceName());
+        this.thread.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
         this.thread.start();
     }
 

@@ -28,12 +28,14 @@ public interface RaftGroupEventsListener {
      * @param configurationTerm Term on which the current configuration was applied.
      * @param configurationIndex Index on which the current configuration was applied.
      * @param configuration Raft configuration on the moment of leader election.
+     * @param sequenceToken Sequence token of this change.
      */
     void onLeaderElected(
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     );
 
     /**
@@ -51,11 +53,12 @@ public interface RaftGroupEventsListener {
      * @param status Description of failure.
      * @param configuration Configuration that failed to be applied.
      * @param term Raft term of the current leader.
+     * @param sequenceToken Sequence token of the current change.
      */
-    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {}
+    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term, long sequenceToken) {}
 
     /**
      * No-op raft group events listener.
      */
-    RaftGroupEventsListener noopLsnr = (term, configurationTerm, configurationIndex, configuration) -> {};
+    RaftGroupEventsListener noopLsnr = (term, configurationTerm, configurationIndex, configuration, sequenceToken) -> {};
 }

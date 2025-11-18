@@ -50,3 +50,7 @@ dependencies {
 
     testFixturesApi sourceSets.jobs.output
 }
+
+spotbugsJobs {
+    enabled = false
+}
