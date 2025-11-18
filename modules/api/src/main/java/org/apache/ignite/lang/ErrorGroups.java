@@ -202,14 +202,14 @@ public class ErrorGroups {
          **/
         public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** This error code indicates that a node is attempting to start over an unsupported table based replication mode. */
+        public static final int UNSUPPORTED_TABLE_BASED_REPLICATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 10);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
          * should be considered as a non-recoverable error
          */
         public static final int INTERNAL_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 0xFFFF);
-
-        /** This error code indicates that a node is attempting to start over an unsupported table based replication mode. */
-        public static final int UNSUPPORTED_TABLE_BASED_REPLICATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 10);
     }
 
     /** Tables error group. */
