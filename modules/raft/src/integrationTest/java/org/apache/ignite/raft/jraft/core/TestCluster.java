@@ -16,10 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -539,10 +541,10 @@ public class TestCluster {
     }
 
     /**
+     * Asserts that all FSM state are the same.
      * @param filter The node to exclude filter.
-     * @return {@code True} if all FSM state are the same.
      */
-    public void ensureSame(Predicate<PeerId> filter) {
+    void ensureSame(Predicate<PeerId> filter) {
         this.lock.lock();
 
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
@@ -562,7 +564,7 @@ public class TestCluster {
         LOG.info("Start ensureSame, leader={}", leader);
 
         try {
-            assertTrue(TestUtils.waitForCondition(() -> {
+            await().atMost(20, SECONDS).until(() -> {
                 first.lock();
 
                 try {
@@ -599,7 +601,7 @@ public class TestCluster {
                 }
 
                 return true;
-            }, 20_000));
+            });
         }
         finally {
             this.lock.unlock();
@@ -613,9 +615,9 @@ public class TestCluster {
     }
 
     /**
-     * @return {@code True} if all configurations that was applied to FSM are the same.
+     * Asserts that all configurations that was applied to FSM are the same.
      */
-    public void ensureSameConf() {
+    void ensureSameConf() {
         this.lock.lock();
 
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
@@ -635,7 +637,7 @@ public class TestCluster {
         LOG.info("Start ensureSameConf, leader={}", leader);
 
         try {
-            assertTrue(TestUtils.waitForCondition(() -> {
+            await().atMost(20, SECONDS).until(() -> {
                 first.lock();
 
                 try {
@@ -664,7 +666,7 @@ public class TestCluster {
                 }
 
                 return true;
-            }, 20_000));
+            });
         }
         finally {
             this.lock.unlock();
