@@ -97,6 +97,7 @@ public class ItTruncateRaftLogAndRebalanceTest extends BaseTruncateRaftLogAbstra
 
         assertThat(runAsync(() -> allOf(mvStorageAccess.startRebalance(), txStateAccess.startRebalance())), willCompleteSuccessfully());
 
+        // Let's flush only MvPartitionStorage to reproduce the situation as with a real user.
         flushMvPartitionStorage(nodeIndex, tableName, replicationGroupId);
 
         assertThat(runAsync(() -> allOf(mvStorageAccess.abortRebalance(), txStateAccess.abortRebalance())), willCompleteSuccessfully());
