@@ -92,6 +92,31 @@ public class MockNode {
             StorageConfiguration storageProfilesConfiguration,
             Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
+        this(testInfo,
+                addr,
+                nodeFinder,
+                workDir,
+                raftConfiguration,
+                nodeAttributes,
+                storageProfilesConfiguration,
+                onConfigurationCommittedListener,
+                () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()));
+    }
+
+    /**
+     * Fake node constructor.
+     */
+    public MockNode(
+            TestInfo testInfo,
+            NetworkAddress addr,
+            NodeFinder nodeFinder,
+            Path workDir,
+            RaftConfiguration raftConfiguration,
+            NodeAttributesConfiguration nodeAttributes,
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener,
+            NodeAttributesProvider attributesProvider
+    ) {
         String nodeName = testNodeName(testInfo, addr.port());
 
         this.workDir = workDir.resolve(nodeName);
@@ -132,7 +157,7 @@ public class MockNode {
 
         var collector = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
 
-        collector.register(() -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()));
+        collector.register(attributesProvider);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -141,8 +166,7 @@ public class MockNode {
                 new ClusterInitializer(
                         clusterService,
                         hocon -> hocon,
-                        new TestConfigurationValidator(),
-                        () -> true
+                        new TestConfigurationValidator()
                 ),
                 raftManager,
                 clusterStateStorage,

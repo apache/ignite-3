@@ -1332,8 +1332,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
-                    new TestConfigurationValidator(),
-                    new SystemPropertiesNodeProperties()
+                    new TestConfigurationValidator()
             );
 
             ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, dir);

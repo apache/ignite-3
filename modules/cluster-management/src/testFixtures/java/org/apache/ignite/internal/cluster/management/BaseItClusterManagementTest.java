@@ -110,6 +110,25 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
         );
     }
 
+    protected MockNode createNode(
+            int idx,
+            int clusterSize,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener,
+            NodeAttributesProvider attributesProvider
+    ) {
+        return new MockNode(
+                testInfo,
+                new NetworkAddress("localhost", PORT_BASE + idx),
+                new StaticNodeFinder(createSeedAddresses(clusterSize)),
+                workDir,
+                raftConfiguration,
+                userNodeAttributes,
+                storageConfiguration,
+                onConfigurationCommittedListener,
+                attributesProvider
+        );
+    }
+
     protected static void stopNodes(Collection<MockNode> nodes) throws Exception {
         closeAll(nodes.parallelStream().map(node -> node::beforeNodeStop));
         closeAll(nodes.parallelStream().map(node -> node::stop));

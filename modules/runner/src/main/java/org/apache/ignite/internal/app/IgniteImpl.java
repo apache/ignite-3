@@ -720,8 +720,7 @@ public class IgniteImpl implements Ignite {
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,
                 clusterCfgDynamicDefaultsPatcher,
-                distributedCfgValidator,
-                nodeProperties
+                distributedCfgValidator
         );
 
         NodeAttributesCollector nodeAttributesCollector =
