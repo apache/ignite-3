@@ -24,12 +24,11 @@ import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.ass
 import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.createZoneWithInfiniteTimers;
 import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.waitForDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
@@ -41,6 +40,7 @@ import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
@@ -48,6 +48,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.rest.constants.HttpCode;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -220,10 +221,12 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
         assertThat(ex.getMessage(), containsString("Distribution zones were not found [zoneNames=" + zoneNames + "]"));
     }
 
-    private static void assertLogicalTopologySizeEqualsTo(IgniteImpl node, int expectedTopologySize) throws InterruptedException {
+    private static void assertLogicalTopologySizeEqualsTo(IgniteImpl node, int expectedTopologySize) {
         LogicalTopologyService logicalTopologyService = node.logicalTopologyService();
 
-        assertTrue(waitForCondition(() -> logicalTopologyService.localLogicalTopology().nodes().size() == expectedTopologySize, 1000));
+        Awaitility.waitAtMost(1, TimeUnit.SECONDS).untilAsserted(() ->
+                assertEquals(expectedTopologySize, logicalTopologyService.localLogicalTopology().nodes().size())
+        );
     }
 
     private HttpResponse<String> doRestDataNodesResetForZonesCall(Set<String> zoneNames) {

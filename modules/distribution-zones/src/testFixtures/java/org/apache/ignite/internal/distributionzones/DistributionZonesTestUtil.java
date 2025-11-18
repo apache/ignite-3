@@ -862,7 +862,9 @@ public class DistributionZonesTestUtil {
      */
     public static CatalogZoneDescriptor descriptor(CatalogManager catalogManager, String zoneName) {
         CatalogZoneDescriptor zoneDescriptor =  catalogManager.latestCatalog().zone(zoneName);
+
         assertNotNull(zoneDescriptor);
+
         return zoneDescriptor;
     }
 
