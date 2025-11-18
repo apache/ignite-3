@@ -494,7 +494,7 @@ public class MapReduceAggregates {
         IntList argList = IntList.of(reduceArgumentOffset);
 
         AggregateCall reduceCall = AggregateCall.create(
-                SqlStdOperatorTable.SINGLE_VALUE,
+                IgniteSqlOperatorTable.SAME_VALUE,
                 call.isDistinct(),
                 call.isApproximate(),
                 call.ignoreNulls(),

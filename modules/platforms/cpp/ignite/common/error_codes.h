@@ -73,6 +73,7 @@ enum class code : underlying_t {
     RESOURCE_CLOSING = 0x10007,
     USER_OBJECT_SERIALIZATION = 0x10008,
     NULLABLE_VALUE = 0x10009,
+    UNSUPPORTED_TABLE_BASED_REPLICATION = 0x1000a,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -93,6 +94,7 @@ enum class code : underlying_t {
     CLIENT_SSL_CONFIGURATION = 0x30007,
     HANDSHAKE_HEADER = 0x30008,
     SERVER_TO_CLIENT_REQUEST = 0x30009,
+    RESOURCE_NOT_FOUND = 0x3000a,
 
     // Sql group. Group code: 4
     QUERY_NO_RESULT_SET = 0x40001,

@@ -69,6 +69,7 @@ public:
      * @return Basic connection string with specified addresses.
      */
     static std::string get_basic_connection_string(const std::string &addrs) {
+        // TODO: IGNITE-27013 Make sure that heartbeats are enabled by default and is set to 2 seconds.
         return "driver={" + DRIVER_NAME + "};address=" + addrs + ';';
     }
 

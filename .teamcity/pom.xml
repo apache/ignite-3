@@ -2,12 +2,6 @@
 <project>
   <modelVersion>4.0.0</modelVersion>
   <name>ApacheIgnite3 Config DSL Script</name>
-
-  <properties>
-    <kotlin.version>2.2.0</kotlin.version>
-  </properties>
-
-
   <groupId>ApacheIgnite3</groupId>
   <artifactId>ApacheIgnite3_dsl</artifactId>
   <version>1.0-SNAPSHOT</version>
@@ -28,7 +22,7 @@
     </repository>
     <repository>
       <id>teamcity-server</id>
-      <url>https://ci.ignite.apache.org/app/dsl-plugins-repository</url>
+      <url>http://ci.ignite.apache.org/app/dsl-plugins-repository</url>
       <snapshots>
         <enabled>true</enabled>
       </snapshots>
@@ -43,26 +37,25 @@
   </pluginRepositories>
 
   <build>
+    <sourceDirectory>${basedir}</sourceDirectory>
     <plugins>
       <plugin>
         <artifactId>kotlin-maven-plugin</artifactId>
         <groupId>org.jetbrains.kotlin</groupId>
         <version>${kotlin.version}</version>
 
-        <configuration>
-          <jvmTarget>1.8</jvmTarget>
-        </configuration>
+        <configuration/>
         <executions>
           <execution>
             <id>compile</id>
-            <phase>compile</phase>
+            <phase>process-sources</phase>
             <goals>
               <goal>compile</goal>
             </goals>
           </execution>
           <execution>
             <id>test-compile</id>
-            <phase>test-compile</phase>
+            <phase>process-test-sources</phase>
             <goals>
               <goal>test-compile</goal>
             </goals>
@@ -106,17 +99,6 @@
       <artifactId>kotlin-script-runtime</artifactId>
       <version>${kotlin.version}</version>
       <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.jetbrains.kotlin</groupId>
-      <artifactId>kotlin-stdlib-jdk8</artifactId>
-      <version>${kotlin.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.jetbrains.kotlin</groupId>
-      <artifactId>kotlin-test</artifactId>
-      <version>${kotlin.version}</version>
-      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

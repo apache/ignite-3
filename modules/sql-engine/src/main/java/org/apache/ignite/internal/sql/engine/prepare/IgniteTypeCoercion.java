@@ -396,7 +396,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
     @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
     private boolean coerceSourceRowType(
-            @org.checkerframework.checker.nullness.qual.Nullable SqlValidatorScope sourceScope,
+            @Nullable SqlValidatorScope sourceScope,
             SqlNode query,
             int columnIndex,
             RelDataType targetType) {

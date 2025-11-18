@@ -136,6 +136,20 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         });
     }
 
+    @Test
+    void closeCursorWithoutReadingAllPages() {
+        IgniteSql sql = igniteSql();
+
+        Statement stmt = sql.statementBuilder()
+                .query("SELECT * FROM TABLE(SYSTEM_RANGE(0, 1))")
+                .pageSize(1)
+                .build();
+
+        try (var ignored = sql.execute(null, stmt)) {
+            // No-op.
+        }
+    }
+
     private void executeAndCancel(Function<CancellationToken, ResultSet<SqlRow>> execute) throws InterruptedException {
         CancelHandle cancelHandle = CancelHandle.create();
 

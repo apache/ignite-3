@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.sql.engine.statistic.event;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.event.Event;
 
-// TODO: IGNITE-22522 - remove this class and switch ReadWriteTransactionImplTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class ReadWriteTransactionImplColocationTest extends ReadWriteTransactionImplTest {
-    @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
-    }
+/** Statistic changed event. */
+public enum StatisticChangedEvent implements Event {
+    /**
+     * Fired when statistic is changed.
+     */
+    STATISTIC_CHANGED,
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.UUID;
@@ -81,7 +82,9 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
         txStateStorage.destroyPartitionStorage(partitionIndex);
 
-        TxStatePartitionStorage newPartitionStorage = txStateStorage.createPartitionStorage(partitionIndex);
+        assertNull(txStateStorage.getPartitionStorage(partitionIndex));
+
+        TxStatePartitionStorage newPartitionStorage = txStateStorage.getOrCreatePartitionStorage(partitionIndex);
 
         assertThat(newPartitionStorage.lastAppliedIndex(), is(0L));
         assertThat(newPartitionStorage.lastAppliedTerm(), is(0L));
@@ -106,7 +109,9 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         txStateStorage.destroy();
         createAndStartStorage();
 
-        TxStatePartitionStorage newPartitionStorage = txStateStorage.createPartitionStorage(partitionIndex);
+        assertNull(txStateStorage.getPartitionStorage(partitionIndex));
+
+        TxStatePartitionStorage newPartitionStorage = txStateStorage.getOrCreatePartitionStorage(partitionIndex);
 
         assertThat(newPartitionStorage.lastAppliedIndex(), is(0L));
         assertThat(newPartitionStorage.lastAppliedTerm(), is(0L));

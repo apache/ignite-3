@@ -542,8 +542,6 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     public void testGroupingFunction(String[] rules) {
         sql("DELETE FROM test_str_int_real_dec");
 
-        sql("DELETE FROM test_str_int_real_dec");
-
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (2, 's1', 20)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (3, 's2', 10)");
