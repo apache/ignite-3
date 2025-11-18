@@ -74,6 +74,7 @@ enum class code : underlying_t {
     USER_OBJECT_SERIALIZATION = 0x10008,
     NULLABLE_VALUE = 0x10009,
     INTERNAL = 0x1ffff,
+    UNSUPPORTED_TABLE_BASED_REPLICATION = 0x10010
 
     // Table group. Group code: 2
     TABLE_ALREADY_EXISTS = 0x20001,
