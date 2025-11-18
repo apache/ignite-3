@@ -87,6 +87,21 @@ public interface MvPartitionStorage extends ManuallyCloseable {
          *      {@code false} if lock is not held by the current thread and the attempt to acquire it has failed.
          */
         boolean tryLock(RowId rowId);
+
+        /**
+         * Returns {@code true} if the engine needs resources and the user should consider stopping the execution preemptively.
+         *
+         * <p>This method is intended to prevent stalling critical engine operations (such as checkpointing) when user code
+         * is performing long-running work inside {@link WriteClosure}. User code should check this method periodically
+         * and stop the execution if it returns {@code true}.
+         *
+         * <p>For most storage engines, this method always returns {@code false}. Only engines that require exclusive access
+         * to resources (like {@code aipersist} waiting for checkpoint write lock) will return {@code true} when they need
+         * the resources.
+         *
+         * @return {@code true} if the engine needs resources and the user should release the lock, {@code false} otherwise.
+         */
+        boolean shouldRelease();
     }
 
     /**
@@ -271,13 +286,21 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
+     * Returns the greatest row ID, existing in the storage. {@code null} if the storage is empty.
+     *
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable RowId highestRowId() throws StorageException;
+
+    /**
      * Returns a batch of rows with subsequent IDs which IDs are greater or equal than the lower bound.
      *
-     * @param lowerBound Lower bound (inclusive).
+     * @param lowerBoundInclusive Lower bound (inclusive).
+     * @param upperBoundInclusive Upper bound (inclusive).
      * @param limit Maximum number of rows to return.
      * @throws StorageException If failed to read data from the storage.
      */
-    List<RowMeta> rowsStartingWith(RowId lowerBound, int limit) throws StorageException;
+    List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException;
 
     /**
      * Returns the head of GC queue.

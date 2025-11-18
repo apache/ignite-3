@@ -151,6 +151,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLIENT_SSL_CONFIGURATION:
         case error::code::HANDSHAKE_HEADER:
             return sql_state::S08004_CONNECTION_REJECTED;
+        case error::code::RESOURCE_NOT_FOUND:
+            return sql_state::SHY000_GENERAL_ERROR;
 
         // Sql group. Group code: 4
         case error::code::SCHEMA_NOT_FOUND:

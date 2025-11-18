@@ -369,6 +369,10 @@ SINGLE_VALUE(<any>)
 #b454f7ac12dead652d1d09ed92cbb7e4c08761fd
 
 [internal]
+SAME_VALUE(<any>)
+#d2d8df63a238e59c64dd55011f8bb63bcbb6fdf0
+
+[internal]
 <any> FILTER <any>
 #b9102e525855e461ba8259fd7b7458d9699b513e
 
