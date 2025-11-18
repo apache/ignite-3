@@ -575,7 +575,13 @@ public class DataNodesManager {
 
         Set<NodeWithAttributes> filteredDataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
 
-        return recalculateAndApplyDataNodesToMetastoreImmediately(zoneDescriptor, filteredDataNodes, timestamp, dataNodesHistoryContext);
+        return recalculateAndApplyDataNodesToMetastoreImmediately(
+                zoneDescriptor,
+                filteredDataNodes,
+                timestamp,
+                dataNodesHistoryContext,
+                "distribution zone filter change"
+        );
     }
 
     /**
@@ -916,12 +922,14 @@ public class DataNodesManager {
     }
 
     /**
-     * Unlike {@link #dataNodes} this method data nodes for given zone and writes them to metastorage.
+     * Unlike {@link #dataNodes} this method recalculates the  data nodes for given zone and writes them to metastorage.
      *
      * @param zoneName Zone name.
      * @return The future with recalculated data nodes for the given zone.
      */
     public CompletableFuture<Set<String>> recalculateDataNodes(String zoneName) {
+        Objects.requireNonNull(zoneName, "Zone name is required.");
+
         int catalogVersion = catalogManager.latestCatalogVersion();
 
         CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneName);
@@ -947,7 +955,8 @@ public class DataNodesManager {
                         zoneDescriptor,
                         filteredDataNodes,
                         clockService.now(),
-                        dataNodesHistoryContext
+                        dataNodesHistoryContext,
+                        "manual data nodes recalculation"
                 )),
                 true
         ).thenApply(v -> nodeNames(filteredDataNodes));
@@ -957,7 +966,8 @@ public class DataNodesManager {
             CatalogZoneDescriptor zoneDescriptor,
             Set<NodeWithAttributes> filteredDataNodes,
             HybridTimestamp timestamp,
-            DataNodesHistoryContext dataNodesHistoryContext
+            DataNodesHistoryContext dataNodesHistoryContext,
+            String operationName
     ) {
         assert dataNodesHistoryContext != null : "Data nodes history and timers are missing, zone=" + zoneDescriptor;
 
@@ -980,7 +990,7 @@ public class DataNodesManager {
                         clearTimer(zoneScaleDownTimerKey(zoneId)),
                         clearTimer(zonePartitionResetTimerKey(zoneId))
                 ))
-                .operationName("distribution zone filter change")
+                .operationName(operationName)
                 .currentDataNodesHistory(dataNodesHistory)
                 .currentTimestamp(timestamp)
                 .historyEntryTimestamp(timestamp)

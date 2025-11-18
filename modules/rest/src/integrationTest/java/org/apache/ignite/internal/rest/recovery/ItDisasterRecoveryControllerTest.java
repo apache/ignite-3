@@ -167,7 +167,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Some distribution zones are missing: [no-such-zone]"));
+        assertThat(thrown.getMessage(), containsString("Distribution zones were not found [zoneNames=[no-such-zone]]"));
     }
 
     @Test
@@ -343,7 +343,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Some distribution zones are missing: [no-such-zone]"));
+        assertThat(thrown.getMessage(), containsString("Distribution zones were not found [zoneNames=[no-such-zone]]"));
     }
 
     @Test

@@ -804,4 +804,28 @@ public class DistributionZonesTestUtil {
             return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);
         }
     }
+
+    /**
+     * Returns catalog descriptor for given zone name.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @return Catalog descriptor for given zone name.
+     */
+    public static CatalogZoneDescriptor descriptor(CatalogManager catalogManager, String zoneName) {
+        CatalogZoneDescriptor zoneDescriptor =  catalogManager.latestCatalog().zone(zoneName);
+        assertNotNull(zoneDescriptor);
+        return zoneDescriptor;
+    }
+
+    /**
+     * Returns identifier of a zone by the given zone name.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @return Identifier of a zone by the given zone name.
+     */
+    public static int zoneId(CatalogManager catalogManager, String zoneName) {
+        return descriptor(catalogManager, zoneName).id();
+    }
 }

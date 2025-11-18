@@ -50,7 +50,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZonesNotFoundException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -585,13 +585,13 @@ public class DistributionZonesUtil {
      *      for all zones.
      * @param zones Catalog zone descriptors to filter out.
      * @return Filtered out by zone names collection of zone descriptors to apply some user operation.
-     * @throws DistributionZonesNotFoundException In case if there are zone names that aren't presented among given catalog zone
+     * @throws DistributionZoneNotFoundException In case if there are zone names that aren't presented among given catalog zone
      *      descriptors.
      */
     public static Collection<CatalogZoneDescriptor> filterZonesForOperations(
             Set<String> zoneNames,
             Collection<CatalogZoneDescriptor> zones
-    ) throws DistributionZonesNotFoundException {
+    ) throws DistributionZoneNotFoundException {
         if (zoneNames.isEmpty()) {
             return zones;
         }
@@ -607,7 +607,7 @@ public class DistributionZonesUtil {
         if (!zoneNames.equals(foundZoneNames)) {
             Set<String> missingZoneNames = CollectionUtils.difference(zoneNames, foundZoneNames);
 
-            throw new DistributionZonesNotFoundException(missingZoneNames);
+            throw new DistributionZoneNotFoundException(missingZoneNames);
         }
 
         return zoneDescriptors;

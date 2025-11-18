@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
+import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.assertDistributionZoneScaleTimersAreNotScheduled;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -343,7 +344,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         checkDataNodes(ZONE_NAME_1, clock.now(), nodeNames(C));
 
         // Timers are discarded earlier than scheduled.
-        assertTrue(waitForCondition(() -> !scaleUpScheduled(ZONE_NAME_1) && !scaleDownScheduled(ZONE_NAME_1), 2000));
+        assertDistributionZoneScaleTimersAreNotScheduled(catalogManager, dataNodesManager, ZONE_NAME_1);
     }
 
     @Test
@@ -558,29 +559,8 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         assertEquals(expectedNodes, dataNodesFuture.join());
     }
 
-    private CatalogZoneDescriptor descriptor(String zoneName) {
-        CatalogZoneDescriptor zoneDescriptor =  catalogManager.activeCatalog(clock.now().longValue()).zone(zoneName);
-        assertNotNull(zoneDescriptor);
-        return zoneDescriptor;
-    }
-
-    private int zoneId(String zoneName) {
-        return descriptor(zoneName).id();
-    }
-
     private void assertScaleUpScheduledOrDone(String zoneName) throws InterruptedException {
-        boolean success = waitForCondition(() -> {
-            ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp;
-            return schedule.taskIsScheduled() || schedule.taskIsDone();
-        }, 2000);
-
-        if (!success) {
-            ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp;
-            log.info("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}]."
-                    + schedule.taskIsScheduled(), schedule.taskIsCancelled(), schedule.taskIsDone());
-        }
-
-        assertTrue(success);
+        DataNodesTestUtil.assertScaleUpScheduledOrDone(catalogManager, dataNodesManager, zoneName);
     }
 
     private void assertScaleUpNotScheduled(String zoneName) throws InterruptedException {
@@ -602,16 +582,16 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         assertTrue(success);
     }
 
+    private int zoneId(String zoneName) {
+        return DistributionZonesTestUtil.zoneId(catalogManager, zoneName);
+    }
+
+    private CatalogZoneDescriptor descriptor(String zoneName) {
+        return DistributionZonesTestUtil.descriptor(catalogManager, zoneName);
+    }
+
     private void assertScaleDownNotScheduled(String zoneName) throws InterruptedException {
         assertFalse(waitForCondition(() -> dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown.taskIsScheduled(), 1000));
-    }
-
-    private boolean scaleUpScheduled(String zoneName) {
-        return dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp.taskIsScheduled();
-    }
-
-    private boolean scaleDownScheduled(String zoneName) {
-        return dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown.taskIsScheduled();
     }
 
     private static Set<String> nodeNames(NodeWithAttributes... nodes) {

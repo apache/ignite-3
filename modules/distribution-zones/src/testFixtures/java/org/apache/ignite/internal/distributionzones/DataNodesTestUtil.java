@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.zoneId;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -29,9 +30,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
+import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimers;
 import org.apache.ignite.internal.hlc.ClockService;
 
 /**
@@ -118,5 +122,140 @@ public final class DataNodesTestUtil {
         assertEquals(expectedDataNodes, futureRecalculationResult.join());
 
         waitForDataNodes(node, zoneName, expectedDataNodes);
+    }
+
+    /**
+     * Checks that scale up timer for the given zone was set up.
+     *
+     * @param node Ignite node.
+     * @param zoneName Zone name.
+     * @throws InterruptedException In case of waiting timeout.
+     */
+    public static void assertScaleUpScheduledOrDone(IgniteImpl node, String zoneName) throws InterruptedException {
+        CatalogManager catalogManager = node.catalogManager();
+        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
+
+        assertScaleUpScheduledOrDone(catalogManager, dataNodesManager, zoneName);
+    }
+
+    /**
+     * Checks that scale up timer for the given zone was set up.
+     *
+     * @param catalogManager Catalog manager.
+     * @param dataNodesManager Data nodes manager.
+     * @param zoneName Zone name.
+     * @throws InterruptedException In case of waiting timeout.
+     */
+    public static void assertScaleUpScheduledOrDone(
+            CatalogManager catalogManager,
+            DataNodesManager dataNodesManager,
+            String zoneName
+    ) throws InterruptedException {
+        assertDistributionZoneScaleTimerScheduledOrDone(
+                catalogManager,
+                dataNodesManager,
+                zoneName,
+                timers -> timers.scaleUp
+        );
+    }
+
+    /**
+     * Checks that scale down timer for the given zone was set up.
+     *
+     * @param node Ignite node.
+     * @param zoneName Zone name.
+     * @throws InterruptedException In case of waiting timeout.
+     */
+    public static void assertScaleDownScheduledOrDone(IgniteImpl node, String zoneName) throws InterruptedException {
+        CatalogManager catalogManager = node.catalogManager();
+        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
+
+        assertScaleDownScheduledOrDone(catalogManager, dataNodesManager, zoneName);
+    }
+
+    /**
+     * Checks that scale down timer for the given zone was set up.
+     *
+     * @param catalogManager Catalog manager.
+     * @param dataNodesManager Data nodes manager.
+     * @param zoneName Zone name.
+     * @throws InterruptedException In case of waiting timeout.
+     */
+    public static void assertScaleDownScheduledOrDone(
+            CatalogManager catalogManager,
+            DataNodesManager dataNodesManager,
+            String zoneName
+    ) throws InterruptedException {
+        assertDistributionZoneScaleTimerScheduledOrDone(
+                catalogManager,
+                dataNodesManager,
+                zoneName,
+                timers -> timers.scaleDown
+        );
+    }
+
+    private static void assertDistributionZoneScaleTimerScheduledOrDone(
+            CatalogManager catalogManager,
+            DataNodesManager dataNodesManager,
+            String zoneName,
+            Function<ZoneTimers, ZoneTimerSchedule> getScaleTimer
+    ) throws InterruptedException {
+        boolean success = waitForCondition(() -> {
+            ZoneTimerSchedule schedule = getScaleTimer.apply(dataNodesManager.zoneTimers(zoneId(catalogManager, zoneName)));
+            return schedule.taskIsScheduled() || schedule.taskIsDone();
+        }, 2000);
+
+        ZoneTimerSchedule schedule = getScaleTimer.apply(dataNodesManager.zoneTimers(zoneId(catalogManager, zoneName)));
+        assertTrue(success, format("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}].",
+                schedule.taskIsScheduled(), schedule.taskIsCancelled(), schedule.taskIsDone()));
+    }
+
+    /**
+     * Checks that there no scheduled scale up/down timers for given distribution zone.
+     *
+     * @param node Ignite node.
+     * @param zoneName Zone name.
+     * @throws InterruptedException In case of waiting timeout.
+     */
+    public static void assertDistributionZoneScaleTimersAreNotScheduled(
+            IgniteImpl node,
+            String zoneName
+    ) throws InterruptedException {
+        CatalogManager catalogManager = node.catalogManager();
+        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
+
+        assertTrue(waitForCondition(() ->
+                        !scaleUpScheduled(catalogManager, dataNodesManager, zoneName)
+                                && !scaleDownScheduled(catalogManager, dataNodesManager, zoneName),
+                2000
+        ));
+    }
+
+    /**
+     * Checks that there no scheduled scale up/down timers for given distribution zone.
+     *
+     * @param catalogManager Catalog manager.
+     * @param dataNodesManager Data nodes manager.
+     * @param zoneName Zone name.
+     * @throws InterruptedException In case of waiting timeout.
+     */
+    public static void assertDistributionZoneScaleTimersAreNotScheduled(
+            CatalogManager catalogManager,
+            DataNodesManager dataNodesManager,
+            String zoneName
+    ) throws InterruptedException {
+        assertTrue(waitForCondition(() ->
+                !scaleUpScheduled(catalogManager, dataNodesManager, zoneName)
+                        && !scaleDownScheduled(catalogManager, dataNodesManager, zoneName),
+                2000
+        ));
+    }
+
+    private static boolean scaleUpScheduled(CatalogManager catalogManager, DataNodesManager dataNodesManager, String zoneName) {
+        return dataNodesManager.zoneTimers(zoneId(catalogManager, zoneName)).scaleUp.taskIsScheduled();
+    }
+
+    private static boolean scaleDownScheduled(CatalogManager catalogManager, DataNodesManager dataNodesManager, String zoneName) {
+        return dataNodesManager.zoneTimers(zoneId(catalogManager, zoneName)).scaleDown.taskIsScheduled();
     }
 }

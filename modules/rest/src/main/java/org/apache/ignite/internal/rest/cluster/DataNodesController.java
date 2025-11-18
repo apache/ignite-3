@@ -18,16 +18,18 @@
 package org.apache.ignite.internal.rest.cluster;
 
 import io.micronaut.http.annotation.Controller;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.zone.datanodes.DataNodesApi;
-import org.apache.ignite.internal.rest.api.cluster.zone.datanodes.DataNodesRecalculationRequest;
+import org.apache.ignite.internal.rest.api.cluster.zone.datanodes.DataNodesResetRequest;
 
 /**
  * Distributed zones data nodes controller.
  */
-@Controller("/management/v1/cluster/zone/datanodes")
+@Controller("/management/v1/zones")
 public class DataNodesController implements DataNodesApi, ResourceHolder {
     private DistributionZoneManager distributionZoneManager;
 
@@ -36,8 +38,18 @@ public class DataNodesController implements DataNodesApi, ResourceHolder {
     }
 
     @Override
-    public CompletableFuture<Void> recalculateDataNodes(DataNodesRecalculationRequest request) {
-        return distributionZoneManager.recalculateDataNodes(request.zoneNames());
+    public CompletableFuture<Set<String>> getDataNodesForZone(String zoneName) {
+        return distributionZoneManager.currentDataNodes(zoneName);
+    }
+
+    @Override
+    public CompletableFuture<Void> resetDataNodesForZone(String zoneName) {
+        return distributionZoneManager.recalculateDataNodes(zoneName);
+    }
+
+    @Override
+    public CompletableFuture<Void> resetDataNodesForZones(Optional<Set<String>> zoneNames) {
+        return distributionZoneManager.recalculateDataNodes(zoneNames.orElse(Set.of()));
     }
 
     @Override

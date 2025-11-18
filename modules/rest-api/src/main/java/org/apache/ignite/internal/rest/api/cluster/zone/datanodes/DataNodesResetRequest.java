@@ -26,14 +26,14 @@ import org.apache.ignite.internal.tostring.S;
 
 /** Request to recalculate distributed zones' data nodes. */
 @Schema(description = "recalculate distributed zones' data nodes.")
-public class DataNodesRecalculationRequest {
+public class DataNodesResetRequest {
     @Schema(description = "Names specifying zones to recalculate datanodes for. Case-sensitive, "
             + "if empty then all zones' data nodes will be recalculated.")
     private final Set<String> zoneNames;
 
     /** Constructor. */
     @JsonCreator
-    public DataNodesRecalculationRequest(
+    public DataNodesResetRequest(
             @JsonProperty("zoneNames") Set<String> zoneNames
     ) {
         this.zoneNames = zoneNames == null ? Set.of() : Set.copyOf(zoneNames);
