@@ -623,8 +623,6 @@ TEST_F(transaction_test, heartbeat_connection_is_not_closed) {
 
     EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
 
-    std::this_thread::sleep_for(7s);
-
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
@@ -632,6 +630,8 @@ TEST_F(transaction_test, heartbeat_connection_is_not_closed) {
     insert_test_value(42, "Some");
 
     check_test_value(42, "Some");
+
+    std::this_thread::sleep_for(7s);
 
     ret = SQLEndTran(SQL_HANDLE_ENV, m_env, SQL_ROLLBACK);
 
@@ -640,12 +640,10 @@ TEST_F(transaction_test, heartbeat_connection_is_not_closed) {
     check_no_test_value(42);
 }
 
-TEST_F(transaction_test, heartbeat_too_big_connection_is_not_closed) {
+TEST_F(transaction_test, heartbeat_disable_connection_is_closed) {
     using namespace std::chrono_literals;
 
-    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string(20ms)));
-
-    std::this_thread::sleep_for(7s);
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string(0s)));
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
 
@@ -655,9 +653,9 @@ TEST_F(transaction_test, heartbeat_too_big_connection_is_not_closed) {
 
     check_test_value(42, "Some");
 
+    std::this_thread::sleep_for(7s);
+
     ret = SQLEndTran(SQL_HANDLE_ENV, m_env, SQL_ROLLBACK);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_ENV, m_env);
-
-    check_no_test_value(42);
+    EXPECT_EQ(ret, SQL_ERROR);
 }
