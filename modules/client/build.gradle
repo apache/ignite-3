@@ -69,8 +69,6 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
     testImplementation libs.jmh.core
-
-    testImplementation group: 'com.mchange', name: 'c3p0', version: '0.11.2'
 }
 
 def archTestDir = "$buildDir/archtest"
