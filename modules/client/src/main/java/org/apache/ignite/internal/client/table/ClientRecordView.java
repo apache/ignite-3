@@ -480,7 +480,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        MapFunction<R, List<R>> clo = (batch, provider, startImlpicit) -> {
+        MapFunction<R, List<R>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL_EXACT,
                     (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
