@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest.api.cluster.zone.datanodes;
 
-import io.micronaut.core.type.Argument;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;

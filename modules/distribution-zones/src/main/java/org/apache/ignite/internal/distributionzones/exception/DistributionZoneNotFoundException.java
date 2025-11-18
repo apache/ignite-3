@@ -54,8 +54,9 @@ public class DistributionZoneNotFoundException extends IgniteInternalException {
      * @param zoneNames Zone names.
      */
     public DistributionZoneNotFoundException(Collection<String> zoneNames) {
-        super(ZONE_NOT_FOUND_ERR, "Distribution zones were not found [zoneNames=" + zoneNames+ ']');
+        super(ZONE_NOT_FOUND_ERR, "Distribution zones were not found [zoneNames=" + zoneNames + ']');
     }
+
     /**
      * The constructor.
      *

@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.zone.datanodes.DataNodesApi;
-import org.apache.ignite.internal.rest.api.cluster.zone.datanodes.DataNodesResetRequest;
 
 /**
  * Distributed zones data nodes controller.
