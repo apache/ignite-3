@@ -93,15 +93,15 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                 try (Connection conn = c3p0Pool.getConnection()) {
                     try (var stmt = conn.createStatement()) {
                         stmt.setFetchSize(100);
-                        try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(1, 500000)")) {
-                            int cnt = 1;
+                        try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(0, 500000)")) {
+                            int cnt = 0;
 
                             while (rs.next()) {
                                 assertEquals(cnt, rs.getInt(1));
                                 cnt++;
                             }
 
-                            assertEquals(500_000, cnt);
+                            assertEquals(500_001, cnt);
                         }
                     }
                 }
