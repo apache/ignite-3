@@ -26,24 +26,13 @@ object OdbcRpm : BuildType({
                 
                 odbcinst -j || exit 0
                 cat /etc/odbcinst.ini || exit 0
-                
-                conan --version
-                conan profile list
-                conan profile show default || exit 0
-                
-                conan info --path . || exit 0
             """.trimIndent()
-        }
-
-        customGradle {
-            tasks = ":packaging-odbc:buildRpm -i -Pplatforms.enable"
-            workingDir = "%VCSROOT__IGNITE3%"
         }
 
         script {
             name = "[HACK] Set AGENT_NUMBER"
             id = "HACK_Set_AGENT_NUMBER"
-            enabled = false
+            enabled = true
             scriptContent = """
                 AGENT_NUMBER=${'$'}(echo %system.agent.name% | tail -c 3)
                 echo "##teamcity[setParameter name='AGENT_NUMBER' value='${'$'}{AGENT_NUMBER}']"
@@ -53,7 +42,7 @@ object OdbcRpm : BuildType({
         exec {
             name = "Build ODBC RPM (Under Rocky Linux 8 container)"
             id = "Build_ODBC_RPM_Under_Rocky_Linux_8_container"
-            enabled = false
+            enabled = true
             path = "./gradlew"
             arguments = ":packaging-odbc:buildRpm -i -Pplatforms.enable"
             dockerImage = "ggshared/tc-agent:rockylinux_latest"
@@ -64,11 +53,7 @@ object OdbcRpm : BuildType({
         }
     }
 
-    /**
-     *  Temporary lock ODBC jobs on old-type agents
-     *  until execution of the :platforms:cmakeBuildOdbc target is fixed on DIND agents
-     */
     requirements {
-        doesNotExist("env.DIND_ENABLED")
+        equals("env.DIND_ENABLED", "true")
     }
 })
