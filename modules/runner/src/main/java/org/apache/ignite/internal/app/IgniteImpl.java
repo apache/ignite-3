@@ -685,6 +685,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
+                systemConfiguration,
                 clock,
                 raftGroupEventsClientListener,
                 failureManager,

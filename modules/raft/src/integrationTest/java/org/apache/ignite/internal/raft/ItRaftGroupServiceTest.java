@@ -44,6 +44,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -102,6 +103,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
@@ -314,6 +318,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             this.loza = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     new HybridClockImpl()
             );
         }
