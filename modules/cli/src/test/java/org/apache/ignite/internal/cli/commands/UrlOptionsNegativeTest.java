@@ -75,6 +75,7 @@ import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListCommand;
 import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListReplCommand;
 import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeAll;
@@ -91,7 +92,7 @@ import picocli.CommandLine;
  */
 @MicronautTest
 @ExtendWith(WorkDirectoryExtension.class)
-public class UrlOptionsNegativeTest {
+public class UrlOptionsNegativeTest extends BaseIgniteAbstractTest {
     private static final String NODE_URL = "http://localhost:10300";
 
     private static final String NODE_URL_OPTION = "--url=";
