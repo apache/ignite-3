@@ -62,7 +62,7 @@ public class ItTruncateRaftLogAndRebalanceTest extends BaseTruncateRaftLogAbstra
     }
 
     @Test
-    void test() throws Exception {
+    void testRestartNodeAfterAbortRebalanceAndTruncateRaftLog() throws Exception {
         createZoneAndTablePerson(ZONE_NAME, TABLE_NAME, 3, 1);
 
         ReplicationGroupId replicationGroupId = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
@@ -71,9 +71,9 @@ public class ItTruncateRaftLogAndRebalanceTest extends BaseTruncateRaftLogAbstra
 
         insertPeopleAndAwaitTruncateRaftLogOnAllNodes(1_000, TABLE_NAME, replicationGroupId);
 
-        // Let's restart the node with aborted rebalance.
         startAndAbortRebalance(1, TABLE_NAME, replicationGroupId);
 
+        // Let's restart the node with aborted rebalance.
         cluster.stopNode(1);
         cluster.startNode(1);
 

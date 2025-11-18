@@ -88,8 +88,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // If |snapshot_interval_s| <= 0, the time based snapshot would be disabled.
     //
     // Default: 3600 (1 hour)
-    // TODO: IGNITE-26849 Вернуть один час 3600
-    private int snapshotIntervalSecs = 5;
+    private int snapshotIntervalSecs = 3600;
 
     // A snapshot saving would be triggered every |snapshot_interval_s| seconds,
     // and at this moment when state machine's lastAppliedIndex value
