@@ -28,7 +28,6 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
-import static org.apache.ignite.internal.sql.engine.util.Commons.cluster;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.mchange.v2.c3p0.ComboPooledDataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
@@ -52,7 +50,6 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -62,38 +59,6 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
-    @Test
-    @Disabled("TODO: Remove")
-    public void testMultiThreadedPooled() throws Exception {
-        var url = "jdbc:ignite:thin://127.0.0.1:10800";
-
-        try (ComboPooledDataSource c3p0Pool = new ComboPooledDataSource()) {
-            c3p0Pool.setJdbcUrl(url);
-
-            IgniteTestUtils.runMultiThreaded(() -> {
-                for (int i = 0; i < 5000; i++) {
-                    try (Connection conn = c3p0Pool.getConnection()) {
-                        try (var stmt = conn.createStatement()) {
-                            stmt.setFetchSize(100);
-                            try (ResultSet rs = stmt.executeQuery("SELECT * FROM SYSTEM_RANGE(0, 500000)")) {
-                                int cnt = 0;
-
-                                while (rs.next()) {
-                                    assertEquals(cnt, rs.getInt(1));
-                                    cnt++;
-                                }
-
-                                assertEquals(500_001, cnt);
-                            }
-                        }
-                    }
-                }
-
-                return null;
-            }, 12, "c3p0-test-thread");
-        }
-    }
-
     /**
      * Test JDBC loading via ServiceLoader.
      */

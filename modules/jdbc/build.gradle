@@ -48,7 +48,6 @@ dependencies {
     integrationTestImplementation project(":ignite-api")
     integrationTestImplementation project(":ignite-system-view-api")
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation group: 'com.mchange', name: 'c3p0', version: '0.11.2'
 
     testFixturesImplementation testFixtures(project(":ignite-core"))
 }
