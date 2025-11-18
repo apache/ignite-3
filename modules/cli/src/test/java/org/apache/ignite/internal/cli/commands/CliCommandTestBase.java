@@ -246,8 +246,7 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
      * @param <OT> Output of the call.
      * @param <T> Call type.
      */
-    protected <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>>
-    void checkParametersAsync(
+    protected <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>> void checkParametersAsync(
             String command,
             Class<FT> callFactoryClass,
             Class<T> callClass,
@@ -298,7 +297,7 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
      * @return Created mock.
      */
     private <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>>
-    AsyncCall<IT, OT> registerMockCallAsync(Class<FT> callFactoryClass, Class<T> callClass) {
+            T registerMockCallAsync(Class<FT> callFactoryClass, Class<T> callClass) {
         FT mockCallFactory = mock(callFactoryClass);
         context.registerSingleton(mockCallFactory);
 

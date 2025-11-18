@@ -214,7 +214,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
     @DisplayName("Cluster endpoint URL from command line should override specified profile")
     @MethodSource("clusterAsyncCallsProvider")
     <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>>
-    void commandClusterUrlOverridesProfileAsync(
+            void commandClusterUrlOverridesProfileAsync(
             String command,
             Class<FT> callFactoryClass,
             Class<T> callClass,
@@ -318,6 +318,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
                 )
         );
     }
+
     private static Stream<Arguments> clusterAsyncCallsProvider() {
         return Stream.of(
                 arguments(
