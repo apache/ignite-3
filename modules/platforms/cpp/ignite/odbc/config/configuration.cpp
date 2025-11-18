@@ -134,7 +134,7 @@ void configuration::from_config_map(const config_map &config_params) {
         auto heartbeat_interval_opt = parse_int<std::int32_t>(heartbeat_interval_it->second);
         if (!heartbeat_interval_opt)
             throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-                "Invalid page size value: " + heartbeat_interval_it->second);
+                "Invalid heartbeat interval value: " + heartbeat_interval_it->second);
 
         m_heartbeat_interval = {std::chrono::milliseconds{*heartbeat_interval_opt}, true};
     }

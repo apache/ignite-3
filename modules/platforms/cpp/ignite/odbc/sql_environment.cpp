@@ -22,7 +22,6 @@ namespace ignite {
 
 sql_environment::sql_environment()
     : m_timer_thread(detail::thread_timer::start([&] (auto&& err) {
-        std::cout << "[SQL ENV CTOR] error: " << err.what() << std::endl;
         add_status_record(sql_state::SHYT00_TIMEOUT_EXPIRED, "Unhandled timer error: " + err.what_str());
     })) {
 }
@@ -49,7 +48,7 @@ sql_result sql_environment::internal_create_connection(sql_connection_ptr *&conn
 
     conn = new(std::nothrow) sql_connection_ptr(conn_raw);
     if (!conn) {
-        delete conn;
+        delete conn_raw;
 
         add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
 

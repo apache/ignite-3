@@ -41,7 +41,7 @@ class sql_statement;
 /**
  * ODBC node connection.
  */
-class sql_connection : public diagnosable_adapter, public std::enable_shared_from_this<sql_connection>  {
+class sql_connection : public diagnosable_adapter, public std::enable_shared_from_this<sql_connection> {
     friend class sql_environment;
 
     /** Minimal heartbeat interval. */
