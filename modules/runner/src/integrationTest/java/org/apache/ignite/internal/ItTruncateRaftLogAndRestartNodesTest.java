@@ -18,24 +18,16 @@
 package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -43,20 +35,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.TxContext;
-import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -64,7 +49,6 @@ import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -174,74 +158,13 @@ public class ItTruncateRaftLogAndRestartNodesTest extends BaseTruncateRaftLogAbs
     }
 
     private void flushMvPartitionStorage(int nodeIndex, String tableName, int partitionId) {
-        TableViewInternal tableViewInternal = unwrapTableViewInternal(igniteImpl(nodeIndex).tables().table(tableName));
+        TableViewInternal tableViewInternal = tableViewInternal(nodeIndex, tableName);
 
-        MvPartitionStorage mvPartition = tableViewInternal.internalTable().storage().getMvPartition(partitionId);
-
-        assertNotNull(
-                mvPartition,
-                String.format(
-                        "Missing MvPartitionStorage: [nodeIndex=%s, tableName=%s, partitionId=%s]",
-                        nodeIndex, tableName, partitionId
-                )
-        );
+        MvPartitionStorage mvPartition = mvPartitionStorage(tableViewInternal, partitionId);
 
         assertThat(
                 IgniteTestUtils.runAsync(() -> mvPartition.flush(true)).thenCompose(Function.identity()),
                 willCompleteSuccessfully()
-        );
-    }
-
-    private static String selectPeopleDml(String tableName) {
-        return String.format(
-                "select %s, %s, %s from %s",
-                Person.ID_COLUMN_NAME, Person.NAME_COLUMN_NAME, Person.SALARY_COLUMN_NAME,
-                tableName
-        );
-    }
-
-    private Person[] scanPeopleFromAllPartitions(int nodeIndex, String tableName) {
-        IgniteImpl ignite = igniteImpl(nodeIndex);
-
-        TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(tableName));
-
-        InternalTableImpl table = (InternalTableImpl) tableViewInternal.internalTable();
-
-        InternalTransaction roTx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(true));
-
-        var scanFutures = new ArrayList<CompletableFuture<List<BinaryRow>>>();
-
-        try {
-            for (int partitionId = 0; partitionId < table.partitions(); partitionId++) {
-                scanFutures.add(subscribeToList(scan(table, roTx, partitionId, ignite.node())));
-            }
-
-            assertThat(allOf(scanFutures), willCompleteSuccessfully());
-
-            SchemaDescriptor schemaDescriptor = tableViewInternal.schemaView().lastKnownSchema();
-
-            return scanFutures.stream()
-                    .map(CompletableFuture::join)
-                    .flatMap(Collection::stream)
-                    .map(binaryRow -> toPersonFromBinaryRow(schemaDescriptor, binaryRow))
-                    .toArray(Person[]::new);
-        } finally {
-            roTx.commit();
-        }
-    }
-
-    private static Publisher<BinaryRow> scan(
-            InternalTableImpl internalTableImpl,
-            InternalTransaction roTx,
-            int partitionId,
-            InternalClusterNode recipientNode
-    ) {
-        assertTrue(roTx.isReadOnly(), roTx.toString());
-
-        return internalTableImpl.scan(
-                partitionId,
-                recipientNode,
-                OperationContext.create(TxContext.readOnly(roTx))
         );
     }
 

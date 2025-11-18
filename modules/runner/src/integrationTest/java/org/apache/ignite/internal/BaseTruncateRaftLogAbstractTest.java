@@ -17,25 +17,42 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.OperationContext;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.TxContext;
+import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.tx.TransactionOptions;
 
 /** Base class for raft log truncating related integration tests, containing useful methods, classes, and methods. */
 class BaseTruncateRaftLogAbstractTest extends ClusterPerTestIntegrationTest {
@@ -58,7 +75,7 @@ class BaseTruncateRaftLogAbstractTest extends ClusterPerTestIntegrationTest {
         return raftNodeImpl(igniteImpl(nodeIndex), replicationGroupId);
     }
 
-    NodeImpl raftNodeImpl(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
+    static NodeImpl raftNodeImpl(IgniteImpl ignite, ReplicationGroupId replicationGroupId) {
         NodeImpl[] node = {null};
 
         ignite.raftManager().forEach((raftNodeId, raftGroupService) -> {
@@ -104,6 +121,59 @@ class BaseTruncateRaftLogAbstractTest extends ClusterPerTestIntegrationTest {
         );
     }
 
+    static String selectPeopleDml(String tableName) {
+        return String.format(
+                "select %s, %s, %s from %s",
+                Person.ID_COLUMN_NAME, Person.NAME_COLUMN_NAME, Person.SALARY_COLUMN_NAME,
+                tableName
+        );
+    }
+
+    Person[] scanPeopleFromAllPartitions(int nodeIndex, String tableName) {
+        IgniteImpl ignite = igniteImpl(nodeIndex);
+
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(tableName));
+
+        InternalTableImpl table = (InternalTableImpl) tableViewInternal.internalTable();
+
+        InternalTransaction roTx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(true));
+
+        var scanFutures = new ArrayList<CompletableFuture<List<BinaryRow>>>();
+
+        try {
+            for (int partitionId = 0; partitionId < table.partitions(); partitionId++) {
+                scanFutures.add(subscribeToList(scan(table, roTx, partitionId, ignite.node())));
+            }
+
+            assertThat(allOf(scanFutures), willCompleteSuccessfully());
+
+            SchemaDescriptor schemaDescriptor = tableViewInternal.schemaView().lastKnownSchema();
+
+            return scanFutures.stream()
+                    .map(CompletableFuture::join)
+                    .flatMap(Collection::stream)
+                    .map(binaryRow -> toPersonFromBinaryRow(schemaDescriptor, binaryRow))
+                    .toArray(Person[]::new);
+        } finally {
+            roTx.commit();
+        }
+    }
+
+    private static Publisher<BinaryRow> scan(
+            InternalTableImpl internalTableImpl,
+            InternalTransaction roTx,
+            int partitionId,
+            InternalClusterNode recipientNode
+    ) {
+        assertTrue(roTx.isReadOnly(), roTx.toString());
+
+        return internalTableImpl.scan(
+                partitionId,
+                recipientNode,
+                OperationContext.create(TxContext.readOnly(roTx))
+        );
+    }
+
     static Person[] generatePeople(int count) {
         assertThat(count, greaterThanOrEqualTo(0));
 
@@ -127,7 +197,7 @@ class BaseTruncateRaftLogAbstractTest extends ClusterPerTestIntegrationTest {
         return new Person((Long) sqlRow.get(0), (String) sqlRow.get(1), (Long) sqlRow.get(2));
     }
 
-    static Person toPersonFromBinaryRow(SchemaDescriptor schemaDescriptor, BinaryRow binaryRow) {
+    private static Person toPersonFromBinaryRow(SchemaDescriptor schemaDescriptor, BinaryRow binaryRow) {
         var binaryTupleReader = new BinaryTupleReader(schemaDescriptor.length(), binaryRow.tupleSlice());
 
         Column idColumn = findColumnByName(schemaDescriptor, Person.ID_COLUMN_NAME);
@@ -148,6 +218,25 @@ class BaseTruncateRaftLogAbstractTest extends ClusterPerTestIntegrationTest {
                 .orElseThrow(() -> new AssertionError(
                         String.format("Can't find column by name: [columnName=%s, schema=%s]", columnName, schemaDescriptor)
                 ));
+    }
+
+    TableViewInternal tableViewInternal(int nodeIndex, String tableName) {
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(igniteImpl(nodeIndex).tables().table(tableName));
+
+        assertNotNull(tableViewInternal, String.format("Missing table: [nodeIndex=%s, tableName=%s]", nodeIndex, tableName));
+
+        return tableViewInternal;
+    }
+
+    static MvPartitionStorage mvPartitionStorage(TableViewInternal tableViewInternal, int partitionId) {
+        MvPartitionStorage mvPartition = tableViewInternal.internalTable().storage().getMvPartition(partitionId);
+
+        assertNotNull(
+                mvPartition,
+                String.format("Missing MvPartitionStorage: [tableName=%s, partitionId=%s]", tableViewInternal.name(), partitionId)
+        );
+
+        return mvPartition;
     }
 
     static class Person {
