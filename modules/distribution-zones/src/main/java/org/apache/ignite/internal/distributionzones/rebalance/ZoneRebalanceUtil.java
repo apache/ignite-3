@@ -668,7 +668,7 @@ public class ZoneRebalanceUtil {
      * @param partitionId Partition ID.
      * @return Future with partition assignments as a value.
      */
-    public static CompletableFuture<Set<Assignment>> zonePartitionAssignments(
+    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
             MetaStorageManager metaStorageManager,
             int zoneId,
             int partitionId
@@ -676,6 +676,42 @@ public class ZoneRebalanceUtil {
         return metaStorageManager
                 .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
                 .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+    }
+
+    /**
+     * Returns pending partition assignments.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone identifier.
+     * @param partitionId Partition identifier.
+     * @return Pending partition assignments.
+     */
+    public static CompletableFuture<Set<Assignment>> pendingPartitionAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId
+    ) {
+        return metaStorageManager
+                .get(pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, partitionId)))
+                .thenApply(e -> e.value() == null ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
+    }
+
+    /**
+     * Returns planned partition assignments.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone identifier.
+     * @param partitionId Partition identifier.
+     * @return Planned partition assignments.
+     */
+    public static CompletableFuture<Set<Assignment>> plannedPartitionAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId
+    ) {
+        return metaStorageManager
+                .get(plannedPartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
+                .thenApply(e -> e.value() == null ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     /**
