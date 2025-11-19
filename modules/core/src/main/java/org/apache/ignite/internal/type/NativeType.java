@@ -43,7 +43,7 @@ public class NativeType implements Comparable<NativeType> {
     protected NativeType(ColumnType typeSpec, int size) {
         this(
                 typeSpec,
-                !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed()),
+                isFixedSize(typeSpec),
                 size
         );
     }
@@ -56,9 +56,13 @@ public class NativeType implements Comparable<NativeType> {
     protected NativeType(ColumnType typeSpec) {
         this(
                 typeSpec,
-                !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed()),
+                isFixedSize(typeSpec),
                 0
         );
+    }
+
+    private static boolean isFixedSize(ColumnType typeSpec) {
+        return !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed());
     }
 
     protected NativeType(ColumnType typeSpec, boolean fixedSize, int size) {
