@@ -323,6 +323,7 @@ public class JdbcColumnMeta extends Response {
             case UUID: return "UUID";
             case PERIOD:
             case DURATION:
+            case STRUCT:
                 // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
                 // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
                 return "OTHER";
@@ -357,6 +358,7 @@ public class JdbcColumnMeta extends Response {
             case PERIOD:
             case DURATION:
             case TIMESTAMP:
+            case STRUCT:
                 // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
                 // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
                 return OTHER;

@@ -18,13 +18,10 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.util.CompletableFutures;
 
 /**
  * Client SQL cursor close request.
@@ -42,17 +39,8 @@ public class ClientSqlCursorCloseRequest {
             ClientResourceRegistry resources
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
-        ClientResource resource;
 
-        try {
-            resource = resources.remove(resourceId);
-        } catch (IgniteInternalCheckedException | IgniteInternalException ignored) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-26927 Do not completely ignore "resource not found" exception
-            // Ignore: either resource was already removed during asynchronous data fetch request, or registry is closing.
-            return CompletableFutures.nullCompletedFuture();
-        }
-
-        ClientSqlResultSet asyncResultSet = resource.get(ClientSqlResultSet.class);
+        ClientSqlResultSet asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
 
         return asyncResultSet.closeAsync().thenApply(v -> null);
     }

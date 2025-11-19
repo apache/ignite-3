@@ -65,14 +65,14 @@ public class JdbcResultSetSelfTest extends JdbcResultSetBaseSelfTest {
 
     @Override
     @ParameterizedTest
-    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(names = {"PERIOD", "DURATION", "STRUCT"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullPositional(ColumnType columnType) throws SQLException {
         super.wasNullPositional(columnType);
     }
 
     @Override
     @ParameterizedTest
-    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(names = {"PERIOD", "DURATION", "STRUCT"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullNamed(ColumnType columnType) throws SQLException {
         super.wasNullNamed(columnType);
     }

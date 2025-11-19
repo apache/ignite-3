@@ -3295,7 +3295,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(names = {"PERIOD", "DURATION", "STRUCT"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNull(ColumnType columnType) throws SQLException {
         Object value;
         switch (columnType) {
