@@ -18,7 +18,12 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.table.ClientTable;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -28,8 +33,8 @@ import org.junit.jupiter.api.Test;
 /**
  * This test is checking correctness of observation timestamp calculation.
  */
+@SuppressWarnings({"resource", "DataFlowIssue"})
 public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
-
     @Override
     protected long idleSafeTimePropagationDuration() {
         return 10_000L;
@@ -64,5 +69,33 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
 
         assertEquals("client value", directClientValue, directClientValue);
         assertEquals("client value", directSrvValue, directSrvValue);
+    }
+
+    @Test
+    public void testImplicitTxOnDifferentConnections() {
+        Table table = client().tables().table(TABLE_NAME);
+        Tuple key = Tuple.create().set(COLUMN_KEY, 69);
+
+        for (int i = 0; i < 10; i++) {
+            String valStr = "value " + i;
+
+            table.keyValueView().put(null, key, Tuple.create().set(COLUMN_VAL, valStr));
+            shiftPartitionAssignment(table);
+            String val = table.keyValueView().get(null, key).value(COLUMN_VAL);
+
+            assertEquals(valStr, val);
+        }
+    }
+
+    private static void shiftPartitionAssignment(Table table) {
+        assertInstanceOf(ClientTable.class, table);
+
+        Object partitionAssignment = IgniteTestUtils.getFieldValue(table, "partitionAssignment");
+        CompletableFuture<List<String>> partitionsFut = IgniteTestUtils.getFieldValue(partitionAssignment, "partitionsFut");
+        List<String> partitions = partitionsFut.join();
+
+        // Shift every partition position to the left by one.
+        String first = partitions.remove(0);
+        partitions.add(first);
     }
 }
