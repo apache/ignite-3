@@ -33,6 +33,8 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * This test is checking correctness of observation timestamp calculation.
@@ -75,8 +77,9 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
         assertEquals("client value", directSrvValue, directSrvValue);
     }
 
-    @Test
-    public void testImplicitTxOnDifferentConnections() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testImplicitTxOnDifferentConnections(boolean roTx) {
         Table table = client().tables().table(TABLE_NAME);
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
@@ -95,7 +98,15 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
             // Switch partition assignment to a different node.
             setPartitionAssignment(table, uniqueNodeIds.get(i % uniqueNodeIds.size()));
 
-            String val = kvView.get(null, key).value(COLUMN_VAL);
+            String val;
+
+            if (roTx) {
+                var tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+                val = kvView.get(tx, key).value(COLUMN_VAL);
+                tx.rollback();
+            } else {
+                val = kvView.get(null, key).value(COLUMN_VAL);
+            }
 
             assertEquals(valStr, val);
         }
