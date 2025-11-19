@@ -173,7 +173,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RelDataType rowType,
             @Nullable SqlComparator<RowT> comparator
     ) {
-        return searchBoundsImplementor.implement(searchBounds, rowType, comparator, this::rowSource);
+        return searchBoundsImplementor.implement(searchBounds, rowType, comparator, this::rowSource, this::scalar);
     }
 
     static String digest(Class<?> clazz, List<? extends RexNode> nodes, @Nullable RelDataType type) {

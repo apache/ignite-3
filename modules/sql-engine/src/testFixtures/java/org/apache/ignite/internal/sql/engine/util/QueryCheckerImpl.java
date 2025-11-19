@@ -140,7 +140,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
      * @return This.
      */
     @Override
-    public QueryChecker withParam(Object param) {
+    public QueryChecker withParam(@Nullable Object param) {
         return this.withParams(param);
     }
 
