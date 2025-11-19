@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -165,7 +165,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
         // Checking that there is only one replica in the stable assignments.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().size(),
                 1,
                 3_000L
@@ -179,7 +179,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
         // Wait for the rebalancing to finish.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().size(),
                 2,
                 3_000L

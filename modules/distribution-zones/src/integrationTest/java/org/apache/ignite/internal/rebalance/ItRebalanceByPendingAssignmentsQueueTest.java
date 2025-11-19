@@ -22,10 +22,10 @@ import static java.util.Optional.ofNullable;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.TestRebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
-import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.rebalance.ItRebalanceByPendingAssignmentsQueueTest.AssignmentsRecorder.recordAssignmentsEvents;
@@ -368,7 +368,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         IgniteImpl ignite = raftLeader().leaderHost;
         int zoneId = latestCatalog(ignite).zone(ZONE_NAME).id();
 
-        CompletableFuture<Set<Assignment>> fut = ZoneRebalanceUtil.zonePartitionAssignments(ignite.metaStorageManager(), zoneId, 0);
+        CompletableFuture<Set<Assignment>> fut = ZoneRebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), zoneId, 0);
 
         assertThat(fut, willCompleteSuccessfully());
         return ofNullable(fut.join()).orElse(Set.of());
@@ -377,7 +377,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     private @Nullable Assignments stablePartitionAssignmentsValue() {
         IgniteImpl ignite = raftLeader().leaderHost;
         CompletableFuture<Entry> fut = ignite.metaStorageManager()
-                .get(stablePartitionAssignmentsKey(partitionGroupId(ignite, 0)));
+                .get(stablePartAssignmentsKey(partitionGroupId(ignite, 0)));
         assertThat(fut, willCompleteSuccessfully());
         Entry entry = fut.join();
         return entry == null || entry.value() == null ? null : Assignments.fromBytes(entry.value());
@@ -386,14 +386,14 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     private @Nullable Assignments pendingAssignmentsValue() {
         IgniteImpl ignite = raftLeader().leaderHost;
         CompletableFuture<Entry> fut = ignite.metaStorageManager()
-                .get(pendingPartitionAssignmentsKey(partitionGroupId(ignite, 0)));
+                .get(pendingPartAssignmentsQueueKey(partitionGroupId(ignite, 0)));
         assertThat(fut, willCompleteSuccessfully());
         Entry entry = fut.join();
         return entry == null || entry.value() == null ? null : AssignmentsQueue.fromBytes(entry.value()).poll();
     }
 
     private static void putPendingAssignments(Ignite ignite, AssignmentsQueue pendingAssignmentsQueue) {
-        ByteArray pendingKey = pendingPartitionAssignmentsKey(partitionGroupId(ignite, 0));
+        ByteArray pendingKey = pendingPartAssignmentsQueueKey(partitionGroupId(ignite, 0));
         byte[] pendingVal = pendingAssignmentsQueue.toBytes();
 
         ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(partitionGroupId(ignite, 0));

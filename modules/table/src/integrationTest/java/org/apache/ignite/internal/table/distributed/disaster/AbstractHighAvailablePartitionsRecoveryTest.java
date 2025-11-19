@@ -308,7 +308,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int zoneId = TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager(), tableName, clock.nowLong());
 
         CompletableFuture<Set<Assignment>> zonePartAssignmentsFut =
-                ZoneRebalanceUtil.zonePartitionAssignments(node.metaStorageManager(), zoneId, partNum);
+                ZoneRebalanceUtil.stablePartitionAssignments(node.metaStorageManager(), zoneId, partNum);
 
         assertThat(zonePartAssignmentsFut, willCompleteSuccessfully());
 

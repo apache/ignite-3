@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.rebalance;
 
-import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignments;
-import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.awaitility.Awaitility.await;
@@ -241,7 +241,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         ZonePartitionId partitionGroupId = new ZonePartitionId(table.zoneId(), partitionId);
 
         return metaStorageManager
-                .get(pendingPartitionAssignmentsKey(partitionGroupId))
+                .get(pendingPartAssignmentsQueueKey(partitionGroupId))
                 .get(10, TimeUnit.SECONDS)
                 .revision();
     }
@@ -253,7 +253,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         TableViewInternal table = unwrapTableViewInternal(node.distributedTableManager().table(tableName));
 
-        ByteArray pendingPartAssignmentsQueueKey = pendingPartitionAssignmentsKey(new ZonePartitionId(table.zoneId(), partitionId));
+        ByteArray pendingPartAssignmentsQueueKey = pendingPartAssignmentsQueueKey(new ZonePartitionId(table.zoneId(), partitionId));
 
         metaStorageManager.remove(pendingPartAssignmentsQueueKey).join();
     }
