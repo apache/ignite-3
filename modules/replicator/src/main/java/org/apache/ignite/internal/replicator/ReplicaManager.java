@@ -27,7 +27,7 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.recoverable;
+import static org.apache.ignite.internal.raft.rebalance.ExceptionUtils.recoverable;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
@@ -101,6 +101,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -132,9 +133,9 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Replica manager maintains {@link Replica} instances on an Ignite node.
@@ -792,6 +793,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param peersAndLearners New node configuration.
      * @param sequenceToken Sequence token.
      */
+    @VisibleForTesting
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         Loza loza = (Loza) raftManager;
@@ -799,17 +801,25 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         // Stale configuration change will not be retried.
         if (!status.isOk() && status.getRaftError() == RaftError.ESTALE) {
-            // TODO: proper error.
-            throw new IgniteException(INTERNAL_ERR, new RaftException(status.getRaftError(), status.getErrorMsg()));
+            throw new IgniteException(INTERNAL_ERR, new RaftStaleUpdateException(status.getErrorMsg()));
         }
     }
 
     /**
      * Performs a {@code resetPeers} operation on raft node with retries.
      *
+     * <p>Performs retries as long as the received exception is recoverable, which is any exception other than
+     * node or component stopping exceptions or raft stale exceptions caused by stale sequence token.
+     *
+     * <p>This method is safe to retry even without chaining on it as it will either perform the reset as expected when no other
+     * reconfigurations happened on the cluster or will complete with an exception because someone has already applied a configuration that
+     * is newer than the one we want to reset to.
+     *
      * @param replicaGrpId Replication group ID.
      * @param peersAndLearners New peers and learners.
      * @param sequenceToken Sequence token.
+     * @see org.apache.ignite.internal.raft.rebalance.ExceptionUtils#recoverable(Throwable)
+     *
      */
     public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
         var result = new CompletableFuture<Void>();

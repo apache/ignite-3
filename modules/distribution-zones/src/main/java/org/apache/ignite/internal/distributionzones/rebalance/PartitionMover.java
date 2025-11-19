@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.recoverable;
+import static org.apache.ignite.internal.raft.rebalance.ExceptionUtils.recoverable;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 

@@ -1307,7 +1307,7 @@ public class PartitionReplicaLifecycleManager extends
                         revision);
             }).whenComplete((v, ex) -> {
                 if (ex != null) {
-                    LOG.warn(
+                    LOG.debug(
                             "Failed to handle change pending assignment event "
                                     + "[zonePartitionId={}, stableAssignments={}, pendingAssignments={}, revision={}, isRecovery={}].",
                             zonePartitionId, stableAssignments, pendingAssignments, revision, isRecovery, ex);
