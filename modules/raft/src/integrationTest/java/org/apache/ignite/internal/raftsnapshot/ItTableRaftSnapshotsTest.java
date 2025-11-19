@@ -650,10 +650,10 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
             int targetNodeIndex,
             CompletableFuture<Void> sentFirstSnapshotMvDataResponse
     ) {
-        String node2Name = cluster.node(targetNodeIndex).name();
+        String targetNodeName = cluster.node(targetNodeIndex).name();
 
         return (targetConsistentId, message) -> {
-            if (Objects.equals(targetConsistentId, node2Name) && message instanceof SnapshotMvDataResponse) {
+            if (Objects.equals(targetConsistentId, targetNodeName) && message instanceof SnapshotMvDataResponse) {
                 sentFirstSnapshotMvDataResponse.complete(null);
 
                 // Always drop.
@@ -792,6 +792,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         reanimateNode(2);
 
+        // The wait is so long, similar to the neighboring tests.
         assertThat(sentFirstSnapshotMvDataResponseFormNode0Future, willSucceedIn(1, TimeUnit.MINUTES));
 
         knockoutNode(2);
