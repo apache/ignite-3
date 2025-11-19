@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.fromB
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -171,6 +172,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -3700,16 +3702,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
         return reliableCatalogVersions.reliableCatalogVersionFor(ts);
-    }
-
-    /**
-     * Method to convert from {@link TablePartitionId} object to command-based {@link TablePartitionIdMessage} object.
-     *
-     * @param tablePartId {@link TablePartitionId} object to convert to {@link TablePartitionIdMessage}.
-     * @return {@link TablePartitionIdMessage} object converted from argument.
-     */
-    public static TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
-        return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartId);
     }
 
     private static ReplicationGroupIdMessage replicationGroupIdMessage(ReplicationGroupId groupId) {

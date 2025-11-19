@@ -30,6 +30,7 @@ public class ReplicaMessageUtils {
      * @param tablePartitionId Table replication group ID for a given partition.
      * @return New instance of network message.
      */
+    // TODO IGNITE-22522 Remove.
     public static TablePartitionIdMessage toTablePartitionIdMessage(
             ReplicaMessagesFactory messagesFactory,
             TablePartitionId tablePartitionId
