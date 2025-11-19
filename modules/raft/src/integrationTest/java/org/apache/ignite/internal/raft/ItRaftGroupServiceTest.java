@@ -193,7 +193,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             configurationComplete.countDown();
 
             return null;
-        }).when(eventsListener).onNewPeersConfigurationApplied(any(), anyLong(), anyLong());
+        }).when(eventsListener).onNewPeersConfigurationApplied(any(), anyLong(), anyLong(), anyLong());
 
         RaftGroupService service0 = nodes.get(0).raftGroupService;
 
