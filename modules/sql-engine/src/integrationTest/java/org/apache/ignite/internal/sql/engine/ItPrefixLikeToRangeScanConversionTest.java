@@ -65,10 +65,20 @@ public class ItPrefixLikeToRangeScanConversionTest extends BaseSqlIntegrationTes
         };
 
         String[] values = {
+                // Regular values.
                 "foo", "fooa", "food", "fooz", "fooaa", "fooda", "fooza", "foo_b", "foo_bar", "foo%b", "foo%bar",
+
+                // Values whose prefix matches generated upper bound.
                 "fop", "fopa",
+
+                // A few null values, in case of certain collations matches generated upper bound.
                 null, null, null,
-                threeMaxCharString(), threeMaxCharString() + "a", threeMaxCharString() + "b", threeMaxCharString() + "aa"
+
+                // For these values it is not possible to generate upper bound as prefix is greatest existing string.
+                threeMaxCharString(), threeMaxCharString() + "a", threeMaxCharString() + "b", threeMaxCharString() + "aa",
+
+                // These are values for test case where wildcard is the first character.
+                "doo", "dao", "dooa", "daoa"
         };
 
         for (int i = 0; i < values.length; i++) {
@@ -181,6 +191,48 @@ public class ItPrefixLikeToRangeScanConversionTest extends BaseSqlIntegrationTes
                 .matches(planMather)
                 .returns(threeMaxCharString() + "a")
                 .returns(threeMaxCharString() + "b")
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("indexNames")
+    void wildcardAsFirstCharMatchesAll(@Nullable String indexName) {
+        Matcher<String> planMather = indexOrTableScanMather(indexName);
+
+        assertQuery(appendForceIndexHint(QUERY_BASE, indexName))
+                .withParam("%o%")
+                .matches(planMather)
+                .returns("foo")
+                .returns("fooa")
+                .returns("food")
+                .returns("fooz")
+                .returns("fooaa")
+                .returns("fooda")
+                .returns("fooza")
+                .returns("foo_b")
+                .returns("foo_bar")
+                .returns("foo%b")
+                .returns("foo%bar")
+                .returns("doo")
+                .returns("dao")
+                .returns("dooa")
+                .returns("daoa")
+                .returns("fop")
+                .returns("fopa")
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("indexNames")
+    void wildcardAsFirstCharMatchesOne(@Nullable String indexName) {
+        Matcher<String> planMather = indexOrTableScanMather(indexName);
+
+        assertQuery(appendForceIndexHint(QUERY_BASE, indexName))
+                .withParam("_o_")
+                .matches(planMather)
+                .returns("foo")
+                .returns("doo")
+                .returns("fop")
                 .check();
     }
 
