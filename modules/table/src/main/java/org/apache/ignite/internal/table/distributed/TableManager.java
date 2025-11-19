@@ -2274,6 +2274,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             } else {
                 getLatestTableFuture.completeExceptionally(th);
             }
+
+            return nullCompletedFuture();
         };
 
         assignmentsUpdatedVv.whenComplete(tablesListener);
