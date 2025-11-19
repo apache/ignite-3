@@ -815,7 +815,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
-                    // TODO: IGNITE-18681 - respect removal timeout.
                     return nodesToRemove.isEmpty() ? nullCompletedFuture() : service.removeFromCluster(nodesToRemove);
                 }));
     }

@@ -51,6 +51,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -107,6 +108,9 @@ public class ItLearnersTest extends IgniteAbstractTest {
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
 
     /** Mock Raft node. */
@@ -131,7 +135,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     partitionsWorkDir.raftLogPath()
             );
 
-            loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+            loza = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
         }
 
         String consistentId() {

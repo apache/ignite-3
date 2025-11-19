@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -46,7 +47,13 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
 
         CompletableFuture<Void> awaitFuture = query.executor.executePlan(context, plan)
                 .thenCompose(dataCursor -> {
-                    AsyncSqlCursor<InternalSqlRow> cursor = query.executor.createAndSaveSqlCursor(query, dataCursor); 
+                    AsyncSqlCursor<InternalSqlRow> cursor;
+                    try {
+                        cursor = query.executor.createAndSaveSqlCursor(query, dataCursor);
+                    } catch (QueryCancelledException ignored) {
+                        // Cancellation should be triggered inside of `createAndSaveSqlCursor`.
+                        return dataCursor.onClose();
+                    }
 
                     if (queryType == SqlQueryType.QUERY) {
                         // preserve lazy execution for statements that only reads

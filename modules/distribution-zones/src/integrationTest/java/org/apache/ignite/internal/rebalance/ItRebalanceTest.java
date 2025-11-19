@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.rebalance;
 
-import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -171,7 +171,11 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> {
             IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
-            CompletableFuture<Set<Assignment>> assignmentsFuture = stablePartitionAssignments(ignite.metaStorageManager(), table, 0);
+            CompletableFuture<Set<Assignment>> assignmentsFuture = stablePartitionAssignments(
+                    ignite.metaStorageManager(),
+                    table.zoneId(),
+                    0
+            );
 
             Set<String> assignments = await(assignmentsFuture)
                     .stream()
