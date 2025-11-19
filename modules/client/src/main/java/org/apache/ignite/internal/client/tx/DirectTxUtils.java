@@ -19,7 +19,7 @@ package org.apache.ignite.internal.client.tx;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
-import static org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions.*;
+import static org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions.READ_ONLY;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;

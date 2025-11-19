@@ -746,14 +746,18 @@ public class ClientTable implements Table {
 
     /**
      * Start the explicit transaction for an implicit operation batch.
+     *
      * <p>
      * Implicit getAll/containsAll transaction is executed as multiple independent transactions with lightweight coordination from a client.
      * Currently we use low priority with such transactions to avoid conflicts with subsequent explicit RW transactions,
      * because locks are released asynchronously.
+     *
      * <p>
      * This makes client's getAll a subject for starvation.
+     *
      * <p>
      * TODO https://issues.apache.org/jira/browse/IGNITE-27039 Avoid starvation on implicit transaction retries.
+     *
      * <p>
      * TODO https://issues.apache.org/jira/browse/IGNITE-27040 Allow direct mapping for implicit RW transactions.
      *
