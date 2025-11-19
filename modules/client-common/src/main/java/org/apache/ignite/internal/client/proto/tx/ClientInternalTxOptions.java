@@ -36,6 +36,12 @@ public enum ClientInternalTxOptions {
         return mask;
     }
 
+    /**
+     * Unpack options.
+     *
+     * @param mask Packed mask.
+     * @return Set of options.
+     */
     public static EnumSet<ClientInternalTxOptions> unpack(int mask) {
         EnumSet<ClientInternalTxOptions> result = EnumSet.noneOf(ClientInternalTxOptions.class);
         for (ClientInternalTxOptions flag : values()) {
