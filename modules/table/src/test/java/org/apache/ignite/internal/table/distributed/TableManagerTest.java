@@ -345,7 +345,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateTable() {
-       mockZoneLockForRead();
+        mockZoneLockForRead();
 
         Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
