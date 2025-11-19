@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
@@ -46,10 +47,12 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -87,6 +90,8 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
     protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
+    protected static final String ZONE_NAME = "test_zone";
 
     protected static final String TABLE_NAME = "test_table";
     protected static final String TABLE_NAME_2 = "test_table_2";
@@ -263,6 +268,15 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .colocationColumns(colocationColumns);
     }
 
+    protected static CatalogCommand createZoneCommand(
+            String zoneName
+    ) {
+        return CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .build();
+    }
+
     protected static CatalogCommand simpleTable(String tableName) {
         List<ColumnParams> cols = List.of(
                 columnParams("ID", INT32),
@@ -278,6 +292,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
         return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
+    }
+
+    protected static CatalogCommand simpleZone(String zoneName) {
+        return createZoneCommand(zoneName);
     }
 
     protected static CatalogCommand simpleIndex() {

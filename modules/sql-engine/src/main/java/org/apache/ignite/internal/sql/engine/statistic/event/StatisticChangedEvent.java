@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.statistic;
+package org.apache.ignite.internal.sql.engine.statistic.event;
 
-/** Statistic updates notifier. */
-@FunctionalInterface
-public interface StatisticUpdatesNotifier {
-    /** Changes callback. */
-    void changesNotifier(StatisticUpdatesSupplier updater);
+import org.apache.ignite.internal.event.Event;
+
+/** Statistic changed event. */
+public enum StatisticChangedEvent implements Event {
+    /**
+     * Fired when statistic is changed.
+     */
+    STATISTIC_CHANGED,
 }

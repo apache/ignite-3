@@ -19,7 +19,6 @@ package org.apache.ignite.internal.replicator.message;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Message for transferring a {@link TablePartitionId}. */
@@ -37,7 +36,7 @@ public interface TablePartitionIdMessage extends ReplicationGroupIdMessage, Seri
     }
 
     @Override
-    default ReplicationGroupId asReplicationGroupId() {
+    default TablePartitionId asReplicationGroupId() {
         return asTablePartitionId();
     }
 }

@@ -365,7 +365,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *
      * <ul>
      *     <li>Start a transaction;</li>
-     *     <li>Generate some tuple and define on which nodes it would be hosted;</li>
+     *     <li>Take some tuple and define on which nodes it would be hosted;</li>
      *     <li>Choose one more node that doesn't host the first tuple and choose a tuple that will be sent on this node as primary;</li>
      *     <li>Upsert both tuples within a transaction;</li>
      *     <li>Block {@link TxCleanupMessage}-s from commit partition primary;</li>
@@ -388,8 +388,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         log.info("Test: Loading the data [tx={}].", txId);
 
-        // Generate some tuple and define on which nodes it would be hosted.
-        Tuple tuple0 = findTupleToBeHostedOnNode(node, TABLE_NAME, tx, INITIAL_TUPLE, NEXT_TUPLE, true);
+        // Take some tuple and define on which nodes it would be hosted.
+        Tuple tuple0 = INITIAL_TUPLE;
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 

@@ -361,21 +361,6 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @Test
-    void exceptionIsThrownIfZoneNeitherSpecifiedExplicitlyNorDefaultWasSet() {
-        CreateTableCommandBuilder builder = CreateTableCommand.builder();
-
-        Catalog catalog = emptyCatalog();
-
-        CatalogCommand command = fillProperties(builder).zone(null).build();
-
-        assertThrowsWithCause(
-                () -> command.get(new UpdateContext(catalog)),
-                CatalogValidationException.class,
-                "The zone is not specified. Please specify zone explicitly or set default one."
-        );
-    }
-
     private static CreateTableCommandBuilder fillProperties(CreateTableCommandBuilder builder) {
         return builder
                 .schemaName(SCHEMA_NAME)
@@ -513,7 +498,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         String zoneName = "testZone";
 
-        Catalog catalog = catalog(createZoneCommand(zoneName, List.of("profile1, profile2")));
+        Catalog catalog = catalogWithDefaultZone(createZoneCommand(zoneName, List.of("profile1, profile2")));
 
         String tableProfile = "profile3";
 
@@ -527,7 +512,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         assertDoesNotThrow(() -> {
             // Let's check the success case.
-            Catalog newCatalog = catalog(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
+            Catalog newCatalog = catalogWithDefaultZone(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
 
             command.get(new UpdateContext(newCatalog));
         });

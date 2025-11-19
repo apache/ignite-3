@@ -503,7 +503,7 @@ public class NodeImpl implements Node, RaftServerService {
                         if (status.isOk()) {
                             LogId id = node.conf.getId();
 
-                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds, id.getTerm(), id.getIndex());
+                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds, id.getTerm(), id.getIndex(), resultToken);
                         } else {
                             listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm(), resultToken);
                         }
@@ -2921,7 +2921,11 @@ public class NodeImpl implements Node, RaftServerService {
         if (this.confCtx.isBusy()) {
             LOG.warn("Node {} refused configuration concurrent changing.", getNodeId());
             if (done != null) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, new Status(RaftError.EBUSY, "Doing another configuration change."));
+                Utils.runClosureInThread(
+                        this.getOptions().getCommonExecutor(),
+                        done,
+                        new Status(RaftError.EBUSY, "Doing another configuration change.")
+                );
             }
             return;
         }
@@ -2937,7 +2941,13 @@ public class NodeImpl implements Node, RaftServerService {
                 if (listener != null) {
                     LogId id = this.conf.getId();
 
-                    listener.onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners(), id.getTerm(), id.getIndex());
+                    listener.onNewPeersConfigurationApplied(
+                            newConf.getPeers(),
+                            newConf.getLearners(),
+                            id.getTerm(),
+                            id.getIndex(),
+                            newConf.getSequenceToken()
+                    );
                 }
 
                 done.run(status);

@@ -427,6 +427,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var raftMgr = TestLozaFactory.create(
                 clusterSvc,
                 raftConfiguration,
+                systemConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener
         );
@@ -696,7 +697,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new UpdateLogImpl(metaStorageMgr, failureProcessor),
                 clockService,
                 failureProcessor,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 

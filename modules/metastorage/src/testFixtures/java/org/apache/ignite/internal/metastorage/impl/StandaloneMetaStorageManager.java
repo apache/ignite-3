@@ -307,7 +307,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 Command command = invocation.getArgument(0);
 
                 if (listener instanceof BeforeApplyHandler && command instanceof WriteCommand) {
-                    ((BeforeApplyHandler) listener).onBeforeApply(command);
+                    command = ((BeforeApplyHandler) listener).onBeforeApply(command);
                 }
 
                 return runCommand(command, listener);

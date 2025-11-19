@@ -29,6 +29,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -85,6 +87,9 @@ public class Loza implements RaftManager {
     /** Raft client pool size. Size was taken from jraft's TimeManager. */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
+    /** Name of the system property to configure is {@link NodeOptions#getSnapshotIntervalSecs()}. */
+    private static final String RAFT_SNAPSHOT_INTERVAL_SECS_PROPERTY_NAME = "raftSnapshotIntervalSecs";
+
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
 
@@ -120,6 +125,7 @@ public class Loza implements RaftManager {
             ClusterService clusterService,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             HybridClock hybridClock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager
@@ -128,6 +134,7 @@ public class Loza implements RaftManager {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 failureManager,
@@ -142,6 +149,7 @@ public class Loza implements RaftManager {
      * @param clusterNetSvc Cluster network service.
      * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
+     * @param systemLocalConfiguration Local system configuration.
      * @param clock A hybrid logical clock.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
@@ -151,6 +159,7 @@ public class Loza implements RaftManager {
             ClusterService clusterNetSvc,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager,
@@ -165,6 +174,8 @@ public class Loza implements RaftManager {
 
         options.setClock(clock);
         options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
+
+        setSnapshotIntervalSecs(options, systemLocalConfiguration);
 
         this.opts = options;
 
@@ -700,5 +711,21 @@ public class Loza implements RaftManager {
     @TestOnly
     public Set<RaftNodeId> localNodes() {
         return raftServer.localNodes();
+    }
+
+    private static void setSnapshotIntervalSecs(NodeOptions options, SystemLocalConfiguration systemLocalConfiguration) {
+        SystemPropertyConfiguration systemPropertyConfig = systemLocalConfiguration
+                .properties()
+                .get(RAFT_SNAPSHOT_INTERVAL_SECS_PROPERTY_NAME);
+
+        if (systemPropertyConfig == null) {
+            return;
+        }
+
+        try {
+            options.setSnapshotIntervalSecs(Integer.parseInt(systemPropertyConfig.propertyValue().value()));
+        } catch (NumberFormatException e) {
+            LOG.warn("Failed to set NodeOptions.getSnapshotIntervalSecs, default value will be used", e);
+        }
     }
 }

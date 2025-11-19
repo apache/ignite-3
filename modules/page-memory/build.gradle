@@ -43,6 +43,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation libs.auto.service.annotations
+    testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor libs.auto.service
     testFixturesImplementation project(':ignite-api')

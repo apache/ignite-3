@@ -69,8 +69,4 @@ public class PageMemoryCheckpointConfigurationSchema {
     @Value(hasDefault = true)
     @PublicName(legacyNames = "logReadLockThresholdTimeout")
     public long logReadLockThresholdTimeoutMillis = CheckpointConfiguration.DEFAULT_CHECKPOINT_LOG_READ_LOCK_THRESHOLD_TIMEOUT;
-
-    /** Use an asynchronous file I/O operations provider. */
-    @Value(hasDefault = true)
-    public boolean useAsyncFileIoFactory = true;
 }

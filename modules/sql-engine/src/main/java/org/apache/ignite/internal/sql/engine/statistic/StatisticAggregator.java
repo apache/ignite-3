@@ -15,18 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.sql.engine.statistic;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
-
-// TODO: IGNITE-22522 - remove this class and switch TxManagerTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class TxManagerColocationTest extends TxManagerTest {
-    @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
-    }
+/** Statistic aggregator. */
+@FunctionalInterface
+public interface StatisticAggregator<T, R> {
+    /** Estimated size and last value update. */
+    R estimatedSizeWithLastUpdate(T t);
 }
