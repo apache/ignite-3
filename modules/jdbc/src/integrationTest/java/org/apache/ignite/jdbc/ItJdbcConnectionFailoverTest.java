@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -46,6 +47,9 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         return 0;
     }
 
+    /**
+     * Ensures that the client establishes connections to multiple nodes.
+     */
     @Test
     void testMultipleConnectionEstablishment() throws SQLException {
         int nodesCount = 2;
@@ -69,25 +73,29 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         cluster.startAndInit(nodesCount, new int[]{0, 1, 2});
 
         try (Connection connection = getConnection(nodesCount)) {
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate("CREATE ZONE zone1 (REPLICAS 3, PARTITIONS 1) STORAGE PROFILES ['default']");
-                stmt.executeUpdate("CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
-                assertThat(stmt.executeUpdate("INSERT INTO t VALUES (1, 1)"), is(1));
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("CREATE ZONE zone1 (REPLICAS 3, PARTITIONS 1) STORAGE PROFILES ['default']");
+                statement.executeUpdate("CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
 
-                cluster.stopNode(0);
-                assertThat(stmt.executeUpdate("INSERT INTO t VALUES (2, 2)"), is(1));
+                try (PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO t VALUES (?, ?)")) {
+                    performUpdates(preparedStatement, 0, 100);
 
-                cluster.startNode(0);
-                cluster.stopNode(1);
-                assertThat(stmt.executeUpdate("INSERT INTO t VALUES (3, 3)"), is(1));
+                    cluster.stopNode(0);
+                    performUpdates(preparedStatement, 100, 200);
 
-                cluster.startNode(1);
-                cluster.stopNode(2);
-                assertThat(stmt.executeUpdate("INSERT INTO t VALUES (4, 4)"), is(1));
+                    cluster.startNode(0);
+                    cluster.stopNode(1);
+                    performUpdates(preparedStatement, 200, 300);
 
-                ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM t WHERE id > 0");
-                assertThat(rs.next(), is(true));
-                assertThat(rs.getInt(1), is(4));
+                    cluster.startNode(1);
+                    cluster.stopNode(2);
+                    performUpdates(preparedStatement, 300, 400);
+                }
+
+                try (ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM t WHERE id >= 0")) {
+                    assertThat(rs.next(), is(true));
+                    assertThat(rs.getInt(1), is(400));
+                }
             }
         }
     }
@@ -123,6 +131,9 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         }
     }
 
+    /**
+     * Ensures that the client receives the meaningful exception when the node holding the client transaction goes down.
+     */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-27091")
     void testTransactionCannotBeUsedAfterNodeRestart() throws SQLException {
@@ -174,5 +185,15 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
 
         //noinspection CallToDriverManagerGetConnection
         return DriverManager.getConnection("jdbc:ignite:thin://" + addresses);
+    }
+
+    private static void performUpdates(PreparedStatement preparedStatement, int start, int end) throws SQLException {
+        // Performing separate updates (not batch) to take into account partition awareness metadata.
+        for (int n = start; n < end; n++) {
+            preparedStatement.setInt(1, n);
+            preparedStatement.setInt(2, n);
+
+            assertThat(preparedStatement.executeUpdate(), is(1));
+        }
     }
 }
