@@ -105,7 +105,11 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
     }
 
     private static void waitNonEmptyPartitionAssignment(Table table) {
-        await().until(() -> !isPartitionAssignmentEmpty(getPartitionAssignment(table)));
+        await().until(() -> {
+            // Perform table op to trigger assignment change notification.
+            table.recordView().contains(null, Tuple.create().set(COLUMN_KEY, 0));
+            return !isPartitionAssignmentEmpty(getPartitionAssignment(table));
+        });
     }
 
     private static List<String> getPartitionAssignment(Table table) {
