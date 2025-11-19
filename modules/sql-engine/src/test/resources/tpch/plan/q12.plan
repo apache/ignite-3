@@ -34,7 +34,7 @@ Sort
                   index: L_RD
                   type: SORTED
                   predicate: AND(SEARCH(L_SHIPMODE, Sarg[_UTF-8'MAIL':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'SHIP':VARCHAR(10) CHARACTER SET "UTF-8"]:VARCHAR(10) CHARACTER SET "UTF-8"), <(L_COMMITDATE, L_RECEIPTDATE), <(L_SHIPDATE, L_COMMITDATE), SEARCH(L_RECEIPTDATE, Sarg[[1994-01-01..1995-01-01)]))
-                  searchBounds: [RangeBounds [lowerBound=1994-01-01, upperBound=1995-01-01, lowerInclude=true, upperInclude=false]]
+                  searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1994-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1995-01-01, upperInclude=false]]
                   fieldNames: [L_ORDERKEY, L_SHIPDATE, L_COMMITDATE, L_RECEIPTDATE, L_SHIPMODE]
                   collation: [L_RECEIPTDATE ASC]
                   est: (rows=213218)

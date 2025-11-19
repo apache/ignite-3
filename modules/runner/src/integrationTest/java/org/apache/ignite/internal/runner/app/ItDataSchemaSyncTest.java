@@ -21,7 +21,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
@@ -40,12 +39,10 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -304,13 +301,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
             var stableAssignmentsAreReady = new AtomicBoolean(true);
 
             for (int partId = 0; partId < numberOfPartitions; ++partId) {
-                ByteArray key;
-
-                if (colocationEnabled()) {
-                    key = ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId));
-                } else {
-                    key = RebalanceUtil.stablePartAssignmentsKey(new TablePartitionId(zoneId, partId));
-                }
+                ByteArray key = ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId));
 
                 try {
                     nodeImpl

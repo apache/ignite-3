@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -37,7 +35,6 @@ import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -834,14 +831,5 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), never())
                 .destroyPartitionStorage(partitionId);
-    }
-
-    @Test
-    public void enabledColocationTest() {
-        assertTrue(colocationEnabled());
-        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString());
-        assertFalse(colocationEnabled());
-        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString());
-        assertTrue(colocationEnabled());
     }
 }

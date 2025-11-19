@@ -3474,7 +3474,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node leader = cluster.waitAndGetLeader();
         sendTestTaskAndWait(leader);
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         PeerId newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1).getPeerId();
 
@@ -3520,7 +3520,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             learners.add(learner);
         }
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         // Wait until every node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
@@ -3544,7 +3544,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 return false;
             }, 10_000));
 
-            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(eq(List.of(newPeer)), eq(List.of(newLearner)), anyLong(), anyLong());
+            verify(raftGrpEvtsLsnr, times(1))
+                    .onNewPeersConfigurationApplied(eq(List.of(newPeer)), eq(List.of(newLearner)), anyLong(), anyLong(), anyLong());
         }
     }
 
@@ -3590,7 +3591,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
         assertTrue(cluster.start(newPeer, false, 300));
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         // Wait until new node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
@@ -3613,7 +3614,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         verify(
                 raftGrpEvtsLsnr,
-                times(1)).onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get()
+                times(1))
+                .onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get(), 0
         );
     }
 
@@ -3745,7 +3747,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         Node leader = cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         assertEquals(1, leader.getCurrentTerm());
 
@@ -3766,7 +3768,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         }, 10_000));
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -3826,7 +3828,53 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void changePeersAndLearnersAsyncResponses() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+
+        AtomicLong appliedToken = new AtomicLong();
+
+        var raftGrpEvtsLsnr = new JraftGroupEventsListener() {
+            @Override
+            public void onLeaderElected(
+                    long term,
+                    long configurationTerm,
+                    long configurationIndex,
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long sequenceToken
+            ) {
+            }
+
+            @Override
+            public void onNewPeersConfigurationApplied(
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long term,
+                    long index,
+                    long sequenceToken
+            ) {
+                appliedToken.set(sequenceToken);
+            }
+
+            @Override
+            public void onReconfigurationError(
+                    Status status,
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long term,
+                    long sequenceToken
+            ) {
+            }
+        };
+        cluster = new TestCluster(
+                "testChangePeers",
+                dataPath,
+                Collections.singletonList(peer0),
+                new LinkedHashSet<>(),
+                ELECTION_TIMEOUT_MILLIS,
+                (peerId, opts) -> {
+                    opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+                },
+                testInfo
+        );
         assertTrue(cluster.start(peer0));
 
         Node leader = cluster.waitAndGetLeader();
@@ -3854,7 +3902,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 leader.getCurrentTerm(), done);
         assertEquals(done.await(), Status.OK());
 
-        sendTestTaskAndWait(leader, 10);
+        assertTrue(waitForCondition(() -> appliedToken.get() == 6, 10_000));
 
         // change peer to new conf containing only new node
         done = new SynchronizedClosure();
@@ -3869,7 +3917,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }, 10_000));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            assertEquals(20, fsm.getLogs().size());
+            assertEquals(10, fsm.getLogs().size());
         }
 
         // check concurrent start of two async change peers.
@@ -3906,7 +3954,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }, 10_000));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            assertEquals(30, fsm.getLogs().size());
+            assertEquals(20, fsm.getLogs().size());
         }
     }
 
@@ -3957,6 +4005,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(await.isOk(), await.getErrorMsg());
 
         cluster.ensureSame();
+
+        cluster.ensureSameConf();
+
         assertEquals(3, cluster.getFsms().size());
 
         for (MockStateMachine fsm : cluster.getFsms())

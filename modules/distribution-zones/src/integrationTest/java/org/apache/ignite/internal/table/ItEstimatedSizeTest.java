@@ -26,9 +26,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -183,31 +181,20 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     private Set<String> stableAssignmentNodes(int zoneId) {
         MetaStorageManager metaStorageManager = unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager();
 
-        var stableAssignmentsPrefix = colocationEnabled()
-                ? new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
-                : new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
+        var stableAssignmentsPrefix = new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES);
 
         CompletableFuture<List<Entry>> entriesFuture = subscribeToList(metaStorageManager.prefix(stableAssignmentsPrefix));
 
         assertThat(entriesFuture, willCompleteSuccessfully());
 
-        if (colocationEnabled()) {
-            return entriesFuture.join().stream()
-                    .filter(entry -> extractZonePartitionId(entry.key(), ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
-                                    .zoneId() == zoneId)
-                    .map(entry -> Assignments.fromBytes(entry.value()))
-                    .filter(Objects::nonNull)
-                    .flatMap(assignments -> assignments.nodes().stream())
-                    .map(Assignment::consistentId)
-                    .collect(toSet());
-        } else {
-            return entriesFuture.join().stream()
-                    .map(entry -> Assignments.fromBytes(entry.value()))
-                    .filter(Objects::nonNull)
-                    .flatMap(assignments -> assignments.nodes().stream())
-                    .map(Assignment::consistentId)
-                    .collect(toSet());
-        }
+        return entriesFuture.join().stream()
+                .filter(entry -> extractZonePartitionId(entry.key(), ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
+                        .zoneId() == zoneId)
+                .map(entry -> Assignments.fromBytes(entry.value()))
+                .filter(Objects::nonNull)
+                .flatMap(assignments -> assignments.nodes().stream())
+                .map(Assignment::consistentId)
+                .collect(toSet());
     }
 
     private TableViewInternal tableViewInternal(String tableName) {
