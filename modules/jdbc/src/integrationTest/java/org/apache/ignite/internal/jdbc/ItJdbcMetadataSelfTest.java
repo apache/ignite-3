@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.UUID;
-import org.apache.ignite.internal.jdbc2.JdbcResultSetMetadata;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;

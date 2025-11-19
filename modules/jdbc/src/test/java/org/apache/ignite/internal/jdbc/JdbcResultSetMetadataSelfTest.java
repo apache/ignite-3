@@ -28,22 +28,18 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link JdbcResultSetMetadata}.
  */
 public class JdbcResultSetMetadataSelfTest extends JdbcResultSetMetadataBaseSelfTest {
-    @Override
-    protected ResultSetMetaData createMeta(List<ColumnDefinition> columns) {
-        List<JdbcColumnMeta> jdbcColumns = new ArrayList<>();
-        for (ColumnDefinition s : columns) {
-            jdbcColumns.add(new JdbcColumnMeta(s.label, s.schema, s.table, s.column, s.type, s.precision, s.scale, s.nullable));
-        }
-        return new JdbcResultSetMetadata(jdbcColumns);
-    }
 
     @Test
     @Override
@@ -64,5 +60,23 @@ public class JdbcResultSetMetadataSelfTest extends JdbcResultSetMetadataBaseSelf
             SQLException err = assertThrows(SQLException.class, () -> md.unwrap(ResultSet.class));
             assertThat(err.getMessage(), containsString("Result set meta data is not a wrapper for " + ResultSet.class.getName()));
         }
+    }
+
+    @Override
+    protected ResultSetMetaData createMeta(List<ColumnDefinition> columns) {
+        List<ColumnMetadata> columnsMeta = new ArrayList<>();
+
+        for (ColumnDefinition s : columns) {
+            ColumnOriginImpl origin;
+            if (s.schema != null) {
+                origin = new ColumnOriginImpl(s.schema, s.table, s.column);
+            } else {
+                origin = null;
+            }
+
+            columnsMeta.add(new ColumnMetadataImpl(s.label, s.type, s.precision, s.scale, s.nullable, origin));
+        }
+        ResultSetMetadata apiMeta = new ResultSetMetadataImpl(columnsMeta);
+        return new JdbcResultSetMetadata(apiMeta);
     }
 }

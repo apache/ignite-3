@@ -17,105 +17,265 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import static org.apache.ignite.internal.jdbc.JdbcUtils.createObjectListResultSet;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import java.util.Locale;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
+import org.mockito.internal.stubbing.answers.ThrowsException;
 
 /**
- * Runs JdbcResultSetCompatibilityBaseTest against legacy org.apache.ignite.internal.jdbc.JdbcResultSet.
+ * Runs JdbcResultSetCompatibilityBaseTest against modern org.apache.ignite.internal.jdbc2.JdbcResultSet.
  */
 public class JdbcResultSetSelfTest extends JdbcResultSetBaseSelfTest {
+
     @Override
-    protected ResultSet createResultSet(@Nullable ZoneId zoneId, List<ColumnDefinition> cols, List<List<Object>> rows) throws SQLException {
-        // Convert ColumnSpec to legacy JDBC metadata
-        List<JdbcColumnMeta> jdbcCols = new ArrayList<>();
-        for (ColumnDefinition c : cols) {
-            boolean nullable = true;
-            jdbcCols.add(new JdbcColumnMeta(c.label, c.schema, c.table, c.column, c.type, c.precision, c.scale, nullable));
+    @ParameterizedTest
+    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    public void wasNullPositional(ColumnType columnType) throws SQLException {
+        super.wasNullPositional(columnType);
+    }
+
+    @Override
+    @ParameterizedTest
+    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    public void wasNullNamed(ColumnType columnType) throws SQLException {
+        super.wasNullNamed(columnType);
+    }
+
+    @Test
+    public void unwrap() throws SQLException {
+        try (ResultSet rs = createResultSet(null,
+                List.of(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false)),
+                List.of(List.of(true)))
+        ) {
+            {
+                assertTrue(rs.isWrapperFor(JdbcResultSet.class));
+                JdbcResultSet unwrapped = rs.unwrap(JdbcResultSet.class);
+                assertNotNull(unwrapped);
+            }
+
+            {
+                assertTrue(rs.isWrapperFor(ResultSet.class));
+                ResultSet unwrapped = rs.unwrap(ResultSet.class);
+                assertNotNull(unwrapped);
+            }
+
+            {
+                assertFalse(rs.isWrapperFor(Connection.class));
+                SQLException err = assertThrows(SQLException.class, () -> rs.unwrap(Connection.class));
+                assertThat(err.getMessage(), containsString("Result set is not a wrapper for " + Connection.class.getName()));
+            }
+        }
+    }
+
+    @Test
+    @Override
+    public void getMetadata() throws SQLException {
+        try (ResultSet rs = createResultSet(null,
+                List.of(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false)),
+                List.of(List.of(true)))
+        ) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            assertEquals(1, metaData.getColumnCount());
         }
 
+        // Empty metadata
+        try (ResultSet rs = createResultSet(null, List.of(), List.of())) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            assertEquals(0, metaData.getColumnCount());
+        }
+    }
+
+    @Test
+    public void nextExceptionIsWrapped() {
+        // ClientResultSet hasNext() throws
+        {
+            Statement statement = Mockito.mock(Statement.class);
+
+            ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+            when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
+
+            RuntimeException cause = new RuntimeException("Some error");
+            when(clientRs.hasNext()).thenThrow(cause);
+
+            ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, false, 0);
+
+            SQLException err = assertThrows(SQLException.class, rs::next);
+            assertEquals("Some error", err.getMessage());
+            assertInstanceOf(IgniteException.class, err.getCause());
+            assertSame(cause, err.getCause().getCause());
+        }
+
+        // ClientResultSet next() throws
+        {
+            Statement statement = Mockito.mock(Statement.class);
+
+            ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+            when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
+
+            RuntimeException cause = new RuntimeException("Some error");
+            when(clientRs.hasNext()).thenReturn(true);
+            when(clientRs.next()).thenThrow(cause);
+
+            ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, false, 0);
+
+            SQLException err = assertThrows(SQLException.class, rs::next);
+            assertEquals("Some error", err.getMessage());
+            assertInstanceOf(IgniteException.class, err.getCause());
+            assertSame(cause, err.getCause().getCause());
+        }
+    }
+
+    @Test
+    public void closeClosesResultSet() throws SQLException {
+        Statement statement = Mockito.mock(Statement.class);
+
+        ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+        when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
+
+        JdbcStatement statement2 = Mockito.mock(JdbcStatement.class);
+        when(statement.unwrap(JdbcStatement.class)).thenReturn(statement2);
+
+        ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, true, 0);
+
+        rs.close();
+        rs.close();
+
+        verify(clientRs, times(1)).close();
+        verify(clientRs, times(1)).metadata();
+        verify(statement2, times(1)).closeIfAllResultsClosed();
+        verify(clientRs, times(1)).hasNextResultSet();
+        verifyNoMoreInteractions(clientRs, statement2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void closeExceptionIsWrapped(boolean closeOnCompletion) throws SQLException {
         JdbcStatement statement = Mockito.mock(JdbcStatement.class);
+        when(statement.unwrap(JdbcStatement.class)).thenReturn(statement);
 
-        if (zoneId != null) {
-            JdbcConnection connection = Mockito.mock(JdbcConnection.class);
+        ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+        when(clientRs.metadata()).thenReturn(ClientSyncResultSet.EMPTY_METADATA);
 
-            ConnectionPropertiesImpl connectionProperties = new ConnectionPropertiesImpl();
-            connectionProperties.setConnectionTimeZone(zoneId);
+        RuntimeException cause = new RuntimeException("Some error");
+        doAnswer(new ThrowsException(cause)).when(clientRs).close();
 
-            when(statement.getConnection()).thenReturn(connection);
-            when(connection.connectionProperties()).thenReturn(connectionProperties);
+        ResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, closeOnCompletion, 0);
+
+        SQLException err = assertThrows(SQLException.class, rs::close);
+        assertEquals("Some error", err.getMessage());
+        assertInstanceOf(IgniteException.class, err.getCause());
+        assertSame(cause, err.getCause().getCause());
+    }
+
+    @Test
+    public void getValueExceptionIsWrapped() throws SQLException {
+        Statement statement = Mockito.mock(Statement.class);
+
+        ClientSyncResultSet clientRs = Mockito.mock(ClientSyncResultSet.class);
+        SqlRow row = Mockito.mock(SqlRow.class);
+
+        ColumnMetadataImpl column = new ColumnMetadataImpl("C", ColumnType.INT32, 0, 0, false, null);
+
+        when(clientRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of(column)));
+        when(clientRs.hasNext()).thenReturn(true);
+        when(clientRs.next()).thenReturn(row);
+
+        RuntimeException cause = new RuntimeException("Corrupted value");
+        when(row.value(0)).thenThrow(cause);
+
+        JdbcResultSet rs = new JdbcResultSet(clientRs, statement, ZoneId::systemDefault, false, 0);
+        assertTrue(rs.next());
+
+        SQLException err = assertThrows(SQLException.class, () -> rs.getValue(1));
+        assertEquals("Unable to value for column: 1", err.getMessage());
+        assertInstanceOf(IgniteException.class, err.getCause());
+        assertSame(cause, err.getCause().getCause());
+    }
+
+    @Test
+    public void maxRows() throws SQLException {
+        ColumnMetadataImpl column = new ColumnMetadataImpl("C1", ColumnType.INT32, 0, 0, false, null);
+        List<ColumnMetadata> meta = List.of(column);
+        Supplier<ZoneId> zoneIdSupplier = ZoneId::systemDefault;
+
+        List<List<Object>> rows = List.of(
+                List.of(1),
+                List.of(2),
+                List.of(3),
+                List.of(4)
+        );
+
+        try (ResultSet rs = createObjectListResultSet(rows, meta, zoneIdSupplier, 3)) {
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            // MaxRows exceeded
+            assertFalse(rs.next());
+            assertFalse(rs.next());
         }
 
-        when(statement.getResultSetType()).thenReturn(ResultSet.TYPE_FORWARD_ONLY);
+        // no limit
 
-        try {
-            return new JdbcResultSet(rows, jdbcCols, statement);
-        } catch (SQLException e) {
-            throw new RuntimeException("Unexpected exception", e);
+        try (ResultSet rs = createObjectListResultSet(rows, meta, zoneIdSupplier, 0)) {
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            // No more rows
+            assertFalse(rs.next());
         }
     }
 
-    // findColumn has bugs in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
     @Override
-    public void findColumn() throws SQLException {
-        super.navigationMethods();
-    }
+    protected ResultSet createResultSet(@Nullable ZoneId zoneId, List<ColumnDefinition> cols, List<List<Object>> rows) {
+        ZoneId timeZone = zoneId == null ? ZoneId.systemDefault() : zoneId;
 
-    // isAfterLast has bugs in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
-    @Override
-    public void navigationMethods() throws SQLException {
-        super.navigationMethods();
-    }
+        List<ColumnMetadata> apiCols = new ArrayList<>();
+        for (ColumnDefinition c : cols) {
+            String schema = c.schema;
+            String table = c.table;
+            String column = c.column != null ? c.column : c.label.toUpperCase(Locale.US);
+            boolean nullable = true;
+            ColumnOriginImpl origin = new ColumnOriginImpl(schema, table, column);
+            apiCols.add(new ColumnMetadataImpl(c.label, c.type, c.precision, c.scale, nullable, origin));
+        }
 
-    // getByte does not have range checks in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
-    @Override
-    public void getByteFromNumber(boolean valid, Number value) throws SQLException {
-        super.getByteFromNumber(valid, value);
-    }
-
-    // getShort does not have range checks  in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
-    @Override
-    public void getShortFromNumber(boolean valid, Number value) throws SQLException {
-        super.getShortFromNumber(valid, value);
-    }
-
-    // getInt does not have range checks  in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
-    @Override
-    public void getIntFromNumber(boolean valid, Number value) throws SQLException {
-        super.getLongFromNumber(valid, value);
-    }
-
-    // getLong does not have range checks  in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
-    @Override
-    public void getLongFromNumber(boolean valid, Number value) throws SQLException {
-        super.getLongFromNumber(valid, value);
-    }
-
-    // getFloat does not have range checks  in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
-    @Override
-    public void getFloatFromNumber(boolean valid, Number value) throws SQLException {
-        super.getFloatFromNumber(valid, value);
-    }
-
-    // getDouble does not have range checks  in the current JDBC driver it is not worth fixing them
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26145")
-    @Override
-    public void getDoubleFromNumber(boolean valid, Number value) throws SQLException {
-        super.getDoubleFromNumber(valid, value);
+        return createObjectListResultSet(rows, apiCols, () -> timeZone, 0);
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc2;
+package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,7 +76,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
             log.info("Run statement: {}", statement);
 
             Connection conn = DriverManager.getConnection(JDBC_URL);
-            JdbcConnection2 jdbcConnection = conn.unwrap(JdbcConnection2.class);
+            JdbcConnection jdbcConnection = conn.unwrap(JdbcConnection.class);
 
             Statement stmt = conn.createStatement();
             // Do not close the statement, closing the client should release its resources.
@@ -92,7 +92,7 @@ public class ItJdbcClusterPerIntegrationTest extends ClusterPerTestIntegrationTe
     @Test
     public void noStatementResourcesAfterClientTerminates() throws Exception {
         Connection conn = DriverManager.getConnection(JDBC_URL);
-        JdbcConnection2 jdbcConnection = conn.unwrap(JdbcConnection2.class);
+        JdbcConnection jdbcConnection = conn.unwrap(JdbcConnection.class);
 
         Statement stmt = conn.createStatement();
         // Do not close the statement, closing the client should release its resources.
