@@ -71,7 +71,7 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
 
         stopNode(nodeToStop);
 
-        assertThrows(SqlException.class, () -> executeSql(selectSql), "Mandatory nodes was excluded from mapping:");
+        assertThrows(SqlException.class, () -> executeSql(selectSql), "Mandatory nodes were excluded from mapping:");
 
         DisasterRecoveryManager disasterRecoveryManager = unwrapIgniteImpl(cluster.aliveNode()).disasterRecoveryManager();
         CompletableFuture<Void> resetFuture = TestDisasterRecoveryUtils.resetPartitions(

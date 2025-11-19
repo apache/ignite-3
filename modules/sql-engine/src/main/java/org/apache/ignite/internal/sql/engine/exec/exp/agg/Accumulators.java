@@ -254,21 +254,29 @@ public class Accumulators {
         }
 
         private GroupingAccumulator(List<Integer> argList) {
-            assert !argList.isEmpty() : "GROUPING function must have at least one argument.";
-            assert argList.size() < Long.SIZE : "GROUPING function with more than 63 arguments is not supported.";
+            if (argList.isEmpty()) {
+                throw new IllegalArgumentException("GROUPING function must have at least one argument.");
+            }
+
+            if (argList.size() >= Long.SIZE) {
+                throw new IllegalArgumentException("GROUPING function with more than 63 arguments is not supported.");
+            }
+
             this.argList = argList;
         }
 
         @Override
         public void add(AccumulatorsState state, Object[] args) {
-            assert false;
+            throw new UnsupportedOperationException("This method should not be called.");
         }
 
         @Override
         public void end(AccumulatorsState state, AccumulatorsState result) {
             ImmutableBitSet groupKey = (ImmutableBitSet) state.get();
 
-            assert groupKey != null;
+            if (groupKey == null) {
+                throw new IllegalStateException("Invalid accumulator state");
+            }
 
             long res = 0;
             long bit = 1L << (argList.size() - 1);

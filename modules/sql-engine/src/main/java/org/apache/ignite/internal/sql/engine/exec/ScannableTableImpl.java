@@ -192,11 +192,19 @@ public class ScannableTableImpl implements ScannableTable {
             RowHandler<RowT> handler,
             @Nullable RowT prefix
     ) {
-        if (prefix == null || handler.columnCount(prefix) == 0) {
+        if (prefix == null) {
             return null;
         }
 
-        assert searchBoundSize >= handler.columnCount(prefix) : "Invalid range condition";
+        int columnsCount = handler.columnCount(prefix);
+
+        if (columnsCount == 0) {
+            return null;
+        }
+
+        if (searchBoundSize < columnsCount) {
+            throw new IllegalStateException("Invalid range condition");
+        }
 
         return BinaryTuplePrefix.fromBinaryTuple(searchBoundSize, handler.toBinaryTuple(prefix));
     }
