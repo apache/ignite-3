@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -83,6 +84,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
@@ -382,7 +384,10 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES);
 
-        assertThat(service.snapshot(new Peer("localhost-8082"), false), willThrow(TimeoutException.class, "Send with retry timed out"));
+        assertThat(
+                service.snapshot(new Peer("localhost-8082"), false),
+                willTimeoutFast()
+        );
     }
 
     @Test
@@ -420,7 +425,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
         assertThat(service.learners(), is(empty()));
 
-        assertThat(service.addPeer(NODES.get(2)), willCompleteSuccessfully());
+        assertThat(service.addPeer(NODES.get(2), Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
@@ -440,7 +445,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
 
-        assertThat(service.removePeer(NODES.get(2)), willCompleteSuccessfully());
+        assertThat(service.removePeer(NODES.get(2), Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
         assertThat(service.learners(), is(empty()));
@@ -484,21 +489,24 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         // Peers[0, 1], Learners [empty]
         PeersAndLearners configuration = PeersAndLearners.fromPeers(NODES.subList(0, 1), emptyList());
-        assertThat(service.changePeersAndLearners(configuration, leaderWithTerm.term()), willCompleteSuccessfully());
+        assertThat(service.changePeersAndLearners(configuration, leaderWithTerm.term(), 5L),
+                willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), is(empty()));
 
         // Peers[0, 1, 2], Learners [empty]
         PeersAndLearners configuration2 = PeersAndLearners.fromPeers(NODES, emptyList());
-        assertThat(service.changePeersAndLearners(configuration2, leaderWithTerm.term()), willCompleteSuccessfully());
+        assertThat(service.changePeersAndLearners(configuration2, leaderWithTerm.term(), 6L),
+                willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
 
         // Peers[0, 1], Learners [3, 4, 5]
         PeersAndLearners configuration3 = PeersAndLearners.fromPeers(NODES.subList(0, 1), NODES_FOR_LEARNERS);
-        assertThat(service.changePeersAndLearners(configuration3, leaderWithTerm.term()), willCompleteSuccessfully());
+        assertThat(service.changePeersAndLearners(configuration3, leaderWithTerm.term(), 7L),
+                willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), containsInAnyOrder(NODES_FOR_LEARNERS.toArray()));
@@ -532,7 +540,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), is(empty()));
 
-        assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
+        assertThat(service.addLearners(NODES.subList(1, 3), Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 3).toArray()));
@@ -553,12 +561,12 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES.subList(0, 1));
 
-        assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
+        assertThat(service.addLearners(NODES.subList(1, 3), Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 3).toArray()));
 
-        assertThat(service.resetLearners(NODES.subList(2, 3)), willCompleteSuccessfully());
+        assertThat(service.resetLearners(NODES.subList(2, 3), Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), containsInAnyOrder(NODES.subList(2, 3).toArray()));
@@ -579,12 +587,12 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES.subList(0, 1));
 
-        assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
+        assertThat(service.addLearners(NODES.subList(1, 3), Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 3).toArray()));
 
-        assertThat(service.removeLearners(NODES.subList(2, 3)), willCompleteSuccessfully());
+        assertThat(service.removeLearners(NODES.subList(2, 3), Configuration.NO_SEQUENCE_TOKEN), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 2).toArray()));

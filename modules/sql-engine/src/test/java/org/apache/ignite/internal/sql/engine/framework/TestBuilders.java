@@ -75,6 +75,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -129,6 +130,8 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -687,6 +690,8 @@ public class TestBuilders {
                     IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
             );
 
+            AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
+
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
@@ -698,7 +703,8 @@ public class TestBuilders {
                     new NoOpMetricManager(),
                     schemaManager,
                     clockService::currentLong,
-                    scheduledExecutor
+                    scheduledExecutor,
+                    producer
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
@@ -1039,6 +1045,7 @@ public class TestBuilders {
                     Objects.requireNonNull(name),
                     tableId != null ? tableId : TABLE_ID_GEN.incrementAndGet(),
                     1,
+                    1L,
                     tableDescriptor,
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),

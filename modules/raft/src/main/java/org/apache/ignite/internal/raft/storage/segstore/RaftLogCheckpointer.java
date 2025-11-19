@@ -114,7 +114,9 @@ class RaftLogCheckpointer {
         while (it.hasNext()) {
             Entry e = it.next();
 
-            int segmentPayloadOffset = e.memTable().getSegmentFileOffset(groupId, logIndex);
+            SegmentInfo segmentInfo = e.memTable().segmentInfo(groupId);
+
+            int segmentPayloadOffset = segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
 
             if (segmentPayloadOffset != 0) {
                 return e.segmentFile().buffer().position(segmentPayloadOffset);
@@ -122,6 +124,43 @@ class RaftLogCheckpointer {
         }
 
         return null;
+    }
+
+    /**
+     * Returns the lowest log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
+     */
+    long firstLogIndexInclusive(long groupId) {
+        Iterator<Entry> it = queue.tailIterator();
+
+        long firstIndex = -1;
+
+        while (it.hasNext()) {
+            SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
+
+            // Segment Info can be empty if the log suffix was truncated.
+            if (segmentInfo != null && segmentInfo.size() > 0) {
+                firstIndex = segmentInfo.firstLogIndexInclusive();
+            }
+        }
+
+        return firstIndex;
+    }
+
+    /**
+     * Returns the highest possible log index for the given group present in the checkpoint queue or {@code -1} if no such index exists.
+     */
+    long lastLogIndexExclusive(long groupId) {
+        Iterator<Entry> it = queue.tailIterator();
+
+        while (it.hasNext()) {
+            SegmentInfo segmentInfo = it.next().memTable().segmentInfo(groupId);
+
+            if (segmentInfo != null) {
+                return segmentInfo.lastLogIndexExclusive();
+            }
+        }
+
+        return -1;
     }
 
     private class CheckpointTask implements Runnable {

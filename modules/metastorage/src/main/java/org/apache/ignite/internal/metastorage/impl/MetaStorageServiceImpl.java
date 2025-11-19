@@ -74,6 +74,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Default batch size that is requested from the remote server. */
     public static final int BATCH_SIZE = 1000;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Use proper timeout or reactive approach.
+    /** Timeout for meta storage raft commands processing. */
+    private static final int TIMEOUT_MILLIS = 30_000;
+
     private final MetaStorageServiceContext context;
 
     private final HybridClock clock;
@@ -117,7 +121,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
         GetCommand getCommand = context.commandsFactory().getCommand().key(ByteBuffer.wrap(key.bytes())).revision(revUpperBound).build();
 
-        return context.raftService().run(getCommand);
+        return context.raftService().run(getCommand, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -141,14 +145,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .initiatorTime(clock.now())
                 .build();
 
-        return context.raftService().run(putCommand);
+        return context.raftService().run(putCommand, TIMEOUT_MILLIS);
     }
 
     @Override
     public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         PutAllCommand putAllCommand = putAllCommand(context.commandsFactory(), vals, clock.now());
 
-        return context.raftService().run(putAllCommand);
+        return context.raftService().run(putAllCommand, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -156,14 +160,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(ByteBuffer.wrap(key.bytes()))
                 .initiatorTime(clock.now()).build();
 
-        return context.raftService().run(removeCommand);
+        return context.raftService().run(removeCommand, TIMEOUT_MILLIS);
     }
 
     @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
         RemoveAllCommand removeAllCommand = removeAllCommand(context.commandsFactory(), keys, clock.now());
 
-        return context.raftService().run(removeAllCommand);
+        return context.raftService().run(removeAllCommand, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -173,7 +177,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .initiatorTime(clock.now())
                 .build();
 
-        return context.raftService().run(removeByPrefix);
+        return context.raftService().run(removeByPrefix, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -195,7 +199,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .id(commandIdGenerator.newId())
                 .build();
 
-        return context.raftService().run(invokeCommand);
+        return context.raftService().run(invokeCommand, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -206,7 +210,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .id(commandIdGenerator.newId())
                 .build();
 
-        return context.raftService().run(multiInvokeCommand);
+        return context.raftService().run(multiInvokeCommand, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -268,7 +272,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .initiatorTerm(term)
                 .build();
 
-        return context.raftService().run(syncTimeCommand);
+        return context.raftService().run(syncTimeCommand, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -300,7 +304,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 clock.now()
         );
 
-        return context.raftService().run(evictIdempotentCommandsCacheCommand);
+        return context.raftService().run(evictIdempotentCommandsCacheCommand, TIMEOUT_MILLIS);
     }
 
     @Override
@@ -395,6 +399,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .initiatorTime(clock.now())
                 .build();
 
-        return context.raftService().run(command);
+        return context.raftService().run(command, TIMEOUT_MILLIS);
     }
 }

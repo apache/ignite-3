@@ -214,6 +214,7 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -512,6 +513,8 @@ public class IgniteImpl implements Ignite {
 
     private final ClockServiceMetricSource clockServiceMetricSource;
 
+    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+
     /**
      * The Constructor.
      *
@@ -682,6 +685,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
+                systemConfiguration,
                 clock,
                 raftGroupEventsClientListener,
                 failureManager,
@@ -864,7 +868,6 @@ public class IgniteImpl implements Ignite {
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -927,7 +930,8 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                        .thenApply(org.apache.ignite.internal.metastorage.Entry::value)
+                        .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
+                threadPoolsManager.commonScheduler()
         );
 
         metricManager.configure(
@@ -993,6 +997,7 @@ public class IgniteImpl implements Ignite {
 
         distributionZoneManager = new DistributionZoneManager(
                 name,
+                () -> clusterSvc.topologyService().localMember().id(),
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,
@@ -1113,8 +1118,7 @@ public class IgniteImpl implements Ignite {
                 metricManager
         );
 
-        PartitionModificationCounterFactory partitionModificationCounterFactory =
-                new PartitionModificationCounterFactory(clockService::current);
+        partitionModificationCounterFactory = new PartitionModificationCounterFactory(clockService::current, clusterSvc.messagingService());
 
         distributedTblMgr = new TableManager(
                 name,
@@ -1197,7 +1201,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 failureManager,
                 nodeProperties,
-                lowWatermark
+                lowWatermark,
+                txManager
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -1486,6 +1491,8 @@ public class IgniteImpl implements Ignite {
             metricManager.registerSource(clockServiceMetricSource);
             metricManager.enable(clockServiceMetricSource);
 
+            partitionModificationCounterFactory.start();
+
             // Start the components that are required to join the cluster.
             // TODO https://issues.apache.org/jira/browse/IGNITE-22570
             CompletableFuture<Void> componentsStartFuture = lifecycleManager.startComponentsAsync(
@@ -1647,6 +1654,10 @@ public class IgniteImpl implements Ignite {
 
                         // Enable REST component on start complete.
                         restComponent.enable();
+
+                        // Enable compute messages handling
+                        computeComponent.enable();
+
                         // Transfer the node to the STARTED state.
                         lifecycleManager.onStartComplete();
                     } catch (NodeStoppingException e) {

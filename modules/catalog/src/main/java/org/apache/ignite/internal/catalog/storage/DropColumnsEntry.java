@@ -33,7 +33,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes dropping of columns.
  */
-public class DropColumnsEntry extends UpdateTable implements Fireable {
+public class DropColumnsEntry extends AbstractUpdateTableEntry implements Fireable {
     private final int tableId;
     private final Set<String> columns;
 
@@ -81,8 +81,7 @@ public class DropColumnsEntry extends UpdateTable implements Fireable {
                 .collect(toList());
 
         return table.copyBuilder()
-                .latestSchemaVersion(newSchemaVersion(table))
-                .columns(updatedTableColumns);
+                .newColumns(updatedTableColumns);
     }
 
     @Override

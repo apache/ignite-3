@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -24,10 +25,8 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.CheckpointJob;
+import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.tx.Transaction;
@@ -97,7 +96,7 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         try {
-            deployCheckpointJob();
+            DeploymentUtils.deployJobs();
 
             createAndPopulateTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
             createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
@@ -174,18 +173,7 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     }
 
     private void doCheckpoint(boolean cancelCompaction) {
-        try (IgniteClient client = cluster.createClient()) {
-            JobDescriptor<Boolean, Void> job = JobDescriptor.builder(CheckpointJob.class)
-                    .units(new DeploymentUnit(CheckpointJob.class.getName(), "1.0.0")).build();
-
-            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
-
-            client.compute().execute(jobTarget, job, cancelCompaction);
-        }
-    }
-
-    private <T, R> void deployCheckpointJob() throws IOException {
-        CompatibilityTestCommon.deployJob(CheckpointJob.class, workDir, deploymentClient);
+        runJob(cluster, CheckpointJob.class, cancelCompaction);
     }
 
     private static void insertRow(Ignite baseIgnite, String tableName, int id, String name) {

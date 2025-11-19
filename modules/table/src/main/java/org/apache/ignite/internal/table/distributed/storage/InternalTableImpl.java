@@ -116,8 +116,11 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -129,12 +132,12 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Storage of table rows.
@@ -544,7 +547,6 @@ public class InternalTableImpl implements InternalTable {
      * @param lowerBound Lower search bound.
      * @param upperBound Upper search bound.
      * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
-     * @param columnsToInclude Row projection.
      * @return Batch of retrieved rows.
      */
     private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
@@ -556,8 +558,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
+            int flags
     ) {
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
@@ -577,7 +578,6 @@ public class InternalTableImpl implements InternalTable {
                         .lowerBoundPrefix(binaryTupleMessage(lowerBound))
                         .upperBoundPrefix(binaryTupleMessage(upperBound))
                         .flags(flags)
-                        .columnsToInclude(columnsToInclude)
                         .full(tx.implicit()) // Intent for one phase commit.
                         .batchSize(batchSize)
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
@@ -1035,10 +1035,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             assert !tx.implicit() : "implicit RO getAll not supported";
 
-            BinaryRowEx firstRow = keyRows.iterator().next();
-
-            return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
-                    .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
+            return getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), null);
         }
 
         return enlistInTx(
@@ -1058,12 +1055,14 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            InternalClusterNode recipientNode
+            @Nullable InternalClusterNode recipientNode
     ) {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            ReplicationGroupId replicationGroupId = targetReplicationGroupId(partitionRowBatch.getIntKey());
+            int partitionId = partitionRowBatch.getIntKey();
+
+            ReplicationGroupId replicationGroupId = targetReplicationGroupId(partitionId);
 
             ReadOnlyMultiRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
                     .groupId(serializeReplicationGroupId(replicationGroupId))
@@ -1076,7 +1075,10 @@ public class InternalTableImpl implements InternalTable {
                     .coordinatorId(coordinatorId)
                     .build();
 
-            partitionRowBatch.getValue().resultFuture = replicaSvc.invoke(recipientNode, request);
+            partitionRowBatch.getValue().resultFuture = recipientNode != null
+                    ? replicaSvc.invoke(recipientNode, request)
+                    : evaluateReadOnlyRecipientNode(partitionId, readTimestamp)
+                            .thenCompose(targetNode -> replicaSvc.invoke(targetNode, request));
         }
 
         return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
@@ -1560,139 +1562,122 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public Publisher<BinaryRow> lookup(
+    public Publisher<BinaryRow> scan(
             int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
             InternalClusterNode recipientNode,
-            int indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude,
-            UUID txCoordinatorId
+            OperationContext operationContext
     ) {
-        return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude, txCoordinatorId);
-    }
+        validatePartitionIndex(partId);
 
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
-            UUID txId,
-            ReplicationGroupId commitPartition,
-            UUID coordinatorId,
-            PrimaryReplica recipient,
-            int indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return readWriteScan(
-                partId,
-                txId,
-                commitPartition,
-                coordinatorId,
-                recipient,
-                indexId,
-                key,
-                null,
-                null,
-                0,
-                columnsToInclude
-        );
+        if (operationContext.txContext().isReadOnly()) {
+            return readOnlyScan(
+                    partId,
+                    recipientNode,
+                    null,
+                    null,
+                    operationContext
+            );
+        } else {
+            return readWriteScan(
+                    partId,
+                    recipientNode,
+                    null,
+                    null,
+                    operationContext
+            );
+        }
     }
 
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
             InternalClusterNode recipientNode,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude,
-            UUID txCoordinatorId
+            int indexId,
+            IndexScanCriteria criteria,
+            OperationContext operationContext
     ) {
-        return readOnlyScan(
-                partId,
-                txId,
-                readTimestamp,
-                recipientNode,
-                indexId,
-                null,
-                lowerBound,
-                upperBound,
-                flags,
-                columnsToInclude,
-                txCoordinatorId
-        );
+        validatePartitionIndex(partId);
+
+        if (operationContext.txContext().isReadOnly()) {
+            return readOnlyScan(
+                    partId,
+                    recipientNode,
+                    indexId,
+                    criteria,
+                    operationContext
+            );
+        } else {
+            return readWriteScan(
+                    partId,
+                    recipientNode,
+                    indexId,
+                    criteria,
+                    operationContext
+            );
+        }
     }
 
+    @TestOnly
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx
+    ) {
+        validatePartitionIndex(partId);
+
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
+
+        return readWriteScan(partId, actualTx, null, null);
+    }
+
+    @TestOnly
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
+            int indexId,
+            IndexScanCriteria.Range criteria
     ) {
-        return readWriteScan(partId, tx, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
-    }
 
-    @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            UUID txId,
-            ReplicationGroupId commitPartition,
-            UUID coordinatorId,
-            PrimaryReplica recipient,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return readWriteScan(
-                partId,
-                txId,
-                commitPartition,
-                coordinatorId,
-                recipient,
-                indexId,
-                null,
-                lowerBound,
-                upperBound,
-                flags,
-                columnsToInclude
-        );
+        validatePartitionIndex(partId);
+
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
+
+        assert !actualTx.isReadOnly();
+
+        return readWriteScan(partId, actualTx, indexId, criteria);
     }
 
     private Publisher<BinaryRow> readOnlyScan(
             int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
             InternalClusterNode recipientNode,
             @Nullable Integer indexId,
-            @Nullable BinaryTuple exactKey,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude,
-            UUID txCoordinatorId
+            @Nullable IndexScanCriteria criteria,
+            OperationContext opCtx
     ) {
-        validatePartitionIndex(partId);
+        assert opCtx.txContext().isReadOnly();
+
+        boolean rangeScan = criteria instanceof IndexScanCriteria.Range;
+        boolean lookup = criteria instanceof IndexScanCriteria.Lookup;
+
+        BinaryTuple exactKey = lookup ? ((IndexScanCriteria.Lookup) criteria).key() : null;
+        BinaryTuplePrefix lowerBound = rangeScan ? ((IndexScanCriteria.Range) criteria).lowerBound() : null;
+        BinaryTuplePrefix upperBound = rangeScan ? ((IndexScanCriteria.Range) criteria).upperBound() : null;
+        int flags = rangeScan ? ((IndexScanCriteria.Range) criteria).flags() : 0;
+
+        TxContext.ReadOnly txContext = (TxContext.ReadOnly) opCtx.txContext();
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
-        return new PartitionScanPublisher<>(new ReadOnlyInflightBatchRequestTracker(transactionInflights, txId)) {
+        return new PartitionScanPublisher<>(new ReadOnlyInflightBatchRequestTracker(transactionInflights, txContext.txId())) {
             @Override
             protected CompletableFuture<Collection<BinaryRow>> retrieveBatch(long scanId, int batchSize) {
                 ReadOnlyScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                         .groupId(serializeReplicationGroupId(replicationGroupId))
                         .tableId(tableId)
-                        .readTimestamp(readTimestamp)
-                        .transactionId(txId)
+                        .transactionId(txContext.txId())
+                        .coordinatorId(txContext.coordinatorId())
+                        .readTimestamp(txContext.readTimestamp())
                         .scanId(scanId)
                         .batchSize(batchSize)
                         .indexToUse(indexId)
@@ -1700,8 +1685,6 @@ public class InternalTableImpl implements InternalTable {
                         .lowerBoundPrefix(binaryTupleMessage(lowerBound))
                         .upperBoundPrefix(binaryTupleMessage(upperBound))
                         .flags(flags)
-                        .columnsToInclude(columnsToInclude)
-                        .coordinatorId(txCoordinatorId)
                         .build();
 
                 return replicaSvc.invoke(recipientNode, request);
@@ -1710,7 +1693,7 @@ public class InternalTableImpl implements InternalTable {
             @Override
             protected CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th) {
                 return completeScan(
-                        txId,
+                        txContext.txId(),
                         replicationGroupId,
                         scanId,
                         th,
@@ -1723,13 +1706,9 @@ public class InternalTableImpl implements InternalTable {
 
     private Publisher<BinaryRow> readWriteScan(
             int partId,
-            @Nullable InternalTransaction tx,
+            InternalTransaction tx,
             @Nullable Integer indexId,
-            @Nullable BinaryTuple exactKey,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
+            @Nullable IndexScanCriteria.Range criteria
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -1743,22 +1722,25 @@ public class InternalTableImpl implements InternalTable {
 
         validatePartitionIndex(partId);
 
-        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
+        assert indexId == null || criteria != null;
+
+        BinaryTuplePrefix lowerBound = indexId == null ? null : criteria.lowerBound();
+        BinaryTuplePrefix upperBound = indexId == null ? null : criteria.upperBound();
+        int flags = indexId == null ? 0 : criteria.flags();
 
         return new PartitionScanPublisher<>(READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER) {
             @Override
             protected CompletableFuture<Collection<BinaryRow>> retrieveBatch(long scanId, int batchSize) {
                 return enlistCursorInTx(
-                        actualTx,
+                        tx,
                         partId,
                         scanId,
                         batchSize,
                         indexId,
-                        exactKey,
+                        null,
                         lowerBound,
                         upperBound,
-                        flags,
-                        columnsToInclude
+                        flags
                 );
             }
 
@@ -1766,7 +1748,7 @@ public class InternalTableImpl implements InternalTable {
             protected CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th) {
                 CompletableFuture<Void> opFut;
 
-                if (actualTx.implicit()) {
+                if (tx.implicit()) {
                     opFut = completedOrFailedFuture(null, th);
                 } else {
                     var replicationGrpId = targetReplicationGroupId(partId);
@@ -1785,26 +1767,33 @@ public class InternalTableImpl implements InternalTable {
                 return postEnlist(
                         opFut,
                         intentionallyClose,
-                        actualTx,
-                        actualTx.implicit() && !intentionallyClose
+                        tx,
+                        tx.implicit() && !intentionallyClose
                 );
             }
         };
     }
 
+    @TestOnly
     private Publisher<BinaryRow> readWriteScan(
             int partId,
-            UUID txId,
-            ReplicationGroupId commitPartition,
-            UUID coordinatorId,
-            PrimaryReplica recipient,
+            InternalClusterNode recipient,
             @Nullable Integer indexId,
-            @Nullable BinaryTuple exactKey,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
+            @Nullable IndexScanCriteria criteria,
+            OperationContext opCtx
     ) {
+        assert !opCtx.txContext().isReadOnly();
+
+        boolean rangeScan = criteria instanceof IndexScanCriteria.Range;
+        boolean lookup = criteria instanceof IndexScanCriteria.Lookup;
+
+        BinaryTuple exactKey = lookup ? ((IndexScanCriteria.Lookup) criteria).key() : null;
+        BinaryTuplePrefix lowerBound = rangeScan ? ((IndexScanCriteria.Range) criteria).lowerBound() : null;
+        BinaryTuplePrefix upperBound = rangeScan ? ((IndexScanCriteria.Range) criteria).upperBound() : null;
+        int flags = rangeScan ? ((IndexScanCriteria.Range) criteria).flags() : 0;
+
+        TxContext.ReadWrite txContext = (TxContext.ReadWrite) opCtx.txContext();
+
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
         return new PartitionScanPublisher<>(READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER) {
@@ -1813,28 +1802,27 @@ public class InternalTableImpl implements InternalTable {
                 ReadWriteScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(serializeReplicationGroupId(replicationGroupId))
                         .tableId(tableId)
-                        .timestamp(TransactionIds.beginTimestamp(txId))
-                        .transactionId(txId)
+                        .transactionId(txContext.txId())
+                        .coordinatorId(txContext.coordinatorId())
+                        .timestamp(txContext.beginTimestamp())
+                        .commitPartitionId(serializeReplicationGroupId(txContext.commitPartition()))
+                        .enlistmentConsistencyToken(txContext.enlistmentConsistencyToken())
                         .scanId(scanId)
                         .indexToUse(indexId)
                         .exactKey(binaryTupleMessage(exactKey))
                         .lowerBoundPrefix(binaryTupleMessage(lowerBound))
                         .upperBoundPrefix(binaryTupleMessage(upperBound))
                         .flags(flags)
-                        .columnsToInclude(columnsToInclude)
                         .batchSize(batchSize)
-                        .enlistmentConsistencyToken(recipient.enlistmentConsistencyToken())
                         .full(false) // Set explicitly.
-                        .commitPartitionId(serializeReplicationGroupId(commitPartition))
-                        .coordinatorId(coordinatorId)
                         .build();
 
-                return replicaSvc.invoke(recipient.node(), request);
+                return replicaSvc.invoke(recipient, request);
             }
 
             @Override
             protected CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th) {
-                return completeScan(txId, replicationGroupId, scanId, th, recipient.node().name(), intentionallyClose);
+                return completeScan(txContext.txId(), replicationGroupId, scanId, th, recipient.name(), intentionallyClose);
             }
         };
     }

@@ -14,7 +14,7 @@
 // limitations under the License.
 = Getting Started With Apache Ignite 3
 
-This guide shows you how to start working with Ignite. In it, we will download Ignite from the website, install it, start the database and perform some simple SQL queries by using the provided CLI tool.
+This guide shows you how to start working with Ignite. In this guide, we will download Ignite from the website, install it, start the database and perform some simple SQL queries by using the provided CLI tool.
 
 We will be using the link:installation/installing-using-zip[zip archive] to demonstrate how to use Ignite. When using link:installation/deb-rpm[deb or rpm packages], or when running Ignite in Docker, some steps may be different.
 
@@ -28,7 +28,7 @@ include::includes/prereqs.adoc[]
 
 . link:https://ignite.apache.org/download.cgi[Download] Ignite from the website. This archive contains everything related to the Ignite database itself.
 +
-. Also from the same page, download the link:ignite-cli-tool[Ignite command line interface]. This tool is the main way of interacting with Ignite database and will be used in the tutorial
+. Also from the same page, download the link:ignite-cli-tool[Ignite command line interface]. This tool is the main way of interacting with Ignite database and will be used in the tutorial.
 +
 . Unpack the downloaded archives:
 +
@@ -37,23 +37,23 @@ include::includes/prereqs.adoc[]
 tab:Unix[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-3.0.0.zip
+unzip ignite3-3.1.0.zip
 ----
 
 tab:Windows (PowerShell)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-3.0.0.zip -DestinationPath .
+Expand-Archive ignite3-3.1.0.zip -DestinationPath .
 ----
 
 tab:Windows (CMD)[]
 [source,shell, subs="attributes,specialchars"]
 ----
-unzip -xf ignite3-3.0.0.zip
+unzip -xf ignite3-3.1.0.zip
 ----
 --
 
-Now you should have the `ignite3-db-3.0.0` and `ignite3-cli-3.0.0` directories that we will be using in this tutorial, and the license file provided via e-mail.
+Now you should have the `ignite3-db-3.1.0` and `ignite3-cli-3.1.0` directories that we will be using in this tutorial.
 
 
 == Start Ignite Node
@@ -62,7 +62,7 @@ Ignite is a distributed database, that runs on a collection of *nodes* - Ignite 
 
 To start a locally running node:
 
-. Navigate to the `ignite3-db-3.0.0` directory.
+. Navigate to the `ignite3-db-3.1.0` directory.
 . Run the `ignite3db` script:
 +
 [tabs]
@@ -89,7 +89,7 @@ The primary means of interacting with your nodes and cluster is the link:ignite-
 
 To start the Ignite CLI:
 
-. Navigate to the `ignite3-cli-3.0.0` directory.
+. Navigate to the `ignite3-cli-3.1.0` directory.
 . Run the following command:
 +
 [tabs]
@@ -243,7 +243,7 @@ Ignite 3 is designed to work in a cluster of 3 or more nodes at once. While a si
 
 === Optional: Starting Multiple Ignite Nodes in Docker
 
-To run multiple instances of Ignite, you would normally install it on multiple machines before starting a cluster. If you want to run a Ignite cluster on local VMs for this tutorial, we recommend using a Docker image:
+To run multiple instances of Ignite, you would normally install it on multiple machines before starting a cluster. If you want to run an Ignite cluster on local VMs for this tutorial, we recommend using a Docker image:
 
 . Download the link:quick-start/docker-compose.yml[docker-compose] and link:quick-start/node-docker-config.conf[node configuration] that will be used by docker compose to start the cluster. The node configuration should be in the same folder as docker compose file
 . Download the Docker image:
@@ -253,7 +253,7 @@ To run multiple instances of Ignite, you would normally install it on multiple m
 tab:Command[]
 [source,shell]
 ----
-docker pull apacheignite/ignite:3.0.0
+docker pull apacheignite/ignite:3.1.0
 ----
 
 tab:Output[]

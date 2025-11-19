@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.SuperRootChange;
@@ -72,5 +73,10 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
                 profileChange.convert(PersistentPageMemoryProfileChange.class);
             });
         }
+    }
+
+    @Override
+    public Collection<String> deletedPrefixes() {
+        return Set.of("ignite.storage.engines.aipersist.checkpoint.useAsyncFileIoFactory");
     }
 }

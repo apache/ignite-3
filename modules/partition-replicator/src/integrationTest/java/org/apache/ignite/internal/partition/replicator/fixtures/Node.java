@@ -105,7 +105,6 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -137,6 +136,7 @@ import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCre
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
@@ -402,6 +402,7 @@ public class Node {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager()
@@ -653,7 +654,8 @@ public class Node {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
-                        .thenApply(Entry::value)
+                        .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
+                threadPoolsManager.commonScheduler()
         );
 
         LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
@@ -662,7 +664,6 @@ public class Node {
                 new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
                 failureManager,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -705,6 +706,7 @@ public class Node {
 
         distributionZoneManager = new DistributionZoneManager(
                 name,
+                () -> clusterService.topologyService().localMember().id(),
                 registry,
                 metaStorageManager,
                 logicalTopologyService,
@@ -857,7 +859,8 @@ public class Node {
                 clockService,
                 failureManager,
                 nodeProperties,
-                lowWatermark
+                lowWatermark,
+                txManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);

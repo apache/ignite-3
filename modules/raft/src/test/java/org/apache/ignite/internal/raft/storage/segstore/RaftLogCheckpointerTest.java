@@ -126,7 +126,11 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
                 IndexMemTable mockMemTable = mock(IndexMemTable.class);
 
-                lenient().when(mockMemTable.getSegmentFileOffset(i, i)).thenReturn(1);
+                var segmentInfo = new SegmentInfo(i);
+
+                segmentInfo.addOffset(i, 1);
+
+                lenient().when(mockMemTable.segmentInfo(i)).thenReturn(segmentInfo);
 
                 checkpointer.onRollover(mockFile, mockMemTable);
             }

@@ -98,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticUpdateManager;
+import org.apache.ignite.internal.sql.engine.statistic.StatisticAggregatorImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -253,7 +254,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
+        StatisticAggregatorImpl statAggregator =
+                new StatisticAggregatorImpl(() -> logicalTopologyService.localLogicalTopology().nodes(),
+                        clusterSrvc.messagingService());
+        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler, statAggregator);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
@@ -392,7 +396,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 sqlQueryMetricSource
         ));
 
-        queriesViewProvider.init(queryExecutor);
+        queriesViewProvider.init(queryExecutor, prepareSvc);
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
         clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
@@ -607,7 +611,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of(queriesViewProvider.get());
+        return queriesViewProvider.getViews();
     }
 
     @Override

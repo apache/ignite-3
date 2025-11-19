@@ -30,18 +30,16 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Internal table facade provides low-level methods for table operations. The facade hides TX/replication protocol over table storage
@@ -173,7 +171,8 @@ public interface InternalTable extends ManuallyCloseable {
      * @param readTimestamp Read timestamp.
      * @param transactionId Transaction ID (might be {@code null}).
      * @param coordinatorId Ephemeral ID of the transaction coordinator.
-     * @param recipientNode Cluster node that will handle given get request.
+     * @param recipientNode Cluster node that will handle given getAll request. In case if given node is {@code null} then for each
+     *      partition inside of the method recipient node will be calculated separately.
      * @return Future that will return rows with all columns filled from the table. The order of collection elements is
      *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
      *      element at the corresponding index of the resulting collection is {@code null}.
@@ -183,7 +182,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            InternalClusterNode recipientNode
+            @Nullable InternalClusterNode recipientNode
     );
 
     /**
@@ -326,84 +325,44 @@ public interface InternalTable extends ManuallyCloseable {
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      */
-    default Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx) {
-        return scan(partId, tx, null, null, null, 0, null);
-    }
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26846 Drop the method.
+    @TestOnly
+    @Deprecated(forRemoval = true)
+    Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx);
 
     /**
-     * Scans given partition with the proposed read timestamp, providing {@link Publisher} that reactively notifies about partition rows.
+     * Scans given partition, providing {@link Publisher} that reactively notifies about partition rows.
      *
      * @param partId The partition.
-     * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
-     * @param txCoordinatorId Transaction coordinator inconsistent id.
+     * @param operationContext Operation context.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-write. Transaction itself won't be automatically rolled back.
      */
-    default Publisher<BinaryRow> scan(
-            int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
-            InternalClusterNode recipientNode,
-            UUID txCoordinatorId
-    ) {
-        return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null, txCoordinatorId);
-    }
-
-    /**
-     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
-     * that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
-     * @param readTimestamp Read timestamp.
-     * @param recipientNode Cluster node that will handle given get request.
-     * @param indexId Index id.
-     * @param lowerBound Lower search bound.
-     * @param upperBound Upper search bound.
-     * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
-     * @param columnsToInclude Row projection.
-     * @param txCoordinatorId Transaction coordinator inconsistent id.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     */
     Publisher<BinaryRow> scan(
             int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
             InternalClusterNode recipientNode,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude,
-            UUID txCoordinatorId
+            OperationContext operationContext
     );
 
     /**
-     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     * Scans given partition index, providing {@link Publisher}
+     * that reactively notifies about partition rows.
      *
      * @param partId The partition.
-     * @param txId Transaction id.
-     * @param commitPartition Commit partition id.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param recipient Primary replica that will handle given get request.
-     * @param lowerBound Lower search bound.
-     * @param upperBound Upper search bound.
-     * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
-     * @param columnsToInclude Row projection.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @param indexId Index id.
+     * @param criteria Index scan criteria.
+     * @param operationContext Operation context.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
     Publisher<BinaryRow> scan(
             int partId,
-            UUID txId,
-            ReplicationGroupId commitPartition,
-            UUID txCoordinatorId,
-            PrimaryReplica recipient,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
+            InternalClusterNode recipientNode,
+            int indexId,
+            IndexScanCriteria criteria,
+            OperationContext operationContext
     );
 
     /**
@@ -412,68 +371,17 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partId The partition.
      * @param tx The transaction.
      * @param indexId Index id.
-     * @param lowerBound Lower search bound.
-     * @param upperBound Upper search bound.
-     * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
-     * @param columnsToInclude Row projection.
+     * @param criteria Index scan criteria.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26846 Drop the method.
+    @TestOnly
+    @Deprecated(forRemoval = true)
     Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
-    );
-
-    /**
-     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
-     * @param readTimestamp Read timestamp.
-     * @param recipientNode Cluster node that will handle given get request.
-     * @param indexId Index id.
-     * @param key Key to search.
-     * @param columnsToInclude Row projection.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     */
-    Publisher<BinaryRow> lookup(
-            int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
-            InternalClusterNode recipientNode,
             int indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude,
-            UUID txCoordinatorId
-    );
-
-    /**
-     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
-     * that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
-     * @param txId Transaction id.
-     * @param commitPartition Commit partition id.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param recipient Primary replica that will handle given get request.
-     * @param indexId Index id.
-     * @param key Key to search.
-     * @param columnsToInclude Row projection.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     */
-    Publisher<BinaryRow> lookup(
-            int partId,
-            UUID txId,
-            ReplicationGroupId commitPartition,
-            UUID txCoordinatorId,
-            PrimaryReplica recipient,
-            int indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
+            IndexScanCriteria.Range criteria
     );
 
     /**

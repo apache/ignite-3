@@ -90,6 +90,19 @@ After you do, JMX monitoring tools will be able to collect enabled metrics from 
 
 image::images/jmc-metrics.png[]
 
+You can also open internal JDK modules required for JMX, enable the remote JMX agent, configure the connection port, authentication, and SSL.
+Add the following JVM options to your Ignite node configuration:
+
+[source, bash]
+----
+--add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED
+
+-Dcom.sun.management.jmxremote
+-Dcom.sun.management.jmxremote.port=<PORT_NUMBER>
+-Dcom.sun.management.jmxremote.authenticate=true|false
+-Dcom.sun.management.jmxremote.ssl=true|false
+----
+
 === Log Exporter
 
 Log exporter writes metrics data to the application log, so they can be consumed by log collectors or inspected manually. To configure it, use the following parameters:

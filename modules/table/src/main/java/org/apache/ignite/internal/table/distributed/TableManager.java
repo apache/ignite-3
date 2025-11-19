@@ -322,7 +322,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
      * <p>Only explicitly updated in
-     * {@link #startLocalPartitionsAndClients(CompletableFuture, List, List, TableImpl, boolean, long)}.
+     * {@link #startLocalPartitionsAndClients(CompletableFuture, List, List, TableImpl, boolean, long, long)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -848,7 +848,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                                     parameters.causalityToken()
                                             )
                                     ),
-                                    ioExecutor))
+                                    ioExecutor).thenCompose(identity()))
                             .toArray(CompletableFuture[]::new);
 
                     return allOf(futures);
@@ -1186,7 +1186,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            unregisterMetricsSource(parameters.tableId());
+            unregisterMetricsSource(startedTables.get(parameters.tableId()));
 
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
@@ -1272,7 +1272,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             List<@Nullable AssignmentsChain> assignmentsChains,
             TableImpl table,
             boolean isRecovery,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            long revision
     ) {
         int tableId = table.tableId();
 
@@ -1327,7 +1328,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             localAssignmentInStable,
                             stableAssignments,
                             isRecovery,
-                            assignmentsTimestamp
+                            assignmentsTimestamp,
+                            revision
                     ).whenComplete((res, ex) -> {
                         if (ex != null) {
                             String errorMessage = String.format(
@@ -1353,7 +1355,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignment localAssignment,
             Assignments stableAssignments,
             boolean isRecovery,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            long revision
     ) {
         if (nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
@@ -1454,9 +1457,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             partitionUpdateHandlers,
                             raftClient);
 
-                    RaftGroupEventsListener raftGroupEventsListener = localAssignment.isPeer()
-                            ? createRaftGroupEventsListener(replicaGrpId)
-                            : RaftGroupEventsListener.noopLsnr;
+                    RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(replicaGrpId);
 
                     MvTableStorage mvTableStorage = internalTbl.storage();
 
@@ -1478,7 +1479,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return replicaMgr.weakStartReplica(
                 replicaGrpId,
                 startReplicaSupplier,
-                forcedAssignments
+                forcedAssignments,
+                revision
         ).handle((res, ex) -> {
             if (ex != null && !(hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class))) {
                 String errorMessage = String.format(
@@ -1981,7 +1983,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         assignmentsChains,
                         table,
                         onNodeRecovery,
-                        assignmentsTimestamp
+                        assignmentsTimestamp,
+                        causalityToken
                 );
             }), ioExecutor);
         });
@@ -2466,20 +2469,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalGroupNode) {
-            localServicesStartFuture = createPartitionAndStartClient(
-                    replicaGrpId,
-                    tbl,
-                    revision,
-                    isRecovery,
-                    assignmentsTimestamp,
-                    localAssignmentInPending,
-                    computedStableAssignments
-            );
+            localServicesStartFuture = localPartitionsVv.get(revision)
+                    .thenComposeAsync(unused -> createPartitionAndStartClient(
+                            replicaGrpId,
+                            tbl,
+                            revision,
+                            isRecovery,
+                            assignmentsTimestamp,
+                            localAssignmentInPending,
+                            computedStableAssignments
+                    ), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
             localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
                 assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
+                // Sequence token for data partitions is MS revision.
+                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision);
             }), ioExecutor);
         } else {
             localServicesStartFuture = nullCompletedFuture();
@@ -2542,39 +2547,35 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         PartitionSet singlePartitionIdSet = PartitionSet.of(partitionId);
 
-        return localPartitionsVv.get(revision)
-                // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
-                .thenComposeAsync(
-                        unused -> inBusyLock(
-                                busyLock,
-                                () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
-                                        .thenRun(() -> localPartsByTableId.compute(
-                                                replicaGrpId.tableId(),
-                                                (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionId)
-                                        ))
-                                        // If the table is already closed, it's not a problem (probably the node is stopping).
-                                        .exceptionally(ignoreTableClosedException())
-                        ),
-                        ioExecutor
-                )
-                .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
-                    lowWatermark.getLowWatermarkSafe(lwm ->
-                            registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
-                    );
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
+        return inBusyLock(
+                busyLock,
+                () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
+                        .thenRun(() -> localPartsByTableId.compute(
+                                replicaGrpId.tableId(),
+                                (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionId)
+                        ))
+                        // If the table is already closed, it's not a problem (probably the node is stopping).
+                        .exceptionally(ignoreTableClosedException())
+        ).thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
+            lowWatermark.getLowWatermarkSafe(lwm ->
+                    registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+            );
 
-                    return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(ignored -> inBusyLock(busyLock, () -> {
-                        assert localAssignmentInPending != null : "Local member assignment";
+            return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(ignored -> inBusyLock(busyLock, () -> {
+                assert localAssignmentInPending != null : "Local member assignment";
 
-                        return startPartitionAndStartClient(
-                                tbl,
-                                replicaGrpId.partitionId(),
-                                localAssignmentInPending,
-                                computedStableAssignments,
-                                isRecovery,
-                                assignmentsTimestamp
-                        );
-                    }));
-                }), ioExecutor);
+                return startPartitionAndStartClient(
+                        tbl,
+                        replicaGrpId.partitionId(),
+                        localAssignmentInPending,
+                        computedStableAssignments,
+                        isRecovery,
+                        assignmentsTimestamp,
+                        revision
+                );
+            }));
+        }), ioExecutor);
     }
 
     /**
@@ -2625,6 +2626,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ChangePeersAndLearnersAsyncReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersAsyncReplicaRequest()
                     .groupId(partitionIdMessage)
                     .pendingAssignments(pendingAssignments.toBytes())
+                    .sequenceToken(currentRevision)
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .build();
 
@@ -3087,7 +3089,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     PartitionModificationCounterMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
                     if (metricSource != null) {
-                        metricManager.unregisterSource(metricSource);
+                        try {
+                            metricManager.unregisterSource(metricSource);
+                        } catch (Exception e) {
+                            String message = "Failed to register metrics source for table [name={}, partitionId={}].";
+                            LOG.warn(message, e, table.name(), tablePartitionId.partitionId());
+                        }
                     }
 
                     return mvGc.removeStorage(tablePartitionId);
@@ -3185,10 +3192,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
         SizeSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
-        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(
-                partSizeSupplier, table::stalenessConfiguration
-        );
-        registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
+
+        PartitionModificationCounter modificationCounter =
+                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration, table.tableId(), partitionId);
+
+        registerPartitionModificationCounterMetrics(table, partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
@@ -3202,10 +3210,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void registerPartitionModificationCounterMetrics(
-            int tableId, int partitionId, PartitionModificationCounter counter) {
-
+            TableViewInternal table,
+            int partitionId,
+            PartitionModificationCounter counter
+    ) {
         PartitionModificationCounterMetricSource metricSource =
-                new PartitionModificationCounterMetricSource(tableId, partitionId);
+                new PartitionModificationCounterMetricSource(table.tableId(), partitionId);
 
         metricSource.addMetric(new LongGauge(
                 PartitionModificationCounterMetricSource.METRIC_COUNTER,
@@ -3228,10 +3238,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> counter.lastMilestoneTimestamp().longValue()
         ));
 
-        metricManager.registerSource(metricSource);
-        metricManager.enable(metricSource);
+        try {
+            metricManager.registerSource(metricSource);
+            metricManager.enable(metricSource);
 
-        partModCounterMetricSources.put(new TablePartitionId(tableId, partitionId), metricSource);
+            partModCounterMetricSources.put(new TablePartitionId(table.tableId(), partitionId), metricSource);
+        } catch (Exception e) {
+            LOG.warn("Failed to register metrics source for table [name={}, partitionId={}].", e, table.name(), partitionId);
+        }
     }
 
     /**
@@ -3307,9 +3321,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 // Handle missed table drop event.
                 int tableId = tableDescriptor.id();
 
-                if (nextCatalog != null && nextCatalog.table(tableId) == null) {
-                    unregisterMetricsSource(tableId);
-
+                boolean destroyTableEventFired = nextCatalog != null && nextCatalog.table(tableId) == null;
+                if (destroyTableEventFired) {
                     destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
                 }
 
@@ -3329,6 +3342,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             tableDescriptor,
                             schemaDescriptor
                     );
+
+                    if (destroyTableEventFired) {
+                        // prepareTableResourcesOnRecovery registers a table metric source, so we need to unregister it here,
+                        // just because the table is being dropped and there is no need to keep the metric source.
+                        unregisterMetricsSource(tables.get(tableId));
+                    }
                 } else {
                     startTableFuture = createTableLocally(recoveryRevision, ver, tableDescriptor, true);
                 }
@@ -3510,7 +3529,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             localAssignment,
                             stableAssignments,
                             false,
-                            assignmentsTimestamp
+                            assignmentsTimestamp,
+                            revision
                     );
                 }));
             }, ioExecutor);
@@ -3530,28 +3550,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision,
             long assignmentsTimestamp
     ) {
-        return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
-            TableViewInternal table = tables.get(tablePartitionId.tableId());
-
+        return tableAsync(tablePartitionId.tableId()).thenComposeAsync(table -> inBusyLockAsync(busyLock, () -> {
             assert table != null : tablePartitionId;
 
             Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, tablePartitionId, revision);
 
             Assignment localAssignment = localAssignment(stableAssignments);
 
-            return stopPartitionAndDestroyForRestart(tablePartitionId, table)
-                    .thenComposeAsync(unused1 ->
+            return stopPartitionAndDestroyForRestart(tablePartitionId, table).thenComposeAsync(unused1 ->
                             createPartitionAndStartClient(
                                     tablePartitionId,
-                                    table, revision,
+                                    table,
+                                    revision,
                                     false,
                                     assignmentsTimestamp,
                                     localAssignment,
                                     stableAssignments
                             ),
-                            ioExecutor
-                    );
-        }), ioExecutor));
+                    ioExecutor
+            );
+        }), ioExecutor);
     }
 
     @Override
@@ -3668,8 +3686,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return source;
     }
 
-    private void unregisterMetricsSource(int tableId) {
-        TableViewInternal table = startedTables.get(tableId);
+    private void unregisterMetricsSource(TableViewInternal table) {
         if (table == null) {
             return;
         }
@@ -3679,7 +3696,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             metricManager.unregisterSource(TableMetricSource.sourceName(tableName));
         } catch (Exception e) {
-            LOG.warn("Failed to unregister metrics source for table [id={}, name={}].", e, tableId, tableName);
+            LOG.warn("Failed to unregister metrics source for table [id={}, name={}].", e, table.tableId(), tableName);
         }
 
         String storageProfile = table.internalTable().storage().getTableDescriptor().getStorageProfile();
@@ -3689,7 +3706,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             try {
                 metricManager.unregisterSource(StorageEngineTablesMetricSource.sourceName(engine.name(), tableName));
             } catch (Exception e) {
-                LOG.warn("Failed to unregister storage engine metrics source for table [id={}, name={}].", e, tableId, tableName);
+                LOG.warn("Failed to unregister storage engine metrics source for table [id={}, name={}].", e, table.tableId(), tableName);
             }
         }
     }

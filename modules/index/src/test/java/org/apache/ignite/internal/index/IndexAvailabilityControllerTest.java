@@ -66,6 +66,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,11 +87,15 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private final ExecutorService executorService = newSingleThreadExecutor();
 
+    private final IndexMetaStorage indexMetaStorage = mock(IndexMetaStorage.class);
+
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
             new NoOpFailureManager(),
-            new SystemPropertiesNodeProperties()
+            new SystemPropertiesNodeProperties(),
+            new CommittedFinalTransactionStateResolver(),
+            indexMetaStorage
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
@@ -99,6 +104,11 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             new NoOpFailureManager(),
             indexBuilder
     );
+
+    @BeforeEach
+    void configureMocks() {
+        IndexMetaStorageMocks.configureMocksForBuildingPhase(indexMetaStorage);
+    }
 
     @BeforeEach
     void setUp() {
@@ -115,6 +125,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
+
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
         assert catalog != null;
@@ -126,8 +138,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         partitions = zoneDescriptor.partitions();
 
         assertThat(partitions, greaterThan(4));
-
-        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach

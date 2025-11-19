@@ -177,6 +177,10 @@ class MultiStatementHandler {
                         break;
                     }
 
+                    if (!DdlBatchingHelper.isCompatible(scriptStatement.parsedResult, statement.parsedResult)) {
+                        break;
+                    }
+
                     scriptStatement = statement;
 
                     statements.poll();
@@ -210,8 +214,7 @@ class MultiStatementHandler {
 
                 if (lastStatement) {
                     // Main program is completed, therefore it's safe to schedule termination of a query
-                    query.resultHolder
-                            .thenRun(this::scheduleTermination);
+                    scheduleTermination();
                 } else {
                     CompletableFuture<Void> triggerFuture;
                     ScriptStatement nextStatement = statements.peek();
@@ -296,7 +299,7 @@ class MultiStatementHandler {
 
     private void scheduleTermination() {
         CompletableFuture.allOf(dependentQueries.toArray(CompletableFuture[]::new))
-                .whenComplete((ignored, ex) -> query.moveTo(ExecutionPhase.TERMINATED));
+                .whenComplete((ignored, ex) -> query.terminate());
     }
 
     private static class ScriptStatement {

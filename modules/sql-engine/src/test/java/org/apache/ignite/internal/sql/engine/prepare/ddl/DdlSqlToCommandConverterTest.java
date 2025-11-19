@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
@@ -80,6 +82,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.AlterTablePropertiesEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -190,12 +193,12 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         );
 
         assertThat(
-                tblDesc.primaryKeyColumns(),
+                tblDesc.primaryKeyColumnNames(),
                 hasSize(1)
         );
 
         assertThat(
-                tblDesc.primaryKeyColumns(),
+                tblDesc.primaryKeyColumnNames(),
                 hasItem(Commons.IMPLICIT_PK_COL_NAME)
         );
 
@@ -227,7 +230,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         NewIndexEntry idxEntry = (NewIndexEntry) entries.get(1);
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.SORTED));
-        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(List.of("ID")));
+        assertThat(tblEntry.descriptor().primaryKeyColumnNames(), equalTo(List.of("ID")));
         assertThat(((CatalogSortedIndexDescriptor) idxEntry.descriptor()).columns().get(0).collation(), is(collation));
     }
 
@@ -268,7 +271,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.HASH));
         assertThat(idxEntry.descriptor(), Matchers.instanceOf(CatalogHashIndexDescriptor.class));
-        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(List.of("ID")));
+        assertThat(tblEntry.descriptor().primaryKeyColumnNames(), equalTo(List.of("ID")));
     }
 
     @Test
@@ -422,29 +425,30 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        assertEquals(Period.of(1, 1, 0), fromInternal(13, Period.class));
-        assertEquals(Period.of(1, 0, 0), fromInternal(12, Period.class));
+        assertEquals(Period.of(1, 1, 0), fromInternal(13, ColumnType.PERIOD));
+        assertEquals(Period.of(1, 0, 0), fromInternal(12, ColumnType.PERIOD));
 
-        fillTestCase("INTERVAL YEARS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, Period.class));
-        fillTestCase("INTERVAL YEARS", "INTERVAL '12' MONTH", testItems, true, ctx, fromInternal(12, Period.class));
-        fillTestCase("INTERVAL YEARS TO MONTHS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, Period.class));
-        fillTestCase("INTERVAL YEARS TO MONTHS", "INTERVAL '13' MONTH", testItems, true, ctx, fromInternal(13, Period.class));
-        fillTestCase("INTERVAL MONTHS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, Period.class));
-        fillTestCase("INTERVAL MONTHS", "INTERVAL '13' MONTHS", testItems, true, ctx, fromInternal(13, Period.class));
+        fillTestCase("INTERVAL YEARS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, ColumnType.PERIOD));
+        fillTestCase("INTERVAL YEARS", "INTERVAL '12' MONTH", testItems, true, ctx, fromInternal(12, ColumnType.PERIOD));
+        fillTestCase("INTERVAL YEARS TO MONTHS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, ColumnType.PERIOD));
+        fillTestCase("INTERVAL YEARS TO MONTHS", "INTERVAL '13' MONTH", testItems, true, ctx, fromInternal(13, ColumnType.PERIOD));
+        fillTestCase("INTERVAL MONTHS", "INTERVAL '1' YEAR", testItems, true, ctx, fromInternal(12, ColumnType.PERIOD));
+        fillTestCase("INTERVAL MONTHS", "INTERVAL '13' MONTHS", testItems, true, ctx, fromInternal(13, ColumnType.PERIOD));
 
         long oneDayMillis = Duration.ofDays(1).toMillis();
         long oneHourMillis = Duration.ofHours(1).toMillis();
         long oneMinuteMillis = Duration.ofMinutes(1).toMillis();
         long oneSecondMillis = Duration.ofSeconds(1).toMillis();
 
-        fillTestCase("INTERVAL DAYS", "INTERVAL '1' DAY", testItems, true, ctx, fromInternal(oneDayMillis, Duration.class));
-        fillTestCase("INTERVAL DAYS TO HOURS", "INTERVAL '1' HOURS", testItems, true, ctx, fromInternal(oneHourMillis, Duration.class));
+        fillTestCase("INTERVAL DAYS", "INTERVAL '1' DAY", testItems, true, ctx, fromInternal(oneDayMillis, ColumnType.DURATION));
+        fillTestCase("INTERVAL DAYS TO HOURS", "INTERVAL '1' HOURS", testItems, true, ctx,
+                fromInternal(oneHourMillis, ColumnType.DURATION));
         fillTestCase("INTERVAL HOURS TO SECONDS", "INTERVAL '1' MINUTE", testItems, true, ctx,
-                fromInternal(oneMinuteMillis, Duration.class));
+                fromInternal(oneMinuteMillis, ColumnType.DURATION));
         fillTestCase("INTERVAL MINUTES TO SECONDS", "INTERVAL '1' MINUTE", testItems, true, ctx,
-                fromInternal(oneMinuteMillis, Duration.class));
+                fromInternal(oneMinuteMillis, ColumnType.DURATION));
         fillTestCase("INTERVAL MINUTES TO SECONDS", "INTERVAL '1' SECOND", testItems, true, ctx,
-                fromInternal(oneSecondMillis, Duration.class));
+                fromInternal(oneSecondMillis, ColumnType.DURATION));
 
         return testItems.stream();
     }
@@ -860,6 +864,110 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 () -> convert((SqlDdl) node, createContext()));
     }
 
+    @Test
+    void createTableWithMinStaleRows() throws SqlParseException {
+        CatalogCommand cmd = convert(
+                "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (min stale rows 321)"
+        );
+
+        mockCatalogSchemaAndZone("TEST_ZONE");
+
+        NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(321L));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION));
+    }
+
+    @Test
+    void createTableWithStaleRowsFraction() throws SqlParseException {
+        CatalogCommand cmd = convert(
+                "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (stale rows fraction 0.321)"
+        );
+
+        mockCatalogSchemaAndZone("TEST_ZONE");
+
+        NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(0.321));
+    }
+
+    @Test
+    void createTableWithMinStaleAndRowsFraction() throws SqlParseException {
+        CatalogCommand cmd = convert(
+                "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (" 
+                        + "stale rows fraction 0.321, min stale rows 321)"
+        );
+
+        mockCatalogSchemaAndZone("TEST_ZONE");
+
+        NewTableEntry newTable = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(newTable.descriptor().properties().minStaleRowsCount(), is(321L));
+        assertThat(newTable.descriptor().properties().staleRowsFraction(), is(0.321));
+    }
+
+    @Test
+    void alterTableSetMinStaleRows() throws SqlParseException {
+        CatalogCommand cmd = convert(
+                "ALTER TABLE public.t SET min stale rows 321"
+        );
+
+        mockCatalogSchemaAndZoneAndOptTable("TEST_ZONE", "T");
+
+        AlterTablePropertiesEntry alterTable = invokeAndGetFirstEntry(cmd, AlterTablePropertiesEntry.class);
+
+        assertThat(alterTable.minStaleRowsCount(), is(321L));
+        assertThat(alterTable.staleRowsFraction(), nullValue());
+    }
+
+    @Test
+    void alterTableSetStaleRowsFraction() throws SqlParseException {
+        CatalogCommand cmd = convert(
+                "ALTER TABLE t SET stale rows fraction 0.321"
+        );
+
+        mockCatalogSchemaAndZoneAndOptTable("TEST_ZONE", "T");
+
+        AlterTablePropertiesEntry alterTable = invokeAndGetFirstEntry(cmd, AlterTablePropertiesEntry.class);
+
+        assertThat(alterTable.minStaleRowsCount(), nullValue());
+        assertThat(alterTable.staleRowsFraction(), is(0.321));
+    }
+
+    @Test
+    void alterTableSetMinStaleAndRowsFraction() throws SqlParseException {
+        CatalogCommand cmd = convert(
+                "ALTER TABLE t SET (stale rows fraction 0.321, min stale rows 321)"
+        );
+
+        mockCatalogSchemaAndZoneAndOptTable("TEST_ZONE", "T");
+
+        AlterTablePropertiesEntry alterTable = invokeAndGetFirstEntry(cmd, AlterTablePropertiesEntry.class);
+
+        assertThat(alterTable.minStaleRowsCount(), is(321L));
+        assertThat(alterTable.staleRowsFraction(), is(0.321));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (stale rows fraction 0.321, stale rows fraction 0.321)",
+            "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (min stale rows 321, min stale rows 321)",
+            "CREATE TABLE t (id INT PRIMARY KEY, val INT) WITH (" 
+                    + "min stale rows 321, stale rows fraction 0.321, min stale rows 321)",
+
+            "ALTER TABLE t SET (stale rows fraction 0.321, stale rows fraction 0.321)",
+            "ALTER TABLE t SET (min stale rows 321, min stale rows 321)",
+            "ALTER TABLE t SET (min stale rows 321, stale rows fraction 0.321, min stale rows 321)",
+    })
+    void duplicatePropertiesAreNotAllowed(String query) {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Duplicate table property has been specified",
+                () -> convert(query)
+        );
+    }
+
     private static Set<SqlTypeName> intervalTypeNames() {
         return INTERVAL_TYPES;
     }
@@ -935,6 +1043,10 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     private void mockCatalogSchemaAndZone(String zoneName) {
+        mockCatalogSchemaAndZoneAndOptTable(zoneName, null);
+    }
+
+    private void mockCatalogSchemaAndZoneAndOptTable(String zoneName, @Nullable String tableName) {
         CatalogSchemaDescriptor schemaMock = Mockito.mock(CatalogSchemaDescriptor.class);
         CatalogZoneDescriptor zoneMock = Mockito.mock(CatalogZoneDescriptor.class);
         Mockito.when(zoneMock.storageProfiles()).thenReturn(fromParams(parseStorageProfiles("default")));
@@ -942,6 +1054,11 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         Mockito.when(catalog.schema("PUBLIC")).thenReturn(schemaMock);
         Mockito.when(catalog.defaultZone()).thenReturn(zoneMock);
         Mockito.when(catalog.zone(zoneName)).thenReturn(zoneMock);
+
+        if (tableName != null) {
+            CatalogTableDescriptor tableMock = Mockito.mock(CatalogTableDescriptor.class);
+            Mockito.when(schemaMock.table(tableName)).thenReturn(tableMock);
+        }
     }
 
     /** Checks that there are no ID duplicates. */

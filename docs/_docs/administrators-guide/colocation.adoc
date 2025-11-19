@@ -22,7 +22,7 @@ For example, if you have `Person` and `Company` objects, and each person has the
 
 == Configuring Colocation Key
 
-Data colocation is configured during table creation by using the `COLOCATE BY` clause. The colummns used to colocate data must be in the primary key and must be specified in the same order as the `PRIMARY KEY` of the main table.
+Data colocation is configured during table creation by using the `COLOCATE BY` clause. The columns used to colocate data must be in the primary key and must be specified in the same order as the `PRIMARY KEY` of the main table.
 
 For example, the table below will colocate data for people based on the `city_id` column:
 

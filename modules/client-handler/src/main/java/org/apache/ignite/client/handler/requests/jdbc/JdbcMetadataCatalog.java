@@ -244,7 +244,7 @@ public class JdbcMetadataCatalog {
     private static JdbcPrimaryKeyMeta createPrimaryKeyMeta(String schemaName, CatalogTableDescriptor tbl) {
         String keyName = PK + tbl.name();
 
-        List<String> keyColNames = List.copyOf(tbl.primaryKeyColumns());
+        List<String> keyColNames = List.copyOf(tbl.primaryKeyColumnNames());
 
         return new JdbcPrimaryKeyMeta(schemaName, tbl.name(), keyName, keyColNames);
     }

@@ -27,7 +27,7 @@ public class MetaIndexStatusChange {
     private final long activationTs;
 
     /** Constructor. */
-    MetaIndexStatusChange(int catalogVersion, long activationTs) {
+    public MetaIndexStatusChange(int catalogVersion, long activationTs) {
         this.catalogVersion = catalogVersion;
         this.activationTs = activationTs;
     }

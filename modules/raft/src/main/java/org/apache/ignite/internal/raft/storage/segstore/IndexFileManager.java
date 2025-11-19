@@ -22,9 +22,11 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
 import static org.apache.ignite.internal.util.IgniteUtils.fsyncFile;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.SeekableByteChannel;
@@ -35,6 +37,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
@@ -61,11 +66,11 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Raft group meta is as follows:
  * <pre>
- * +----------------------------------------------------------------------------------------------------------------+-----+
- * |                                              Raft group 1 meta                                                 | ... |
- * +----------------------------------------------------------------------------------------------------------------+-----+
- * | Group ID (8 bytes) | Flags (4 bytes) | Offset (4 bytes) | First Log Index (8 bytes) | Last Log Index (8 bytes) | ... |
- * +----------------------------------------------------------------------------------------------------------------+-----+
+ * +------------------------------------------------------------------------------------------------------------------------+-----+
+ * |                                              Raft group 1 meta                                                         | ... |
+ * +------------------------------------------------------------------------------------------------------------------------+-----+
+ * | Group ID (8 bytes) | Flags (4 bytes) | Payload Offset (4 bytes) | First Log Index (8 bytes) | Last Log Index (8 bytes) | ... |
+ * +------------------------------------------------------------------------------------------------------------------------+-----+
  * </pre>
  *
  * <p>Payload of the index files has the following structure:
@@ -92,6 +97,10 @@ class IndexFileManager {
 
     private static final String INDEX_FILE_NAME_FORMAT = "index-%010d-%010d.bin";
 
+    private static final Pattern INDEX_FILE_NAME_PATTERN = Pattern.compile("index-(?<ordinal>\\d{10})-(?<generation>\\d{10})\\.bin");
+
+    private static final String TMP_FILE_SUFFIX = ".tmp";
+
     // Magic number + format version + number of Raft groups.
     static final int COMMON_META_SIZE = Integer.BYTES + Integer.BYTES + Integer.BYTES;
 
@@ -100,34 +109,74 @@ class IndexFileManager {
 
     static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
-    private final Path baseDir;
+    private final Path indexFilesDir;
 
     /**
      * Current index file ordinal (used to generate index file names).
      *
-     * <p>No synchronized access is needed because this field is only used by the checkpoint thread.
+     * <p>No synchronized access is needed because this field is only used by the checkpoint thread and during startup.
+     *
+     * <p>{@code -1} means that the manager has not been started yet.
      */
-    private int curFileOrdinal = 0;
+    private int curFileOrdinal = -1;
 
     /**
      * Index file metadata grouped by Raft Group ID.
      */
     private final Map<Long, GroupIndexMeta> groupIndexMetas = new ConcurrentHashMap<>();
 
-    IndexFileManager(Path baseDir) {
-        this.baseDir = baseDir;
+    IndexFileManager(Path baseDir) throws IOException {
+        indexFilesDir = baseDir.resolve("index");
+
+        Files.createDirectories(indexFilesDir);
+    }
+
+    void start() throws IOException {
+        try (Stream<Path> indexFiles = Files.list(indexFilesDir)) {
+            Iterator<Path> it = indexFiles.sorted().iterator();
+
+            while (it.hasNext()) {
+                recoverIndexFileMetas(it.next());
+            }
+        }
+    }
+
+    Path indexFilesDir() {
+        return indexFilesDir;
+    }
+
+    void cleanupTmpFiles() throws IOException {
+        try (Stream<Path> indexFiles = Files.list(indexFilesDir)) {
+            Iterator<Path> it = indexFiles.iterator();
+
+            while (it.hasNext()) {
+                Path indexFile = it.next();
+
+                if (indexFile.getFileName().toString().endsWith(TMP_FILE_SUFFIX)) {
+                    LOG.info("Deleting temporary index file: {}.", indexFile);
+
+                    Files.delete(indexFile);
+                }
+            }
+        }
     }
 
     /**
      * Saves the given index memtable to a file.
+     *
+     * <p>Must only be called by the checkpoint thread.
      */
     Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
-        String fileName = indexFileName(curFileOrdinal, 0);
+        return saveIndexMemtable(indexMemTable, ++curFileOrdinal);
+    }
 
-        Path tmpFilePath = baseDir.resolve(fileName + ".tmp");
+    Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
+        String fileName = indexFileName(fileOrdinal, 0);
+
+        Path tmpFilePath = indexFilesDir.resolve(fileName + TMP_FILE_SUFFIX);
 
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
-            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable);
+            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal);
 
             os.write(headerBytes);
 
@@ -137,8 +186,6 @@ class IndexFileManager {
                 os.write(payload(it.next().getValue()));
             }
         }
-
-        curFileOrdinal++;
 
         return syncAndRename(tmpFilePath, tmpFilePath.resolveSibling(fileName));
     }
@@ -161,10 +208,10 @@ class IndexFileManager {
             return null;
         }
 
-        Path indexFile = baseDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
+        Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
 
-        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex] range.
-        long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndex();
+        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex) range.
+        long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
 
         assert payloadArrayIndex >= 0 : payloadArrayIndex;
 
@@ -189,7 +236,29 @@ class IndexFileManager {
         }
     }
 
-    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable) {
+    /**
+     * Returns the lowest log index for the given group across all index files or {@code -1} if no such index exists.
+     */
+    long firstLogIndexInclusive(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.firstLogIndexInclusive();
+    }
+
+    /**
+     * Returns the highest possible log index for the given group across all index files or {@code -1} if no such index exists.
+     */
+    long lastLogIndexExclusive(long groupId) {
+        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+
+        return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndexExclusive();
+    }
+
+    boolean indexFileExists(int fileOrdinal) {
+        return Files.exists(indexFilesDir.resolve(indexFileName(fileOrdinal, 0)));
+    }
+
+    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, int fileOrdinal) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);
@@ -212,11 +281,11 @@ class IndexFileManager {
 
             SegmentInfo segmentInfo = entry.getValue();
 
-            long firstLogIndex = segmentInfo.firstLogIndex();
+            long firstLogIndexInclusive = segmentInfo.firstLogIndexInclusive();
 
-            long lastLogIndex = segmentInfo.lastLogIndex();
+            long lastLogIndexExclusive = segmentInfo.lastLogIndexExclusive();
 
-            var indexFileMeta = new IndexFileMeta(firstLogIndex, lastLogIndex, payloadOffset, curFileOrdinal);
+            var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileOrdinal);
 
             putIndexFileMeta(groupId, indexFileMeta);
 
@@ -224,8 +293,8 @@ class IndexFileManager {
                     .putLong(groupId)
                     .putInt(0) // Flags.
                     .putInt(payloadOffset)
-                    .putLong(firstLogIndex)
-                    .putLong(lastLogIndex);
+                    .putLong(firstLogIndexInclusive)
+                    .putLong(lastLogIndexExclusive);
 
             payloadOffset += payloadSize(segmentInfo);
         }
@@ -267,5 +336,78 @@ class IndexFileManager {
 
     private static String indexFileName(int fileOrdinal, int generation) {
         return String.format(INDEX_FILE_NAME_FORMAT, fileOrdinal, generation);
+    }
+
+    private void recoverIndexFileMetas(Path indexFile) throws IOException {
+        int fileOrdinal = indexFileOrdinal(indexFile);
+
+        if (curFileOrdinal >= 0 && fileOrdinal != curFileOrdinal + 1) {
+            throw new IllegalStateException(String.format(
+                    "Unexpected index file ordinal. Expected %d, actual %d (%s).",
+                    curFileOrdinal + 1, fileOrdinal, indexFile
+            ));
+        }
+
+        curFileOrdinal = fileOrdinal;
+
+        try (InputStream is = new BufferedInputStream(Files.newInputStream(indexFile, StandardOpenOption.READ))) {
+            ByteBuffer commonMetaBuffer = readBytes(is, COMMON_META_SIZE, indexFile);
+
+            int magicNumber = commonMetaBuffer.getInt();
+
+            if (magicNumber != MAGIC_NUMBER) {
+                throw new IllegalStateException(String.format("Invalid magic number in index file %s: %d.", indexFile, magicNumber));
+            }
+
+            int formatVersion = commonMetaBuffer.getInt();
+
+            if (formatVersion > FORMAT_VERSION) {
+                throw new IllegalStateException(String.format(
+                        "Unsupported format version in index file %s: %d.", indexFile, formatVersion
+                ));
+            }
+
+            int numGroups = commonMetaBuffer.getInt();
+
+            if (numGroups <= 0) {
+                throw new IllegalStateException(String.format("Unexpected number of groups in index file %s: %d.", indexFile, numGroups));
+            }
+
+            for (int i = 0; i < numGroups; i++) {
+                ByteBuffer groupMetaBuffer = readBytes(is, GROUP_META_SIZE, indexFile);
+
+                long groupId = groupMetaBuffer.getLong();
+                groupMetaBuffer.getInt(); // Skip flags.
+                int payloadOffset = groupMetaBuffer.getInt();
+                long firstLogIndexInclusive = groupMetaBuffer.getLong();
+                long lastLogIndexExclusive = groupMetaBuffer.getLong();
+
+                var indexFileMeta = new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, curFileOrdinal);
+
+                putIndexFileMeta(groupId, indexFileMeta);
+            }
+        }
+    }
+
+    private static int indexFileOrdinal(Path indexFile) {
+        String fileName = indexFile.getFileName().toString();
+
+        Matcher matcher = INDEX_FILE_NAME_PATTERN.matcher(fileName);
+
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException(String.format("Invalid index file name format: %s.", indexFile));
+        }
+
+        return Integer.parseInt(matcher.group("ordinal"));
+    }
+
+    private static ByteBuffer readBytes(InputStream is, int size, Path indexFile) throws IOException {
+        ByteBuffer result = ByteBuffer.wrap(is.readNBytes(size)).order(BYTE_ORDER);
+
+        if (result.remaining() != size) {
+            throw new IOException(String.format("Unexpected EOF when trying to read from index file: %s.", indexFile));
+        }
+
+        return result;
     }
 }

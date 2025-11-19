@@ -21,6 +21,16 @@ integrationTest {
     systemProperty "ignite2.docker.image", project.property("ignite2.docker.image")
     systemProperty "ignite3.docker.image", project(":packaging").docker_image_name
 
+    // Evaluate lazily because the project might not exist yet.
+    doFirst {
+        var cdin = project(":migration-tools-packaging-cli").findProperty("docker_image_name")
+        if (cdin) {
+            systemProperty "migrationtools.cli.docker.image", cdin
+        }
+
+        systemProperty "migrationtools.e2erunner.docker.image", project(":migration-tools-e2e-ai2-runner").docker_image_name
+    }
+
     dependsOn ":migration-tools-e2e-ai2-runner:docker"
     dependsOn ":packaging:docker"
 }

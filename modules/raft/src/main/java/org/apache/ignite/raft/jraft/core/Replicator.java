@@ -39,6 +39,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
@@ -83,6 +84,7 @@ public class Replicator implements ThreadId.OnError {
     private static final IgniteLogger LOG = Loggers.forClass(Replicator.class);
 
     private final RaftClientService rpcService;
+    private final IgniteThrottledLogger throttledLogger;
     // Next sending log index
     private volatile long nextIndex;
     private int consecutiveErrorTimes = 0;
@@ -173,6 +175,7 @@ public class Replicator implements ThreadId.OnError {
         this.rpcService = replicatorOptions.getRaftRpcService();
         this.metricName = getReplicatorMetricName(replicatorOptions);
         this.inflightsCountMetricName = name(this.metricName, "replicate-inflights-count");
+        this.throttledLogger = Loggers.toThrottledLogger(LOG, options.getCommonExecutor());
         setState(State.Created);
     }
 
@@ -198,6 +201,10 @@ public class Replicator implements ThreadId.OnError {
             gauges.put("install-snapshot-times", (Gauge<Long>) () -> this.r.installSnapshotCounter);
             gauges.put("probe-times", (Gauge<Long>) () -> this.r.probeCounter);
             gauges.put("append-entries-times", (Gauge<Long>) () -> this.r.appendEntriesCounter);
+            gauges.put("consecutive-error-times", (Gauge<Long>) () -> (long) this.r.consecutiveErrorTimes);
+            gauges.put("state", (Gauge<Long>) () -> (long) this.r.state.ordinal());
+            gauges.put("running-state", (Gauge<Long>) () -> (long) this.r.statInfo.runningState.ordinal());
+            gauges.put("locked", (Gauge<Long>) () ->  (null == this.r.id ? -1L : this.r.id.isLocked() ? 1L : 0L));
             return gauges;
         }
     }
@@ -605,8 +612,8 @@ public class Replicator implements ThreadId.OnError {
         }
         boolean doUnlock = true;
         if (!this.rpcService.connect(this.options.getPeerId())) {
-            LOG.error("Fail to check install snapshot connection to node={}, give up to send install snapshot request.",
-                this.options.getNode().getNodeId());
+            throttledLogger.warn("Fail to check install snapshot connection to node={}, give up to send install snapshot request."
+                            + " Check if node is up.", this.options.getNode().getNodeId());
             block(Utils.nowMs(), RaftError.EHOSTDOWN.getNumber());
             return;
         }
@@ -862,6 +869,8 @@ public class Replicator implements ThreadId.OnError {
 
         if (entry.getOldLearners() != null)
             emb.oldLearnersList(entry.getOldLearners().stream().map(Object::toString).collect(toList()));
+        emb.sequenceToken(entry.getSequenceToken());
+        emb.oldSequenceToken(entry.getOldSequenceToken());
     }
 
     public static ThreadId start(final ReplicatorOptions opts, final RaftOptions raftOptions) {
@@ -1068,11 +1077,9 @@ public class Replicator implements ThreadId.OnError {
             }
         }
         else if (errorCode == RaftError.ETIMEDOUT.getNumber()) {
-            id.unlock();
             Utils.runInThread(options.getCommonExecutor(), () -> sendHeartbeat(id));
         }
         else {
-            id.unlock();
             //noinspection ConstantConditions
             Requires.requireTrue(false, "Unknown error code for replicator: " + errorCode);
         }
@@ -1236,6 +1243,17 @@ public class Replicator implements ThreadId.OnError {
                 r.sendProbeRequest();
                 r.startHeartbeatTimer(startTimeMs);
                 return;
+            }
+            if (!response.success()) {
+                long term = this.options.getLogManager().getTerm(response.lastLogIndex());
+                if (term < r.options.getTerm()) {
+                    LOG.info("Heartbeat to nodeId {}, groupId {} failure with outdated term, try to send a probe request.",
+                    r.options.getNode().getNodeId(), r.options.getGroupId());
+                    doUnlock = false;
+                    r.sendProbeRequest();
+                    r.startHeartbeatTimer(startTimeMs);
+                    return;
+                 }
             }
             if (isLogDebugEnabled) {
                 LOG.debug(sb.toString());

@@ -42,8 +42,6 @@ import org.jetbrains.annotations.Nullable;
  * Base for tests of CMG and Metastorage group disaster recovery.
  */
 abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
-    final SystemDisasterRecoveryClient recoveryClient = new SystemDisasterRecoveryClient();
-
     @Override
     protected int initialNodes() {
         return 0;
@@ -123,15 +121,15 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
         waitTillNodeRestartsInternally(oldClusterNodeIndex);
     }
 
-    final void initiateMigration(int oldClusterNodeIndex, int newClusterNodeIndex) throws Exception {
+    final void initiateMigration(int oldClusterNodeIndex, int newClusterNodeIndex) {
         // Starting the node that did not see the repair.
         cluster.startEmbeddedNode(oldClusterNodeIndex);
 
         initiateMigrationToNewCluster(oldClusterNodeIndex, newClusterNodeIndex);
     }
 
-    final void initiateMigrationToNewCluster(int nodeMissingRepairIndex, int repairedNodeIndex) throws Exception {
-        recoveryClient.initiateMigration(
+    final void initiateMigrationToNewCluster(int nodeMissingRepairIndex, int repairedNodeIndex) {
+        SystemDisasterRecoveryClient.initiateMigration(
                 "localhost",
                 cluster.httpPort(nodeMissingRepairIndex),
                 "localhost",

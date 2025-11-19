@@ -19,9 +19,7 @@ package org.apache.ignite.internal.partitiondistribution;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -29,6 +27,7 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 import org.junit.jupiter.api.Test;
@@ -62,15 +61,19 @@ class AssignmentsQueueSerializerTest {
     @Test
     void v1CanBeDeserialized() {
         byte[] bytes = Base64.getDecoder().decode(ASSIGNMENTS_QUEUE_V1);
-        AssignmentsQueue restoredAssignmentsQueue = VersionedSerialization.fromBytes(bytes, serializer);
+        // In order to maintain 3.1 to 3.0 backward compatibility we drop AssignmentsQueue v1 support.
+        assertThrows(IgniteInternalException.class, () -> VersionedSerialization.fromBytes(bytes, serializer));
+    }
 
-        assertFalse(restoredAssignmentsQueue.isEmpty());
-        assertThat(restoredAssignmentsQueue.poll(), equalTo(testAssignments(true, false)));
-        assertThat(restoredAssignmentsQueue.poll(), equalTo(testAssignments(false, true)));
-        assertThat(restoredAssignmentsQueue.poll(), equalTo(testAssignments(false, false)));
+    @Test
+    void assignmentsCanBeDeserialized() {
+        AssignmentsSerializer assignmentsSerializer = new AssignmentsSerializer();
+        Assignments assignments = testAssignments(true, false);
+        byte[] assignmentsBytes = VersionedSerialization.toBytes(assignments, assignmentsSerializer);
 
-        assertTrue(restoredAssignmentsQueue.isEmpty());
-        assertThrows(AssertionError.class, restoredAssignmentsQueue::poll);
+        AssignmentsQueue restoredAssignmentsQueue = VersionedSerialization.fromBytes(assignmentsBytes, serializer);
+
+        assertThat(restoredAssignmentsQueue.poll(), equalTo(assignments));
     }
 
     private static Assignments testAssignments(boolean force, boolean fromReset) {

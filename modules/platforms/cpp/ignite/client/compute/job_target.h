@@ -32,7 +32,7 @@ class compute;
 class job_target;
 
 /**
- * Job execution target.
+ * @brief Information about what nodes may be used for job execution.
  */
 class job_target {
     friend class compute;

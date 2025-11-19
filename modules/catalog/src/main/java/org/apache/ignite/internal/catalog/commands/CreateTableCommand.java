@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.createDefaultZoneDescriptor;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.shouldCreateNewDefaultZone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneByNameOrDefaultOrThrow;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -41,19 +46,22 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that adds a new table to the catalog.
  */
 public class CreateTableCommand extends AbstractTableCommand {
-
     /** Returns builder to create a command to create a new table. */
     public static CreateTableCommandBuilder builder() {
         return new Builder();
@@ -61,7 +69,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
     private final TablePrimaryKey primaryKey;
 
-    private final List<String> colocationColumns;
+    private final @Nullable List<String> colocationColumns;
 
     private final List<ColumnParams> columns;
 
@@ -95,7 +103,7 @@ public class CreateTableCommand extends AbstractTableCommand {
             String schemaName,
             boolean ifNotExists,
             TablePrimaryKey primaryKey,
-            List<String> colocationColumns,
+            @Nullable List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
             @Nullable String storageProfile,
@@ -127,16 +135,16 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
-        CatalogZoneDescriptor zone;
-        if (zoneName == null) {
-            if (catalog.defaultZone() == null) {
-                throw new CatalogValidationException("The zone is not specified. Please specify zone explicitly or set default one.");
-            }
+        int id = catalog.objectIdGenState();
+        int tableId = id++;
+        int pkIndexId = id++;
 
-            zone = catalog.defaultZone();
-        } else {
-            zone = zone(catalog, zoneName, true);
-        }
+        // We will have at max 5 entries if there is lazy default data zone creation action is needed.
+        List<UpdateEntry> updateEntries = new ArrayList<>(5);
+
+        CatalogZoneDescriptor zone = shouldCreateNewDefaultZone(catalog, zoneName)
+                ? createDefaultZoneDescriptor(catalog, id++, updateEntries)
+                : zoneByNameOrDefaultOrThrow(catalog, zoneName);
 
         assert zone != null;
 
@@ -146,9 +154,20 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureZoneContainsTablesStorageProfile(zone, storageProfile);
 
-        int id = catalog.objectIdGenState();
-        int tableId = id++;
-        int pkIndexId = id++;
+        List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>(columns.size());
+        for (ColumnParams columnParams : columns) {
+            columnDescriptors.add(CatalogUtils.fromParams(columnParams));
+        }
+
+        CatalogTableSchemaVersions versions = new CatalogTableSchemaVersions(new TableVersion(columnDescriptors));
+        Object2IntMap<String> columnIdByName = new Object2IntOpenHashMap<>();
+        // Columns from schemaVersion is used, because apart of original columns former have ids assigned.
+        for (CatalogTableColumnDescriptor columnDescriptor : versions.latestVersionColumns()) {
+            columnIdByName.put(columnDescriptor.name(), columnDescriptor.id());
+        }
+
+        IntList pkColumns = convertNamesToIds(primaryKey.columns(), columnIdByName);
+        IntList colocationColumns = convertNamesToIds(this.colocationColumns, columnIdByName);
 
         CatalogTableDescriptor table = CatalogTableDescriptor.builder()
                 .id(tableId)
@@ -156,8 +175,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                 .primaryKeyIndexId(pkIndexId)
                 .name(tableName)
                 .zoneId(zone.id())
-                .columns(columns.stream().map(CatalogUtils::fromParams).collect(toList()))
-                .primaryKeyColumns(primaryKey.columns())
+                .schemaVersions(versions)
+                .primaryKeyColumns(pkColumns)
                 .colocationColumns(colocationColumns)
                 .storageProfile(storageProfile)
                 .minStaleRowsCount(minStaleRowsCount)
@@ -171,13 +190,27 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
-        CatalogIndexDescriptor pkIndex = createPkIndexDescriptor(indexName, pkIndexId, tableId);
+        CatalogIndexDescriptor pkIndex = createPkIndexDescriptor(indexName, pkIndexId, table);
 
-        return List.of(
-                new NewTableEntry(table),
-                new NewIndexEntry(pkIndex),
-                new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
-        );
+        updateEntries.add(new NewTableEntry(table));
+        updateEntries.add(new NewIndexEntry(pkIndex));
+        updateEntries.add(new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState()));
+
+        return updateEntries;
+    }
+
+    @Contract("null, _ -> null; !null, _ -> !null")
+    private static @Nullable IntList convertNamesToIds(@Nullable List<String> names, Object2IntMap<String> columnIdByName) {
+        if (names == null) {
+            return null;
+        }
+
+        IntList ids = new IntArrayList(names.size());
+        for (String name : names) {
+            ids.add(columnIdByName.getInt(name));
+        }
+
+        return ids;
     }
 
     private void validate() {
@@ -234,7 +267,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
     }
 
-    private CatalogIndexDescriptor createPkIndexDescriptor(String indexName, int pkIndexId, int tableId) {
+    private CatalogIndexDescriptor createPkIndexDescriptor(String indexName, int pkIndexId, CatalogTableDescriptor table) {
         CatalogIndexDescriptor pkIndex;
 
         if (primaryKey instanceof TableSortedPrimaryKey) {
@@ -243,15 +276,20 @@ public class CreateTableCommand extends AbstractTableCommand {
 
             for (int i = 0; i < sortedPrimaryKey.columns().size(); i++) {
                 String columnName = sortedPrimaryKey.columns().get(i);
+                CatalogTableColumnDescriptor column = table.column(columnName);
+
+                // Index columns already validated by this point, hence null is not expected.
+                assert column != null : columnName;
+
                 CatalogColumnCollation collation = sortedPrimaryKey.collations().get(i);
 
-                indexColumns.add(new CatalogIndexColumnDescriptor(columnName, collation));
+                indexColumns.add(new CatalogIndexColumnDescriptor(column.id(), collation));
             }
 
             pkIndex = new CatalogSortedIndexDescriptor(
                     pkIndexId,
                     indexName,
-                    tableId,
+                    table.id(),
                     true,
                     AVAILABLE,
                     indexColumns,
@@ -259,13 +297,22 @@ public class CreateTableCommand extends AbstractTableCommand {
             );
         } else if (primaryKey instanceof TableHashPrimaryKey) {
             TableHashPrimaryKey hashPrimaryKey = (TableHashPrimaryKey) primaryKey;
+            IntList columnIds = new IntArrayList(hashPrimaryKey.columns().size());
+            for (String columnName : hashPrimaryKey.columns()) {
+                CatalogTableColumnDescriptor column = table.column(columnName);
+
+                // Index columns already validated by this point, hence null is not expected.
+                assert column != null : columnName;
+
+                columnIds.add(column.id());
+            }
             pkIndex = new CatalogHashIndexDescriptor(
                     pkIndexId,
                     indexName,
-                    tableId,
+                    table.id(),
                     true,
                     AVAILABLE,
-                    hashPrimaryKey.columns(),
+                    columnIds,
                     true
             );
         } else {

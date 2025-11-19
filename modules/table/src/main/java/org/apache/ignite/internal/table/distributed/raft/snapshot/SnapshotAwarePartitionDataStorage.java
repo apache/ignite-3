@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -186,9 +188,17 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
      * @param rowId Row id.
      */
     private void handleSnapshotInterference(RowId rowId) {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+        List<OutgoingSnapshot> outgoingSnapshots = new ArrayList<>();
 
-        for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+        partitionSnapshots.acquireReadLock();
+        try {
+            outgoingSnapshots.addAll(partitionSnapshots.ongoingSnapshots());
+        } finally {
+            partitionSnapshots.releaseReadLock();
+        }
+
+        for (OutgoingSnapshot snapshot : outgoingSnapshots) {
             snapshot.acquireMvLock();
 
             try {

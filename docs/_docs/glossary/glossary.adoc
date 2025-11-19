@@ -18,7 +18,7 @@
 
 Cache:: Caches are in-memory temporary storage designed for rapid response and reducing latency when working with databases.
 
-Cluster management group:: A subset of Ignite nodes in a RAFT group. Cluster group leader is responsible for managing nodes that enter or leave a Ignite cluster.
+Cluster management group:: A subset of Ignite nodes in a RAFT group. Cluster group leader is responsible for managing nodes that enter or leave an Ignite cluster.
 
 Cluster node:: A cluster node is the base computational and data storage unit in Ignite.
 
@@ -28,7 +28,7 @@ Coordinator node:: The node that received the distributed computing job, manages
 
 == D
 
-Data colocation:: When data is colocated, it means that the  data that is relevant to each other is placed on the same node in the cluster.
+Data colocation:: When data is colocated, it means that data items that are relevant to each other are placed on the same node in the cluster.
 
 Data region:: Used to control the amount of memory available for storage. Depending on the type of storage a data region is assigned to, the data may be loaded into RAM or stored on disk.
 
@@ -38,7 +38,7 @@ Distribution zone:: Distribution zone controls how data is placed into partition
 
 == L
 
-Logical Topology:: A set of nodes connected into a Raft group is called a logical topology. These nodes follow the Raft leader and form a Ignite cluster.
+Logical Topology:: A set of nodes connected into a Raft group is called a logical topology. These nodes follow the Raft leader and form an Ignite cluster.
 
 == M
 
@@ -55,7 +55,7 @@ Primary Storage:: Primary storage is the database to which data is written and f
 
 == R
 
-RAFT:: Raft is a consensus algorithm that is used by Ignite to manage Ignite cluster. It provides high degree of stability and data consistency by using elections to guarantee that there is always only one cluster leader that had an authoritative log of all transactions performed on the cluster.
+RAFT:: Raft is a consensus algorithm that is used by Ignite to manage Ignite cluster. It provides a high degree of stability and data consistency by using elections to guarantee that there is always only one cluster leader that had an authoritative log of all transactions performed on the cluster.
 
 RAFT Log:: Raft log is an append only collection of all operations performed on the cluster. Leader log is the sole authority in the cluster, and overwrites any contradicting logs on follower nodes.
 
@@ -67,12 +67,12 @@ Rolling upgrade:: An update of the Ignite version without cluster-wide downtime.
 
 == S
 
-Snapshot:: A backup of data in a Ignite cluster. A snapshots taken on one cluster can be applied to another cluster.
-
-== V
-
-Volatile storage:: Memory storage that is only preserved while the cluster is active. Loss of power or unexpected cluster shutdown will lead to loss of data.
+Snapshot:: A backup of data in an Ignite cluster. A snapshot taken on one cluster can be applied to another cluster.
 
 == U
 
 Update buffer:: Buffer that stores transactions to the primary storage before committing them to a replica storage. This reduces the number of transactions added to the latter.
+
+== V
+
+Volatile storage:: Memory storage that is only preserved while the cluster is active. Loss of power or unexpected cluster shutdown will lead to loss of data.

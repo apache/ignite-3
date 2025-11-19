@@ -231,7 +231,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
         @Override
         public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-            execute(learnerManager::resetLearners);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-26854
+            execute((raftService, term) -> learnerManager.resetLearners(raftService, term, 0));
         }
     }
 

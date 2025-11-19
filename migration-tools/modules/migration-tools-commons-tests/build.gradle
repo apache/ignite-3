@@ -23,6 +23,7 @@ description = 'migration-tools-commons-tests'
 
 configurations {
     unpackDependencies { transitive = false}
+    fullSampleClusterDependencies
 }
 
 dependencies {
@@ -37,6 +38,8 @@ dependencies {
     implementation files(layout.buildDirectory.dir("generated/unpackClassesFromDependencies"))
 
     unpackDependencies libs.ignite2.core
+
+    fullSampleClusterDependencies project(':migration-tools-e2e-implementations-custom-classes')
 }
 
 def unpackTask = tasks.register('unpackClassesFromDependencies', Copy) {
@@ -53,8 +56,28 @@ def unpackTask = tasks.register('unpackClassesFromDependencies', Copy) {
             "org/apache/ignite/cache/query/annotations/QuerySqlField\$Group.class"
 }
 
+def createFullSampleClusterResources = tasks.register('createFullSampleClusterResources') {
+    description = 'Generates the "fullsamplecluster" resource file.'
+
+    def outputFile = file("$buildDir/resources/main/fullsamplecluster")
+    outputs.file(outputFile)
+
+    doLast {
+        def depList = configurations.fullSampleClusterDependencies.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+            artifact.file.path
+        }
+
+        outputFile.parentFile.mkdirs()
+        outputFile.text = depList.join('\n')
+    }
+}
+
 compileJava {
     dependsOn unpackTask
+}
+
+processResources {
+    dependsOn createFullSampleClusterResources
 }
 
 /*sourceSets {

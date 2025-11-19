@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,12 +49,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.PartitionResetClosure;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -116,7 +117,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private final AtomicBoolean partitionResetTriggered = new AtomicBoolean();
 
-    private final BiConsumer<Long, Integer> partitionResetClosure = (revision, zoneId) -> partitionResetTriggered.set(true);
+    private final PartitionResetClosure partitionResetClosure = (revision, zoneId) -> partitionResetTriggered.set(true);
 
     @BeforeEach
     public void setUp() {
@@ -138,15 +139,19 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
 
+        UUID nodeId = UUID.randomUUID();
+
         dataNodesManager = new DataNodesManager(
                 NODE_NAME,
+                () -> nodeId,
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 catalogManager,
                 clockService,
                 new NoOpFailureManager(),
                 partitionResetClosure,
-                () -> 1
+                () -> 1,
+                Collections::emptySet
         );
 
         currentTopology = new HashSet<>(Set.of(A, B));
@@ -196,7 +201,9 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void addNodeAndChangeScaleUpTimerToImmediate() throws Exception {
-        String zoneName = "Default";
+        String zoneName = "TestZone";
+
+        createZone(zoneName, STRONG_CONSISTENCY);
 
         // Setup the scale up timer to 50 seconds.
         alterZone(zoneName, 50, null, null);

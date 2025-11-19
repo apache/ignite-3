@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -120,6 +121,9 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
@@ -201,7 +205,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
             partitionsWorkDir = new ComponentWorkingDir(nodeDir);
 
-            raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, hybridClock);
+            raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, systemLocalConfiguration, hybridClock);
 
             assertThat(raftMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(raftMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully()));

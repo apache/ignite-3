@@ -202,6 +202,9 @@ public class ErrorGroups {
          **/
         public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** This error code indicates that a node is attempting to start over an unsupported table based replication mode. */
+        public static final int UNSUPPORTED_TABLE_BASED_REPLICATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 10);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
          * should be considered as a non-recoverable error
@@ -276,6 +279,9 @@ public class ErrorGroups {
 
         /** Server to client request failed. */
         public static final int SERVER_TO_CLIENT_REQUEST_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
+
+        /** Resource not found. */
+        public static final int RESOURCE_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
     }
 
     /** SQL error group. */
@@ -555,6 +561,9 @@ public class ErrorGroups {
 
         /** Config parse error. */
         public static final int CONFIG_PARSE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Join denied error. */
+        public static final int JOIN_DENIED_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Code deployment error group. */
@@ -727,8 +736,11 @@ public class ErrorGroups {
         /** Error while returning partition states. */
         public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Error while restarting the cluster with clean up. */
-        public static final int RESTART_WITH_CLEAN_UP_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+        /** Error when not enough alive nodes to perform restart with clean up. */
+        public static final int NOT_ENOUGH_ALIVE_NODES_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Error when node names are not in valid set. */
+        public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Embedded API error group. */

@@ -646,16 +646,19 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         return nullCompletedFuture();
                     }
 
+                    PeersAndLearners peersAndLearners = peersConfigurationFromMessage(request);
+
                     // run update of raft configuration if this node is a leader
                     LOG.debug("Current node={} is the leader of partition raft group={}. "
-                                    + "Initiate rebalance process for partition={}, table={}",
+                                    + "Initiate rebalance process for partition={}, table={}, peersAndLearners={}",
                             leaderWithTerm.leader(),
                             replicaGrpId,
                             replicaGrpId.partitionId(),
-                            replicaGrpId.tableId()
+                            replicaGrpId.tableId(),
+                            peersAndLearners
                     );
 
-                    return raftClient.changePeersAndLearnersAsync(peersConfigurationFromMessage(request), leaderWithTerm.term());
+                    return raftClient.changePeersAndLearnersAsync(peersAndLearners, leaderWithTerm.term(), request.sequenceToken());
                 });
     }
 

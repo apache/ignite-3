@@ -25,8 +25,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import java.net.URL;
-import java.util.stream.Stream;
-import org.apache.ignite.internal.IgniteVersions.Version;
+import java.util.Set;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -34,8 +33,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Compares OpenAPI specs from previous versions with the current one.
  */
 class OpenApiCompatibilityTest {
-    private static Stream<String> versions() {
-        return IgniteVersions.INSTANCE.versions().stream().map(Version::version);
+    private static Set<String> versions() {
+        return IgniteVersions.INSTANCE.versions().keySet();
     }
 
     @ParameterizedTest

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.storage.CommitResultMatcher.equalsToCom
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -1517,6 +1518,83 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertEquals(rowId2, storage.closestRowId(rowId2));
 
         assertNull(storage.closestRowId(rowId2.increment()));
+    }
+
+    @Test
+    void testHighestRowId() {
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        assertThat(storage.highestRowId(), is(nullValue()));
+
+        addWrite(rowId1, binaryRow, txId);
+
+        assertThat(storage.highestRowId(), is(rowId1));
+
+        addWrite(rowId2, binaryRow2, txId);
+
+        assertThat(storage.highestRowId(), is(rowId2));
+    }
+
+    @Test
+    void testRowsStartingWith() {
+        RowId highestRowId = RowId.highestRowId(PARTITION_ID);
+
+        RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_TABLE_ID, PARTITION_ID);
+
+        addWrite(rowId1, binaryRow, txId);
+        addWrite(rowId2, binaryRow2, txId);
+
+        // Limiting with 0 provides no rows.
+        assertThat(storage.rowsStartingWith(rowId0, highestRowId, 0), is(empty()));
+
+        // Starting with rowId0 (which does not exist in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, highestRowId, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId0, highestRowId, Integer.MAX_VALUE));
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0.increment(), highestRowId, 1));
+        assertRowMetasEqual(
+                List.of(expectedRowMeta1, expectedRowMeta2),
+                storage.rowsStartingWith(rowId0.increment(), highestRowId, Integer.MAX_VALUE)
+        );
+
+        // Starting with rowId1 (which exists in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, highestRowId, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId1, highestRowId, Integer.MAX_VALUE));
+
+        // Starting with rowId2 (which exists in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta2), storage.rowsStartingWith(rowId2, highestRowId, Integer.MAX_VALUE));
+
+        // Starting with a row ID that is greater than the greatest row ID in the storage.
+        assertThat(storage.rowsStartingWith(rowId2.increment(), highestRowId, Integer.MAX_VALUE), is(empty()));
+
+        // Upper bound limits the search
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, rowId1, Integer.MAX_VALUE));
+
+        // Upper bound is inclusive.
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, rowId1, Integer.MAX_VALUE));
+    }
+
+    private static void assertRowMetasEqual(List<RowMeta> expected, List<RowMeta> actual) {
+        assertThat(actual, is(expected));
+    }
+
+    @Test
+    void testClosestRowReconstruction() {
+        RowId rowId = new RowId(PARTITION_ID, 0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
+
+        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_TABLE_ID, PARTITION_ID);
+
+        addWrite(rowId, binaryRow, txId);
+
+        assertRowMetasEqual(
+                List.of(expectedRowMeta),
+                storage.rowsStartingWith(RowId.lowestRowId(PARTITION_ID), RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE)
+        );
     }
 
     @Test

@@ -38,7 +38,7 @@ class compute_impl;
 }
 
 /**
- * Ignite Compute facade.
+ * @brief Ignite Compute API facade.
  */
 class compute {
     friend class ignite_client;

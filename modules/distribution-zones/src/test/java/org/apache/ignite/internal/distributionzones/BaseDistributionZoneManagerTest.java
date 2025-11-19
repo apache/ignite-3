@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -100,6 +101,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     @BeforeEach
     void setUp() throws Exception {
         String nodeName = "test";
+        UUID nodeId = UUID.randomUUID();
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -130,6 +132,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
+                () -> nodeId,
                 revisionUpdater,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
@@ -140,7 +143,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
+        assertThat(
+                startAsync(new ComponentContext(), components),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
@@ -167,7 +173,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     protected void startDistributionZoneManager() {
         assertThat(
                 distributionZoneManager.startAsync(new ComponentContext())
-                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                        .thenCompose(unused -> metaStorageManager.deployWatches())
+                        .thenCompose(unused -> catalogManager.catalogInitializationFuture()),
                 willCompleteSuccessfully()
         );
     }
@@ -227,6 +234,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected int getZoneId(String zoneName) {
         return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
+    }
+
+    protected void setDefaultZone(String zoneName) {
+        DistributionZonesTestUtil.setDefaultZone(catalogManager, zoneName);
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {

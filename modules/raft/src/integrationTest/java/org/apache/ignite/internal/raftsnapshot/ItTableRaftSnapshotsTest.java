@@ -179,8 +179,14 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
     @AfterEach
     void stopLogInspectors() {
-        replicatorLogInspector.stop();
-        copierLogInspector.stop();
+        stopLogInspector(replicatorLogInspector);
+        stopLogInspector(copierLogInspector);
+    }
+
+    private static void stopLogInspector(@Nullable LogInspector logInspector) {
+        if (logInspector != null) {
+            logInspector.stop();
+        }
     }
 
     /**

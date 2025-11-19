@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -69,6 +70,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
@@ -102,6 +106,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 txConfiguration,
+                systemLocalConfiguration,
                 systemDistributedConfiguration,
                 workDir,
                 NODES,

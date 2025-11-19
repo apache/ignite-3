@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -148,6 +149,20 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
         assertThreadAllowsToRead();
 
         return partitionStorage.closestRowId(lowerBound);
+    }
+
+    @Override
+    public @Nullable RowId highestRowId() throws StorageException {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.highestRowId();
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.rowsStartingWith(lowerBoundInclusive, upperBoundInclusive, limit);
     }
 
     @Override

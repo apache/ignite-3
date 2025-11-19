@@ -494,7 +494,7 @@ public class MapReduceAggregates {
         IntList argList = IntList.of(reduceArgumentOffset);
 
         AggregateCall reduceCall = AggregateCall.create(
-                SqlStdOperatorTable.SINGLE_VALUE,
+                IgniteSqlOperatorTable.SAME_VALUE,
                 call.isDistinct(),
                 call.isApproximate(),
                 call.ignoreNulls(),
@@ -658,19 +658,24 @@ public class MapReduceAggregates {
 
             numeratorRef = rexBuilder.ensureType(mapSum0.type, numeratorRef, true);
 
-            RelDataType resultType = typeFactory.decimalOf(call.type);
+            RelDataType resultType = typeSystem.deriveAvgAggType(typeFactory, call.getType());
 
-            // Return correct decimal type with correct scale and precision.
-            int precision = resultType.getPrecision(); // not used.
-            int scale = resultType.getScale();
+            RexNode sumDivCnt;
+            if (SqlTypeUtil.isExactNumeric(resultType)) {
+                // Return correct decimal type with correct scale and precision.
+                int precision = resultType.getPrecision(); // not used.
+                int scale = resultType.getScale();
 
-            RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
-            RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
+                RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
+                RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
 
-            RexNode sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
+                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
 
-            if (call.getType().getSqlTypeName() != SqlTypeName.DECIMAL) {
-                sumDivCnt = rexBuilder.makeCast(call.getType(), sumDivCnt, false, false);
+                if (call.getType().getSqlTypeName() != SqlTypeName.DECIMAL) {
+                    sumDivCnt = rexBuilder.makeCast(call.getType(), sumDivCnt, false, false);
+                }
+            } else {
+                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DIVIDE, numeratorRef, denominatorRef);
             }
 
             if (canBeNull) {

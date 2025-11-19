@@ -73,6 +73,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -417,8 +418,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .primaryKeyIndexId(2)
                 .name(TABLE_NAME)
                 .zoneId(1)
-                .columns(columns)
-                .primaryKeyColumns(List.of("intKey", "strKey"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0, 1))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
     }
@@ -435,6 +436,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** Primary index. */
     private Lazy<TableSchemaAwareIndexStorage> pkStorageSupplier;
+
+    private CatalogIndexDescriptor pkIndexDescriptor;
 
     /** If true the local replica is considered leader, false otherwise. */
     private boolean localLeader;
@@ -559,10 +562,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
         );
 
-        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
-        when(indexDescriptor.id()).thenReturn(pkIndexId);
+        pkIndexDescriptor = mock(CatalogIndexDescriptor.class);
+        when(pkIndexDescriptor.id()).thenReturn(pkIndexId);
 
-        when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
+        when(catalog.indexes(anyInt())).thenReturn(List.of(pkIndexDescriptor));
 
         configureTxManager(txManager);
 
@@ -1504,6 +1507,52 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         WriteIntentSwitchCommand command = (WriteIntentSwitchCommand) commandCaptor.getValue();
 
         assertThat(command.requiredCatalogVersion(), is(earliestVersion));
+
+        zonePartitionReplicaListener.removeTableReplicaProcessor(TABLE_ID);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    void writeIntentSwitchForDroppedTableWorks(boolean commit) {
+        Catalog catalogWithoutTable = mock(Catalog.class);
+        when(catalogWithoutTable.indexes(anyInt())).thenReturn(List.of(pkIndexDescriptor));
+
+        UUID txId = newTxId();
+        HybridTimestamp beginTs = beginTimestamp(txId);
+        HybridTimestamp commitTs = clock.now();
+
+        // We have to force push clock forward because we will invoke listener directly bypassing ReplicaManager or MessageService, so clock
+        // won't be updated if the test computes too fast for physical clock ticking and then we may have equal clock#current and the
+        // given above commit timestamp.
+        clock.update(commitTs);
+
+        HybridTimestamp reliableCatalogVersionTs = commit ? commitTs : beginTs;
+        when(catalogService.activeCatalog(anyLong())).then(invocation -> {
+            long ts = invocation.getArgument(0);
+            if (ts >= reliableCatalogVersionTs.longValue()) {
+                return catalogWithoutTable;
+            } else {
+                return catalog;
+            }
+        });
+        when(catalogWithoutTable.table(grpId.tableId())).thenReturn(null);
+
+        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, mocked -> tableReplicaProcessor);
+
+        CompletableFuture<ReplicaResult> invokeFuture = zonePartitionReplicaListener.invoke(
+                TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
+                        .groupId(tablePartitionIdMessage(grpId))
+                        .tableIds(Set.of(grpId.tableId()))
+                        .txId(txId)
+                        .commit(commit)
+                        .commitTimestamp(commit ? commitTs : null)
+                        .build(),
+                localNode.id()
+        );
+
+        assertThat(invokeFuture, willCompleteSuccessfully());
+        assertThat(invokeFuture.join().applyResult().replicationFuture(), willCompleteSuccessfully());
 
         zonePartitionReplicaListener.removeTableReplicaProcessor(TABLE_ID);
     }

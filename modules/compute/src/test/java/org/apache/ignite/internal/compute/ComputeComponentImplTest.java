@@ -147,7 +147,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Mock
     private JobContextManager jobContextManager;
 
-    private ComputeComponent computeComponent;
+    private ComputeComponentImpl computeComponent;
 
     private final InternalClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
     private final InternalClusterNode remoteNode = new ClusterNodeImpl(
@@ -189,6 +189,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         );
 
         assertThat(computeComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        computeComponent.enable();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
     }
 

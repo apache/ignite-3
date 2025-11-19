@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.duplicateDistributionZoneNameCatalogValidationException;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 
 import java.util.List;
@@ -72,7 +73,7 @@ public class RenameZoneCommand extends AbstractZoneCommand {
         }
 
         if (catalog.zone(newZoneName) != null) {
-            throw new CatalogValidationException("Distribution zone with name '{}' already exists.", newZoneName);
+            throw duplicateDistributionZoneNameCatalogValidationException(newZoneName);
         }
 
         CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(

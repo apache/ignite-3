@@ -30,7 +30,6 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.BitSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Spliterator;
@@ -52,7 +51,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
@@ -69,7 +67,6 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
@@ -86,6 +83,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -104,7 +102,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -354,15 +351,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public Publisher<BinaryRow> scan(
                 int partId,
-                UUID txId,
-                HybridTimestamp readTime,
                 InternalClusterNode recipient,
-                @Nullable Integer indexId,
-                @Nullable BinaryTuplePrefix lowerBound,
-                @Nullable BinaryTuplePrefix upperBound,
-                int flags,
-                @Nullable BitSet columnsToInclude,
-                UUID txCoordinatorId
+                OperationContext opCtx
         ) {
             return s -> {
                 s.onSubscribe(new Subscription() {

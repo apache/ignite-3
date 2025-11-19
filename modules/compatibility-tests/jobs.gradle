@@ -30,7 +30,7 @@ def registerJarTask(SourceSet sourceSet, String baseName) {
 
 registerJarTask(sourceSets.jobs, 'ignite-integration-test-jobs')
 
-processIntegrationTestResources {
+processTestFixturesResources {
     into('units') {
         from jobsJar
     }
@@ -39,6 +39,18 @@ processIntegrationTestResources {
 dependencies {
     jobsImplementation project(':ignite-api')
     jobsImplementation project(':ignite-core')
+    jobsImplementation project(':ignite-runner')
+    jobsImplementation project(':ignite-metastorage-api')
+    jobsImplementation project(':ignite-metastorage')
+    jobsImplementation project(':ignite-page-memory')
+    jobsImplementation project(':ignite-storage-api')
+    jobsImplementation project(':ignite-storage-page-memory')
+    jobsImplementation project(':ignite-raft')
+    jobsImplementation project(':ignite-raft-api')
 
-    integrationTestImplementation sourceSets.jobs.output
+    testFixturesApi sourceSets.jobs.output
+}
+
+spotbugsJobs {
+    enabled = false
 }

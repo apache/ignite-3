@@ -62,6 +62,8 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         RaftGroupConfiguration config = new RaftGroupConfiguration(
                 13L,
                 37L,
+                111L,
+                110L,
                 List.of("peer1:3000", "peer2:3000"), List.of("learner1:3000", "learner2:3000"),
                 List.of("peer1:3000"), List.of("learner1:3000")
         );
@@ -100,7 +102,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         PartitionSnapshotMeta meta = snapshotMetaAt(
                 100,
                 3,
-                new RaftGroupConfiguration(13, 37, List.of(), List.of(), null, null),
+                new RaftGroupConfiguration(13, 37, 111L, 110L, List.of(), List.of(), null, null),
                 42,
                 Map.of(),
                 null

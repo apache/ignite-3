@@ -83,12 +83,18 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public long getFirstLogIndex() {
-        throw new UnsupportedOperationException();
+        long firstLogIndex = segmentFileManager.firstLogIndexInclusive(groupId);
+
+        // JRaft requires to return 1 as the first log index if there are no entries.
+        return firstLogIndex >= 0 ? firstLogIndex : 1;
     }
 
     @Override
     public long getLastLogIndex() {
-        throw new UnsupportedOperationException();
+        long lastLogIndex = segmentFileManager.lastLogIndexExclusive(groupId);
+
+        // JRaft requires to return 0 as the last log index if there are no entries.
+        return Math.max(lastLogIndex - 1, 0);
     }
 
     @Override
@@ -114,7 +120,13 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public boolean truncateSuffix(long lastIndexKept) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.truncateSuffix(groupId, lastIndexKept);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        return true;
     }
 
     @Override

@@ -33,7 +33,7 @@ This guide will walk you through the basics of setting up and using Ignite 3's R
 
 Ignite persistence is designed to provide quick and responsive persistent storage. When using persistent storage:
 
-- Ignite stores all data in it on disk;
+- Ignite stores all its data on disk;
 - It loads as much data as possible into RAM for processing;
 - Data is split into multiple partitions, with each partition stored in a separate file on disk;
 - In addition to data partitions, Ignite stores indexes and metadata on disk.
@@ -84,7 +84,7 @@ Create a `docker-compose.yml` file in your working directory:
 name: ignite3
 
 x-ignite-def: &ignite-def
-  image: apacheignite/ignite:3.0.0
+  image: apacheignite/ignite:3.1.0
   environment:
     JVM_MAX_MEM: "4g"
     JVM_MIN_MEM: "4g"
@@ -141,9 +141,9 @@ configs:
 
 The `node_config` configuration in the Docker Compose file:
 
-- Adds a storage profile named `rocksDbProfile` that uses the RocksDB engine;
-- Sets the storage size to 256MB (268435456 bytes) by default;
-- Stores persistent data in the `data` directory where docker was run.
+- Adds a storage profile named `rocksDbProfile` that uses the RocksDB engine.
+- Sets the storage size to 256MB (268435456 bytes) by default.
+- Stores persistent data in the `data` directory where Docker was run.
 
 === Starting the Cluster
 
@@ -167,9 +167,9 @@ You should see output similar to:
 
 ----
 NAME              IMAGE                       COMMAND                  SERVICE   CREATED          STATUS          PORTS
-ignite3-node1-1   apacheignite/ignite:3.0.0   "docker-entrypoint.s…"   node1     37 seconds ago   Up 33 seconds   0.0.0.0:10300->10300/tcp, 3344/tcp, 0.0.0.0:10800->10800/tcp
-ignite3-node2-1   apacheignite/ignite:3.0.0   "docker-entrypoint.s…"   node2     37 seconds ago   Up 33 seconds   3344/tcp, 0.0.0.0:10301->10300/tcp, 0.0.0.0:10801->10800/tcp
-ignite3-node3-1   apacheignite/ignite:3.0.0   "docker-entrypoint.s…"   node3     37 seconds ago   Up 33 seconds   3344/tcp, 0.0.0.0:10302->10300/tcp, 0.0.0.0:10802->10800/tcp
+ignite3-node1-1   apacheignite/ignite:3.1.0   "docker-entrypoint.s…"   node1     37 seconds ago   Up 33 seconds   0.0.0.0:10300->10300/tcp, 3344/tcp, 0.0.0.0:10800->10800/tcp
+ignite3-node2-1   apacheignite/ignite:3.1.0   "docker-entrypoint.s…"   node2     37 seconds ago   Up 33 seconds   3344/tcp, 0.0.0.0:10301->10300/tcp, 0.0.0.0:10801->10800/tcp
+ignite3-node3-1   apacheignite/ignite:3.1.0   "docker-entrypoint.s…"   node3     37 seconds ago   Up 33 seconds   3344/tcp, 0.0.0.0:10302->10300/tcp, 0.0.0.0:10802->10800/tcp
 ----
 
 Verify the Docker network:
@@ -187,7 +187,7 @@ Connect to the Ignite CLI:
 
 [source, bash]
 ----
-docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.0.0 cli
+docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.1.0 cli
 ----
 
 When the CLI tool offers to connect to default node, confirm the connection. If you ever get disconnected, you can connect again by typing the following command:
@@ -203,7 +203,7 @@ Before using the cluster, initialize it:
 
 [source, shell]
 ----
-cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+cluster init --name=ignite3
 ----
 
 You should see the message "Cluster was initialized successfully".
@@ -330,8 +330,8 @@ INSERT INTO Genre (GenreId, Name) VALUES
 INSERT INTO Track (TrackId, Name, AlbumId, MediaTypeId, GenreId, Composer, Milliseconds, Bytes, UnitPrice) VALUES
 (1, 'For Those About To Rock (We Salute You)', 1, 1, 1, 'Angus Young, Malcolm Young, Brian Johnson', 343719, 11170334, 0.99),
 (2, 'Balls to the Wall', 2, 2, 1, 'U. Dirkschneider, W. Hoffmann, H. Frank, P. Baltes, S. Kaufmann, G. Hoffmann', 342562, 5510424, 0.99),
-(3, 'Fast As a Shark', 3, 2, 1, 'F. Baltes, S. Kaufman, U. Dirkscneider & W. Hoffman', 230619, 3990994, 0.99),
-(4, 'Restless and Wild', 3, 2, 1, 'F. Baltes, R.A. Smith-Diesel, S. Kaufman, U. Dirkscneider & W. Hoffman', 252051, 4331779, 0.99),
+(3, 'Fast As a Shark', 3, 2, 1, 'F. Baltes, S. Kaufman, U. Dirkschneider & W. Hoffman', 230619, 3990994, 0.99),
+(4, 'Restless and Wild', 3, 2, 1, 'F. Baltes, R.A. Smith-Diesel, S. Kaufman, U. Dirkschneider & W. Hoffman', 252051, 4331779, 0.99),
 (5, 'Princess of the Dawn', 3, 2, 1, 'Deaffy & R.A. Smith-Diesel', 375418, 6290521, 0.99);
 ----
 
@@ -390,7 +390,7 @@ Reconnect to the CLI:
 
 [source, bash]
 ----
-docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.0.0 cli
+docker run --rm -it --network=host -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 apacheignite/ignite:3.1.0 cli
 ----
 
 The cluster is already initialized, so you can go directly to the SQL CLI:

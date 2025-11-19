@@ -30,7 +30,9 @@ namespace ignite
 {
 
 /**
- * A cancellation token implementation.
+ * @brief Implementation for cancellation token.
+ *
+ * Implementation of @ref ignite::cancellation_token.
  */
 class cancellation_token_impl : public cancellation_token, public std::enable_shared_from_this<cancellation_token_impl>
 {

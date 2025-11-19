@@ -123,6 +123,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_LEFT:
         case error::code::INTERNAL:
         case error::code::NULLABLE_VALUE:
+        case error::code::UNSUPPORTED_TABLE_BASED_REPLICATION:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Table group. Group code: 2
@@ -151,6 +152,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLIENT_SSL_CONFIGURATION:
         case error::code::HANDSHAKE_HEADER:
             return sql_state::S08004_CONNECTION_REJECTED;
+        case error::code::RESOURCE_NOT_FOUND:
+            return sql_state::SHY000_GENERAL_ERROR;
 
         // Sql group. Group code: 4
         case error::code::SCHEMA_NOT_FOUND:
@@ -245,6 +248,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CONFIG_FILE_CREATE:
         case error::code::CONFIG_WRITE:
         case error::code::CONFIG_PARSE:
+        case error::code::JOIN_DENIED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // CodeDeployment group. Group code: 13
@@ -305,7 +309,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
         case error::code::CLUSTER_NOT_IDLE:
-        case error::code::RESTART_WITH_CLEAN_UP:
+        case error::code::NOT_ENOUGH_ALIVE_NODES:
+        case error::code::ILLEGAL_NODES_SET:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21

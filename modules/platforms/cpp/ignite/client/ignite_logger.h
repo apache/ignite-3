@@ -22,7 +22,7 @@
 namespace ignite {
 
 /**
- * Ignite logger interface.
+ * @brief Ignite logger interface.
  *
  * User can implement this class to use preferred logger with Ignite client.
  */

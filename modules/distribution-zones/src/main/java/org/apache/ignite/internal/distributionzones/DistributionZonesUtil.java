@@ -73,6 +73,10 @@ public class DistributionZonesUtil {
     /** Key prefix for zone's data nodes history. */
     public static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
 
+    /** Key prefix for zone's data nodes. Deprecated, preserved for backward compatibility. */
+    @Deprecated
+    public static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
+
     /** Key prefix for zone's data nodes history, in {@code byte[]} representation. */
     public static final byte[] DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES =
             DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(StandardCharsets.UTF_8);
@@ -90,10 +94,6 @@ public class DistributionZonesUtil {
     /** Key prefix for zone's scale down timer, in {@code byte[]} representation. */
     static final byte[] DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES =
             DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
-
-    /** Key prefix for zone's partition reset timer. */
-    private static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
-            + "partitionResetTimer.";
 
     /** Key prefix for zones' logical topology nodes and logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
@@ -119,7 +119,11 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES}. */
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES}.
+     * Deprecated, preserved for backward compatibility.
+     */
+    @Deprecated
     private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_RECOVERABLE_STATE_REVISION}. */
@@ -165,6 +169,18 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zoneDataNodesHistoryPrefix() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
+     * Preserved for backward compatibility.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    @Deprecated
+    public static ByteArray zoneDataNodesKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX + zoneId);
     }
 
     /**
@@ -216,16 +232,6 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX}.
-     *
-     * @param zoneId Zone id.
-     * @return ByteArray representation.
-     */
-    public static ByteArray zonePartitionResetTimerKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX + zoneId);
-    }
-
-    /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX}.
      *
      * @return ByteArray representation.
@@ -261,8 +267,9 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key that represents nodes' attributes in Meta Storage.
+     * The key that represents nodes' attributes in Meta Storage. Deprecated, preserved for backward compatibility.
      */
+    @Deprecated
     public static ByteArray zonesNodesAttributes() {
         return DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY;
     }

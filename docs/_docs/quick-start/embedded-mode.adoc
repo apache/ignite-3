@@ -27,7 +27,7 @@ include::includes/prereqs.adoc[]
 == Add Ignite to Your Project
 
 
-First, you need to add Ignite to your project. The easiest way to do this is add Ignite to your project is by using Maven:
+First, you need to add Ignite to your project. The easiest way to do this is by using Maven:
 
 [source, xml, subs="attributes,specialchars"]
 ----
@@ -48,20 +48,20 @@ First, you need to add Ignite to your project. The easiest way to do this is add
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-api</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-runner</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 </dependencies>
 ----
 
 == Prepare Ignite Configuration
 
-To start a Ignite node, you will need a Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.0.0/etc/ignite-config.conf` file.
+To start an Ignite node, you will need an Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.1.0/etc/ignite-config.conf` file.
 
 == Pass JVM Parameters
 
@@ -85,18 +85,18 @@ The following JVM parameters need to be passed to your application to make propr
 
 == Start Ignite Server Nodes
 
-To start a Ignite node, use the following code snippet:
+To start an Ignite node, use the following code snippet:
 
 [source, java]
 ----
 IgniteServer node = IgniteServer.start("node", configFilePath, workDir);
 ----
 
-This code snippet starts a Ignite node with the name `node1`, that uses the configuration from the file specified in the `configFilePath` path parameter and uses the folder specified in the `workDir` path parameter to store data. When the node is started, this method returns an instance of `IgniteServer` class that can be used to work with the node.
+This code snippet starts an Ignite node with the name `node1`, that uses the configuration from the file specified in the `configFilePath` path parameter and uses the folder specified in the `workDir` path parameter to store data. When the node is started, this method returns an instance of `IgniteServer` class that can be used to work with the node.
 
 == Initiate a Cluster
 
-Started nodes find each other by default, but they do not form an intractable cluster unless the cluster is initiated. You need to initiate the cluster to activate the node. If there are multiple nodes, once the cluster is activated, they will form a topology and automatically distribute workload between each other.
+Started nodes find each other by default, but they do not form an operational cluster unless the cluster is initiated. You need to initiate the cluster to activate the node. If there are multiple nodes, once the cluster is activated, they will form a topology and automatically distribute workload between each other.
 
 Use the code snippet below to initiate a cluster:
 
@@ -105,13 +105,10 @@ Use the code snippet below to initiate a cluster:
 InitParameters initParameters = InitParameters.builder()
     .metaStorageNodeNames("node")
     .clusterName("cluster")
-    .clusterConfiguration({config-with-license})
     .build();
 
 node.initCluster(initParameters);
 ----
-
-NOTE: To start a Ignite 3 cluster, you need to provide a license together with the cluster configuration in the `clusterConfiguration` parameter.
 
 == Get an Ignite Instance
 

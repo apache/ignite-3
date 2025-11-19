@@ -28,12 +28,14 @@ public interface RaftGroupEventsListener {
      * @param configurationTerm Term on which the current configuration was applied.
      * @param configurationIndex Index on which the current configuration was applied.
      * @param configuration Raft configuration on the moment of leader election.
+     * @param sequenceToken Sequence token of this change.
      */
     void onLeaderElected(
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     );
 
     /**
@@ -42,8 +44,9 @@ public interface RaftGroupEventsListener {
      * @param configuration New Raft group configuration.
      * @param term Term on which the new configuration was applied.
      * @param index Index on which the new configuration was applied.
+     * @param sequenceToken Sequence token of this change.
      */
-    default void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index) {}
+    default void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index, long sequenceToken) {}
 
     /**
      * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.
@@ -51,11 +54,12 @@ public interface RaftGroupEventsListener {
      * @param status Description of failure.
      * @param configuration Configuration that failed to be applied.
      * @param term Raft term of the current leader.
+     * @param sequenceToken Sequence token of the current change.
      */
-    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {}
+    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term, long sequenceToken) {}
 
     /**
      * No-op raft group events listener.
      */
-    RaftGroupEventsListener noopLsnr = (term, configurationTerm, configurationIndex, configuration) -> {};
+    RaftGroupEventsListener noopLsnr = (term, configurationTerm, configurationIndex, configuration, sequenceToken) -> {};
 }

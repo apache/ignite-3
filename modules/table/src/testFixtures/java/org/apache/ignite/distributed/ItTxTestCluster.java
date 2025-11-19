@@ -79,6 +79,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -216,7 +217,9 @@ public class ItTxTestCluster {
 
     private final TransactionConfiguration txConfiguration;
 
-    private final SystemDistributedConfiguration systemCfg;
+    private final SystemLocalConfiguration systemLocalConfig;
+
+    private final SystemDistributedConfiguration systemDistributedConfig;
 
     private final Path workDir;
 
@@ -344,7 +347,8 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             TransactionConfiguration txConfiguration,
-            SystemDistributedConfiguration systemCfg,
+            SystemLocalConfiguration systemLocalConfig,
+            SystemDistributedConfiguration systemDistributedConfig,
             Path workDir,
             int nodes,
             int replicas,
@@ -354,7 +358,8 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
-        this.systemCfg = systemCfg;
+        this.systemLocalConfig = systemLocalConfig;
+        this.systemDistributedConfig = systemDistributedConfig;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -462,6 +467,7 @@ public class ItTxTestCluster {
             var raftSrv = TestLozaFactory.create(
                     clusterService,
                     raftConfig,
+                    systemLocalConfig,
                     clock,
                     new RaftGroupEventsClientListener()
             );
@@ -500,7 +506,8 @@ public class ItTxTestCluster {
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool(),
-                    replicaGrpId -> nullCompletedFuture()
+                    replicaGrpId -> nullCompletedFuture(),
+                    ForkJoinPool.commonPool()
             );
 
             assertThat(replicaMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -602,7 +609,7 @@ public class ItTxTestCluster {
         return new TxManagerImpl(
                 node.name(),
                 txConfiguration,
-                systemCfg,
+                systemDistributedConfig,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaSvc,
@@ -1320,7 +1327,7 @@ public class ItTxTestCluster {
         clientTxManager = new TxManagerImpl(
                 "client",
                 txConfiguration,
-                systemCfg,
+                systemDistributedConfig,
                 client.messagingService(),
                 client.topologyService(),
                 clientReplicaSvc,

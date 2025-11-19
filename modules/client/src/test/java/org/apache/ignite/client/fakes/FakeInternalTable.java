@@ -52,16 +52,16 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.QualifiedName;
@@ -405,12 +405,17 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            @Nullable InternalTransaction tx
+    ) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
             @Nullable InternalTransaction tx,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            BitSet columnsToInclude
+            int indexId,
+            IndexScanCriteria.Range criteria
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
@@ -418,15 +423,10 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
-            UUID txId,
-            ReplicationGroupId commitPartition,
-            UUID txCoordinatorId,
-            PrimaryReplica recipient,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
+            InternalClusterNode recipientNode,
+            int indexId,
+            IndexScanCriteria criteria,
+            OperationContext operationContext
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
@@ -434,55 +434,10 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
             InternalClusterNode recipientNode,
-            @Nullable Integer indexId,
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            @Nullable BitSet columnsToInclude,
-            UUID txCoordinatorId) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-    @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
-            InternalClusterNode recipientNode,
-            UUID txCoordinatorId
+            OperationContext operationContext
     ) {
         return null;
-    }
-
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
-            UUID txId,
-            ReplicationGroupId commitPartition,
-            UUID txCoordinatorId,
-            PrimaryReplica recipient,
-            int indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
-            UUID txId,
-            HybridTimestamp readTimestamp,
-            InternalClusterNode recipientNode,
-            int indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude,
-            UUID txCoordinatorId
-    ) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     @Override public TxStateStorage txStateStorage() {

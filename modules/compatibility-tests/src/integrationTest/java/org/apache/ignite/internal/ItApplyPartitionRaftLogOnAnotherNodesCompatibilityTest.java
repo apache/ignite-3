@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.function.Predicate;
 import org.apache.ignite.Ignite;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -64,19 +69,32 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
         });
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26479")
     @Test
     void testIncreaseReplicas() throws Exception {
         cluster.stop();
 
-        cluster.startEmbedded(nodesCount(), false);
+        cluster.startEmbedded(nodesCount());
 
         sql(String.format("ALTER ZONE %s SET REPLICAS=3, DATA_NODES_FILTER='$..*'", ZONE_NAME));
 
         // Let's wait for replication to complete on other nodes.
-        Thread.sleep(3_000);
+        waitForZoneState(ZONE_NAME, zone -> zone.replicas() == 3);
 
         assertThat(sql(cluster.node(1), String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
         assertThat(sql(cluster.node(2), String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
+    }
+
+    private void waitForZoneState(String zoneName, Predicate<CatalogZoneDescriptor> predicate) throws InterruptedException {
+        assertTrue(waitForCondition(() -> {
+            boolean tested = true;
+
+            for (Ignite n : cluster.nodes()) {
+                IgniteImpl node = unwrapIgniteImpl(n);
+                CatalogZoneDescriptor zone = node.catalogManager().activeCatalog(node.clock().currentLong()).zone(zoneName);
+                tested = tested && predicate.test(zone);
+            }
+
+            return tested;
+        }, 10_000));
     }
 }
