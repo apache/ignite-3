@@ -172,7 +172,6 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
@@ -1848,7 +1847,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doRwScanCloseRequest(UUID targetTxId) {
-        ReplicationGroupIdMessage serializedMsg =
+        ZonePartitionIdMessage serializedMsg =
                 zonePartitionIdMessage(new ZonePartitionId(tableDescriptor.zoneId(), grpId.partitionId()));
 
         return partitionReplicaListener.invoke(

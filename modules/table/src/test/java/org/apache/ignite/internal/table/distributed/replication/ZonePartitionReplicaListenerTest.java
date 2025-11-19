@@ -31,7 +31,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -152,7 +152,7 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -814,10 +814,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         );
     }
 
-    private static TablePartitionIdMessage commitPartitionId() {
-        return REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+    private static ZonePartitionIdMessage commitPartitionId() {
+        return REPLICA_MESSAGES_FACTORY.zonePartitionIdMessage()
                 .partitionId(PART_ID)
-                .tableId(TABLE_ID)
+                .zoneId(TABLE_ID)
                 .build();
     }
 
@@ -1317,7 +1317,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         when(catalog.table(1)).thenReturn(mock(CatalogTableDescriptor.class));
 
         ScanCloseReplicaRequest request = TABLE_MESSAGES_FACTORY.scanCloseReplicaRequest()
-                .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(tableDescriptor.zoneId(), PART_ID)))
+                .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(tableDescriptor.zoneId(), PART_ID)))
                 .tableId(1)
                 .scanId(1L)
                 .timestamp(clock.now())
