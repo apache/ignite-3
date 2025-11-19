@@ -37,11 +37,11 @@ import org.junit.jupiter.api.Test;
 /**
  * This test is checking correctness of observation timestamp calculation.
  */
-@SuppressWarnings({"resource", "DataFlowIssue"})
+@SuppressWarnings({"resource", "DataFlowIssue", "RedundantMethodOverride"})
 public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
     @Override
-    protected long idleSafeTimePropagationDuration() {
-        return 10_000L;
+    protected int nodes() {
+        return 2;
     }
 
     @Test
@@ -87,7 +87,7 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
         List<String> uniqueNodeIds = getPartitionAssignment(table).stream().distinct().collect(Collectors.toList());
         assertEquals(2, uniqueNodeIds.size(), "Unexpected number of unique node ids");
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 1000; i++) {
             String valStr = "value " + i;
 
             kvView.put(null, key, Tuple.create().set(COLUMN_VAL, valStr));
