@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Table;
@@ -76,26 +79,51 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
         Table table = client().tables().table(TABLE_NAME);
         Tuple key = Tuple.create().set(COLUMN_KEY, 69);
 
+        table.keyValueView().put(null, key, Tuple.create().set(COLUMN_VAL, "initial"));
+        waitNonEmptyPartitionAssignment(table);
+
+        List<String> uniqueNodeIds = getPartitionAssignment(table).stream().distinct().collect(Collectors.toList());
+        assertEquals(2, uniqueNodeIds.size(), "Unexpected number of unique node ids");
+
         for (int i = 0; i < 10; i++) {
             String valStr = "value " + i;
 
             table.keyValueView().put(null, key, Tuple.create().set(COLUMN_VAL, valStr));
-            shiftPartitionAssignment(table);
+
+            // Switch partition assignment to a different node.
+            setPartitionAssignment(table, uniqueNodeIds.get(i % uniqueNodeIds.size()));
+
             String val = table.keyValueView().get(null, key).value(COLUMN_VAL);
 
             assertEquals(valStr, val);
         }
     }
 
-    private static void shiftPartitionAssignment(Table table) {
+    private static void setPartitionAssignment(Table table, String nodeId) {
+        List<String> partitions = getPartitionAssignment(table);
+        Collections.fill(partitions, nodeId);
+    }
+
+    private static void waitNonEmptyPartitionAssignment(Table table) {
+        await().until(() -> !isPartitionAssignmentEmpty(getPartitionAssignment(table)));
+    }
+
+    private static List<String> getPartitionAssignment(Table table) {
         assertInstanceOf(ClientTable.class, table);
 
         Object partitionAssignment = IgniteTestUtils.getFieldValue(table, "partitionAssignment");
         CompletableFuture<List<String>> partitionsFut = IgniteTestUtils.getFieldValue(partitionAssignment, "partitionsFut");
-        List<String> partitions = partitionsFut.join();
 
-        // Shift every partition position to the left by one.
-        String first = partitions.remove(0);
-        partitions.add(first);
+        return partitionsFut.join();
+    }
+
+    private static boolean isPartitionAssignmentEmpty(List<String> partitionAssignment) {
+        for (String nodeId : partitionAssignment) {
+            if (nodeId != null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
