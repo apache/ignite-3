@@ -160,7 +160,7 @@ public class TableAssignmentsService {
 
             long assignmentsTimestamp = catalog.time();
 
-            assignmentsFuture = distributionZoneManager.dataNodes(tableDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
+            assignmentsFuture = distributionZoneManager.dataNodes(catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes -> calculateAssignments(
                                     dataNodes,
                                     zoneDescriptor.partitions(),

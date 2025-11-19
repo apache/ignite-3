@@ -299,7 +299,7 @@ public class DistributionZoneRebalanceEngine {
             HybridTimestamp timestamp,
             int catalogVersion
     ) {
-        return distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneDescriptor.id())
+        return distributionZoneManager.dataNodes(catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> {
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();

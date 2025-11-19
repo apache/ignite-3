@@ -244,7 +244,7 @@ public class DistributionZoneRebalanceEngineV2 {
             HybridTimestamp timestamp,
             int catalogVersion
     ) {
-        return distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneDescriptor.id())
+        return distributionZoneManager.dataNodes(catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();

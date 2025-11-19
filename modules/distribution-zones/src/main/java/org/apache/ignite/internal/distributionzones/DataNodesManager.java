@@ -455,7 +455,7 @@ public class DataNodesManager {
                 currentDataNodes.dataNodes(), addMandatoryEntry);
 
         List<Operation> operations = operations(
-                put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory)),
+                addNewEntryOperation(zoneId, newHistory),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
                 renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
         );
@@ -465,7 +465,7 @@ public class DataNodesManager {
                 .condition(condition)
                 .operations(operations)
                 .operationName("topology change")
-                .currentDataNodesHistory(newHistory)
+                .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                 .currentTimestamp(timestamp)
                 .historyEntryTimestamp(currentDataNodes.timestamp())
                 .historyEntryNodes(currentDataNodes.dataNodes())
@@ -661,7 +661,7 @@ public class DataNodesManager {
                 currentDataNodes.dataNodes());
 
         List<Operation> operations = operations(
-                put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory)),
+                addNewEntryOperation(zoneId, newHistory),
                 renewTimer(zoneScaleUpTimerKey(zoneId), scaleUpTimerToSave),
                 renewTimer(zoneScaleDownTimerKey(zoneId), scaleDownTimerToSave)
         );
@@ -671,7 +671,7 @@ public class DataNodesManager {
                 .condition(condition)
                 .operations(operations)
                 .operationName("distribution zone auto adjust change")
-                .currentDataNodesHistory(dataNodesHistory)
+                .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                 .currentTimestamp(timestamp)
                 .historyEntryTimestamp(currentDataNodes.timestamp())
                 .historyEntryNodes(currentDataNodes.dataNodes())
@@ -775,12 +775,12 @@ public class DataNodesManager {
                         )
                         .operations(
                                 operations(
-                                        put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory)),
+                                        addNewEntryOperation(zoneId, newHistory),
                                         clearTimer(scheduledTimer.metaStorageKey())
                                 )
                         )
                         .operationName(scheduledTimer.name() + " trigger")
-                        .currentDataNodesHistory(dataNodesHistory)
+                        .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                         .currentTimestamp(timeToTrigger)
                         .historyEntryTimestamp(timeToTrigger)
                         .historyEntryNodes(currentDataNodes.dataNodes())
@@ -986,12 +986,12 @@ public class DataNodesManager {
                 .zoneId(zoneId)
                 .condition(dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory))
                 .operations(operations(
-                        put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory)),
+                        addNewEntryOperation(zoneId, newHistory),
                         clearTimer(zoneScaleUpTimerKey(zoneId)),
                         clearTimer(zoneScaleDownTimerKey(zoneId))
                 ))
                 .operationName("distribution zone filter change")
-                .currentDataNodesHistory(dataNodesHistory)
+                .currentDataNodesHistory(newHistory == null ? dataNodesHistory : newHistory)
                 .currentTimestamp(timestamp)
                 .historyEntryTimestamp(timestamp)
                 .historyEntryNodes(filteredDataNodes)
@@ -1031,6 +1031,7 @@ public class DataNodesManager {
         );
     }
 
+    @Nullable
     private DataNodesHistory addNewEntryToDataNodesHistory(
             int zoneId,
             DataNodesHistory history,
@@ -1049,8 +1050,9 @@ public class DataNodesManager {
      * @param timestamp Timestamp of the new entry.
      * @param nodes Data nodes for the new entry.
      * @param addMandatoryEntry If {@code true}, then the new entry is added even if it is the same as the latest one.
-     * @return Copy of the history with the new entry added if needed.
+     * @return Copy of the history with the new entry added if needed, or {@code null} if the history is not changed.
      */
+    @Nullable
     private DataNodesHistory addNewEntryToDataNodesHistory(
             int zoneId,
             DataNodesHistory history,
@@ -1061,7 +1063,7 @@ public class DataNodesManager {
         if (!addMandatoryEntry
                 && !history.isEmpty()
                 && nodes.equals(history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes())) {
-            return history;
+            return null;
         } else {
             HybridTimestamp now = clockService.current();
             HybridTimestamp earliestTimestampNeededForHistory = earliestTimestampNeededForHistory(now);
@@ -1075,6 +1077,14 @@ public class DataNodesManager {
             }
 
             return newHistory;
+        }
+    }
+
+    private Operation addNewEntryOperation(int zoneId, @Nullable DataNodesHistory history) {
+        if (history == null) {
+            return noop();
+        } else {
+            return put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(history));
         }
     }
 
@@ -1308,7 +1318,7 @@ public class DataNodesManager {
             DataNodesHistory history = addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes);
 
             Update update = new Operations(operations(
-                    put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(history)),
+                    addNewEntryOperation(zoneId, history),
                     clearTimer(zoneScaleUpTimerKey(zoneId)),
                     clearTimer(zoneScaleDownTimerKey(zoneId)),
                     removeLegacyDataNodes ? remove(zoneDataNodesKey(zoneId)) : noop(),

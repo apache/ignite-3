@@ -399,6 +399,10 @@ public class DistributionZoneManager extends
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
 
+    public CompletableFuture<Set<String>> dataNodes(int catalogVersion, int zoneId) {
+        return dataNodes(INITIAL_TIMESTAMP, zoneId, catalogVersion);
+    }
+
     public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
         return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
     }

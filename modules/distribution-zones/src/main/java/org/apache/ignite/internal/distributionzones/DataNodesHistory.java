@@ -75,7 +75,7 @@ public class DataNodesHistory {
             Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> lastEntry = this.history.lastEntry();
 
             if (lastEntry != null) {
-                compacted.addHistoryEntry(lastEntry.getKey(), lastEntry.getValue());
+                compacted = compacted.addHistoryEntry(lastEntry.getKey(), lastEntry.getValue());
             }
         }
 

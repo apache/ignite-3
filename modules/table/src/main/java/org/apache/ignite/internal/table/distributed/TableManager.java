@@ -1591,7 +1591,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalog);
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
 
-        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), tableDescriptor.zoneId())
+        return distributionZoneManager.dataNodes(catalog.version(), tableDescriptor.zoneId())
                 .thenApply(dataNodes -> calculateAssignmentForPartition(
                         dataNodes,
                         tablePartitionId.partitionId(),
@@ -2739,7 +2739,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId replicaGrpId,
             long assignmentsTimestamp
     ) {
-        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
+        return distributionZoneManager.dataNodes(catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
                         metaStorageMgr,
                         dataNodes,
