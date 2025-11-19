@@ -110,7 +110,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
-    void startCluster(String baseVersion, TestInfo testInfo) {
+    void startCluster(String baseVersion, TestInfo testInfo) throws Exception {
         log.info("Starting nodes for base version: {}", baseVersion);
 
         cluster = createCluster(testInfo, workDir);
@@ -188,7 +188,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
     }
 
-    protected abstract void setupBaseVersion(Ignite baseIgnite);
+    protected abstract void setupBaseVersion(Ignite baseIgnite) throws Exception;
 
     protected List<List<Object>> sql(String query, Object... args) {
         return sql(node(0), query, args);
