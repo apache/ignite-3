@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link JdbcResultSetMetadata}.
  */
-public class JdbcResultSetMetadata2SelfTest extends JdbcResultSetMetadataBaseSelfTest {
+public class JdbcResultSetMetadataSelfTest extends JdbcResultSetMetadataBaseSelfTest {
 
     @Test
     @Override

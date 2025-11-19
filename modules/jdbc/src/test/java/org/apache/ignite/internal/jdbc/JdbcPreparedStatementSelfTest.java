@@ -66,7 +66,7 @@ import org.mockito.Mockito;
 /**
  * Unit tests for {@link JdbcPreparedStatement}.
  */
-public class JdbcPreparedStatement2SelfTest extends JdbcStatement2SelfTest {
+public class JdbcPreparedStatementSelfTest extends JdbcStatementSelfTest {
 
     private static final Set<JDBCType> SUPPORTED_TYPES = EnumSet.of(
             JDBCType.BOOLEAN,

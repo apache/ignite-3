@@ -137,7 +137,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDa
      * @param timeZoneId Client time-zone ID.
      * @param username Current user name.
      * @return A future representing result of the operation.
-     * @deprecated The method is left for compatibility and may be removed in the future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
      */
     @Deprecated
     public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, String username) {
@@ -167,7 +167,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDa
      * @param connectionId Identifier of the connection.
      * @param req Execute query request.
      * @return Result future.
-     * @deprecated The method is left for compatibility and may be removed in the future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
      */
     @Deprecated
     public CompletableFuture<? extends Response> queryAsync(long connectionId, JdbcQueryExecuteRequest req) {
@@ -254,7 +254,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDa
      * @param connectionId Identifier of the connection.
      * @param req Batch query request.
      * @return Result future.
-     * @deprecated The method is left for compatibility and may be removed in the future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
      */
     @Deprecated
     public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
@@ -307,7 +307,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDa
      * @param connectionId The identifier of the connection.
      * @param req Batch query request.
      * @return Result future.
-     * @deprecated The method is left for compatibility and may be removed in the future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
      */
     @Deprecated
     public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
@@ -426,7 +426,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDa
      * @param connectionId An identifier of the connection on a server.
      * @param commit {@code True} to commit active transaction, {@code false} to rollback it.
      * @return Result future.
-     * @deprecated The method is left for compatibility and may be removed in the future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
      */
     @Deprecated
     public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
@@ -453,7 +453,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDa
      * @param connectionId An identifier of the connection on a server.
      * @param correlationToken A token associated with the execution.
      * @return Result future.
-     * @deprecated The method is left for compatibility and may be removed in the future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
      */
     @Deprecated
     public CompletableFuture<JdbcQueryCancelResult> cancelAsync(long connectionId, long correlationToken) {

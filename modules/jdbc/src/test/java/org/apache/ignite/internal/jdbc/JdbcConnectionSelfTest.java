@@ -48,7 +48,7 @@ import org.mockito.Mockito;
 /**
  * Tests for {@link JdbcConnection}.
  */
-public class JdbcConnection2SelfTest extends BaseIgniteAbstractTest {
+public class JdbcConnectionSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void nativeSql() throws SQLException {

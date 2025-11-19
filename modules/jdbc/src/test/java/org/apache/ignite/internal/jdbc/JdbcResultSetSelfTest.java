@@ -61,7 +61,7 @@ import org.mockito.internal.stubbing.answers.ThrowsException;
 /**
  * Runs JdbcResultSetCompatibilityBaseTest against modern org.apache.ignite.internal.jdbc2.JdbcResultSet.
  */
-public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
+public class JdbcResultSetSelfTest extends JdbcResultSetBaseSelfTest {
 
     @Override
     @ParameterizedTest

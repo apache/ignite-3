@@ -42,7 +42,7 @@ import org.mockito.Mockito;
 /**
  * Unit tests for {@link JdbcStatement}.
  */
-public class JdbcStatement2SelfTest extends BaseIgniteAbstractTest {
+public class JdbcStatementSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void close() throws SQLException {
