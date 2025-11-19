@@ -318,7 +318,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         // Bound columns != input columns.
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
-        AssertionError err = assertThrows(AssertionError.class,
+        IllegalStateException err = assertThrows(IllegalStateException.class,
                 () -> tester.indexScan(partitionId, consistencyToken, tx, indexId, condition));
         assertEquals("Invalid range condition", err.getMessage());
 

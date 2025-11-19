@@ -123,6 +123,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_LEFT:
         case error::code::INTERNAL:
         case error::code::NULLABLE_VALUE:
+        case error::code::UNSUPPORTED_TABLE_BASED_REPLICATION:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Table group. Group code: 2
