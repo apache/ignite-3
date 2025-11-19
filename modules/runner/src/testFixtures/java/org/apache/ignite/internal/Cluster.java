@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,7 +48,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,12 +73,12 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -592,20 +592,40 @@ public class Cluster {
         return result;
     }
 
-    @Nullable
-    private RaftGroupService currentLeaderServiceFor(ReplicationGroupId groupId) {
+    /**
+     * Returns {@link RaftGroupService} does not guarantee that it will be a {@link Node#isLeader() leader} or
+     * {@link Node#isLeader() learner}.
+     */
+    public RaftGroupService raftGroupServiceFor(int nodeIndex, ReplicationGroupId groupId) {
+        var res = new AtomicReference<RaftGroupService>();
+
+        await().atMost(10, SECONDS).until(() -> {
+            RaftGroupService service = raftGroupService(unwrapIgniteImpl(node(nodeIndex)), groupId);
+
+            res.set(service);
+
+            return service != null;
+        });
+
+        return res.get();
+    }
+
+    private @Nullable RaftGroupService currentLeaderServiceFor(ReplicationGroupId groupId) {
         return runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
-                .flatMap(ignite -> {
-                    JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
-
-                    Optional<RaftNodeId> maybeRaftNodeId = server.localNodes().stream()
-                            .filter(nodeId -> nodeId.groupId().equals(groupId))
-                            .findAny();
-
-                    return maybeRaftNodeId.map(server::raftGroupService).stream();
-                })
+                .map(igniteImpl -> raftGroupService(igniteImpl, groupId))
+                .filter(Objects::nonNull)
                 .filter(service -> service.getRaftNode().isLeader())
+                .findAny()
+                .orElse(null);
+    }
+
+    private static @Nullable RaftGroupService raftGroupService(IgniteImpl igniteImpl, ReplicationGroupId groupId) {
+        JraftServerImpl server = (JraftServerImpl) igniteImpl.raftManager().server();
+
+        return server.localNodes().stream()
+                .filter(nodeId -> nodeId.groupId().equals(groupId))
+                .map(server::raftGroupService)
                 .findAny()
                 .orElse(null);
     }
