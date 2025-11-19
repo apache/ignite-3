@@ -80,6 +80,9 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     public void testImplicitTxOnDifferentConnections(boolean roTx) {
+        // TODO: Looks like the issue has been fixed since
+        // - Implicit transactions propagate the update timestamp to the client side (readOrStartImplicitTx).
+        // - Implicit read transactions use null read timestamp and wait (?).
         Table table = client().tables().table(TABLE_NAME);
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
