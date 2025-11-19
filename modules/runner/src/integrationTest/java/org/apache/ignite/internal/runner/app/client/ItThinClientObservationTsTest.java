@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -77,23 +78,24 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
     @Test
     public void testImplicitTxOnDifferentConnections() {
         Table table = client().tables().table(TABLE_NAME);
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
         Tuple key = Tuple.create().set(COLUMN_KEY, 69);
+        kvView.put(null, key, Tuple.create().set(COLUMN_VAL, "initial"));
 
-        table.keyValueView().put(null, key, Tuple.create().set(COLUMN_VAL, "initial"));
         waitNonEmptyPartitionAssignment(table);
-
         List<String> uniqueNodeIds = getPartitionAssignment(table).stream().distinct().collect(Collectors.toList());
         assertEquals(2, uniqueNodeIds.size(), "Unexpected number of unique node ids");
 
         for (int i = 0; i < 10; i++) {
             String valStr = "value " + i;
 
-            table.keyValueView().put(null, key, Tuple.create().set(COLUMN_VAL, valStr));
+            kvView.put(null, key, Tuple.create().set(COLUMN_VAL, valStr));
 
             // Switch partition assignment to a different node.
             setPartitionAssignment(table, uniqueNodeIds.get(i % uniqueNodeIds.size()));
 
-            String val = table.keyValueView().get(null, key).value(COLUMN_VAL);
+            String val = kvView.get(null, key).value(COLUMN_VAL);
 
             assertEquals(valStr, val);
         }
