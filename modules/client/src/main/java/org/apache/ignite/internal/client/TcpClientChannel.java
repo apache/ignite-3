@@ -333,7 +333,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 log.trace("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
             } else {
                 // TODO: Remove
-                System.out.println("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
+                // System.out.println("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
             }
 
             long id = reqId.getAndIncrement();

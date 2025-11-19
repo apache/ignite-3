@@ -80,13 +80,10 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     public void testImplicitTxOnDifferentConnections(boolean roTx) {
-        // TODO: Looks like the issue has been fixed since
         // - Implicit transactions propagate the update timestamp to the client side (readOrStartImplicitTx).
-        // - Implicit read transactions use null read timestamp and wait (?).
-        // TODO: Test in .NET where TODO is.
-        // TODO: Verify behavior with implicit tx.
+        // - Implicit read transactions use null read timestamp, why?
         // TODO: Should we still send the observableTimestamp with every operation to optimize implicit read tx performance?
-        //       Even this test is 2x faster with RO TX.
+        //       This test is 2x faster with RO TX.
         Table table = client().tables().table(TABLE_NAME);
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
