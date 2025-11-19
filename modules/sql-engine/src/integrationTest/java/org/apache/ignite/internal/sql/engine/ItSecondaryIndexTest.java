@@ -814,14 +814,16 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId < 2 AND depId < ?")
                 .withParams(3)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=null, upperBound=$LEAST2(2, ?0)"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=null, lowerInclude=true," 
+                        + " shouldComputeUpper=true, upperBound=$LEAST2(2, ?0), upperInclude=false]]"))
                 .returns(3)
                 .check();
 
         assertQuery("SELECT id FROM Developer WHERE depId > 19 AND depId > ?")
                 .withParams(20)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(19, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(19, ?0)," 
+                        + " lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -829,7 +831,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId > 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(20, ?0)," 
+                        + " lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -837,7 +840,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId >= 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=null:INTEGER"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(20, ?0)," 
+                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]"))
                 .returns(21)
                 .returns(22)
                 .returns(23)
@@ -846,7 +850,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId BETWEEN ? AND ? AND depId > 19")
                 .withParams(19, 21)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(?0, 19), upperBound=?1"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(?0, 19)," 
+                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=?1, upperInclude=true]]"))
                 .returns(21)
                 .returns(22)
                 .check();
@@ -855,7 +860,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM Birthday WHERE name BETWEEN 'B' AND 'D' AND name > ?")
                 .withParams("Bach")
                 .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
-                .matches(containsString("searchBounds: [RangeBounds [lowerBound=$GREATEST2(_UTF-8'B', ?0), upperBound=_UTF-8'D'"))
+                .matches(containsString("searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=$GREATEST2(_UTF-8'B', ?0)," 
+                        + " lowerInclude=true, shouldComputeUpper=true, upperBound=_UTF-8'D', upperInclude=true]]"))
                 .returns(2)
                 .returns(6)
                 .check();
