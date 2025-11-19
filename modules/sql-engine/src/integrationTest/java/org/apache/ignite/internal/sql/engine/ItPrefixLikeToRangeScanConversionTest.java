@@ -204,8 +204,6 @@ public class ItPrefixLikeToRangeScanConversionTest extends BaseSqlIntegrationTes
             query = query.replace("SELECT", "SELECT /*+ force_index(" + indexName + ") */");
         }
 
-        System.out.println(query);
-
         return query;
     }
 }

@@ -816,20 +816,20 @@ public class IgniteSqlFunctions {
             return null;
         }
 
-        // Try to increment characters from right to left
+        // Try to increment characters from right to left.
         for (int i = prefix.length() - 1; i >= 0; i--) {
             char c = prefix.charAt(i);
 
-            // Check if we can increment this character
+            // Check if we can increment this character.
             if (c < Character.MAX_VALUE) {
                 // Increment and return
                 return prefix.substring(0, i) + ((char) (c + 1));
             }
 
-            // This character is already max, continue to previous character
+            // This character is already max, continue to previous character.
         }
 
-        // All characters are at maximum value
+        // All characters are at maximum value, or prefix is empty.
         return null; // Given prefix is the greatest.
     }
 
@@ -846,6 +846,7 @@ public class IgniteSqlFunctions {
      * <pre>
      * findPrefix("user%", null)           → "user"
      * findPrefix("admin_123", null)       → "admin"
+     * findPrefix("admin%123", null)       → "admin"
      * findPrefix("test", null)            → "test"
      * findPrefix("%anything", null)       → ""
      * findPrefix("_anything", null)       → ""
@@ -864,8 +865,8 @@ public class IgniteSqlFunctions {
      * <p>Edge cases:
      * <pre>
      * findPrefix(null, null)              → null         (null pattern)
-     * findPrefix("test", "")              → null         (invalid escape length)
-     * findPrefix("test", "ab")            → null         (invalid escape length)
+     * findPrefix("test", "")              → throws       (invalid escape length)
+     * findPrefix("test", "ab")            → throws       (invalid escape length)
      * findPrefix("", null)                → ""           (empty pattern)
      * findPrefix("test\\", "\\")          → "test\\"     (escape at end treated as literal)
      * </pre>
@@ -876,11 +877,16 @@ public class IgniteSqlFunctions {
      *         {@code null} if no escape character is defined.
      * @return A literal prefix of the pattern before the first unescaped wildcard, with all escape sequences resolved to their literal
      *         characters. Returns an empty string if the pattern starts with a wildcard. Returns {@code null} if the pattern is
-     *         {@code null} or if the escape parameter is invalid (not exactly 1 character).
+     *         {@code null}.
+     * @throws IllegalArgumentException If {@code escape} is not null and not exactly one character long.
      */
     public static @Nullable String findPrefix(@Nullable String pattern, @Nullable String escape) {
-        if (pattern == null || (escape != null && escape.length() != 1)) {
+        if (pattern == null) {
             return null;
+        }
+
+        if (escape != null && escape.length() != 1) {
+            throw new IllegalArgumentException("Invalid escape character '" + escape + "'.");
         }
 
         if (escape == null) {
@@ -915,7 +921,7 @@ public class IgniteSqlFunctions {
                         }
 
                         // Append the escaped character
-                        prefix.append(pattern.charAt(i + 1));
+                        prefix.append(nextChar);
 
                         i++; // Skip the next character
                         lastAppendEnd = i + 1; // Update to position after escaped char

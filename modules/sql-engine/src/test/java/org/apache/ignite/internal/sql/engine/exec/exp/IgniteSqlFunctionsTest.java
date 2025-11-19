@@ -657,10 +657,26 @@ public class IgniteSqlFunctionsTest {
     @Test
     void testInvalidEscapeLength() {
         // Escape must be exactly 1 character
-        assertNull(findPrefix("abc", ""));
-        assertNull(findPrefix("abc", "\\\\"));
-        assertNull(findPrefix("abc", "abc"));
-        assertNull(findPrefix("test%", "**"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("abc", ""),
+                "Invalid escape character ''."
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("abc", "\\\\"),
+                "Invalid escape character '\\\\'."
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("abc", "abc"),
+                "Invalid escape character 'abc'."
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("test%", "**"),
+                "Invalid escape character '**'."
+        );
     }
 
     @Test
@@ -785,7 +801,11 @@ public class IgniteSqlFunctionsTest {
         assertEquals("hello世界_", findPrefix("hello世界世_", "世"));
 
         // Length of "fire" is 2, we don't support that.
-        assertNull(findPrefix("test🔥🔥%", "🔥"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("test🔥🔥%", "🔥"),
+                "Invalid escape character '🔥'."
+        );
     }
 
     @Test
