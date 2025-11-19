@@ -201,7 +201,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
                             node0,
-                            colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                            table.internalTable().zoneId(),
                             0
                     )
                     .orElseThrow(AssertionError::new);
@@ -360,7 +360,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
                         ignite,
-                        colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                        table.internalTable().zoneId(),
                         0
                 )
                 .orElseThrow(AssertionError::new);

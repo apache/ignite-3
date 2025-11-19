@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -862,7 +861,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         List<LogicalNode> assignments = List.of(NODE1, NODE2, NODE3);
         LogicalNode coordinator = NODE1;
 
-        int replicationGroupsMultiplier = colocationEnabled() ? /* zones */1 : /* tables */ 3;
+        int replicationGroupsMultiplier = /* zones */1;
 
         {
             CatalogCompactionRunner compactor = createRunner(NODE1, coordinator, (n) -> catalog.time(), logicalTopology, assignments);
@@ -943,13 +942,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
-            if (colocationEnabled()) {
-                verify(replicaService, times(/* zones */ 1 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
-                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
-            } else {
-                verify(replicaService, times(/* tables */ 3 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
-                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
-            }
+            verify(replicaService, times(/* zones */ 1 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
+                    .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
         }
 
         {

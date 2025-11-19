@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
@@ -52,17 +51,9 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     void restartAllPartitions() {
         String expectedSentContent;
 
-        if (colocationEnabled()) {
-            expectedSentContent = "{"
-                    + "     \"zoneName\" : \"zone_NAME\","
-                    + "}";
-
-        } else {
-            expectedSentContent = "{"
-                    + "     \"tableName\" : \"table_NAME\","
-                    + "     \"zoneName\" : \"zone_NAME\","
-                    + "}";
-        }
+        expectedSentContent = "{"
+                + "     \"zoneName\" : \"zone_NAME\","
+                + "}";
 
         clientAndServer
                 .when(request()
@@ -135,17 +126,9 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     void restartAllPartitionsWithCleanup() {
         String expectedSentContent;
 
-        if (colocationEnabled()) {
-            expectedSentContent = "{"
-                    + "     \"zoneName\" : \"zone_NAME\""
-                    + "}";
-
-        } else {
-            expectedSentContent = "{"
-                    + "     \"tableName\" : \"table_NAME\","
-                    + "     \"zoneName\" : \"zone_NAME\""
-                    + "}";
-        }
+        expectedSentContent = "{"
+                + "     \"zoneName\" : \"zone_NAME\""
+                + "}";
 
         clientAndServer
                 .when(request()

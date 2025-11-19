@@ -72,7 +72,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
             setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
         }
 
-        // In case of empty assignments, SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In case of empty assignments, SQL engine will throw "Mandatory nodes were excluded from mapping: []".
         // In order to eliminate this, assignments stabilization is needed, otherwise test may fail. Not related to colocation.
         awaitAssignmentsStabilization(node, TABLE_NAME);
 

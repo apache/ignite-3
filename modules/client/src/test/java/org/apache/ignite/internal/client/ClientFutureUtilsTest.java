@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
@@ -45,23 +44,10 @@ public class ClientFutureUtilsTest {
     public void testDoWithRetryAsyncWithCompletedFutureReturnsResult() {
         var res = ClientFutureUtils.doWithRetryAsync(
                 () -> CompletableFuture.completedFuture("test"),
-                null,
                 ctx -> false
         ).join();
 
         assertEquals("test", res);
-    }
-
-    @Test
-    public void testDoWithRetryAsyncWithResultValidatorRejectsAllThrowsIllegalState() {
-        var fut = ClientFutureUtils.doWithRetryAsync(
-                () -> CompletableFuture.completedFuture("test"),
-                x -> false,
-                ctx -> false
-        );
-
-        var ex = assertThrows(CompletionException.class, fut::join);
-        assertSame(IllegalStateException.class, ex.getCause().getClass());
     }
 
     @Test
@@ -70,7 +56,6 @@ public class ClientFutureUtilsTest {
 
         var fut = ClientFutureUtils.doWithRetryAsync(
                 () -> CompletableFuture.failedFuture(new Exception("fail_" + counter.get())),
-                null,
                 ctx -> counter.incrementAndGet() < 3
         );
 
@@ -92,7 +77,6 @@ public class ClientFutureUtilsTest {
                 () -> counter.getAndIncrement() < 3
                         ? CompletableFuture.failedFuture(new Exception("fail"))
                         : CompletableFuture.completedFuture("test"),
-                null,
                 ctx -> {
                     assertNotNull(ctx.lastError());
 
@@ -118,7 +102,6 @@ public class ClientFutureUtilsTest {
                         return CompletableFuture.failedFuture(new Exception("fail2"));
                     }
                 },
-                null,
                 ctx -> true
         );
 

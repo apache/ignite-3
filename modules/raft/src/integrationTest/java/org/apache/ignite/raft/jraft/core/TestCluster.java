@@ -16,10 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -534,16 +536,15 @@ public class TestCluster {
         return ret;
     }
 
-    public void ensureSame() throws InterruptedException {
+    public void ensureSame() {
         ensureSame(addr -> false);
     }
 
     /**
+     * Asserts that all FSM state are the same.
      * @param filter The node to exclude filter.
-     * @return {@code True} if all FSM state are the same.
-     * @throws InterruptedException
      */
-    public void ensureSame(Predicate<PeerId> filter) throws InterruptedException {
+    void ensureSame(Predicate<PeerId> filter) {
         this.lock.lock();
 
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
@@ -563,7 +564,7 @@ public class TestCluster {
         LOG.info("Start ensureSame, leader={}", leader);
 
         try {
-            assertTrue(TestUtils.waitForCondition(() -> {
+            await().atMost(20, SECONDS).until(() -> {
                 first.lock();
 
                 try {
@@ -600,7 +601,7 @@ public class TestCluster {
                 }
 
                 return true;
-            }, 20_000));
+            });
         }
         finally {
             this.lock.unlock();
@@ -610,6 +611,71 @@ public class TestCluster {
             LOG.info("End ensureSame, leader={}", leader1);
 
             assertSame(leader, leader1, "Leader shouldn't change while comparing fsms");
+        }
+    }
+
+    /**
+     * Asserts that all configurations that was applied to FSM are the same.
+     */
+    void ensureSameConf() {
+        this.lock.lock();
+
+        List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
+
+        if (fsmList.size() <= 1) {
+            LOG.warn("ensureSame is skipped because only one node in the group");
+            this.lock.unlock();
+            return;
+        }
+
+        Node leader = getLeader();
+
+        assertNotNull(leader);
+
+        MockStateMachine first = fsms.get(leader.getNodeId().getPeerId());
+
+        LOG.info("Start ensureSameConf, leader={}", leader);
+
+        try {
+            await().atMost(20, SECONDS).until(() -> {
+                first.lock();
+
+                try {
+                    for (int i = 0; i < fsmList.size(); i++) {
+                        MockStateMachine fsm = fsmList.get(i);
+
+                        if (fsm == first)
+                            continue;
+
+                        fsm.lock();
+
+                        try {
+                            Configuration conf0 = first.getConf();
+                            Configuration conf1 = fsm.getConf();
+
+                            if (!conf0.equals(conf1))
+                                return false;
+                        }
+                        finally {
+                            fsm.unlock();
+                        }
+                    }
+                }
+                finally {
+                    first.unlock();
+                }
+
+                return true;
+            });
+        }
+        finally {
+            this.lock.unlock();
+
+            Node leader1 = getLeader();
+
+            LOG.info("End ensureSameConf, leader={}", leader1);
+
+            assertSame(leader, leader1, "Leader shouldn't change while comparing fsms configurations");
         }
     }
 
