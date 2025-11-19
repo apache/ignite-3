@@ -104,6 +104,8 @@ import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryRequestMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.DisasterRecoveryResponseMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
@@ -1193,6 +1195,27 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Operation future.
      */
     private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request, long revision) {
+        // Check if this is a manual restart request with specific nodes, and forward to the first node if needed.
+        if (request instanceof ManualGroupRestartRequest) {
+            ManualGroupRestartRequest restartRequest = (ManualGroupRestartRequest) request;
+
+            Set<String> nodeNames = restartRequest.nodeNames();
+
+            if (!nodeNames.isEmpty()) {
+                String firstNode = nodeNames.stream()
+                        .sorted()
+                        .findFirst()
+                        .orElseThrow();
+
+                String localNodeName = topologyService.localMember().name();
+
+                // If this is not the target node, forward the request and return its response.
+                if (!firstNode.equals(localNodeName)) {
+                    return forwardDisasterRecoveryRequest(request, revision, firstNode);
+                }
+            }
+        }
+
         UUID operationId = request.operationId();
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>().orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -1247,6 +1270,40 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     if (!wasWrite) {
                         ongoingOperationsById.remove(operationId).complete(null);
                     }
+                });
+    }
+
+    /**
+     * Forwards a disaster recovery request to a specific node.
+     *
+     * @param request The disaster recovery request to forward.
+     * @param revision Revision of event, which produce this recovery request, or -1 for manual requests.
+     * @param targetNodeName Name of the target node to forward the request to.
+     * @return Future that completes when the forwarded request is processed.
+     */
+    private CompletableFuture<Void> forwardDisasterRecoveryRequest(
+            DisasterRecoveryRequest request,
+            long revision,
+            String targetNodeName
+    ) {
+        byte[] serializedRequest = VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE);
+
+        DisasterRecoveryRequestMessage message = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryRequestMessage()
+                .requestBytes(serializedRequest)
+                .revision(revision)
+                .build();
+
+        return messagingService.invoke(targetNodeName, message, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
+                .thenApply(responseMsg -> {
+                    assert responseMsg instanceof DisasterRecoveryResponseMessage : responseMsg;
+
+                    DisasterRecoveryResponseMessage response = (DisasterRecoveryResponseMessage) responseMsg;
+
+                    if (response.errorMessage() != null) {
+                        String errorMessage = response.errorMessage();
+                        throw new DisasterRecoveryException(PARTITION_STATE_ERR,  errorMessage == null ? "Unknown error" : errorMessage);
+                    }
+                    return null;
                 });
     }
 
@@ -1332,7 +1389,49 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
         } else if (message instanceof LocalTablePartitionStateRequest) {
             handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
+        } else if (message instanceof DisasterRecoveryRequestMessage) {
+            handleDisasterRecoveryRequest((DisasterRecoveryRequestMessage) message, sender, correlationId);
         }
+    }
+
+    private void handleDisasterRecoveryRequest(
+            DisasterRecoveryRequestMessage message,
+            InternalClusterNode sender,
+            @Nullable Long correlationId
+    ) {
+        assert correlationId != null : "request=" + message + ", sender=" + sender;
+
+        DisasterRecoveryRequest request;
+        try {
+            request = VersionedSerialization.fromBytes(message.requestBytes(), DisasterRecoveryRequestSerializer.INSTANCE);
+        } catch (Exception e) {
+            LOG.error("Failed to deserialize disaster recovery request.", e);
+
+            DisasterRecoveryResponseMessage response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryResponseMessage()
+                    .errorMessage("Failed to deserialize request: " + e.getMessage())
+                    .build();
+
+            messagingService.respond(sender, response, correlationId);
+            return;
+        }
+
+        // Process the request.
+        processNewRequest(request, message.revision())
+                .whenComplete((result, throwable) -> {
+                    DisasterRecoveryResponseMessage response;
+
+                    if (throwable != null) {
+                        response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryResponseMessage()
+                                .errorMessage(throwable.getMessage())
+                                .build();
+                    } else {
+                        response = PARTITION_REPLICATION_MESSAGES_FACTORY.disasterRecoveryResponseMessage()
+                                .errorMessage(null)
+                                .build();
+                    }
+
+                    messagingService.respond(sender, response, correlationId);
+                });
     }
 
     private void handleLocalTableStateRequest(

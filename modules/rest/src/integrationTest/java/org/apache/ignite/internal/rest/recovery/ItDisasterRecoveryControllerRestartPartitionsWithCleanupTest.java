@@ -66,8 +66,12 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     public static final String RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT = "zone/partitions/restartWithCleanup";
 
     @Inject
-    @Client(NODE_URL + "/management/v1/recovery/")
-    HttpClient client;
+    @Client(NODE_1_URL + "/management/v1/recovery/")
+    HttpClient client1;
+
+    @Inject
+    @Client(NODE_2_URL + "/management/v1/recovery/")
+    HttpClient client2;
 
     @BeforeAll
     public void setUp() {
@@ -217,6 +221,46 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
                 new RestartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
 
         assertThat(client.toBlocking().exchange(post), hasStatus(OK));
+    }
+
+    @Test
+    public void testRestartTablePartitionsWithCleanupAllPartitionsOnDifferentNode() throws InterruptedException {
+        awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
+        IgniteImpl calledNode = unwrapIgniteImpl(CLUSTER.nodes().get(1));
+        IgniteImpl targetNode = unwrapIgniteImpl(CLUSTER.nodes().get(0));
+        AtomicBoolean targetIsCalled = new AtomicBoolean(false);
+        AtomicBoolean calledRepliedSuccessfully = new AtomicBoolean(false);
+
+        // Record that the called node sent the request.
+        calledNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof DisasterRecoveryRequestMessage) {
+                targetIsCalled.set(true);
+            }
+            return false; // do not drop the message.
+        });
+
+        // Record that the target node received the request responded successfully.
+        targetNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof DisasterRecoveryResponseMessage) {
+                DisasterRecoveryResponseMessage responseMessage = (DisasterRecoveryResponseMessage) msg;
+                if (responseMessage.errorMessage() == null) {
+                    calledRepliedSuccessfully.set(true);
+                }
+            }
+            return false; // do not drop the message.
+        });
+
+        Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
+
+        MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
+                new RestartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+
+        // Send the request to the second node, which should forward it to the first node.
+        HttpResponse<Void> response = client2.toBlocking().exchange(post);
+
+        assertThat(response.getStatus().getCode(), is(OK.code()));
+        assertTrue(targetIsCalled.get());
+        assertTrue(calledRepliedSuccessfully.get());
     }
 
     private static Set<String> nodeNames(int count) {
