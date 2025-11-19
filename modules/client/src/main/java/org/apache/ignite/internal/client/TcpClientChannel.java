@@ -95,7 +95,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
             ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
-            ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_PRIORITY
+            ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS
     ));
 
     /** Minimum supported heartbeat interval. */

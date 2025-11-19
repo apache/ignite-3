@@ -20,10 +20,12 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.Transaction;
@@ -39,25 +41,29 @@ public class ClientLazyTransaction implements Transaction {
 
     private final @Nullable TransactionOptions options;
 
-    private final boolean lowPriority;
+    private final EnumSet<ClientInternalTxOptions> txOptions;
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
     ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
-        this(observableTimestamp, options, false);
+        this(observableTimestamp, options, EnumSet.noneOf(ClientInternalTxOptions.class));
     }
 
     /**
-     * Create a transaction with priority.
+     * Create a transaction with public and internal options.
      *
      * @param observableTimestamp The timestamp tracker.
      * @param options Options.
-     * @param lowPriority {@code True} to use low priority.
+     * @param txOptions Internal tx options.
      */
-    public ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options, boolean lowPriority) {
+    public ClientLazyTransaction(
+            HybridTimestampTracker observableTimestamp,
+            @Nullable TransactionOptions options,
+            @Nullable EnumSet<ClientInternalTxOptions> txOptions
+    ) {
         this.observableTimestamp = observableTimestamp.getLong();
         this.options = options;
-        this.lowPriority = lowPriority;
+        this.txOptions = txOptions;
     }
 
     @Override
@@ -109,7 +115,7 @@ public class ClientLazyTransaction implements Transaction {
     }
 
     @Override
-    public boolean isReadOnly() {
+    public final boolean isReadOnly() {
         return options != null && options.readOnly();
     }
 
@@ -219,7 +225,7 @@ public class ClientLazyTransaction implements Transaction {
         return observableTimestamp;
     }
 
-    public boolean lowPriority() {
-        return lowPriority;
+    @Nullable EnumSet<ClientInternalTxOptions> options() {
+        return txOptions;
     }
 }

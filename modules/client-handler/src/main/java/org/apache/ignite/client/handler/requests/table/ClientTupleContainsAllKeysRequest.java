@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.HAS_PRIORITY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.HAS_OPTIONS;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 
 import java.util.EnumSet;
@@ -46,7 +46,7 @@ public class ClientTupleContainsAllKeysRequest {
      * @param txManager    Transaction manager.
      * @param clockService Clock service.
      * @param tsTracker    Tracker.
-     * @param supportsPriority {@code True} if compatible with tx priority in request body.
+     * @param supportsOptions {@code True} if supports tx options.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -56,9 +56,9 @@ public class ClientTupleContainsAllKeysRequest {
             TxManager txManager,
             ClockService clockService,
             HybridTimestampTracker tsTracker,
-            boolean supportsPriority
+            boolean supportsOptions
     ) {
-        EnumSet<RequestOptions> options = supportsPriority ? of(KEY_ONLY, HAS_PRIORITY) : of(KEY_ONLY);
+        EnumSet<RequestOptions> options = supportsOptions ? of(KEY_ONLY, HAS_OPTIONS) : of(KEY_ONLY);
 
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options)
                 .thenCompose(req -> req.table().recordView().containsAllAsync(req.tx(), req.tuples())

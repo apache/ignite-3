@@ -40,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -429,21 +430,25 @@ public class ClientTableCommon {
         try {
             long id = in.unpackLong();
             if (id == TX_ID_FIRST_DIRECT) {
+                // This is first mapping request, which piggybacks transaction creation.
                 long observableTs = in.unpackLong();
 
-                // This is first mapping request, which piggybacks transaction creation.
-                boolean readOnly = in.unpackBoolean();
-                long timeoutMillis = in.unpackLong();
+                var builder = InternalTxOptions.builder();
+                boolean readOnly;
 
-                var builder = InternalTxOptions.builder().timeoutMillis(timeoutMillis);
-                if (options.contains(RequestOptions.HAS_PRIORITY)) {
-                    boolean lowPriority = in.unpackBoolean();
-                    // Currently we use low priority with getAll fragments to avoid conflicts with subsequent explicit RW transactions,
-                    // because locks are released asynchronously. This makes client's getAll a subject for starvation.
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-27039 Avoid starvation on implicit transaction retries.
-                    if (lowPriority) {
+                if (options.contains(RequestOptions.HAS_OPTIONS)) {
+                    long timeoutMillis = in.unpackLong();
+                    int flags = in.unpackInt();
+                    EnumSet<ClientInternalTxOptions> txOptions = ClientInternalTxOptions.unpack(flags);
+                    readOnly = txOptions.contains(ClientInternalTxOptions.READ_ONLY);
+                    if (txOptions.contains(ClientInternalTxOptions.LOW_PRIORITY)) {
                         builder.priority(TxPriority.LOW);
                     }
+                    builder = builder.timeoutMillis(timeoutMillis);
+                } else {
+                    readOnly = in.unpackBoolean();
+                    long timeoutMillis = in.unpackLong();
+                    builder = builder.timeoutMillis(timeoutMillis);
                 }
 
                 InternalTxOptions txOptions = builder.build();

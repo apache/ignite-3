@@ -87,7 +87,7 @@ public enum ProtocolBitmaskFeature {
     /**
      * Client supports tx priority option for getAll/containsAll.
      */
-    TX_CLIENT_GETALL_SUPPORTS_PRIORITY(12);
+    TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS(12);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

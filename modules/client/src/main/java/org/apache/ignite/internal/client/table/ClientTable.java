@@ -30,6 +30,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.api.PublicApiClientKeyValueView;
 import org.apache.ignite.internal.client.table.api.PublicApiClientRecordView;
@@ -743,7 +745,16 @@ public class ClientTable implements Table {
     }
 
     /**
+     * Start the explicit transaction for an implicit operation batch.
+     * <p>
      * Implicit getAll/containsAll transaction is executed as multiple independent transactions with lightweight coordination from a client.
+     * Currently we use low priority with such transactions to avoid conflicts with subsequent explicit RW transactions,
+     * because locks are released asynchronously.
+     * <p>
+     * This makes client's getAll a subject for starvation.
+     * <p>
+     * TODO https://issues.apache.org/jira/browse/IGNITE-27039 Avoid starvation on implicit transaction retries.
+     * <p>
      * TODO https://issues.apache.org/jira/browse/IGNITE-27040 Allow direct mapping for implicit RW transactions.
      *
      * @param tx Transaction to check.
@@ -757,8 +768,8 @@ public class ClientTable implements Table {
             return tx;
         }
 
-        // Will use default timeout.
-        ClientLazyTransaction tx0 = new ClientLazyTransaction(channel().observableTimestamp(), new TransactionOptions(), true);
+        ClientLazyTransaction tx0 = new ClientLazyTransaction(channel().observableTimestamp(), new TransactionOptions(),
+                EnumSet.of(ClientInternalTxOptions.LOW_PRIORITY));
 
         txns.add(tx0);
 

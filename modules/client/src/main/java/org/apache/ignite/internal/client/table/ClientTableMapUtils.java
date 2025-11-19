@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_PRIORITY;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
@@ -147,7 +147,7 @@ class ClientTableMapUtils {
                 }
             });
             // Enforce sync commit to avoid lock conflicts then working in compatibility mode.
-            if (!tx0.startedTx().channel().protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_PRIORITY)) {
+            if (!tx0.startedTx().channel().protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS)) {
                 waitCommitFuts.add(fut);
             }
         }
