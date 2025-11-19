@@ -113,6 +113,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -204,7 +205,8 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            MetricManager metricManager
+            MetricManager metricManager,
+            GcConfiguration gcConfiguration
     ) {
         this(
                 nodeName,
@@ -217,7 +219,8 @@ public class DistributionZoneManager extends
                 systemDistributedConfiguration,
                 clockService,
                 new SystemPropertiesNodeProperties(),
-                metricManager
+                metricManager,
+                gcConfiguration
         );
     }
 
@@ -233,6 +236,9 @@ public class DistributionZoneManager extends
      * @param catalogManager Catalog manager.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param clockService Clock service.
+     * @param nodeProperties Node properties.
+     * @param metricManager Metric manager.
+     * @param gcConfiguration Garbage collector configuration.
      */
     public DistributionZoneManager(
             String nodeName,
@@ -245,7 +251,8 @@ public class DistributionZoneManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
             NodeProperties nodeProperties,
-            MetricManager metricManager
+            MetricManager metricManager,
+            GcConfiguration gcConfiguration
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -285,7 +292,8 @@ public class DistributionZoneManager extends
                 failureProcessor,
                 partitionResetClosure,
                 partitionDistributionResetTimeoutConfiguration::currentValue,
-                this::logicalTopology
+                this::logicalTopology,
+                gcConfiguration
         );
 
         this.metricManager = metricManager;

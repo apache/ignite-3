@@ -96,6 +96,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfig
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
@@ -123,6 +124,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -178,6 +180,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @InjectExecutorService
     private ScheduledExecutorService commonScheduledExecutorService;
+
+    @InjectConfiguration("mock.lowWatermark: { dataAvailabilityTimeMillis: 600000}")
+    private GcConfiguration gcConfiguration;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -314,7 +319,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 catalogManager,
                 clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
                 clockService,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                gcConfiguration
         );
 
         // Preparing the result map.

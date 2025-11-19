@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -38,6 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -49,9 +53,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.PartitionResetClosure;
@@ -70,6 +77,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -78,10 +86,12 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link DataNodesManager}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     private static final String ZONE_NAME_1 = "test_zone_1";
     private static final String ZONE_NAME_2 = "test_zone_2";
@@ -119,6 +129,12 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private final PartitionResetClosure partitionResetClosure = (revision, zoneId) -> partitionResetTriggered.set(true);
 
+    @Nullable
+    private Catalog catalog;
+
+    @InjectConfiguration("mock.lowWatermark: { dataAvailabilityTimeMillis: 500}")
+    private GcConfiguration gcConfiguration;
+
     @BeforeEach
     public void setUp() {
         ComponentContext startComponentContext = new ComponentContext();
@@ -131,7 +147,8 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         assertThat(metaStorageManager.startAsync(startComponentContext), willCompleteSuccessfully());
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager, () -> TEST_DELAY_DURATION, () -> catalog);
+        catalog = null;
 
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
                 IgniteThreadFactory.create(NODE_NAME, "data-nodes-manager-test-scheduled-executor", log)
@@ -151,7 +168,8 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
                 new NoOpFailureManager(),
                 partitionResetClosure,
                 () -> 1,
-                Collections::emptySet
+                Collections::emptySet,
+                gcConfiguration
         );
 
         currentTopology = new HashSet<>(Set.of(A, B));
@@ -476,6 +494,75 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         NodeWithAttributes c = nodeFromHistory(dataNodesHistory(ZONE_NAME_1), C.nodeName(), HybridTimestamp.MAX_VALUE);
 
         assertEquals(C_DIFFERENT_ATTRS.userAttributes().get("region"), c.userAttributes().get("region"));
+    }
+
+    @Test
+    public void testHistoryCompaction() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        removeNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B));
+
+        HybridTimestamp afterRemovalTs = clock.now();
+
+        // Greater than the low watermark data availability time (500 ms).
+        Thread.sleep(600);
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(clock.currentLong()).zone(ZONE_NAME_1);
+        catalog = mock(Catalog.class);
+        when(catalog.time()).thenAnswer(inv -> clock.now().longValue());
+        when(catalog.zone(anyInt())).thenAnswer(inv -> zoneDescriptor);
+
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is compacted.
+        DataNodesHistoryEntry compactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(afterRemovalTs);
+        assertEquals(HybridTimestamp.MIN_VALUE, compactedHistoryEntry.timestamp());
+        assertTrue(compactedHistoryEntry.dataNodes().isEmpty());
+    }
+
+    @Test
+    public void testHistoryCompactionLeavesEntriesForNonCompactedCatalog() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        DataNodesHistoryEntry firstEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(clock.current());
+
+        // Greater than the low watermark data availability time (500 ms).
+        Thread.sleep(600);
+
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is not compacted.
+        DataNodesHistoryEntry nonCompactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(firstEntry.timestamp());
+        assertEquals(firstEntry.timestamp(), nonCompactedHistoryEntry.timestamp());
+        assertEquals(firstEntry.dataNodes(), nonCompactedHistoryEntry.dataNodes());
+    }
+
+    @Test
+    public void testHistoryCompactionLeavesEntriesForDataAvailability() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        DataNodesHistoryEntry firstEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(clock.current());
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(clock.currentLong()).zone(ZONE_NAME_1);
+        catalog = mock(Catalog.class);
+        when(catalog.time()).thenAnswer(inv -> clock.now().longValue());
+        when(catalog.zone(anyInt())).thenAnswer(inv -> zoneDescriptor);
+
+        log.info("Test: adding node C.");
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is not compacted.
+        DataNodesHistoryEntry nonCompactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(firstEntry.timestamp());
+        assertEquals(firstEntry.timestamp(), nonCompactedHistoryEntry.timestamp());
+        assertEquals(firstEntry.dataNodes(), nonCompactedHistoryEntry.dataNodes());
     }
 
     private static NodeWithAttributes nodeFromHistory(DataNodesHistory history, String nodeName, HybridTimestamp timestamp) {
