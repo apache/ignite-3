@@ -4005,6 +4005,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(await.isOk(), await.getErrorMsg());
 
         cluster.ensureSame();
+
+        cluster.ensureSameConf();
+
         assertEquals(3, cluster.getFsms().size());
 
         for (MockStateMachine fsm : cluster.getFsms())
