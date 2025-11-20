@@ -17,8 +17,8 @@
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
+import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
@@ -51,7 +51,7 @@ public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
     }
 
     @Override public LogEntryCodecFactory createLogEntryCodecFactory() {
-        return LogEntryV1CodecFactory.getInstance();
+        return DefaultLogEntryCodecFactory.getInstance();
     }
 
     @Override public RaftTimerFactory createRaftTimerFactory() {

@@ -47,6 +47,8 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -529,8 +531,12 @@ public class StorageUpdateHandler {
             return;
         }
 
-        assert lastCommitTs.compareTo(latestCommittedTs) >= 0 :
-                "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp " + latestCommittedTs;
+        if (lastCommitTs.compareTo(latestCommittedTs) < 0) {
+            throw new IgniteException(
+                    Common.INTERNAL_ERR,
+                    String.format("Primary commit timestamp %s is earlier than local commit timestamp %s", lastCommitTs, latestCommittedTs)
+            );
+        }
 
         if (lastCommitTs.compareTo(latestCommittedTs) > 0) {
             // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.

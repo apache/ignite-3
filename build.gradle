@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import com.github.spotbugs.snom.SpotBugsTask
 
 //This need for resolving plugins in buildscripts
 plugins {
@@ -187,13 +188,23 @@ subprojects {
     }
 
     tasks.register('printSubDependencies', DependencyReportTask)
-}
 
-tasks.register('checkstyle') {
-    description = 'Runs all checkstyle tasks'
+    tasks.register('spotbugs') {
+        dependsOn tasks.withType(SpotBugsTask)
+        group "Verification"
+        description 'Run all SpotBugs checks on the project'
+    }
 
-    rootProject.subprojects { Project subproject ->
-        dependsOn subproject.tasks.withType(Checkstyle)
+    tasks.register('pmd') {
+        dependsOn tasks.withType(Pmd)
+        group "Verification"
+        description 'Run all PMD checks on the project'
+    }
+
+    tasks.register('checkstyle') {
+        dependsOn tasks.withType(Checkstyle)
+        group "Verification"
+        description 'Run all Checkstyle checks on the project'
     }
 }
 

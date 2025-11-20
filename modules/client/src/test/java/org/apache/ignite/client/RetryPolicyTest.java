@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -54,9 +55,13 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
     private TestServer server;
 
+    private TestServer server2;
+
+    private TestServer server3;
+
     @AfterEach
     void tearDown() throws Exception {
-        closeAll(server);
+        closeAll(server, server2, server3);
     }
 
     @Test
@@ -276,6 +281,52 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testUnstableCluster() {
+        UUID clusterId = UUID.randomUUID();
+
+        server = createServer(reqId -> reqId % 2 == 0, clusterId);
+        server2 = createServer(reqId -> reqId % 2 != 0, clusterId);
+        server3 = createServer(reqId -> reqId % 3 == 0, clusterId);
+
+        var clientBuilder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:" + server2.port(), "127.0.0.1:" + server3.port())
+                .loggerFactory(new ConsoleLoggerFactory("testUnstableCluster"));
+
+        try (var client = clientBuilder.build()) {
+            for (int i = 0; i < ITER; i++) {
+                assertDoesNotThrow(() -> client.tables().tables());
+            }
+        }
+    }
+
+    @Test
+    public void testNodesLeave() {
+        UUID clusterId = UUID.randomUUID();
+
+        server = createServer(reqId -> false, clusterId);
+        server2 = createServer(reqId -> false, clusterId);
+        server3 = createServer(reqId -> false, clusterId);
+
+        var clientBuilder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:" + server2.port(), "127.0.0.1:" + server3.port())
+                .loggerFactory(new ConsoleLoggerFactory("testUnstableCluster"));
+
+        try (var client = clientBuilder.build()) {
+            for (int i = 0; i < ITER; i++) {
+                assertDoesNotThrow(() -> client.tables().tables());
+
+                if (i == ITER / 3) {
+                    server2.close();
+                }
+
+                if (i == 2 * ITER / 3) {
+                    server3.close();
+                }
+            }
+        }
+    }
+
     private IgniteClient getClient(@Nullable RetryPolicy retryPolicy) {
         return getClient(retryPolicy, null);
     }
@@ -289,9 +340,13 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     private void initServer(Function<Integer, Boolean> shouldDropConnection) {
+        server = createServer(shouldDropConnection, UUID.randomUUID());
+    }
+
+    private static TestServer createServer(Function<Integer, Boolean> shouldDropConnection, UUID clusterId) {
         FakeIgnite ign = new FakeIgnite();
         ((FakeIgniteTables) ign.tables()).createTable("t");
 
-        server = new TestServer(0, ign, shouldDropConnection, null, null, UUID.randomUUID(), null, null);
+        return new TestServer(0, ign, shouldDropConnection, null, null, clusterId, null, null);
     }
 }

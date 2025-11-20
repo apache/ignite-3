@@ -728,7 +728,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     ) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping onLeaderElected callback, because the node is stopping");
@@ -814,7 +815,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
-                    // TODO: IGNITE-18681 - respect removal timeout.
                     return nodesToRemove.isEmpty() ? nullCompletedFuture() : service.removeFromCluster(nodesToRemove);
                 }));
     }

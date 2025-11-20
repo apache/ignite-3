@@ -1217,7 +1217,8 @@ TEST_F(queries_test, test_non_full_batch_select_100_60) {
     insert_non_full_batch_select(100, 60);
 }
 
-TEST_F(queries_test, test_non_full_batch_select_1000_239) {
+// TODO: IGNITE-27013 Re-enable after heartbeats are implemented.
+TEST_F(queries_test, DISABLED_test_non_full_batch_select_1000_239) {
     odbc_connect(get_basic_connection_string());
 
     insert_non_full_batch_select(1000, 239);

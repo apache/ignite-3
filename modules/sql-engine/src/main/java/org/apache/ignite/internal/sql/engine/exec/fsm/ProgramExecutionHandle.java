@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import java.util.concurrent.CompletableFuture;
 
-// TODO: IGNITE-22522 - remove this class and switch ItInternalTableReadWriteScanTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class ItInternalTableReadWriteScanColocationTest extends ItInternalTableReadWriteScanTest {
-    @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
-    }
+/**
+ * Provides minimal API to communicate with a running {@link Program program}.
+ */
+interface ProgramExecutionHandle {
+    /**
+     * Notifies program execution about exception related to query this program is running for.
+     *
+     * @param error An error to notify about.
+     */
+    void notifyError(Throwable error);
+
+    /** Returns a future which will be completed successfully. */
+    CompletableFuture<Void> completionFuture();
 }

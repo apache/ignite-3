@@ -119,7 +119,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     @ParameterizedTest
     @MethodSource("replicasChanges")
     void adjustQuorumSize(int initialReplicas, int quorumSize, int targetReplicas, int targetQuorumSize) {
-        Catalog catalog = catalog(alterZoneBuilder()
+        Catalog catalog = catalogWithDefaultZone(alterZoneBuilder()
                 .replicas(initialReplicas)
                 .quorumSize(quorumSize)
                 .build()
@@ -221,13 +221,6 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         // Let's check the success cases.
         alterZoneBuilder().filter("['nodeAttributes'][?(@.['region'] == 'EU')]").build();
         alterZoneBuilder().filter(DEFAULT_FILTER).build();
-    }
-
-    private static CatalogCommand alterZoneParams(@Nullable Integer scaleUp, @Nullable Integer scaleDown) {
-        return alterZoneBuilder()
-                .dataNodesAutoAdjustScaleUp(scaleUp)
-                .dataNodesAutoAdjustScaleDown(scaleDown)
-                .build();
     }
 
     private static AlterZoneCommandBuilder alterZoneBuilder() {

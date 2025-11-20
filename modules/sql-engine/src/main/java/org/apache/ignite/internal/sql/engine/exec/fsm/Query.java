@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -31,6 +35,8 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,8 +45,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>Encapsulates intermediate state populated throughout query lifecycle.
  */
 class Query {
+    private static final IgniteLogger LOG = Loggers.forClass(Query.class);
+    private static final int MAX_ATTEMPTS_COUNT = 1024;
+
     final CompletableFuture<Void> terminationFuture = new CompletableFuture<>();
-    volatile CompletableFuture<Object> resultHolder = new CompletableFuture<>();
+    final AtomicReference<@Nullable ProgramExecutionHandle> activeProgram = new AtomicReference<>();
 
     // Below are attributes the query was initialized with
     final Instant createdAt;
@@ -116,6 +125,69 @@ class Query {
         this.parsedResult = parsedResult;
     }
 
+    <ResultT> CompletableFuture<ResultT> runProgram(Program<ResultT> program) {
+        ProgramExecutionState<ResultT> state = program.createState();
+
+        ProgramExecutionHandle currentProgram = activeProgram.compareAndExchange(null, state);
+        if (currentProgram != null) {
+            String message = format(
+                    "Attempt to run query program while another is still active [runningProgram={}, newProgram={}].",
+                    currentProgram, program
+            );
+            throw new SqlException(Common.INTERNAL_ERR, message);
+        }
+
+        program.run(this, state);
+
+        return state.resultHolder;
+    }
+
+    /**
+     * Initiates a graceful termination of the current query.
+     *
+     * <p>If the query is idle, moves it to {@link ExecutionPhase#TERMINATED} phase immediately. Otherwise, the method waits for the
+     * currently active program to complete before proceeding. Note that termination may not take effect immediately upon return. To wait
+     * for the actual completion of termination, use {@link #terminationFuture}.
+     */
+    void terminate() {
+        tryTerminate(1);
+    }
+
+    private void tryTerminate(int attemptNo) {
+        if (attemptNo >= MAX_ATTEMPTS_COUNT) {
+            // Exception thrown from this place most probably will be swallowed,
+            // therefore logging is chosen.
+            LOG.warn("Unable to terminate query after several attempts. Try to cancel it explicitly using KILL statement," 
+                    + "or restart the node as some resources mays still be held by this query [queryId={}, attempts={}].", id, attemptNo);
+
+            return;
+        }
+
+        // Already terminated, nothing to do.
+        if (currentPhase == ExecutionPhase.TERMINATED) {
+            return;
+        }
+
+        // Optimistically assume there is no active program, just try to run TERMINATION program.
+        if (tryRunTerminationProgram()) {
+            return;
+        }
+
+        ProgramExecutionHandle handle = activeProgram.get();
+
+        // Handle may be null if active program completes a moment after we tried to run TERMINATION program.
+        if (handle != null) {
+            // If active program still exists, wait for completion and try again.
+            handle.completionFuture()
+                    .whenComplete((r, e) -> tryTerminate(attemptNo + 1));
+
+            return;
+        }
+
+        // Active program competed concurrently, just try again.
+        tryTerminate(attemptNo + 1);
+    }
+
     /** Moves the query to a given state. */
     void moveTo(ExecutionPhase newPhase) {
         currentPhase = newPhase;
@@ -129,12 +201,30 @@ class Query {
         return currentPhase;
     }
 
-    void onError(Throwable th) {
+    void terminateExceptionally(Throwable th) {
         setError(th);
 
-        moveTo(ExecutionPhase.TERMINATED);
+        ProgramExecutionHandle handle = activeProgram.get();
+        if (handle != null) {
+            handle.notifyError(th);
+        }
 
-        resultHolder.completeExceptionally(th);
+        terminate();
+    }
+
+    private boolean tryRunTerminationProgram() {
+        // Create fake state to prevent concurrent program execution.
+        ProgramExecutionState<Void> state = new ProgramExecutionState<>("QUERY_TERMINATION");
+
+        if (activeProgram.compareAndSet(null, state)) {
+            moveTo(ExecutionPhase.TERMINATED);
+
+            activeProgram.set(null);
+
+            return true;
+        }
+
+        return false;
     }
 
     void setError(Throwable err) {
@@ -157,7 +247,6 @@ class Query {
     }
 
     void reset() {
-        resultHolder = new CompletableFuture<>();
         error.set(null);
     }
 }

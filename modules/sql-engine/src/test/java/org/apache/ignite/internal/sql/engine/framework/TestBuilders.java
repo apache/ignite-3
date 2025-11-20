@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLAN_EXPIRATION_SECONDS;
@@ -75,6 +77,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -136,6 +139,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeType;
@@ -687,18 +691,23 @@ public class TestBuilders {
                     IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
             );
 
+            Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
+                    DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
                     CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null)),
+                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null),
+                            statStalenessProperties),
                     planningTimeout,
                     PLANNING_THREAD_COUNT,
                     PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(),
                     schemaManager,
                     clockService::currentLong,
-                    scheduledExecutor
+                    scheduledExecutor,
+                    mock(AbstractEventProducer.class)
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();

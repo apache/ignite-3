@@ -43,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionalOperatio
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -57,6 +56,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -182,9 +182,9 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
         cluster.node(firstExpectedNode).disconnect();
 
         assertThrows(
-                UnknownNodeException.class,
+                SqlException.class,
                 () -> assertQuery(gatewayNode, "SELECT node FROM t1 WHERE part_id = 0", txContext).check(),
-                "Unknown node: " + firstExpectedNode
+                "Node left the cluster. Node: " + firstExpectedNode
         );
     }
 

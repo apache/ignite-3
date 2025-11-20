@@ -68,7 +68,10 @@ Terminal(";")
 * `AUTO SCALE DOWN` - Configures automatic scaling down of the distribution zone. Possible values:
 - `OFF` - disables the automatic distribution zone adjustment. Default value.
 - `integer` - the delay in seconds between the new node joining and the start of distribution zone adjustment. Possible values are between 0 and 2147483647.
-* `CONSISTENCY MODE` - how the zone handles partition majority losses. If set to `STRONG CONSISTENCY`, the data will become unavailable until majority is restored (typically, this means nodes leaving and returning to the cluster). `HIGH AVAILABILITY` means that the data will be written and read from remaining nodes, accepting possible data loss. Default value: `STRONG_CONSISTENCY`.
+* `CONSISTENCY MODE` - how the zone handles partition majority losses. Cannot be changed after the zone is created.
++
+If set to `STRONG CONSISTENCY`, the data will become unavailable until majority is restored (typically, this means nodes leaving and returning to the cluster). `HIGH AVAILABILITY` means that the data will be written and read from remaining nodes, accepting possible data loss. Default value: `STRONG_CONSISTENCY`.
+
 * `QUORUM SIZE` - the size of the majority of nodes in the consensus of a replication group. Quorum size is determined by the replica count.
 +
 _Minimal_ value: `1` if there is only one replica and `2` if there is more than one.
@@ -122,6 +125,8 @@ NOTE: The example above assumes that there are nodes that have the attribute set
 ----
 CREATE ZONE IF NOT EXISTS exampleZone (REPLICAS 5, CONSISTENCY MODE 'HIGH_AVAILABILITY') STORAGE PROFILES['default'];
 ----
+
+NOTE: You cannot change the `CONSISTENCY MODE` for a zone once it is created. However, you can create a new zone with a different `CONSISTENCY MODE` as a workaround.
 
 == ALTER ZONE
 

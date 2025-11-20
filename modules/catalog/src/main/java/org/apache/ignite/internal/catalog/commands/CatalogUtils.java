@@ -19,10 +19,12 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.lang.Math.min;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFINITION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -48,6 +50,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
+import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -57,6 +62,9 @@ import org.jetbrains.annotations.Nullable;
  * Catalog utils.
  */
 public class CatalogUtils {
+    /** Default zone name. */
+    public static final String DEFAULT_ZONE_NAME = "Default";
+
     /** Default number of distribution zone partitions. */
     public static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -178,7 +186,7 @@ public class CatalogUtils {
      */
     public static final int MAX_INTERVAL_TYPE_PRECISION = 10;
 
-    public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = ConsistencyMode.STRONG_CONSISTENCY;
+    public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = STRONG_CONSISTENCY;
 
     public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
     public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
@@ -532,6 +540,96 @@ public class CatalogUtils {
     }
 
     /**
+     * Returns a descriptor for given zone name or for a default zone from the given catalog.
+     *
+     * @param catalog Catalog to check zones' existence.
+     * @param zoneName Zone name to try to find catalog descriptor for. If {@code null} then will return default zone descriptor.
+     * @return Returns a descriptor for given zone name if it isn't {@code null} or for existed default zone otherwise.
+     * @throws CatalogValidationException In casse if given zone name isn't {@code null}, but the given catalog hasn't zone with such name.
+     * @implNote This method assumes, that {@link #shouldCreateNewDefaultZone} returns {@code false} with the same input.
+     */
+    public static CatalogZoneDescriptor zoneByNameOrDefaultOrThrow(
+            Catalog catalog,
+            @Nullable String zoneName
+    ) throws CatalogValidationException {
+        if (zoneName != null) {
+            return zoneOrThrow(catalog, zoneName);
+        }
+
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
+        if (defaultZone == null) {
+            throw new CatalogValidationException("Default zone not found.");
+        }
+
+        return defaultZone;
+    }
+
+    /**
+     * Returns {@code true} if the given zone name is {@code null} and in the given catalog there is no default zone. If so, then looks like
+     * {@link #createDefaultZoneDescriptor} should be called then.
+     *
+     * @param catalog Catalog to check default zone presence.
+     * @param zoneName Zone name to check if it is {@code null}.
+     * @return Returns {@code true} if the given zone name is {@code null} and in the given catalog there is no default zone.
+     */
+    public static boolean shouldCreateNewDefaultZone(Catalog catalog, @Nullable String zoneName) {
+        return zoneName == null && catalog.defaultZone() == null;
+    }
+
+    /**
+     * Creates catalog descriptor for a new default zone.
+     *
+     * @param catalog Catalog to check that {@link #DEFAULT_ZONE_NAME} isn't used.
+     * @param newDefaultZoneId Identifier for new default zone.
+     * @return New default zone's catalog descriptor.
+     *
+     * @throws CatalogValidationException If a zone with {@link #DEFAULT_ZONE_NAME} already exists.
+     */
+    public static CatalogZoneDescriptor createDefaultZoneDescriptor(
+            Catalog catalog,
+            int newDefaultZoneId,
+            Collection<UpdateEntry> updateEntries
+    ) throws CatalogValidationException {
+        // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
+        checkDuplicateDefaultZoneName(catalog);
+
+        CatalogZoneDescriptor defaultZone = createDefaultZoneDescriptor(newDefaultZoneId);
+
+        updateEntries.add(new NewZoneEntry(defaultZone));
+        updateEntries.add(new SetDefaultZoneEntry(defaultZone.id()));
+
+        return defaultZone;
+    }
+
+    private static CatalogZoneDescriptor createDefaultZoneDescriptor(int newDefaultZoneId) {
+        return new CatalogZoneDescriptor(
+                newDefaultZoneId,
+                DEFAULT_ZONE_NAME,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_REPLICA_COUNT,
+                DEFAULT_ZONE_QUORUM_SIZE,
+                IMMEDIATE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                DEFAULT_FILTER,
+                new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))),
+                STRONG_CONSISTENCY
+        );
+    }
+
+    private static void checkDuplicateDefaultZoneName(Catalog catalog) {
+        if (catalog.zone(DEFAULT_ZONE_NAME) == null) {
+            return;
+        }
+
+        throw new CatalogValidationException(
+                "Distribution zone with name '{}' already exists. Please specify zone name for the new table or set the zone as default",
+                DEFAULT_ZONE_NAME
+        );
+    }
+
+    /**
      * Returns zone with given name.
      *
      * @param catalog Catalog to look up zone in.
@@ -542,8 +640,11 @@ public class CatalogUtils {
      * @throws CatalogValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
      *         set to {@code true}.
      */
-    public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
-            throws CatalogValidationException {
+    public static @Nullable CatalogZoneDescriptor zone(
+            Catalog catalog,
+            String name,
+            boolean shouldThrowIfNotExists
+    ) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
@@ -553,6 +654,29 @@ public class CatalogUtils {
         }
 
         return zone;
+    }
+
+    /**
+     * Returns zone with given name.
+     *
+     * @param catalog Catalog to look up zone in.
+     * @param name Name of the zone of interest.
+     * @return Zone descriptor for given name.
+     * @throws CatalogValidationException If zone with given name is not exists.
+     */
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name)
+            throws CatalogValidationException {
+        return zone(catalog, name, true);
+    }
+
+    /**
+     * Creates common exception for cases when validated distribution zone has already existed name.
+     *
+     * @param duplicatedZoneName Conflicting zone name.
+     * @return Catalog validation exception instance with proper and common for such cases message.
+     */
+    public static CatalogValidationException duplicateDistributionZoneNameCatalogValidationException(String duplicatedZoneName) {
+        return new CatalogValidationException("Distribution zone with name '{}' already exists.", duplicatedZoneName);
     }
 
     /**
@@ -803,13 +927,6 @@ public class CatalogUtils {
         if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
             throw new CatalogValidationException("Column of type '{}' cannot be persisted [col={}].", columnType, columnName);
         }
-    }
-
-    // In case of enabled colocation the start of each node triggers default zone rebalance. In order to eliminate such excessive rebalances
-    // default zone auto adjust scale up timeout is set to 5 seconds. If colocation is disabled tests usually create tables
-    // after all nodes already started meaning that tables are created on stable topology and usually doesn't assume any rebalances at all.
-    public static int defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(boolean colocationEnabled) {
-        return colocationEnabled ? 5 : 0;
     }
 
     /**

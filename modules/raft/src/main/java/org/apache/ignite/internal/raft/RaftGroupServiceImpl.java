@@ -349,17 +349,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> addPeer(Peer peer) {
+    public CompletableFuture<Void> addPeer(Peer peer, long sequenceToken) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader(() -> "addPeer").thenCompose(res -> addPeer(peer));
+            return refreshLeader(() -> "addPeer").thenCompose(res -> addPeer(peer, sequenceToken));
         }
 
         Function<Peer, AddPeerRequest> requestFactory = targetPeer -> factory.addPeerRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
                 .peerId(peerId(peer))
+                .sequenceToken(sequenceToken)
                 .build();
 
         return this.<AddPeerResponse>sendWithRetry(leader, requestFactory, true)
@@ -367,17 +368,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> removePeer(Peer peer) {
+    public CompletableFuture<Void> removePeer(Peer peer, long sequenceToken) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader(() -> "removePeer").thenCompose(res -> removePeer(peer));
+            return refreshLeader(() -> "removePeer").thenCompose(res -> removePeer(peer, sequenceToken));
         }
 
         Function<Peer, RemovePeerRequest> requestFactory = targetPeer -> factory.removePeerRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
                 .peerId(peerId(peer))
+                .sequenceToken(sequenceToken)
                 .build();
 
         return this.<RemovePeerResponse>sendWithRetry(leader, requestFactory, false)
@@ -385,11 +387,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
+    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader(() -> "changePeersAndLearners").thenCompose(res -> changePeersAndLearners(peersAndLearners, term));
+            return refreshLeader(() -> "changePeersAndLearners")
+                    .thenCompose(res -> changePeersAndLearners(peersAndLearners, term, sequenceToken));
         }
 
         Function<Peer, ChangePeersAndLearnersRequest> requestFactory = targetPeer -> factory.changePeersAndLearnersRequest()
@@ -398,6 +401,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .newPeersList(peerIds(peersAndLearners.peers()))
                 .newLearnersList(peerIds(peersAndLearners.learners()))
                 .term(term)
+                .sequenceToken(sequenceToken)
                 .build();
 
         LOG.info("Sending changePeersAndLearners request for group={} to peers={} and learners={} with leader term={}",
@@ -411,12 +415,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term) {
+    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
         Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader(() -> "changePeersAndLearnersAsync")
-                    .thenCompose(res -> changePeersAndLearnersAsync(peersAndLearners, term));
+                    .thenCompose(res -> changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken));
         }
 
         Function<Peer, ChangePeersAndLearnersAsyncRequest> requestFactory = targetPeer -> factory.changePeersAndLearnersAsyncRequest()
@@ -425,6 +429,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .term(term)
                 .newPeersList(peerIds(peersAndLearners.peers()))
                 .newLearnersList(peerIds(peersAndLearners.learners()))
+                .sequenceToken(sequenceToken)
                 .build();
 
         LOG.info("Sending changePeersAndLearnersAsync request for group={} to peers={} and learners={} with leader term={}",
@@ -439,17 +444,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> addLearners(Collection<Peer> learners) {
+    public CompletableFuture<Void> addLearners(Collection<Peer> learners, long sequenceToken) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader(() -> "addLearners").thenCompose(res -> addLearners(learners));
+            return refreshLeader(() -> "addLearners").thenCompose(res -> addLearners(learners, sequenceToken));
         }
 
         Function<Peer, AddLearnersRequest> requestFactory = targetPeer -> factory.addLearnersRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
                 .learnersList(peerIds(learners))
+                .sequenceToken(sequenceToken)
                 .build();
 
         return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
@@ -457,17 +463,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> removeLearners(Collection<Peer> learners) {
+    public CompletableFuture<Void> removeLearners(Collection<Peer> learners, long sequenceToken) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader(() -> "removeLearners").thenCompose(res -> removeLearners(learners));
+            return refreshLeader(() -> "removeLearners").thenCompose(res -> removeLearners(learners, sequenceToken));
         }
 
         Function<Peer, RemoveLearnersRequest> requestFactory = targetPeer -> factory.removeLearnersRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
                 .learnersList(peerIds(learners))
+                .sequenceToken(sequenceToken)
                 .build();
 
         return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
@@ -475,17 +482,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> resetLearners(Collection<Peer> learners) {
+    public CompletableFuture<Void> resetLearners(Collection<Peer> learners, long sequenceToken) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader(() -> "resetLearners").thenCompose(res -> resetLearners(learners));
+            return refreshLeader(() -> "resetLearners").thenCompose(res -> resetLearners(learners, sequenceToken));
         }
 
         Function<Peer, ResetLearnersRequest> requestFactory = targetPeer -> factory.resetLearnersRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
                 .learnersList(peerIds(learners))
+                .sequenceToken(sequenceToken)
                 .build();
 
         return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)

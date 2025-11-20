@@ -104,7 +104,12 @@ public class TableAwareReplicaRequestPreProcessor {
 
         @Nullable HybridTimestamp finalTxTs = txTs;
         Runnable validateClo = () -> {
-            schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId);
+            // Some requests require a schema sync (this makes sure we wait till table replica processor is added for per-zone case),
+            // but we don't need to validate table existence (as for this kind of request this is done further, in the request handling
+            // logic).
+            if (!(request instanceof TableWriteIntentSwitchReplicaRequest)) {
+                schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId);
+            }
 
             boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
 

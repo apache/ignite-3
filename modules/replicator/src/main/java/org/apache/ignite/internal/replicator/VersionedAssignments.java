@@ -15,18 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.replicator;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+/**
+ * Assignments as bytes with the revision where they were created.
+ */
+public class VersionedAssignments {
 
-// TODO: IGNITE-22522 - remove this class and switch TxManagerTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class TxManagerColocationTest extends TxManagerTest {
-    @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
+    private final byte[] assignmentsBytes;
+    private final long revision;
+
+    public VersionedAssignments(byte[] assignmentsBytes, long revision) {
+        this.assignmentsBytes = assignmentsBytes;
+        this.revision = revision;
+    }
+
+    /**
+     * Assignments as bytes.
+     */
+    byte[] assignmentsBytes() {
+        return assignmentsBytes;
+    }
+
+    /**
+     * Revision of the assignments.
+     */
+    long revision() {
+        return revision;
     }
 }

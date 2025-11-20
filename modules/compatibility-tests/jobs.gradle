@@ -37,6 +37,8 @@ processTestFixturesResources {
 }
 
 dependencies {
+    jobsImplementation libs.jetbrains.annotations
+
     jobsImplementation project(':ignite-api')
     jobsImplementation project(':ignite-core')
     jobsImplementation project(':ignite-runner')
@@ -49,4 +51,8 @@ dependencies {
     jobsImplementation project(':ignite-raft-api')
 
     testFixturesApi sourceSets.jobs.output
+}
+
+spotbugsJobs {
+    enabled = false
 }

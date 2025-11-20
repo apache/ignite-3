@@ -53,9 +53,13 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
         final String addingPeerIdStr = request.peerId();
         final PeerId addingPeer = new PeerId();
         if (addingPeer.parse(addingPeerIdStr)) {
+            assert request.sequenceToken() != null: "Sequence token is null";
+
+            long sequenceToken = request.sequenceToken();
+
             LOG.info("Receive AddPeerRequest to {} from {}, adding {}", ctx.node.getNodeId(), done.getRpcCtx()
                 .getRemoteAddress(), addingPeerIdStr);
-            ctx.node.addPeer(addingPeer, status -> {
+            ctx.node.addPeer(addingPeer, sequenceToken, status -> {
                 if (!status.isOk()) {
                     done.run(status);
                 }
