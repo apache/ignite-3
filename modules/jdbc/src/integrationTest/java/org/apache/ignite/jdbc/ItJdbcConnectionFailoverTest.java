@@ -17,7 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -117,22 +117,21 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
                 cluster.stopNode(0);
                 cluster.stopNode(1);
 
-                //noinspection ThrowableNotThrown
-                assertThrows(
+                assertThrowsSqlException(
                         SQLException.class,
-                        () -> stmt.execute("SELECT 1"),
-                        "Connection refused"
+                        "Connection refused",
+                        () -> stmt.execute(dummyQuery)
                 );
 
                 cluster.startNode(1);
 
-                assertThat(stmt.execute("SELECT 1"), is(true));
+                assertThat(stmt.execute(dummyQuery), is(true));
             }
         }
     }
 
     /**
-     * Ensures that the client receives the meaningful exception when the node holding the client transaction goes down.
+     * Ensures that the client receives a meaningful exception when the node holding the client transaction goes down.
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-27091")
@@ -140,33 +139,31 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{2});
 
+        String dummyQuery = "SELECT 1";
+
         try (Connection connection = getConnection(nodesCount - 1)) {
             connection.setAutoCommit(false);
 
             try (Statement stmt = connection.createStatement()) {
-                assertThat(stmt.execute("SELECT 1"), is(true));
+                assertThat(stmt.execute(dummyQuery), is(true));
 
                 // Stop all cluster nodes known to the client.
                 cluster.stopNode(0);
                 cluster.stopNode(1);
 
-                String query = "SELECT 1";
-
-                //noinspection ThrowableNotThrown
-                assertThrows(
+                assertThrowsSqlException(
                         SQLException.class,
-                        () -> stmt.execute(query),
-                        "Connection refused"
+                        "Connection refused",
+                        () -> stmt.execute(dummyQuery)
                 );
 
                 cluster.startNode(0);
                 cluster.startNode(1);
 
-                //noinspection ThrowableNotThrown
-                assertThrows(
+                assertThrowsSqlException(
                         SQLException.class,
-                        () -> stmt.execute(query),
-                        "Transaction context has been lost due to connection errors"
+                        "Transaction context has been lost due to connection errors",
+                        () -> stmt.execute(dummyQuery)
                 );
             }
         }
