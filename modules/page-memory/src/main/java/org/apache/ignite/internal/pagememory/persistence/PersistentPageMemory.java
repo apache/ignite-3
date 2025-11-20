@@ -729,7 +729,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 readPageFromStore = true;
 
-                // Mare page header as invalid. We have not yet read the real value of "pageId" from the page, thus the state of "rwLock"
+                // Mark page header as invalid. We have not yet read the real value of "pageId" from the page, thus the state of "rwLock"
                 // can be inconsistent. Please see "waitUntilPageIsFullyInitialized" for more details.
                 headerIsValid(absPtr, false);
 

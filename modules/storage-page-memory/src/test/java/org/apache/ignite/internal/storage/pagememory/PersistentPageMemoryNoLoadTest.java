@@ -455,7 +455,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     /**
      * Tests that {@link PersistentPageMemory#acquirePage(int, long)} works correctly when multiple threads try to acquire the same page
-     * using different {@code padeId} values, assuming that one of the threads simply has in invalid identifier from some obsolete source.
+     * using different {@code pageId} values, assuming that one of the threads simply has in invalid identifier from some obsolete source.
      */
     @Test
     void testAcquireRace(@WorkDirectory Path workDir) throws Exception {
@@ -540,6 +540,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 long realPageId = PageIdUtils.pageId(PARTITION_ID, PageIdAllocator.FLAG_DATA, i + 1);
 
                 // Step 3. Run the race for all pages in the partition.
+                // It's fine to not release/unlock these pages, we stop the region immediately after.
                 IgniteTestUtils.runRace(
                         () -> pageMemory2.acquirePage(GRP_ID, fakePageId),
                         () -> {
