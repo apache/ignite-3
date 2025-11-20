@@ -95,6 +95,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation libs.netty.transport
+    integrationTestImplementation libs.awaitility
 
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-core')

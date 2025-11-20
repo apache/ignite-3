@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -42,6 +43,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.empty;
@@ -60,6 +62,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -565,7 +568,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      *     <li>We execute "resetPartitions" and expect that data from node 0 will be available after that.</li>
      * </ul>
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23783")
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
     public void testIncompleteRebalanceAfterResetPartitions() throws Exception {
@@ -631,6 +633,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         ), timestamp, true);
 
         assertPendingAssignments(node0, partId, assignmentsPending);
+
+        // need to wait
+        // Need to verify that other nodes managed to switch to the new configuration.
+        // Stopping the leader before the group switched to the new configuration => the other nodes will never progress as they're
+        // on the old configuration. In out case - The first seen one, [1,4,5].
+        // In other words, need to wait:
+        // [StateMachineAdapter] onConfigurationCommitted: idrrt_tirarp_0,idrrt_tirarp_3,idrrt_tirarp_1.
+        List<String> expectedPeers = List.of(node(0).name(), node(1).name(), node(3).name());
+        assertConfigurationApplied(node0, partId, expectedPeers);
 
         stopNode(1);
         waitForScale(node0, 3);
@@ -809,7 +820,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * disaster recovery API, but with manual flag set to false. We expect that in this replica factor won't be restored.
      * In this test, assignments will be (1, 3, 4), according to {@link RendezvousDistributionFunction}.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23783")
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     void testAutomaticRebalanceIfMajorityIsLost() throws Exception {
@@ -1004,15 +1014,18 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 node(6).name());
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
-        Assignments allAssignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
-                Assignment.forLearner(node(1).name()),
-                Assignment.forPeer(node(2).name()),
-                Assignment.forPeer(node(3).name()),
-                Assignment.forPeer(node(4).name()),
-                Assignment.forLearner(node(5).name()),
-                Assignment.forPeer(node(6).name())
-        ), timestamp);
+        CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
+        Collection<String> dataNodes = new HashSet<>();
+        for (int i = 0; i < 7; i++) {
+            dataNodes.add(node(i).name());
+        }
+
+        logger().info("Zone {}", zone);
+
+        Set<Assignment> allAssignmentsSet = calculateAssignmentForPartition(
+                dataNodes, partId, zone.partitions(), zone.replicas(), zone.consensusGroupSize());
+
+        Assignments allAssignments = Assignments.of(allAssignmentsSet, timestamp);
 
         assertStableAssignments(node0, partId, allAssignments);
 
@@ -1153,15 +1166,18 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 node(6).name());
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
-        Assignments allAssignments = Assignments.of(Set.of(
-                Assignment.forLearner(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name()),
-                Assignment.forPeer(node(3).name()),
-                Assignment.forPeer(node(4).name()),
-                Assignment.forLearner(node(5).name()),
-                Assignment.forPeer(node(6).name())
-        ), timestamp);
+        CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
+        Collection<String> dataNodes = new HashSet<>();
+        for (int i = 0; i < 7; i++) {
+            dataNodes.add(node(i).name());
+        }
+
+        logger().info("Zone {}", zone);
+
+        Set<Assignment> allAssignmentsSet = calculateAssignmentForPartition(
+                dataNodes, partId, zone.partitions(), zone.replicas(), zone.consensusGroupSize());
+
+        Assignments allAssignments = Assignments.of(allAssignmentsSet, timestamp);
 
         assertStableAssignments(node0, partId, allAssignments);
         // Write data(1) to all seven nodes.
@@ -1452,7 +1468,23 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         }, 10_000));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24160")
+    private void assertConfigurationApplied(IgniteImpl node0, int partId, List<String> peers) {
+        await().atMost(10, SECONDS)
+                .until(() -> {
+                    RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
+
+                    TableManager tableManager = node0.distributedTableManager();
+
+                    RaftGroupConfiguration raftGroupConfiguration = raftGroupConfigurationConverter.fromBytes(
+                            tableManager.cachedTable(TABLE_NAME).internalTable().storage().getMvPartition(partId)
+                                    .committedGroupConfiguration()
+                    );
+
+                    logger().info("Configuration Peers: {}", raftGroupConfiguration.peers());
+                    return peers.containsAll(raftGroupConfiguration.peers());
+                });
+    }
+
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testAssignmentsChainUpdatedOnAutomaticReset() throws Exception {
@@ -1470,17 +1502,18 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
-        Assignments allAssignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name()),
-                Assignment.forPeer(node(3).name()),
-                Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
-                Assignment.forPeer(node(6).name())
-        ), timestamp);
+        CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
+        Collection<String> dataNodes = new HashSet<>();
+        for (int i = 0; i < 7; i++) {
+            dataNodes.add(node(i).name());
+        }
 
-        assertStableAssignments(node0, partId, allAssignments);
+        logger().info("Zone {}", zone);
+
+        Set<Assignment> allAssignmentsSet = calculateAssignmentForPartition(
+                dataNodes, partId, zone.partitions(), zone.replicas(), zone.consensusGroupSize());
+
+        Assignments allAssignments = Assignments.of(allAssignmentsSet, timestamp);
 
         // Assignments chain is equal to the stable assignments.
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments));
@@ -1536,7 +1569,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {
@@ -1556,15 +1588,18 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
-        Assignments allAssignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name()),
-                Assignment.forPeer(node(3).name()),
-                Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
-                Assignment.forPeer(node(6).name())
-        ), timestamp);
+        CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
+        Collection<String> dataNodes = new HashSet<>();
+        for (int i = 0; i < 7; i++) {
+            dataNodes.add(node(i).name());
+        }
+
+        logger().info("Zone {}", zone);
+
+        Set<Assignment> allAssignmentsSet = calculateAssignmentForPartition(
+                dataNodes, partId, zone.partitions(), zone.replicas(), zone.consensusGroupSize());
+
+        Assignments allAssignments = Assignments.of(allAssignmentsSet, timestamp);
 
         assertStableAssignments(node0, partId, allAssignments);
 
