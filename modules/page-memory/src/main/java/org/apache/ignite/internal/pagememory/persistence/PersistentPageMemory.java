@@ -819,14 +819,14 @@ public class PersistentPageMemory implements PageMemory {
      */
     private void waitUntilPageIsFullyInitialized(long absPtr) {
         // We're fine with non-volatile reads and potential false-negative result, because the following operation is idempotent.
-        if (!PageHeader.headerIsValid(absPtr)) {
+        if (!headerIsValid(absPtr)) {
             long lockAddr = absPtr + PAGE_LOCK_OFFSET;
 
             rwLock.readLock(lockAddr, TAG_LOCK_ALWAYS);
             rwLock.readUnlock(lockAddr);
         }
 
-        assert PageHeader.headerIsValid(absPtr) : "Non fully-initialized page is acquired: " + PageIdUtils.toDetailString(PageHeader.pageId(absPtr));
+        assert headerIsValid(absPtr) : "Non fully-initialized page is acquired: " + PageIdUtils.toDetailString(PageHeader.pageId(absPtr));
     }
 
     /** {@inheritDoc} */
