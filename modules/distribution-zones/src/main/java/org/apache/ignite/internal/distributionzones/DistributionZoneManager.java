@@ -400,7 +400,7 @@ public class DistributionZoneManager extends
     }
 
     public CompletableFuture<Set<String>> dataNodes(int catalogVersion, int zoneId) {
-        return dataNodes(INITIAL_TIMESTAMP, zoneId, catalogVersion);
+        return dataNodes(INITIAL_TIMESTAMP, catalogVersion, zoneId);
     }
 
     public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
