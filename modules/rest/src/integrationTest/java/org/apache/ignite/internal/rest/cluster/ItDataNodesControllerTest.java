@@ -87,7 +87,7 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void restDataNodesResetAfterNewNodeAddedTest() throws InterruptedException {
+    public void restDataNodesResetAfterNewNodeAddedTest() {
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
         assertDistributionZoneScaleTimersAreNotScheduled(node0, ZONE_NAME);
@@ -129,7 +129,7 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void restDataNodesResetWithEmptyZoneNamesThatTriggersAllZonesTest() throws InterruptedException {
+    public void restDataNodesResetWithEmptyZoneNamesThatTriggersAllZonesTest() {
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
         String secondZoneName = ZONE_NAME + "_2";
@@ -153,7 +153,7 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void restDataNodesResetForZoneTest() throws InterruptedException {
+    public void restDataNodesResetForZoneTest() {
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
         Ignite node1 = startNode(1);
@@ -177,7 +177,7 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void restGetDataNodesForZoneTest() throws InterruptedException {
+    public void restGetDataNodesForZoneTest() {
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
         Set<String> expectedOneDataNode = Set.of(node0.name());

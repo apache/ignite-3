@@ -21,12 +21,14 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.createZoneWithInfiniteTimers;
 import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.recalculateZoneDataNodesManuallyAndWaitForDataNodes;
 import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.waitForDataNodes;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
@@ -38,7 +40,7 @@ class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void manualDataNodeRecalculationIdempotencyTest() throws InterruptedException {
+    public void manualDataNodeRecalculationIdempotencyTest() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
         createZoneWithInfiniteTimers(node, ZONE_NAME);
@@ -49,7 +51,7 @@ class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void manualDataNodeRecalculationAfterNewNodeAddedTest() throws InterruptedException {
+    public void manualDataNodeRecalculationAfterNewNodeAddedTest() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
         createZoneWithInfiniteTimers(node, ZONE_NAME);
@@ -58,7 +60,10 @@ class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
 
         startNode(1);
 
-        assertTrue(waitForCondition(() -> node.logicalTopologyService().localLogicalTopology().nodes().size() == 2, 1000));
+        LogicalTopologyService logicalTopologyService = node.logicalTopologyService();
+
+        Awaitility.waitAtMost(2, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertEquals(2, logicalTopologyService.localLogicalTopology().nodes().size()));
 
         waitForDataNodes(node, ZONE_NAME, Set.of(node.name()));
 

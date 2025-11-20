@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.cluster;
+package org.apache.ignite.internal.rest.zone;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.Optional;
@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.rest.ResourceHolder;
-import org.apache.ignite.internal.rest.api.cluster.zone.datanodes.DataNodesApi;
+import org.apache.ignite.internal.rest.api.zone.DataNodesApi;
 
 /**
  * Distributed zones data nodes controller.

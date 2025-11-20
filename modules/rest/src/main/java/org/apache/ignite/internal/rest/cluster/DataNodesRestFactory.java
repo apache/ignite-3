@@ -22,6 +22,7 @@ import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.rest.RestFactory;
+import org.apache.ignite.internal.rest.zone.DataNodesController;
 
 /**
  * Factory that defines beans required for {@link DataNodesController}.

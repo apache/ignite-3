@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.api.cluster.zone.datanodes;
+package org.apache.ignite.internal.rest.api.zone;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -39,7 +39,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Data nodes of distribution zones controller.
  */
 @Controller("/management/v1/zones")
-@Tag(name = "datanodes")
+@Tag(name = "dataNodes")
 public interface DataNodesApi {
     @Get("{zoneName}/datanodes")
     @Operation(
@@ -95,7 +95,7 @@ public interface DataNodesApi {
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> resetDataNodesForZones(
             @Body
-            @Schema(description = "Names specifying zones to recalculate datanodes for. Case-sensitive, "
+            @Schema(description = "Names specifying zones to recalculate data nodes for. Case-sensitive, "
                     + "if empty then all zones' data nodes will be recalculated.")
             Optional<Set<String>> zoneNames
     );

@@ -919,7 +919,7 @@ public class DataNodesManager {
     }
 
     /**
-     * Unlike {@link #dataNodes} this method recalculates the  data nodes for given zone and writes them to metastorage.
+     * Unlike {@link #dataNodes} this method recalculates the data nodes for given zone and writes them to metastorage.
      *
      * @param zoneName Zone name.
      * @return The future with recalculated data nodes for the given zone.

@@ -37,7 +37,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimers;
-import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.awaitility.Awaitility;
 
 /**
@@ -78,13 +78,34 @@ public final class DataNodesTestUtil {
             String zoneName,
             Set<String> expectedDataNodes
     ) {
-        ClockService clock = node.clockService();
+        waitForDataNodes(
+                node.catalogManager(),
+                node.distributionZoneManager().dataNodesManager(),
+                node.clock(),
+                zoneName,
+                expectedDataNodes
+        );
+    }
 
-        int zoneId = zoneId(node.catalogManager(), zoneName);
+    /**
+     * Waits for data nodes are recalculated as expected for given zone.
+     *
+     * @param catalogManager Catalog manager.
+     * @param dataNodesManager Data nodes manager.
+     * @param clock Hybrid clock.
+     * @param zoneName Zone name to check data nodes for.
+     * @param expectedDataNodes Expected data node names to wait for.
+     */
+    public static void waitForDataNodes(
+            CatalogManager catalogManager,
+            DataNodesManager dataNodesManager,
+            HybridClock clock,
+            String zoneName,
+            Set<String> expectedDataNodes
+    ) {
+        int zoneId = zoneId(catalogManager, zoneName);
 
-        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
-
-        Awaitility.await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+        Awaitility.waitAtMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             CompletableFuture<Set<String>> dataNodesFuture = dataNodesManager.dataNodes(zoneId, clock.now());
             assertThat(dataNodesFuture, willSucceedFast());
             assertEquals(expectedDataNodes, dataNodesFuture.join());
@@ -102,7 +123,7 @@ public final class DataNodesTestUtil {
             IgniteImpl node,
             String zoneName,
             Set<String> expectedDataNodes
-    ) throws InterruptedException {
+    ) {
         CompletableFuture<Set<String>> futureRecalculationResult = node.distributionZoneManager()
                 .dataNodesManager()
                 .recalculateDataNodes(zoneName);
@@ -121,10 +142,11 @@ public final class DataNodesTestUtil {
      * @param zoneName Zone name.
      */
     public static void assertScaleUpScheduledOrDone(IgniteImpl node, String zoneName) {
-        CatalogManager catalogManager = node.catalogManager();
-        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
-
-        assertScaleUpScheduledOrDone(catalogManager, dataNodesManager, zoneName);
+        assertScaleUpScheduledOrDone(
+                node.catalogManager(),
+                node.distributionZoneManager().dataNodesManager(),
+                zoneName
+        );
     }
 
     /**
@@ -154,10 +176,11 @@ public final class DataNodesTestUtil {
      * @param zoneName Zone name.
      */
     public static void assertScaleDownScheduledOrDone(IgniteImpl node, String zoneName) {
-        CatalogManager catalogManager = node.catalogManager();
-        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
-
-        assertScaleDownScheduledOrDone(catalogManager, dataNodesManager, zoneName);
+        assertScaleDownScheduledOrDone(
+                node.catalogManager(),
+                node.distributionZoneManager().dataNodesManager(),
+                zoneName
+        );
     }
 
     /**
@@ -186,7 +209,7 @@ public final class DataNodesTestUtil {
             String zoneName,
             Function<ZoneTimers, ZoneTimerSchedule> getScaleTimer
     ) {
-        Awaitility.await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+        Awaitility.waitAtMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
             ZoneTimerSchedule schedule = getScaleTimer.apply(dataNodesManager.zoneTimers(zoneId(catalogManager, zoneName)));
 
             assertTrue(
@@ -203,14 +226,12 @@ public final class DataNodesTestUtil {
      * @param node Ignite node.
      * @param zoneName Zone name.
      */
-    public static void assertDistributionZoneScaleTimersAreNotScheduled(
-            IgniteImpl node,
-            String zoneName
-    ) {
-        CatalogManager catalogManager = node.catalogManager();
-        DataNodesManager dataNodesManager = node.distributionZoneManager().dataNodesManager();
-
-        assertDistributionZoneScaleTimersAreNotScheduled(catalogManager, dataNodesManager, zoneName);
+    public static void assertDistributionZoneScaleTimersAreNotScheduled(IgniteImpl node, String zoneName) {
+        assertDistributionZoneScaleTimersAreNotScheduled(
+                node.catalogManager(),
+                node.distributionZoneManager().dataNodesManager(),
+                zoneName
+        );
     }
 
     /**
@@ -225,7 +246,7 @@ public final class DataNodesTestUtil {
             DataNodesManager dataNodesManager,
             String zoneName
     ) {
-        Awaitility.await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> assertFalse(
+        Awaitility.waitAtMost(1, TimeUnit.SECONDS).untilAsserted(() -> assertFalse(
                 scaleUpScheduled(catalogManager, dataNodesManager, zoneName)
                         || scaleDownScheduled(catalogManager, dataNodesManager, zoneName))
         );
