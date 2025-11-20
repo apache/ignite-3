@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
@@ -77,7 +76,6 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
-import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -257,20 +255,17 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                             PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
-                            changePeersAndLearnersWithRetry.execute(
-                                    peersAndLearners,
-                                    entry.revision(),
-                                    raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
-                            ).whenComplete((unused, ex) -> {
-                                if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                    String errorMessage = String.format(
-                                            "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                                            zonePartitionId,
-                                            term
-                                    );
-                                    failureProcessor.process(new FailureContext(ex, errorMessage));
-                                }
-                            });
+                            changePeersAndLearnersWithRetry.executeOnLeader(peersAndLearners, term, entry.revision())
+                                    .whenComplete((unused, ex) -> {
+                                        if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                            String errorMessage = String.format(
+                                                    "Unable to start rebalance [zonePartitionId=%s, term=%s]",
+                                                    zonePartitionId,
+                                                    term
+                                            );
+                                            failureProcessor.process(new FailureContext(ex, errorMessage));
+                                        }
+                                    });
                         }
                     }
                 } catch (Exception e) {
@@ -382,16 +377,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), zonePartitionId);
 
             try {
-                changePeersAndLearnersWithRetry.execute(
-                        peersAndLearners,
-                        revision,
-                        raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
-                ).whenComplete((unused, ex) -> {
-                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                        String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
-                        failureProcessor.process(new FailureContext(ex, errorMessage));
-                    }
-                });
+                changePeersAndLearnersWithRetry.executeOnLeader(peersAndLearners, term, revision)
+                        .whenComplete((unused, ex) -> {
+                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
+                            }
+                        });
             } finally {
                 busyLock.leaveBusy();
             }

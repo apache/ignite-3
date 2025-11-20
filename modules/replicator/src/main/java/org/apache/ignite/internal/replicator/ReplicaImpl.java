@@ -46,7 +46,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
-import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.IgniteBusyLock;
@@ -240,11 +239,7 @@ public class ReplicaImpl implements Replica {
                     newConfiguration.learners()
             );
 
-            return changePeersAndLearnersWithRetry.execute(
-                    newConfiguration,
-                    versionedAssignments.revision(),
-                    raftClient -> completedFuture(new RaftWithTerm(raftClient, term))
-            );
+            return changePeersAndLearnersWithRetry.executeOnLeader(newConfiguration, term, versionedAssignments.revision());
         }).exceptionally(e -> {
             LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicaGrpId, term);
 

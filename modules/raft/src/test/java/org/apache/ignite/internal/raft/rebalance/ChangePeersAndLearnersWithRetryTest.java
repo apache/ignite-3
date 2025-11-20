@@ -78,10 +78,10 @@ class ChangePeersAndLearnersWithRetryTest extends BaseIgniteAbstractTest {
         var changePeersAndLearnersWithRetry =
                 new ChangePeersAndLearnersWithRetry(new IgniteSpinBusyLock(), rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(changePeersAndLearnersWithRetry.execute(
+        assertThat(changePeersAndLearnersWithRetry.executeOnLeader(
                 PEERS_AND_LEARNERS,
-                Configuration.NO_SEQUENCE_TOKEN,
-                raft -> completedFuture(new RaftWithTerm(raft, TERM))
+                TERM,
+                Configuration.NO_SEQUENCE_TOKEN
         ), willCompleteSuccessfully());
 
         verify(raftService, times(3))
@@ -100,10 +100,10 @@ class ChangePeersAndLearnersWithRetryTest extends BaseIgniteAbstractTest {
         lock.block();
 
         assertThrowsWithCause(() ->
-                        changePeersAndLearnersWithRetry.execute(
+                        changePeersAndLearnersWithRetry.executeOnLeader(
                                 PEERS_AND_LEARNERS,
-                                Configuration.NO_SEQUENCE_TOKEN,
-                                raft -> completedFuture(new RaftWithTerm(raft, TERM))
+                                TERM,
+                                Configuration.NO_SEQUENCE_TOKEN
                         ),
                 NodeStoppingException.class);
     }
@@ -120,10 +120,10 @@ class ChangePeersAndLearnersWithRetryTest extends BaseIgniteAbstractTest {
         var changePeersAndLearnersWithRetry =
                 new ChangePeersAndLearnersWithRetry(lock, rebalanceScheduler, () -> completedFuture(raftService));
 
-        assertThat(changePeersAndLearnersWithRetry.execute(
+        assertThat(changePeersAndLearnersWithRetry.executeOnLeader(
                         PEERS_AND_LEARNERS,
-                        Configuration.NO_SEQUENCE_TOKEN,
-                        raft -> completedFuture(new RaftWithTerm(raft, TERM))
+                        TERM,
+                        Configuration.NO_SEQUENCE_TOKEN
                 ),
                 willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
