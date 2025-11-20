@@ -270,7 +270,7 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
             throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Transaction was not started properly");
 
         auto &context = channel->get_protocol_context();
-        auto res = channel->perform_request(op_func(context), wr, handler);
+        auto res = channel->perform_request(op_func(context), wr, handler, m_configuration.get_operation_timeout());
         if (!res)
             throw ignite_error(error::code::CONNECTION, "Connection associated with the transaction is closed");
 
@@ -283,7 +283,7 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
             throw ignite_error(error::code::CONNECTION, "No nodes connected");
 
         auto &context = channel->get_protocol_context();
-        auto res = channel->perform_request(op_func(context), wr, handler);
+        auto res = channel->perform_request(op_func(context), wr, handler, m_configuration.get_operation_timeout());
         if (res)
             return {channel, *res};
     }

@@ -47,6 +47,7 @@ set(SOURCES
     detail/table/name_utils.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
+    detail/timeout_worker.cpp
 )
 
 set(PUBLIC_HEADERS

@@ -33,15 +33,16 @@ node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::asyn
     , m_timer_thread(std::move(timer_thread)){}
 
 node_connection::~node_connection() {
-    for (auto &handler : m_request_handlers) {
-        auto handling_res = result_of_operation<void>([&]() {
-            auto res = handler.second->set_error(ignite_error("Connection closed before response was received"));
+    for (auto& req : m_request_handlers) {
+        auto handling_res = result_of_operation<void>([req,this]() {
+            auto handler = req.second.handler;
+            auto res = handler->set_error(ignite_error("Connection closed before response was received"));
             if (res.has_error())
-                m_logger->log_error(
+                this->m_logger->log_error(
                     "Uncaught user callback exception while handling operation error: " + res.error().what_str());
         });
         if (handling_res.has_error())
-            m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
+            this->m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
     }
 }
 
@@ -196,7 +197,7 @@ std::shared_ptr<response_handler> node_connection::get_and_remove_handler(std::i
     if (it == m_request_handlers.end())
         return {};
 
-    auto res = std::move(it->second);
+    auto res = std::move(it->second.handler);
     m_request_handlers.erase(it);
 
     return res;
@@ -207,7 +208,33 @@ std::shared_ptr<response_handler> node_connection::find_handler_unsafe(std::int6
     if (it == m_request_handlers.end())
         return {};
 
-    return it->second;
+    return it->second.handler;
+}
+
+
+void node_connection::handle_timeouts() {
+    std::lock_guard lock(m_request_handlers_mutex);
+
+    auto now = std::chrono::steady_clock::now();
+
+    std::vector<int64_t> keys_for_erasure;
+
+    for (auto& [id, req] : m_request_handlers) {
+        if (req.timeouts_at > now) {
+
+            auto res = req.handler->set_error(ignite_error("TIMEOUT!")); // TODO fix wording
+
+            keys_for_erasure.push_back(id);
+
+            if (res.has_error())
+                this->m_logger->log_error(
+                    "Uncaught user callback exception while handling operation error: " + res.error().what_str());
+        }
+    }
+
+    for (int64_t key : keys_for_erasure) {
+        m_request_handlers.erase(key);
+    }
 }
 
 } // namespace ignite::detail

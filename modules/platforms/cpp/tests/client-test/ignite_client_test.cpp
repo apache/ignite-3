@@ -174,9 +174,15 @@ TEST_F(client_test, heartbeat_disable_connection_is_closed) {
 }
 
 TEST_F(client_test, connection_timeout_works) {
+    using namespace std::chrono_literals;
+
     auto cfg = create_default_client_config();
 
     cfg.set_operation_timeout(std::chrono::milliseconds{1});
+
+    auto cl = ignite_client::start(cfg, 30s);
+
+    cl.get_sql().execute(nullptr, nullptr, {"select * from dual"}, {});
 }
 
 
