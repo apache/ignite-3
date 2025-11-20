@@ -159,7 +159,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public boolean implicit() {
-                return false;
+                return implicit;
             }
 
             @Override

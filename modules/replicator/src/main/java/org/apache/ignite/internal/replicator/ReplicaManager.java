@@ -147,6 +147,8 @@ import org.jetbrains.annotations.VisibleForTesting;
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
     private static final long STOP_LEASE_PROLONGATION_RETRIES_TIMEOUT_MS = 60_000;
 
+    private static final String THROTTLE_REQUEST_KEY = "Failed to process replica request";
+
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
     /** Replicator network message factory. */
@@ -396,9 +398,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.warn(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
                     } else {
-                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.debug(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);

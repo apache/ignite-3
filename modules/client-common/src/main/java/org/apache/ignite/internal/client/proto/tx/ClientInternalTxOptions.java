@@ -15,25 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.causality;
+package org.apache.ignite.internal.client.proto.tx;
 
-import java.util.concurrent.CompletableFuture;
-import org.jetbrains.annotations.Nullable;
+import java.util.EnumSet;
 
 /**
- * Listener that will be notified of every completion of a Versioned Value.
- *
- * @see VersionedValue#whenComplete(CompletionListener)
+ * Client internal transaction options.
  */
-@FunctionalInterface
-public interface CompletionListener<T> {
+public enum ClientInternalTxOptions {
+    READ_ONLY(1),
+    LOW_PRIORITY(1 << 1);
+
+    private final int mask;
+
+    ClientInternalTxOptions(int mask) {
+        this.mask = mask;
+    }
+
+    public int mask() {
+        return mask;
+    }
+
     /**
-     * Method that will be called on every completion of a Versioned Value.
+     * Unpack options.
      *
-     * @param token Token for which a value has been completed.
-     * @param value Value that the Versioned Value was completed with.
-     * @param ex If not {@code null} - the Versioned Value has benn completed with an exception.
-     * @return Future that signifies the end of the event execution.
+     * @param mask Packed mask.
+     * @return Set of options.
      */
-    CompletableFuture<?> whenComplete(long token, @Nullable T value, @Nullable Throwable ex);
+    public static EnumSet<ClientInternalTxOptions> unpack(int mask) {
+        EnumSet<ClientInternalTxOptions> result = EnumSet.noneOf(ClientInternalTxOptions.class);
+        for (ClientInternalTxOptions flag : values()) {
+            if ((mask & flag.mask()) != 0) {
+                result.add(flag);
+            }
+        }
+        return result;
+    }
 }

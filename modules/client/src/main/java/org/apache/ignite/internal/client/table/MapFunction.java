@@ -15,25 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.causality;
+package org.apache.ignite.internal.client.table;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Listener that will be notified of every completion of a Versioned Value.
+ * Defines a contract for batch map function.
  *
- * @see VersionedValue#whenComplete(CompletionListener)
+ * @param <K> Key type.
+ * @param <R> Result type.
  */
 @FunctionalInterface
-public interface CompletionListener<T> {
+interface MapFunction<K, R> {
     /**
-     * Method that will be called on every completion of a Versioned Value.
+     * Execute a batch.
      *
-     * @param token Token for which a value has been completed.
-     * @param value Value that the Versioned Value was completed with.
-     * @param ex If not {@code null} - the Versioned Value has benn completed with an exception.
-     * @return Future that signifies the end of the event execution.
+     * @param keys Keys to split.
+     * @param provider Partition awareness provider.
+     * @param txRequired {@code True} if a batch requires explicit transaction.
+     * @return Map future.
      */
-    CompletableFuture<?> whenComplete(long token, @Nullable T value, @Nullable Throwable ex);
+    CompletableFuture<R> apply(Collection<K> keys, PartitionAwarenessProvider provider, boolean txRequired);
 }

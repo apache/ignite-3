@@ -105,6 +105,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableProperties;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterTablePropertiesEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -1846,6 +1847,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
+        CatalogTableProperties descProps = tableDescriptor.properties();
+
         return new TableImpl(
                 internalTable,
                 lockMgr,
@@ -1854,10 +1857,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 sql.get(),
                 failureProcessor,
                 tableDescriptor.primaryKeyIndexId(),
-                new TableStatsStalenessConfiguration(
-                        tableDescriptor.properties().staleRowsFraction(),
-                        tableDescriptor.properties().minStaleRowsCount()
-                )
+                new TableStatsStalenessConfiguration(descProps.staleRowsFraction(), descProps.minStaleRowsCount())
         );
     }
 
@@ -2274,6 +2274,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             } else {
                 getLatestTableFuture.completeExceptionally(th);
             }
+
+            return nullCompletedFuture();
         };
 
         assignmentsUpdatedVv.whenComplete(tablesListener);

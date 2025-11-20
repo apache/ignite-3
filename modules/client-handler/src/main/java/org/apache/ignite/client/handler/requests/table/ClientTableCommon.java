@@ -26,11 +26,13 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -53,6 +56,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -396,6 +400,29 @@ public class ClientTableCommon {
             @Nullable TxManager txManager,
             @Nullable NotificationSender notificationSender,
             long[] resourceIdHolder) {
+        return readTx(in, tsUpdater, resources, txManager, notificationSender, resourceIdHolder, EnumSet.noneOf(RequestOptions.class));
+    }
+
+    /**
+     * Reads a transaction.
+     *
+     * @param in Unpacker.
+     * @param tsUpdater Packer.
+     * @param resources Resource registry.
+     * @param txManager Tx manager.
+     * @param notificationSender Notification sender.
+     * @param resourceIdHolder Resource id holder.
+     * @param options Request options. Defines how a request is processed.
+     * @return Transaction, if present, or null.
+     */
+    public static @Nullable InternalTransaction readTx(
+            ClientMessageUnpacker in,
+            HybridTimestampTracker tsUpdater,
+            ClientResourceRegistry resources,
+            @Nullable TxManager txManager,
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder,
+            EnumSet<RequestOptions> options) {
         if (in.tryUnpackNil()) {
             return null;
         }
@@ -403,18 +430,29 @@ public class ClientTableCommon {
         try {
             long id = in.unpackLong();
             if (id == TX_ID_FIRST_DIRECT) {
+                // This is first mapping request, which piggybacks transaction creation.
                 long observableTs = in.unpackLong();
 
-                // This is first mapping request, which piggybacks transaction creation.
-                boolean readOnly = in.unpackBoolean();
-                long timeoutMillis = in.unpackLong();
+                var builder = InternalTxOptions.builder();
+                boolean readOnly;
 
-                InternalTxOptions txOptions = InternalTxOptions.builder()
-                        .timeoutMillis(timeoutMillis)
-                        .build();
+                if (options.contains(RequestOptions.HAS_OPTIONS)) {
+                    long timeoutMillis = in.unpackLong();
+                    int flags = in.unpackInt();
+                    EnumSet<ClientInternalTxOptions> txOptions = ClientInternalTxOptions.unpack(flags);
+                    readOnly = txOptions.contains(ClientInternalTxOptions.READ_ONLY);
+                    if (txOptions.contains(ClientInternalTxOptions.LOW_PRIORITY)) {
+                        builder.priority(TxPriority.LOW);
+                    }
+                    builder = builder.timeoutMillis(timeoutMillis);
+                } else {
+                    readOnly = in.unpackBoolean();
+                    long timeoutMillis = in.unpackLong();
+                    builder = builder.timeoutMillis(timeoutMillis);
+                }
 
-                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly,
-                        txOptions);
+                InternalTxOptions txOptions = builder.build();
+                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
 
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
@@ -463,15 +501,15 @@ public class ClientTableCommon {
             HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
             TxManager txManager,
-            boolean readOnly,
+            EnumSet<RequestOptions> options,
             @Nullable NotificationSender notificationSender,
             long[] resourceIdHolder) {
-        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder);
+        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder, options);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(readTs, txManager, readOnly);
+            tx = startImplicitTx(readTs, txManager, options.contains(RequestOptions.READ_ONLY));
         }
 
         return tx;
