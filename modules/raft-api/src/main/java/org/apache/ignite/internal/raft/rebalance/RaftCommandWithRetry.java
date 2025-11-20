@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.rebalance;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.raft.rebalance.ExceptionUtils.recoverable;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -78,28 +79,7 @@ public class RaftCommandWithRetry {
 
                         try {
                             if (err != null) {
-                                if (recoverable(err)) {
-                                    LOG.debug("Recoverable error received during raft command invocation, retrying.", err);
-                                } else {
-                                    // TODO: IGNITE-19087 Ideally, rebalance, which has initiated this invocation should be canceled,
-                                    // TODO: Also it might be reasonable to delegate such exceptional case to a general failure handler.
-                                    // TODO: At the moment, there is only one type of unrecoverable error - stale configuration update.
-                                    LOG.debug(
-                                            "Unrecoverable error received during raft command invocation. Stop retrying.",
-                                            err
-                                    );
-                                    return CompletableFuture.<Void>failedFuture(err);
-                                }
-
-                                CompletableFuture<Void> future = new CompletableFuture<>();
-
-                                // We don't bother with ScheduledFuture as the delay is very short, so it will not delay the scheduler
-                                // stop for long.
-                                rebalanceScheduler.schedule(() -> {
-                                    execute(raftCommand).whenComplete(copyStateTo(future));
-                                }, MOVE_RESCHEDULE_DELAY_MILLIS, MILLISECONDS);
-
-                                return future;
+                                return handleError(raftCommand, err);
                             }
 
                             return CompletableFutures.<Void>nullCompletedFuture();
@@ -108,8 +88,35 @@ public class RaftCommandWithRetry {
                         }
                     })
                     .thenCompose(Function.identity());
+        } catch (Throwable ex) {
+            return handleError(raftCommand, ex);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private CompletableFuture<Void> handleError(RaftCommand raftCommand, Throwable err) {
+        if (recoverable(err)) {
+            LOG.debug("Recoverable error received during raft command invocation, retrying.", err);
+        } else {
+            // TODO: IGNITE-19087 Ideally, rebalance, which has initiated this invocation should be canceled,
+            // TODO: Also it might be reasonable to delegate such exceptional case to a general failure handler.
+            // TODO: At the moment, there is only one type of unrecoverable error - stale configuration update.
+            LOG.debug(
+                    "Unrecoverable error received during raft command invocation. Stop retrying.",
+                    err
+            );
+            return failedFuture(err);
+        }
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
+        // We don't bother with ScheduledFuture as the delay is very short, so it will not delay the scheduler
+        // stop for long.
+        rebalanceScheduler.schedule(() -> {
+            execute(raftCommand).whenComplete(copyStateTo(future));
+        }, MOVE_RESCHEDULE_DELAY_MILLIS, MILLISECONDS);
+
+        return future;
     }
 }
