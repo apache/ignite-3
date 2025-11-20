@@ -15,25 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.causality;
+package org.apache.ignite.internal.compute;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Listener that will be notified of every completion of a Versioned Value.
- *
- * @see VersionedValue#whenComplete(CompletionListener)
- */
-@FunctionalInterface
-public interface CompletionListener<T> {
-    /**
-     * Method that will be called on every completion of a Versioned Value.
-     *
-     * @param token Token for which a value has been completed.
-     * @param value Value that the Versioned Value was completed with.
-     * @param ex If not {@code null} - the Versioned Value has benn completed with an exception.
-     * @return Future that signifies the end of the event execution.
-     */
-    CompletableFuture<?> whenComplete(long token, @Nullable T value, @Nullable Throwable ex);
+/** Disables write intent switches on the local node until restart. */
+public class DisableWriteIntentSwitchExecutionJob implements ComputeJob<Void, Void> {
+    @Override
+    public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, @Nullable Void arg) {
+        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+        igniteImpl.dropMessages((recipientId, message) -> message.getClass().getName().contains("WriteIntentSwitchReplicaRequest"));
+
+        return null;
+    }
 }

@@ -317,7 +317,7 @@ Exchange
       index: TEST_TABLE_IDX
       type: SORTED
       predicate: >(C1, 1)
-      searchBounds: [RangeBounds [lowerBound=1, upperBound=null:INTEGER, lowerInclude=false, upperInclude=false]]
+      searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1, lowerInclude=false, shouldComputeUpper=true, upperBound=null:INTEGER, upperInclude=false]]
       fieldNames: [C1]
       collation: [C1 ASC]
       est: (rows=1)

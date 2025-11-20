@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -62,8 +61,6 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -129,7 +126,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         checkIndexBuild(1, initialNodes(), INDEX_NAME);
     }
 
-    private static IgniteImpl primaryReplica(ReplicationGroupId groupId) {
+    private static IgniteImpl primaryReplica(ZonePartitionId groupId) {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = node.placementDriver()
@@ -177,7 +174,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         return primary;
     }
 
-    private static ReplicationGroupId replicationGroupId(String tableName, int partitionIndex) {
+    private static ZonePartitionId replicationGroupId(String tableName, int partitionIndex) {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         HybridClock clock = node.clock();
@@ -187,8 +184,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
 
-        return colocationEnabled() ? new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex)
-                : new TablePartitionId(tableDescriptor.id(), partitionIndex);
+        return  new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex);
     }
 
     private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
@@ -377,9 +373,9 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         HybridTimestamp now = node.clock().now();
 
         for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-            var tableGroupId = replicationGroupId(tableName, partitionId);
+            var zonePartitionId = replicationGroupId(tableName, partitionId);
 
-            CompletableFuture<TokenizedAssignments> assignmentsFuture = placementDriver.getAssignments(tableGroupId, now);
+            CompletableFuture<TokenizedAssignments> assignmentsFuture = placementDriver.getAssignments(zonePartitionId, now);
 
             assertThat(assignmentsFuture, willCompleteSuccessfully());
 
