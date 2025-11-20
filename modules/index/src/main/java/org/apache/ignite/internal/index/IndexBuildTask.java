@@ -39,7 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -90,8 +89,6 @@ class IndexBuildTask {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final FinalTransactionStateResolver finalTransactionStateResolver;
 
     private final Executor executor;
@@ -123,7 +120,6 @@ class IndexBuildTask {
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             FinalTransactionStateResolver finalTransactionStateResolver,
             Executor executor,
             IgniteSpinBusyLock busyLock,
@@ -140,7 +136,6 @@ class IndexBuildTask {
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.finalTransactionStateResolver = finalTransactionStateResolver;
         this.executor = executor;
         this.busyLock = busyLock;

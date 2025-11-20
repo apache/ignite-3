@@ -39,7 +39,6 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
@@ -85,8 +84,6 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private final LowWatermark lowWatermark;
 
-    private final NodeProperties nodeProperties;
-
     private final ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
     /** Tables IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
@@ -107,14 +104,12 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LowWatermark lowWatermark,
-            NodeProperties nodeProperties,
             ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler
     ) {
         this.catalogService = catalogManager;
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
         this.lowWatermark = lowWatermark;
-        this.nodeProperties = nodeProperties;
         this.changeIndexStatusTaskScheduler = changeIndexStatusTaskScheduler;
     }
 

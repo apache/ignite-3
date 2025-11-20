@@ -51,7 +51,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -130,8 +129,6 @@ abstract class ChangeIndexStatusTask {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
@@ -149,7 +146,6 @@ abstract class ChangeIndexStatusTask {
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -161,7 +157,6 @@ abstract class ChangeIndexStatusTask {
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.executor = executor;
         this.busyLock = busyLock;
     }

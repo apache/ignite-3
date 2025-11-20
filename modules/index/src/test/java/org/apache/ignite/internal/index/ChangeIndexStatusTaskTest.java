@@ -69,7 +69,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -194,7 +193,6 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 clockService,
                 indexMetaStorage,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 executor,
                 busyLock
         ) {

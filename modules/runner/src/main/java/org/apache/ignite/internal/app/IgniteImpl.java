@@ -1199,7 +1199,6 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 clockService,
                 failureManager,
-                nodeProperties,
                 lowWatermark,
                 txManager
         );

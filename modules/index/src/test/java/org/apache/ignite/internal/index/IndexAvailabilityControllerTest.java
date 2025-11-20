@@ -93,7 +93,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
             new NoOpFailureManager(),
-            new SystemPropertiesNodeProperties(),
             new CommittedFinalTransactionStateResolver(),
             indexMetaStorage
     );

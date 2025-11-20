@@ -48,7 +48,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -110,8 +109,6 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -128,8 +125,7 @@ class IndexBuildController implements ManuallyCloseable {
             ClusterService clusterService,
             PlacementDriver placementDriver,
             ClockService clockService,
-            FailureProcessor failureProcessor,
-            NodeProperties nodeProperties
+            FailureProcessor failureProcessor
     ) {
         this.indexBuilder = indexBuilder;
         this.indexManager = indexManager;
@@ -138,7 +134,6 @@ class IndexBuildController implements ManuallyCloseable {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
     }
 
     /** Starts component. */
