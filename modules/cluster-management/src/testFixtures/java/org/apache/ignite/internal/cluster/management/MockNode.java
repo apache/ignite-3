@@ -99,10 +99,11 @@ public class MockNode {
                 nodeFinder,
                 workDir,
                 raftConfiguration,
+                systemLocalConfiguration,
                 nodeAttributes,
+                () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()),
                 storageProfilesConfiguration,
-                onConfigurationCommittedListener,
-                () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()));
+                onConfigurationCommittedListener);
     }
 
     /**
@@ -114,10 +115,11 @@ public class MockNode {
             NodeFinder nodeFinder,
             Path workDir,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             NodeAttributesConfiguration nodeAttributes,
+            NodeAttributesProvider attributesProvider,
             StorageConfiguration storageProfilesConfiguration,
-            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener,
-            NodeAttributesProvider attributesProvider
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         String nodeName = testNodeName(testInfo, addr.port());
 

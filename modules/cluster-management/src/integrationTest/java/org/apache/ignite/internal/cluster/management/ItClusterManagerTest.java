@@ -764,6 +764,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         String[] cmgNodes = clusterNodeNames();
         initCluster(cmgNodes, cmgNodes);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27071
+        // Perhaps, this test should be re-worked along with testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes
         MockNode secondNode = createNode(
                 cluster.size(), cluster.size(), config -> {}, () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString()));
 

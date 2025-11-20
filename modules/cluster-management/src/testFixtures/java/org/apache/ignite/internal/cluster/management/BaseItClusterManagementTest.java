@@ -128,10 +128,11 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                 new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
+                systemLocalConfiguration,
                 userNodeAttributes,
+                attributesProvider,
                 storageConfiguration,
-                onConfigurationCommittedListener,
-                attributesProvider
+                onConfigurationCommittedListener
         );
     }
 
