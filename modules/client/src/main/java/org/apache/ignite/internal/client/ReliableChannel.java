@@ -29,7 +29,9 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.net.ConnectException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -93,7 +95,7 @@ public final class ReliableChannel implements AutoCloseable {
     private final AtomicInteger curChIdx = new AtomicInteger();
 
     /** Client configuration. */
-    private final IgniteClientConfiguration clientCfg;
+    private final IgniteClientConfigurationImpl clientCfg;
 
     /** Node channels by name (consistent id). */
     private final Map<String, ClientChannelHolder> nodeChannelsByName = new ConcurrentHashMap<>();
@@ -144,7 +146,7 @@ public final class ReliableChannel implements AutoCloseable {
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
-            IgniteClientConfiguration clientCfg,
+            IgniteClientConfigurationImpl clientCfg,
             ClientMetricSource metrics,
             HybridTimestampTracker observableTimeTracker) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
@@ -403,20 +405,32 @@ public final class ReliableChannel implements AutoCloseable {
      * @return host:port_range address lines parsed as {@link InetSocketAddress} as a key. Value is the amount of appearences of an address
      *         in {@code addrs} parameter.
      */
-    private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs) {
+    private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs, IgniteClientConfigurationImpl cfg) {
         if (addrs == null || addrs.length == 0) {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
 
-        Collection<HostAndPort> ranges = new ArrayList<>(addrs.length);
+        Collection<HostAndPort> parsedAddrs = new ArrayList<>(addrs.length);
 
         for (String a : addrs) {
-            ranges.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
+            parsedAddrs.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
         }
 
-        return ranges.stream()
-                .map(p -> InetSocketAddress.createUnresolved(p.host(), p.port()))
-                .collect(Collectors.toMap(a -> a, a -> 1, Integer::sum));
+        var map = new HashMap<InetSocketAddress, Integer>(parsedAddrs.size());
+
+        for (HostAndPort addr : parsedAddrs) {
+            try {
+                for (InetAddress inetAddr : cfg.addressResolver.getAllByName(addr.host())) {
+                    var sockAddr = new InetSocketAddress(inetAddr, addr.port());
+                    map.merge(sockAddr, 1, Integer::sum);
+                }
+            } catch (UnknownHostException e) {
+                var sockAddr = InetSocketAddress.createUnresolved(addr.host(), addr.port());
+                map.merge(sockAddr, 1, Integer::sum);
+            }
+        }
+
+        return map;
     }
 
     /**
@@ -464,7 +478,8 @@ public final class ReliableChannel implements AutoCloseable {
         // Roll current channel even if a topology changes. To help find working channel faster.
         rollCurrentChannel(hld);
 
-        if (scheduledChannelsReinit.get()) {
+        if (scheduledChannelsReinit.compareAndSet(false, true)) {
+            // Refresh addresses and reinit channels.
             channelsInitAsync();
         }
     }
@@ -497,7 +512,7 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * Init channel holders to all nodes.
      *
-     * @return boolean wheter channels was reinited.
+     * @return boolean whether channels were reinitialized.
      */
     private synchronized boolean initChannelHolders() {
         List<ClientChannelHolder> holders = channels;
@@ -515,11 +530,12 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             if (!Arrays.equals(hostAddrs, prevHostAddrs)) {
-                newAddrs = parsedAddresses(hostAddrs);
+                newAddrs = parsedAddresses(hostAddrs, clientCfg);
                 prevHostAddrs = hostAddrs;
             }
-        } else if (holders == null) {
-            newAddrs = parsedAddresses(clientCfg.addresses());
+        } else {
+            // Re-resolve DNS.
+            newAddrs = parsedAddresses(clientCfg.addresses(), clientCfg);
         }
 
         if (newAddrs == null) {
@@ -762,7 +778,14 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     private void onPartitionAssignmentChanged(long timestamp) {
-        partitionAssignmentTimestamp.updateAndGet(curTs -> Math.max(curTs, timestamp));
+        var old = partitionAssignmentTimestamp.getAndUpdate(curTs -> Math.max(curTs, timestamp));
+
+        if (timestamp > old) {
+            // New assignment timestamp, topology change possible.
+            if (scheduledChannelsReinit.compareAndSet(false, true)) {
+                channelsInitAsync();
+            }
+        }
     }
 
     /**
