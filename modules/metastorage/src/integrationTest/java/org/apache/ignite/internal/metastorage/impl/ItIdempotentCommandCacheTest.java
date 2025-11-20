@@ -384,7 +384,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27121")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26870")
     public void testIdempotentInvokeAfterLeaderChange() {
         InvokeCommand invokeCommand = (InvokeCommand) buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE);
 
