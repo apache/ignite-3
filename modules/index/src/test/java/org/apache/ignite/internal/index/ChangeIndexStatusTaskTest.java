@@ -91,7 +91,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -365,7 +365,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     }
 
     private ReplicaMeta createLocalNodeReplicaMeta(HybridTimestamp startTime, HybridTimestamp expirationTime) {
-        return newPrimaryReplicaMeta(LOCAL_NODE, new TablePartitionId(indexDescriptor.tableId(), 0), startTime, expirationTime);
+        return newPrimaryReplicaMeta(LOCAL_NODE, new ZonePartitionId(0, 0), startTime, expirationTime);
     }
 
     private static ClusterService createClusterService() {
@@ -390,14 +390,14 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         return completedFuture(FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(finished).build());
     }
 
-    private PrimaryReplicaAwaitTimeoutException primaryReplicaAwaitTimeoutException() {
-        TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+    private static PrimaryReplicaAwaitTimeoutException primaryReplicaAwaitTimeoutException() {
+        ZonePartitionId groupId = new ZonePartitionId(0, 0);
 
         return new PrimaryReplicaAwaitTimeoutException(groupId, HybridTimestamp.MIN_VALUE, null, null);
     }
 
-    private PrimaryReplicaAwaitException primaryReplicaAwaitException() {
-        TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+    private static PrimaryReplicaAwaitException primaryReplicaAwaitException() {
+        ZonePartitionId groupId = new ZonePartitionId(0, 0);
 
         return new PrimaryReplicaAwaitException(groupId, HybridTimestamp.MIN_VALUE, null);
     }

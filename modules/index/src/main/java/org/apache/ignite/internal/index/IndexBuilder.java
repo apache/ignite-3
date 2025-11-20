@@ -237,17 +237,6 @@ class IndexBuilder implements ManuallyCloseable {
     }
 
     /**
-     * Stops building all indexes (for a table partition) if they are in progress.
-     *
-     * @param tableId Table ID.
-     * @param partitionId Partition ID.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
-    public void stopBuildingTableIndexes(int tableId, int partitionId) {
-        stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
-    }
-
-    /**
      * Stops building indexes for the given distribution zone and partition if they are in progress.
      *
      * @param zoneId Zone ID.
