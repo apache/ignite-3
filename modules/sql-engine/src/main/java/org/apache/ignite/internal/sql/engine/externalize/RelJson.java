@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isApproximateNumeric;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -602,7 +603,11 @@ class RelJson {
 
             RangeBounds val0 = (RangeBounds) val;
 
+            map.put("shouldComputeLower", val0.shouldComputeLower() == null || val0.shouldComputeLower().isAlwaysTrue()
+                    ? null : toJson(val0.shouldComputeLower()));
             map.put("lowerBound", val0.lowerBound() == null ? null : toJson(val0.lowerBound()));
+            map.put("shouldComputeUpper", val0.shouldComputeUpper() == null || val0.shouldComputeUpper().isAlwaysTrue()
+                    ? null : toJson(val0.shouldComputeUpper()));
             map.put("upperBound", val0.upperBound() == null ? null : toJson(val0.upperBound()));
             map.put("lowerInclude", val0.lowerInclude());
             map.put("upperInclude", val0.upperInclude());
@@ -617,6 +622,7 @@ class RelJson {
         }
 
         String type = (String) map.get("type");
+        RexNode literalTrue = input.getCluster().getRexBuilder().makeLiteral(true);
 
         if (SearchBounds.Type.EXACT.name().equals(type)) {
             return new ExactBounds(null, toRex(input, map.get("bound")));
@@ -624,9 +630,11 @@ class RelJson {
             return new MultiBounds(null, toSearchBoundList(input, (List<Map<String, Object>>) map.get("bounds")));
         } else if (SearchBounds.Type.RANGE.name().equals(type)) {
             return new RangeBounds(null,
+                    requireNonNullElse(toRex(input, map.get("shouldComputeLower")), literalTrue),
                     toRex(input, map.get("lowerBound")),
-                    toRex(input, map.get("upperBound")),
                     (Boolean) map.get("lowerInclude"),
+                    requireNonNullElse(toRex(input, map.get("shouldComputeUpper")), literalTrue),
+                    toRex(input, map.get("upperBound")),
                     (Boolean) map.get("upperInclude")
             );
         }

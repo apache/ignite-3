@@ -37,6 +37,8 @@ processTestFixturesResources {
 }
 
 dependencies {
+    jobsImplementation libs.jetbrains.annotations
+
     jobsImplementation project(':ignite-api')
     jobsImplementation project(':ignite-core')
     jobsImplementation project(':ignite-runner')

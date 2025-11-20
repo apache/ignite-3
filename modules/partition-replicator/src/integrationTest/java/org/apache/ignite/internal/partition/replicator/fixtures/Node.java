@@ -401,6 +401,7 @@ public class Node {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager()
@@ -688,7 +689,6 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
-                nodeProperties,
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));

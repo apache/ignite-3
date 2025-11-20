@@ -39,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -88,6 +89,7 @@ public class MockNode {
             NodeFinder nodeFinder,
             Path workDir,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             NodeAttributesConfiguration nodeAttributes,
             StorageConfiguration storageProfilesConfiguration,
             Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
@@ -139,7 +141,7 @@ public class MockNode {
                 this.workDir.resolve("partitions/log")
         );
 
-        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         var clusterStateStorage =
                 new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());

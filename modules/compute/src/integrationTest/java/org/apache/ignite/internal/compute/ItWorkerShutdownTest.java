@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -60,8 +59,6 @@ import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.CancelHandle;
@@ -406,9 +403,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         HybridClock clock = igniteImpl.clock();
         TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        PartitionGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), table.partitionId(Tuple.create(1).set("K", 1)))
-                : new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), table.partitionId(Tuple.create(1).set("K", 1)));
 
         CompletableFuture<ReplicaMeta> replicaFuture = igniteImpl.placementDriver()
                 .awaitPrimaryReplica(replicationGroupId, clock.now(), 30, TimeUnit.SECONDS);

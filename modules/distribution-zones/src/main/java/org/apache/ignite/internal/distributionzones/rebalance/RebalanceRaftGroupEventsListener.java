@@ -181,7 +181,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index) {
+    public void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index, long sequenceToken) {
         if (!busyLock.enterBusy()) {
             return;
         }

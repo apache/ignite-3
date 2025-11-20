@@ -60,6 +60,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -128,6 +129,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     private class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -164,6 +168,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     raftGroupEventsClientListener
             );
