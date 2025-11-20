@@ -17,25 +17,24 @@
 
 package org.apache.ignite.internal.client;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.table.ItDataConsistencyTest;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Write context.
+ * Test data consistency in mixed read-write load initiated from a client.
  */
-public class WriteContext {
-    public @Nullable PartitionMapping pm;
-    public @Nullable Long enlistmentToken;
-    public CompletableFuture<ClientTransaction> firstReqFut;
-    public final HybridTimestampTracker tracker;
-    public boolean readOnly;
-    public @Nullable ClientChannel channel;
-    public final int opCode;
+public class ItClientDataConsistencyTest extends ItDataConsistencyTest {
+    private IgniteClient client;
 
-    public WriteContext(HybridTimestampTracker tracker, int opCode) {
-        this.tracker = tracker;
-        this.opCode = opCode;
+    @BeforeEach
+    public void startClient() {
+        client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+    }
+
+    @Override
+    protected Ignite assignNodeForIteration(int workerId) {
+        return client;
     }
 }

@@ -15,27 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.client.proto.tx;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.jetbrains.annotations.Nullable;
+import java.util.EnumSet;
 
 /**
- * Write context.
+ * Client internal transaction options.
  */
-public class WriteContext {
-    public @Nullable PartitionMapping pm;
-    public @Nullable Long enlistmentToken;
-    public CompletableFuture<ClientTransaction> firstReqFut;
-    public final HybridTimestampTracker tracker;
-    public boolean readOnly;
-    public @Nullable ClientChannel channel;
-    public final int opCode;
+public enum ClientInternalTxOptions {
+    READ_ONLY(1),
+    LOW_PRIORITY(1 << 1);
 
-    public WriteContext(HybridTimestampTracker tracker, int opCode) {
-        this.tracker = tracker;
-        this.opCode = opCode;
+    private final int mask;
+
+    ClientInternalTxOptions(int mask) {
+        this.mask = mask;
+    }
+
+    public int mask() {
+        return mask;
+    }
+
+    /**
+     * Unpack options.
+     *
+     * @param mask Packed mask.
+     * @return Set of options.
+     */
+    public static EnumSet<ClientInternalTxOptions> unpack(int mask) {
+        EnumSet<ClientInternalTxOptions> result = EnumSet.noneOf(ClientInternalTxOptions.class);
+        for (ClientInternalTxOptions flag : values()) {
+            if ((mask & flag.mask()) != 0) {
+                result.add(flag);
+            }
+        }
+        return result;
     }
 }
