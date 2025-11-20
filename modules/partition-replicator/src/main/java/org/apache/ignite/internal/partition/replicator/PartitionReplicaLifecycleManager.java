@@ -1313,11 +1313,14 @@ public class PartitionReplicaLifecycleManager extends
                         pendingAssignments.nodes(),
                         revision);
             }).whenComplete((v, ex) -> {
-                if (ex != null) {
+                if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                     LOG.debug(
                             "Failed to handle change pending assignment event "
                                     + "[zonePartitionId={}, stableAssignments={}, pendingAssignments={}, revision={}, isRecovery={}].",
                             zonePartitionId, stableAssignments, pendingAssignments, revision, isRecovery, ex);
+
+                    String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
+                    failureProcessor.process(new FailureContext(ex, errorMessage));
                 }
             });
         } finally {
@@ -1488,7 +1491,9 @@ public class PartitionReplicaLifecycleManager extends
                 )
                 .whenComplete((res, ex) -> {
                     if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class)) {
-                        LOG.warn("Failed to change peers [grp={}].", ex, replicaGrpId);
+
+                        String errorMessage = String.format("Failure while moving partition [partId=%s]", replicaGrpId);
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
                     }
                 });
     }
