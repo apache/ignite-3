@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.triggerZonePartitionsRebalance;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Zone rebalance manager. It listens to the changes in the distribution zones data nodes and replicas and triggers rebalance
@@ -59,6 +61,10 @@ import org.apache.ignite.internal.util.IgniteUtils;
  */
 public class DistributionZoneRebalanceEngineV2 {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
+
+    /** Special flag to skip rebalance on node recovery for tests. */
+    // TODO: IGNITE-24607 Remove it
+    public static final String SKIP_REBALANCE_TRIGGERS_RECOVERY = "IGNITE_SKIP_REBALANCE_TRIGGERS_RECOVERY";
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -122,7 +128,11 @@ public class DistributionZoneRebalanceEngineV2 {
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return recoveryRebalanceTrigger(recoveryRevision);
+            if (getBoolean(SKIP_REBALANCE_TRIGGERS_RECOVERY, false)) {
+                return nullCompletedFuture();
+            } else {
+                return recoveryRebalanceTrigger(recoveryRevision);
+            }
         });
     }
 
