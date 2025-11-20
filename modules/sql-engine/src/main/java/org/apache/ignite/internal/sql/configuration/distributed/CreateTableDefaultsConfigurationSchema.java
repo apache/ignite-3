@@ -17,17 +17,23 @@
 
 package org.apache.ignite.internal.sql.configuration.distributed;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
+
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
-/** Configuration schema for distributed sql endpoint subtree. */
+/** Configuration for table initialization properties. */
 @Config
-public class SqlDistributedConfigurationSchema {
-    /** Represent a configuration related to SQL planner. */
-    @ConfigValue
-    public SqlPlannerDistributedConfigurationSchema planner;
+public class CreateTableDefaultsConfigurationSchema {
+    /** A fraction of a partition to be modified before the data is considered to be "stale". */
+    @Value(hasDefault = true)
+    @Range(min = 0, max = 1)
+    public final double staleRowsFraction = DEFAULT_STALE_ROWS_FRACTION;
 
-    /** Represent a configuration related to initial table creation. */
-    @ConfigValue
-    public CreateTableDefaultsConfigurationSchema createTable;
+    /** Minimal number of rows in partition to be modified before the data is considered to be "stale". */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public final long minStaleRowsCount = DEFAULT_MIN_STALE_ROWS_COUNT;
 }
