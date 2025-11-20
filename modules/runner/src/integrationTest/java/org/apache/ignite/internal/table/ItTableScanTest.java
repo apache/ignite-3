@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -66,8 +65,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -81,7 +78,6 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -233,21 +229,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx1);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
+        PendingTxPartitionEnlistment enlistment = tx1.enlistedPartition(replicationGroupId);
+        InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx1,
                 internalTable.scan(
                         PART_ID,
-                        tx1.id(),
-                        tx1.commitPartition(),
-                        tx1.coordinatorId(),
                         recipient,
                         sortedIndexId,
-                        null,
-                        null,
-                        0,
-                        null
+                        IndexScanCriteria.unbounded(),
+                        OperationContext.create(TxContext.readWrite(tx1, enlistment.consistencyToken()))
                 )
         );
 
@@ -293,7 +286,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null, sortedIndexId, IndexScanCriteria.unbounded());
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -469,7 +462,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null, null, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -505,7 +498,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
-        var pub = internalTable.scan(PART_ID, null, null, null, null, 0, null);
+        var pub = internalTable.scan(PART_ID, null);
 
         assertEquals(ROW_IDS.size() + txOpFut.get(), scanAllRows(pub).size());
     }
@@ -520,21 +513,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
-        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
+        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
+        InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
                 internalTable.scan(
                         PART_ID,
-                        tx.id(),
-                        tx.commitPartition(),
-                        tx.coordinatorId(),
                         recipient,
                         sortedIndexId,
-                        null,
-                        null,
-                        0,
-                        null
+                        IndexScanCriteria.unbounded(),
+                        OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
                 )
         );
 
@@ -569,15 +559,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 tx,
                 internalTable.scan(
                         PART_ID,
-                        tx.id(),
-                        tx.commitPartition(),
-                        tx.coordinatorId(),
                         recipient,
                         sortedIndexId,
-                        null,
-                        null,
-                        0,
-                        null
+                        IndexScanCriteria.unbounded(),
+                        OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
                 )
         );
 
@@ -594,31 +579,29 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     public void testScanWithUpperBound() throws Exception {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(
+        BinaryTuplePrefix lowerBound = BinaryTuplePrefix.fromBinaryTuple(
                 new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(5).build())
         );
         BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(
                 new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(9).build())
         );
 
-        int soredIndexId = getSortedIndexId();
+        int sortedIndexId = getSortedIndexId();
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false, LONG_RUNNING_TX_TIMEOUT_MILLIS);
-        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
+
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
+        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
+        InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
                 internalTable.scan(
                         PART_ID,
-                        tx.id(),
-                        tx.commitPartition(),
-                        tx.coordinatorId(),
                         recipient,
-                        soredIndexId,
-                        lowBound,
-                        upperBound,
-                        LESS_OR_EQUAL | GREATER_OR_EQUAL,
-                        null
+                        sortedIndexId,
+                        IndexScanCriteria.range(lowerBound, upperBound, LESS_OR_EQUAL | GREATER_OR_EQUAL),
+                        OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
                 )
         );
 
@@ -644,15 +627,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 tx,
                 internalTable.scan(
                         PART_ID,
-                        tx.id(),
-                        tx.commitPartition(),
-                        tx.coordinatorId(),
                         recipient,
-                        soredIndexId,
-                        lowBound,
-                        upperBound,
-                        LESS_OR_EQUAL | GREATER_OR_EQUAL,
-                        null
+                        sortedIndexId,
+                        IndexScanCriteria.range(lowerBound, upperBound, LESS_OR_EQUAL | GREATER_OR_EQUAL),
+                        OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
                 )
         );
 
@@ -669,11 +647,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         Publisher<BinaryRow> publisher2 = internalTable.scan(
                 PART_ID,
                 null,
-                soredIndexId,
-                lowBound,
-                upperBound,
-                LESS_OR_EQUAL | GREATER_OR_EQUAL,
-                null
+                sortedIndexId,
+                IndexScanCriteria.range(lowerBound, upperBound, LESS_OR_EQUAL | GREATER_OR_EQUAL)
         );
 
         List<BinaryRow> scannedRows2 = scanAllRows(publisher2);
@@ -697,21 +672,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
             try {
-                PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
+                ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
+                PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
+                InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
                 Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
                         internalTable.scan(
                                 PART_ID,
-                                tx.id(),
-                                tx.commitPartition(),
-                                tx.coordinatorId(),
                                 recipient,
                                 sortedIndexId,
-                                null,
-                                null,
-                                0,
-                                null
+                                IndexScanCriteria.unbounded(),
+                                OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
                         )
                 );
 
@@ -740,15 +712,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         tx,
                         internalTable.scan(
                                 PART_ID,
-                                tx.id(),
-                                tx.commitPartition(),
-                                tx.coordinatorId(),
                                 recipient,
                                 sortedIndexId,
-                                null,
-                                null,
-                                0,
-                                null
+                                IndexScanCriteria.unbounded(),
+                                OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
                         )
                 );
 
@@ -788,9 +755,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (readOnly) {
             IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            ReplicationGroupId partitionId = colocationEnabled()
-                    ? new ZonePartitionId(internalTable.zoneId(), PART_ID)
-                    : new TablePartitionId(internalTable.tableId(), PART_ID);
+            ZonePartitionId partitionId = new ZonePartitionId(internalTable.zoneId(), PART_ID);
 
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
                     ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
@@ -803,13 +768,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
 
-            publisher = internalTable.scan(PART_ID, tx.id(), ignite.clock().now(), recipientNode, tx.coordinatorId());
+            publisher = internalTable.scan(PART_ID, recipientNode, OperationContext.create(TxContext.readOnly(tx)));
         } else {
             if (!implicit) {
                 tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin();
             }
 
-            publisher = internalTable.scan(PART_ID, tx, null, null, null, 0, null);
+            publisher = internalTable.scan(PART_ID, tx);
         }
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
@@ -866,25 +831,25 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         .map(ClusterNodeImpl::fromPublicClusterNode)
                         .orElseThrow();
 
+                OperationContext operationContext = OperationContext.create(TxContext.readOnly(tx));
+
                 //noinspection DataFlowIssue
-                publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null,
-                        tx.coordinatorId());
+                publisher = internalTable.scan(PART_ID, node0, sortedIndexId, IndexScanCriteria.unbounded(), operationContext);
             } else {
-                PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
+                ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
+                PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
+                InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
+
+                OperationContext operationContext = OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()));
 
                 publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
                         internalTable.scan(
                                 PART_ID,
-                                tx.id(),
-                                tx.commitPartition(),
-                                tx.coordinatorId(),
                                 recipient,
                                 sortedIndexId,
-                                null,
-                                null,
-                                0,
-                                null
+                                IndexScanCriteria.unbounded(),
+                                operationContext
                         )
                 );
             }
@@ -898,22 +863,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         }
     }
 
-    private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        ReplicationGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
-
-        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
-
+    private static InternalClusterNode getNodeByConsistentId(String nodeConsistentId) {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        InternalClusterNode primaryNode = ignite.cluster().nodes().stream()
-                .filter(n -> n.name().equals(enlistment.primaryNodeConsistentId()))
+        return ignite.cluster().nodes().stream()
+                .filter(n -> n.name().equals(nodeConsistentId))
                 .map(ClusterNodeImpl::fromPublicClusterNode)
                 .findAny()
                 .orElseThrow();
+    }
 
-        return new PrimaryReplica(primaryNode, enlistment.consistencyToken());
+    private ZonePartitionId replicationGroup(int partId) {
+        return new ZonePartitionId(table.zoneId(), partId);
     }
 
     /**
@@ -1097,9 +1058,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        ReplicationGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(

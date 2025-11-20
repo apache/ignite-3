@@ -20,9 +20,6 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
-import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
-import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
@@ -31,6 +28,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deserializeLatestDataNodesHistoryEntry;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -54,7 +53,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.SqlException;
@@ -144,11 +143,11 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = unwrapTableImpl(node.distributedTableManager().table(TABLE_NAME));
 
-        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+        ZonePartitionId partId = new ZonePartitionId(table.zoneId(), 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().size(),
                 1,
                 TIMEOUT_MILLIS
@@ -182,7 +181,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // We check that two nodes that pass the filter and storage profiles are presented in the stable key.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(3).name()),
@@ -214,11 +213,11 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+        ZonePartitionId partId = new ZonePartitionId(table.zoneId(), 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
@@ -238,7 +237,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // We check that all nodes that pass the filter are presented in the stable key because altering filter triggers immediate scale up.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(1).name()),
@@ -270,11 +269,11 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+        ZonePartitionId partId = new ZonePartitionId(table.zoneId(), 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
@@ -298,7 +297,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
+                stablePartAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
@@ -344,7 +343,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+        ZonePartitionId partId = new ZonePartitionId(table.zoneId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
         assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
@@ -390,7 +389,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+        ZonePartitionId partId = new ZonePartitionId(table.zoneId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
         assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
@@ -441,7 +440,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         MetaStorageManager metaStorageManager = unwrapIgniteImpl(node0).metaStorageManager();
         int zoneId = getZoneId(node0);
         TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
-        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+        ZonePartitionId partId = new ZonePartitionId(table.zoneId(), 0);
 
         stopNode(1);
 
@@ -515,16 +514,16 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     private static void assertPendingAssignmentsNeverExisted(
             MetaStorageManager metaStorageManager,
-            PartitionGroupId partId
+            ZonePartitionId partId
     ) throws InterruptedException, ExecutionException {
-        assertTrue(metaStorageManager.get(pendingPartitionAssignmentsKey(partId)).get().empty());
+        assertTrue(metaStorageManager.get(pendingPartAssignmentsQueueKey(partId)).get().empty());
     }
 
     private static void assertStableAssignmentsAreNotEmpty(
             MetaStorageManager metaStorageManager,
-            PartitionGroupId partId
+            ZonePartitionId partId
     ) throws ExecutionException, InterruptedException {
-        assertFalse(metaStorageManager.get(stablePartitionAssignmentsKey(partId)).get().empty());
+        assertFalse(metaStorageManager.get(stablePartAssignmentsKey(partId)).get().empty());
     }
 
     private static String createZoneSql(

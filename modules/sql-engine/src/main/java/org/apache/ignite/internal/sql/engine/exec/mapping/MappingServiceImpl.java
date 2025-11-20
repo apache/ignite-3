@@ -143,7 +143,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     @Override
-    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
+    public CompletableFuture<MappedFragments> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         if (initialTopologyFuture.isDone()) {
             return map0(multiStepPlan, parameters);
         }
@@ -151,7 +151,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan, parameters), taskExecutor);
     }
 
-    private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan, MappingParameters parameters) {
+    private CompletableFuture<MappedFragments> map0(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan);
 
         boolean mapOnBackups = parameters.mapOnBackups();
@@ -160,7 +160,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         PartitionPruningMetadata partitionPruningMetadata = multiStepPlan.partitionPruningMetadata();
         TopologySnapshot topologySnapshot = topologyHolder.topology();
 
-        CompletableFuture<MappedFragments> mappedFragments;
+        CompletableFuture<MappedFragmentsWithNodes> mappedFragments;
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
         // if (nodeExclusionFilter != null) {
         //     mappedFragments = mapFragments(
@@ -176,7 +176,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                 template, mapOnBackups, composeNodeExclusionFilter(topologySnapshot, parameters)
         );
 
-        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters, partitionPruningMetadata));
+        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters, partitionPruningMetadata))
+                .thenApply(frags -> new MappedFragments(frags, topologySnapshot.version));
     }
 
     private MappingsCacheValue computeMappingCacheKey(
@@ -265,7 +266,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         }
     }
 
-    private CompletableFuture<MappedFragments> mapFragments(
+    private CompletableFuture<MappedFragmentsWithNodes> mapFragments(
             FragmentsTemplate template,
             boolean mapOnBackups,
             Predicate<String> nodeExclusionFilter
@@ -360,7 +361,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                 targetNodes.addAll(mappedFragment.nodes());
             }
 
-            return new MappedFragments(mappedFragmentsList, targetNodes);
+            return new MappedFragmentsWithNodes(mappedFragmentsList, targetNodes);
         });
     }
 
@@ -454,11 +455,11 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     /** Wraps list of mapped fragments with target node names. */
-    private static class MappedFragments {
+    private static class MappedFragmentsWithNodes {
         final List<MappedFragment> fragments;
         final Set<String> nodes;
 
-        MappedFragments(List<MappedFragment> fragments, Set<String> nodes) {
+        MappedFragmentsWithNodes(List<MappedFragment> fragments, Set<String> nodes) {
             this.fragments = fragments;
             this.nodes = nodes;
         }
@@ -470,7 +471,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
         // private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topologyVersion, IntSet tableOrZoneIds, CompletableFuture<MappedFragments> mappedFragments) {
+        MappingsCacheValue(long topologyVersion, IntSet tableOrZoneIds, CompletableFuture<MappedFragmentsWithNodes> mappedFragments) {
             this.topologyVersion = topologyVersion;
             this.tableOrZoneIds = tableOrZoneIds;
             // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache

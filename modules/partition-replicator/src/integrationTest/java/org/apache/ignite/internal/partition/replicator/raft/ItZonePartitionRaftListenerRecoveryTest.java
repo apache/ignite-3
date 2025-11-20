@@ -60,6 +60,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -232,6 +233,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
     void setUp(
             TestInfo testInfo,
             @InjectConfiguration RaftConfiguration raftConfiguration,
+            @InjectConfiguration SystemLocalConfiguration systemLocalConfiguration,
             @InjectExecutorService ScheduledExecutorService scheduledExecutorService,
             @Mock Catalog catalog,
             @Mock CatalogIndexDescriptor catalogIndexDescriptor
@@ -262,6 +264,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 clusterService,
                 new NoOpMetricManager(),
                 raftConfiguration,
+                systemLocalConfiguration,
                 clock,
                 new RaftGroupEventsClientListener(),
                 failureProcessor

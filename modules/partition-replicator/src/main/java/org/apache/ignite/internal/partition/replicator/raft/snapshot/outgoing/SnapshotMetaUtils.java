@@ -65,6 +65,8 @@ public class SnapshotMetaUtils {
         PartitionSnapshotMetaBuilder metaBuilder = MESSAGE_FACTORY.partitionSnapshotMeta()
                 .cfgIndex(config.index())
                 .cfgTerm(config.term())
+                .sequenceToken(config.sequenceToken())
+                .oldSequenceToken(config.oldSequenceToken())
                 .lastIncludedIndex(logIndex)
                 .lastIncludedTerm(term)
                 .peersList(config.peers())

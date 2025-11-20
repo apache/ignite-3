@@ -46,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -313,6 +314,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     @Test
     public void raftListenersAreRecoveredOnRecovery() throws Exception {
+        DistributionZonesTestUtil.createDefaultZone(catalogManager);
+
         int defaultZonePartitions = catalogManager.catalog(catalogManager.latestCatalogVersion())
                 .defaultZone()
                 .partitions();
@@ -380,7 +383,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         doAnswer(invocation -> {
             Supplier<CompletableFuture<Boolean>> startSupplier = invocation.getArgument(1);
             return bypassingThreadAssertions(startSupplier);
-        }).when(replicaMgr).weakStartReplica(any(), any(), any());
+        }).when(replicaMgr).weakStartReplica(any(), any(), any(), anyLong());
         doReturn(nullCompletedFuture())
                 .when(replicaMgr).weakStopReplica(any(), any(), any());
 

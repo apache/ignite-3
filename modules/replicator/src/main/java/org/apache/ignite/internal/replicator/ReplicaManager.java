@@ -55,9 +55,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -142,6 +140,8 @@ import org.jetbrains.annotations.TestOnly;
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
     private static final long STOP_LEASE_PROLONGATION_RETRIES_TIMEOUT_MS = 60_000;
 
+    private static final String THROTTLE_REQUEST_KEY = "Failed to process replica request";
+
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
     /** Replicator network message factory. */
@@ -152,10 +152,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private static final int MAXIMUM_ATTEMPTS_WITHOUT_LOGGING = 10;
 
     private final Map<ReplicationGroupId, Integer> timeoutAttemptsCounters = new ConcurrentHashMap<>();
-
-    /** Executor for the throttled log. */
-    // TODO: IGNITE-20063 Maybe get rid of it
-    private final ThreadPoolExecutor throttledLogExecutor;
 
     private final IgniteThrottledLogger throttledLog;
 
@@ -227,7 +223,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
-    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+    private final Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier;
 
     /**
      * Constructor for a replica service.
@@ -249,6 +245,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *      volatile tables.
      * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
+     * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
     public ReplicaManager(
             String nodeName,
@@ -266,7 +263,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
+            Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
+            Executor throttledLogExecutor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -298,16 +296,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 1,
                 IgniteThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
         );
-
-        throttledLogExecutor = new ThreadPoolExecutor(
-                1,
-                1,
-                30,
-                SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "throttled-log-replica-manager", LOG)
-        );
-        throttledLogExecutor.allowCoreThreadTimeOut(true);
 
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
     }
@@ -403,9 +391,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.warn(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
                     } else {
-                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.debug(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
@@ -798,10 +786,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param replicaGrpId Replication group ID.
      * @param peersAndLearners New node configuration.
+     * @param sequenceToken Sequence token.
      */
-    public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
+    public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
-        ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
+        ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners, sequenceToken);
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
@@ -968,7 +957,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         int shutdownTimeoutSeconds = 10;
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, SECONDS);
-        shutdownAndAwaitTermination(throttledLogExecutor, shutdownTimeoutSeconds, SECONDS);
 
         // There we're closing replicas' futures that was created by requests and should be completed with NodeStoppingException.
         try {
@@ -1207,9 +1195,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Boolean> weakStartReplica(
             ReplicationGroupId groupId,
             Supplier<CompletableFuture<Boolean>> startOperation,
-            @Nullable Assignments forcedAssignments
+            @Nullable Assignments forcedAssignments,
+            long revision
     ) {
-        return replicaStateManager.weakStartReplica(groupId, startOperation, forcedAssignments);
+        return replicaStateManager.weakStartReplica(groupId, startOperation, forcedAssignments, revision);
     }
 
     /**

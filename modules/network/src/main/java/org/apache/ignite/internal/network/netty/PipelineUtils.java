@@ -70,6 +70,7 @@ public class PipelineUtils {
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());
         pipeline.addLast(OutboundEncoder.NAME, new OutboundEncoder(messageFormat, serializationService));
         pipeline.addLast(IoExceptionSuppressingHandler.NAME, new IoExceptionSuppressingHandler());
+        pipeline.addLast(DefaultExceptionHandler.NAME, new DefaultExceptionHandler());
     }
 
     /**

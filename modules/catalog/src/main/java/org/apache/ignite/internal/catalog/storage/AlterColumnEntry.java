@@ -77,12 +77,17 @@ public class AlterColumnEntry extends AbstractUpdateTableEntry implements Fireab
     @Override
     public Builder newTableDescriptor(CatalogTableDescriptor table) {
         List<CatalogTableColumnDescriptor> updatedTableColumns = table.columns().stream()
-                .map(source -> source.name().equals(column.name()) ? column : source)
+                .map(source -> {
+                    if (source.name().equals(column.name())) {
+                        return column.clone(source.id());
+                    }
+
+                    return source;
+                })
                 .collect(toList());
 
         return table.copyBuilder()
-                .latestSchemaVersion(nextSchemaVersion(table))
-                .columns(updatedTableColumns);
+                .newColumns(updatedTableColumns);
     }
 
     @Override

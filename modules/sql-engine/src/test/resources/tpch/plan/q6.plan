@@ -18,7 +18,7 @@ ReduceSortAggregate
           index: L_SD
           type: SORTED
           predicate: AND(SEARCH(L_SHIPDATE, Sarg[[1994-01-01..1995-01-01)]), SEARCH(L_DISCOUNT, Sarg[[0.05:DECIMAL(4, 2)..0.07:DECIMAL(4, 2)]]:DECIMAL(4, 2)), <(L_QUANTITY, 24.00))
-          searchBounds: [RangeBounds [lowerBound=1994-01-01, upperBound=1995-01-01, lowerInclude=true, upperInclude=false]]
+          searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1994-01-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1995-01-01, upperInclude=false]]
           fieldNames: [$f0]
           projection: [*(L_EXTENDEDPRICE, L_DISCOUNT)]
           collation: []

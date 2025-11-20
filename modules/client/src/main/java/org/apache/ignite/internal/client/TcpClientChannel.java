@@ -94,7 +94,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TX_PIGGYBACK,
             ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
-            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING
+            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
+            ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -200,7 +201,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     tcpConnectionEstablished = true;
 
-                    ClientTimeoutWorker.INSTANCE.registerClientChannel(this);
+                    ClientTimeoutWorker.INSTANCE.registerClientChannel(this, cfg.clientConfiguration());
 
                     sock = s;
 
@@ -380,6 +381,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()), id);
 
+        boolean expectedException = false;
+
         try {
             var req = payloadCh.out();
 
@@ -392,10 +395,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
+                    String msg = "Failed to send request async [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
                     IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, endpoint(), f.cause());
                     fut.completeExceptionally(ex);
-                    log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
+                    log.warn(msg + "]: " + f.cause().getMessage());
 
                     pendingReqs.remove(id);
                     metrics.requestsActiveDecrement();
@@ -420,6 +423,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     return completedFuture(complete(payloadReader, notificationFut, unpacker));
                 } catch (Throwable t) {
+                    expectedException = true;
                     throw sneakyThrow(ViewUtils.ensurePublicException(t));
                 }
             }
@@ -434,7 +438,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return resFut;
         } catch (Throwable t) {
-            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+            if (expectedException) {
+                // Just re-throw.
+                throw sneakyThrow(t);
+            }
+
+            log.warn("Failed to send request sync [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
 
             // Close buffer manually on fail. Successful write closes the buffer automatically.

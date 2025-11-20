@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster.system;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryClient.initiateClusterReset;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
@@ -82,8 +82,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
-    private void initiateCmgRepairVia(int conductorIndex, int... newCmgIndexes) throws InterruptedException {
-        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), null, nodeNames(newCmgIndexes));
+    private void initiateCmgRepairVia(int conductorIndex, int... newCmgIndexes) {
+        initiateClusterReset("localhost", cluster.httpPort(conductorIndex), null, nodeNames(newCmgIndexes));
     }
 
     @Test
@@ -343,7 +343,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26262")
     void repairWorksWhenCmgMajorityIsOnline() throws Exception {
         startAndInitCluster(3, new int[]{0, 1, 2}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);

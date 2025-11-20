@@ -25,14 +25,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -43,6 +46,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.util.LocalLocker;
+import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
@@ -52,6 +58,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * Abstract class for testing {@link GcUpdateHandler} using different implementations of {@link MvPartitionStorage}.
@@ -250,8 +257,69 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         }
     }
 
+    /**
+     * Tests that {@link GcUpdateHandler#vacuumBatch} exits early when {@code shouldRelease()} returns {@code true}.
+     *
+     * <p>This test verifies that the vacuum process can be interrupted mid-execution by the {@code shouldRelease()}
+     * mechanism, which is used to allow other operations (like rebalancing) to acquire necessary locks.
+     */
+    @Test
+    void testShouldReleaseExitsEarly() {
+        // Given: A partition storage with controllable shouldRelease() behavior
+        BooleanSupplier shouldReleaseSupplier = Mockito.mock();
+        TestPartitionDataStorage partitionStorage = createTestMvPartitionStorage(shouldReleaseSupplier);
+        IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
+
+        HybridTimestamp lowWatermark = HybridTimestamp.MAX_VALUE;
+
+        // Given: Multiple rows with garbage to collect (20 rows with 2 versions each)
+        for (int i = 0; i < 10; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+            BinaryRow row = binaryRow(new TestKey(i, "key" + i), new TestValue(i, "value" + i));
+
+            addWriteCommitted(partitionStorage, rowId, row, clock.now());
+            addWriteCommitted(partitionStorage, rowId, row, clock.now());
+        }
+
+        // When: Vacuum runs with shouldRelease() returning true (simulating lock contention)
+        when(shouldReleaseSupplier.getAsBoolean()).thenReturn(true);
+        boolean hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 10, true);
+
+        // Then: Vacuum exits early and reports garbage remaining
+        assertTrue(hasGarbageLeft, "Expected garbage to remain after early exit");
+        verify(shouldReleaseSupplier).getAsBoolean();
+
+        // When: Vacuum runs again with shouldRelease() returning false
+        when(shouldReleaseSupplier.getAsBoolean()).thenReturn(false);
+        hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 100, true);
+
+        // Then: All remaining garbage is processed
+        assertFalse(hasGarbageLeft, "Expected no garbage left after completing vacuum");
+        verify(shouldReleaseSupplier, atLeastOnce()).getAsBoolean();
+    }
+
     private TestPartitionDataStorage createPartitionDataStorage() {
         return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, getOrCreateMvPartition(tableStorage, PARTITION_ID));
+    }
+
+    /**
+     * Creates a partition data storage with custom {@code shouldRelease()} behavior.
+     *
+     * <p>The returned storage uses a {@link LocalLocker} that checks the provided {@code shouldReleaseSupplier}
+     * during lock acquisition, allowing tests to simulate lock contention scenarios.
+     *
+     * @param shouldReleaseSupplier Supplier that determines when locks should be released.
+     * @return A test partition storage with controllable shouldRelease behavior.
+     */
+    private static TestPartitionDataStorage createTestMvPartitionStorage(
+            BooleanSupplier shouldReleaseSupplier
+    ) {
+        LockByRowId lockByRowId = new LockByRowId();
+
+        TestMvPartitionStorage mvStorage = new TestMvPartitionStorage(PARTITION_ID, lockByRowId, shouldReleaseSupplier);
+
+        return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvStorage);
     }
 
     private static IndexUpdateHandler createIndexUpdateHandler() {

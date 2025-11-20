@@ -32,6 +32,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -129,14 +130,14 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
                 .primaryKeyIndexId(-1)
                 .name("test")
                 .zoneId(0)
-                .columns(columns)
-                .primaryKeyColumns(List.of("k1"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
 
         for (int ver = CatalogTableDescriptor.INITIAL_TABLE_VERSION + 1; ver <= tableVersion; ver++) {
             descriptor = descriptor.copyBuilder()
-                    .latestSchemaVersion(ver)
+                    .newColumns(columns)
                     .build();
         }
 

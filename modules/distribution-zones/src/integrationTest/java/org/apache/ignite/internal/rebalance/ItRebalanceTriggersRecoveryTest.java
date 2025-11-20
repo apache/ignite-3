@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.rebalance;
 
-import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
-import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignments;
-import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.awaitility.Awaitility.await;
@@ -43,7 +42,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -228,7 +227,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     private static Set<Assignment> getPartitionPendingClusterNodes(IgniteImpl node, int partNum) {
         CompletableFuture<Set<Assignment>> pendingAssignmentsFuture = pendingPartitionAssignments(
                 node.metaStorageManager(),
-                unwrapTableViewInternal(node.distributedTableManager().table(TABLE_NAME)),
+                unwrapTableViewInternal(node.distributedTableManager().table(TABLE_NAME)).zoneId(),
                 partNum);
 
         return Optional.ofNullable(pendingAssignmentsFuture.join()).orElse(Set.of());
@@ -239,10 +238,10 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         TableViewInternal table = unwrapTableViewInternal(unwrapIgniteImpl(node(0)).distributedTableManager().table(tableName));
 
-        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, partitionId);
+        ZonePartitionId partitionGroupId = new ZonePartitionId(table.zoneId(), partitionId);
 
         return metaStorageManager
-                .get(pendingPartitionAssignmentsKey(partitionGroupId))
+                .get(pendingPartAssignmentsQueueKey(partitionGroupId))
                 .get(10, TimeUnit.SECONDS)
                 .revision();
     }
@@ -254,7 +253,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         TableViewInternal table = unwrapTableViewInternal(node.distributedTableManager().table(tableName));
 
-        ByteArray pendingPartAssignmentsQueueKey = pendingPartitionAssignmentsKey(partitionReplicationGroupId(table, partitionId));
+        ByteArray pendingPartAssignmentsQueueKey = pendingPartAssignmentsQueueKey(new ZonePartitionId(table.zoneId(), partitionId));
 
         metaStorageManager.remove(pendingPartAssignmentsQueueKey).join();
     }

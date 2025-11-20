@@ -115,7 +115,10 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static SystemDistributedConfiguration systemConfiguration;
+    private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -157,7 +160,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 Path workDir,
                 NetworkAddress addr,
                 List<NetworkAddress> memberAddrs,
-                RaftConfiguration raftConfiguration
+                RaftConfiguration raftConfiguration,
+                SystemLocalConfiguration systemLocalConfiguration
         ) {
             vaultManager = new VaultManager(new InMemoryVaultService());
 
@@ -181,6 +185,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     raftGroupEventsClientListener
             );
@@ -250,7 +255,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
-                    systemConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -375,7 +380,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 workDir.resolve("firstNode"),
                 firstNodeAddr,
                 allNodes,
-                raftConfiguration
+                raftConfiguration,
+                systemLocalConfiguration
         );
 
         secondNode = new Node(
@@ -383,7 +389,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 workDir.resolve("secondNode"),
                 secondNodeAddr,
                 allNodes,
-                raftConfiguration
+                raftConfiguration,
+                systemLocalConfiguration
         );
 
         Stream.of(firstNode, secondNode).parallel().forEach(Node::startUpToCmgManager);

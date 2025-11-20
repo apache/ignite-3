@@ -161,6 +161,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26377")
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 

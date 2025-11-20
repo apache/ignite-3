@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Proxy;
@@ -218,21 +217,6 @@ public class TraitUtils {
      */
     public static IgniteDistribution distribution(RelTraitSet traits) {
         return traits.getTrait(DistributionTraitDef.INSTANCE);
-    }
-
-    /**
-     * Check distribution definition in traits.
-     *
-     * @param traitDefs Traits to analyze.
-     * @return {@code true} if distribution found, {@code false} otherwise.
-     */
-    public static boolean distributionPresent(ImmutableList<RelTraitDef> traitDefs) {
-        for (RelTraitDef<?> trait : traitDefs) {
-            if (trait instanceof DistributionTraitDef) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

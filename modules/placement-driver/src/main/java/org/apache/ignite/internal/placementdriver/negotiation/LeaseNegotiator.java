@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.logger.Loggers.toThrottledLogger;
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
@@ -42,7 +41,7 @@ public class LeaseNegotiator {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** The logger. */
-    private final IgniteThrottledLogger log = toThrottledLogger(Loggers.forClass(LeaseNegotiator.class), Runnable::run);
+    private final IgniteThrottledLogger log;
 
     /** Lease agreements which are in progress of negotiation. */
     private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();
@@ -61,6 +60,8 @@ public class LeaseNegotiator {
             Executor throttledLogExecutor
     ) {
         this.clusterService = clusterService;
+
+        log = Loggers.toThrottledLogger(Loggers.forClass(LeaseNegotiator.class), throttledLogExecutor);
     }
 
     /**

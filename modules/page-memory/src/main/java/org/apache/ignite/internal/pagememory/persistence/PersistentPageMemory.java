@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -642,20 +641,6 @@ public class PersistentPageMemory implements PageMemory {
      * Returns an absolute pointer to a page, associated with the given page ID.
      *
      * @param grpId Group ID.
-     * @param pageId Page ID.
-     * @param pageAllocated Flag is set if new page was allocated in offheap memory.
-     * @return Page.
-     * @throws IgniteInternalCheckedException If failed.
-     * @see #acquirePage(int, long) Sets additional flag indicating that page was not found in memory and had to be allocated.
-     */
-    public long acquirePage(int grpId, long pageId, AtomicBoolean pageAllocated) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, false, pageAllocated);
-    }
-
-    /**
-     * Returns an absolute pointer to a page, associated with the given page ID.
-     *
-     * @param grpId Group ID.
      * @param pageId Page id.
      * @param restore Get page for restore
      * @return Page.
@@ -663,15 +648,6 @@ public class PersistentPageMemory implements PageMemory {
      * @see #acquirePage(int, long) Will read page from file if it is not present in memory.
      */
     public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, restore, null);
-    }
-
-    private long acquirePage(
-            int grpId,
-            long pageId,
-            boolean restore,
-            @Nullable AtomicBoolean pageAllocated
-    ) throws IgniteInternalCheckedException {
         assert started : "grpId=" + grpId + ", pageId=" + hexLong(pageId);
         assert pageIndex(pageId) != 0 : String.format(
                 "Partition meta should should not be read through PageMemory so as not to occupy memory: [grpId=%s, pageId=%s]",
@@ -728,10 +704,6 @@ public class PersistentPageMemory implements PageMemory {
 
             if (relPtr == INVALID_REL_PTR) {
                 relPtr = seg.borrowOrAllocateFreePage(pageId);
-
-                if (pageAllocated != null) {
-                    pageAllocated.set(true);
-                }
 
                 if (relPtr == INVALID_REL_PTR) {
                     relPtr = seg.removePageForReplacement();

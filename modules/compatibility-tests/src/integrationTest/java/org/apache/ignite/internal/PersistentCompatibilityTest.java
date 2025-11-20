@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.client.ClientCompatibilityTests.JOBS_UNIT;
+import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -25,11 +25,8 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.client.DeploymentUtils;
 import org.apache.ignite.internal.compute.CheckpointJob;
+import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.tx.Transaction;
@@ -97,31 +94,27 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     }
 
     @Override
-    protected void setupBaseVersion(Ignite baseIgnite) {
-        try {
-            DeploymentUtils.deployJobs();
+    protected void setupBaseVersion(Ignite baseIgnite) throws Exception {
+        DeploymentUtils.deployJobs();
 
-            createAndPopulateTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
-            createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
-            createAndPopulateTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
+        createAndPopulateTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
+        createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
+        createAndPopulateTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
 
-            // Newly allocated pages are written straight to the page files.
-            // We need to do an initial checkpoint so subsequent modifications of the rows go to delta files.
-            doCheckpointWithCompaction();
+        // Newly allocated pages are written straight to the page files.
+        // We need to do an initial checkpoint so subsequent modifications of the rows go to delta files.
+        doCheckpointWithCompaction();
 
-            prepareTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
+        prepareTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
 
-            // Checkpoint for TABLE_WITHOUT_DELTA_FILES and compact all delta files.
-            doCheckpointWithCompaction();
+        // Checkpoint for TABLE_WITHOUT_DELTA_FILES and compact all delta files.
+        doCheckpointWithCompaction();
 
-            prepareTable(baseIgnite, TABLE_WITH_DELTA_FILES);
-            prepareTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
+        prepareTable(baseIgnite, TABLE_WITH_DELTA_FILES);
+        prepareTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
 
-            // Checkpoint for TABLE_WITH_DELTA_FILES and TABLE_WITH_NEW_DELTA_FILES, cancels compaction to leave delta files.
-            doCheckpointWithoutCompaction();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        // Checkpoint for TABLE_WITH_DELTA_FILES and TABLE_WITH_NEW_DELTA_FILES, cancels compaction to leave delta files.
+        doCheckpointWithoutCompaction();
     }
 
     private static void createAndPopulateTable(Ignite baseIgnite, String tableName) {
@@ -176,15 +169,7 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     }
 
     private void doCheckpoint(boolean cancelCompaction) {
-        try (IgniteClient client = cluster.createClient()) {
-            JobDescriptor<Boolean, Void> job = JobDescriptor.builder(CheckpointJob.class)
-                    .units(JOBS_UNIT)
-                    .build();
-
-            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
-
-            client.compute().execute(jobTarget, job, cancelCompaction);
-        }
+        runJob(cluster, CheckpointJob.class, cancelCompaction);
     }
 
     private static void insertRow(Ignite baseIgnite, String tableName, int id, String name) {

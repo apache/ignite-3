@@ -85,6 +85,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -123,6 +124,11 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private final ExecutorService txStateStorageExecutor = Executors.newSingleThreadExecutor(
             IgniteThreadFactory.create("test", "tx-state-storage-test-pool-itrvt", log, ThreadOperation.STORAGE_READ)
     );
+
+    @Override
+    protected int[] cmgMetastoreNodes() {
+        return new int[]{0, 1, 2};
+    }
 
     @BeforeEach
     public void setup() {
@@ -296,15 +302,19 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxnsAreNotVacuumizedUntilRecovered() throws InterruptedException {
         setTxResourceTtl(1);
 
-        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(0));
-
-        Tuple tuple = findTupleToBeHostedOnNode(leaseholder, TABLE_NAME, null, INITIAL_TUPLE, NEXT_TUPLE, true);
+        Tuple tuple = INITIAL_TUPLE;
 
         int partId = partitionIdForTuple(anyNode(), TABLE_NAME, tuple, null);
 
         PartitionGroupId groupId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(anyNode(), TABLE_NAME), partId)
                 : new TablePartitionId(tableId(anyNode(), TABLE_NAME), partId);
+
+        ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(anyNode(), groupId);
+        assertNotNull(replicaMeta);
+        assertNotNull(replicaMeta.getLeaseholder());
+
+        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(cluster.nodeIndex(replicaMeta.getLeaseholder())));
 
         Set<String> txNodes = partitionAssignment(anyNode(), groupId);
 
@@ -355,7 +365,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *
      * <ul>
      *     <li>Start a transaction;</li>
-     *     <li>Generate some tuple and define on which nodes it would be hosted;</li>
+     *     <li>Take some tuple and define on which nodes it would be hosted;</li>
      *     <li>Choose one more node that doesn't host the first tuple and choose a tuple that will be sent on this node as primary;</li>
      *     <li>Upsert both tuples within a transaction;</li>
      *     <li>Block {@link TxCleanupMessage}-s from commit partition primary;</li>
@@ -378,8 +388,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         log.info("Test: Loading the data [tx={}].", txId);
 
-        // Generate some tuple and define on which nodes it would be hosted.
-        Tuple tuple0 = findTupleToBeHostedOnNode(node, TABLE_NAME, tx, INITIAL_TUPLE, NEXT_TUPLE, true);
+        // Take some tuple and define on which nodes it would be hosted.
+        Tuple tuple0 = INITIAL_TUPLE;
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 
@@ -476,6 +486,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27014")
     public void testCommitPartitionPrimaryChangesBeforeVacuum() throws InterruptedException {
         // We can't leave TTL as 0 here, because the primary replica is changed during cleanup, and this means
         // WriteIntentSwitchReplicaRequest will be processed not on the primary. Removing tx state instantly will cause incorrect
