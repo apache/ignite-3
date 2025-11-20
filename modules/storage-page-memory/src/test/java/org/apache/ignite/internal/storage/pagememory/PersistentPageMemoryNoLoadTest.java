@@ -455,7 +455,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     /**
      * Tests that {@link PersistentPageMemory#acquirePage(int, long)} works correctly when multiple threads try to acquire the same page
-     * using different {@code pageId} values, assuming that one of the threads simply has in invalid identifier from some obsolete source.
+     * using different {@code pageId} values, assuming that one of the threads simply has an invalid identifier from some obsolete source.
      */
     @Test
     void testAcquireRace(@WorkDirectory Path workDir) throws Exception {
