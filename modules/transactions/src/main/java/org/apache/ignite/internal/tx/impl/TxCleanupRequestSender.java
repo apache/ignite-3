@@ -35,7 +35,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -70,32 +69,21 @@ public class TxCleanupRequestSender {
     /** Local transaction state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage;
 
-    /** Local node's consistent id. */
-    private final String nodeName;
-
-    private ClockService clockService;
-
     /**
      * The constructor.
      *
      * @param txMessageSender Message sender.
      * @param placementDriverHelper Placement driver helper.
      * @param txStateVolatileStorage Volatile transaction state storage.
-     * @param nodeName Local node's consistent id.
-     * @param clockService Clock service.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
-            VolatileTxStateMetaStorage txStateVolatileStorage,
-            String nodeName,
-            ClockService clockService
+            VolatileTxStateMetaStorage txStateVolatileStorage
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
         this.txStateVolatileStorage = txStateVolatileStorage;
-        this.nodeName = nodeName;
-        this.clockService = clockService;
     }
 
     /**
@@ -135,19 +123,26 @@ public class TxCleanupRequestSender {
     private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        final HybridTimestamp commitTimestamp;
-        if (state == TxState.COMMITTED && txStateVolatileStorage.state(txId) == null) {
-            TransactionMeta transactionMeta = txMessageSender.resolveTxStateFromCommitPartition(
-                    nodeName,
-                    txId,
-                    commitPartitionId,
-                    clockService.currentLong()).join();
-            commitTimestamp = transactionMeta.commitTimestamp();
+        TxStateMeta txStateMeta = txStateVolatileStorage.state(txId);
+        final CompletableFuture<HybridTimestamp> commitTimestampFuture;
+        if (state == TxState.COMMITTED && (txStateMeta == null || txStateMeta.commitTimestamp() == null)) {
+            commitTimestampFuture = placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartitionId)
+                    .thenCompose(replicaMeta -> {
+                                String primaryNode = replicaMeta.getLeaseholder();
+                                HybridTimestamp startTime = replicaMeta.getStartTime();
+                                return txMessageSender.resolveTxStateFromCommitPartition(
+                                        primaryNode,
+                                        txId,
+                                        commitPartitionId,
+                                        startTime.longValue()).thenApply(TransactionMeta::commitTimestamp);
+                            }
+                    );
         } else {
-            commitTimestamp = null;
+            HybridTimestamp existingCommitTs = txStateMeta == null ? null : txStateMeta.commitTimestamp();
+            commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
         }
 
-        txStateVolatileStorage.updateMeta(txId, oldMeta ->
+        commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta ->
                 new TxStateMeta(
                         oldMeta == null ? state : oldMeta.txState(),
                         oldMeta == null ? null : oldMeta.txCoordinatorId(),
@@ -157,6 +152,7 @@ public class TxCleanupRequestSender {
                         oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
                         cleanupCompletionTimestamp,
                         oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
+                )
                 )
         );
     }

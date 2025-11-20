@@ -397,7 +397,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         );
 
         txCleanupRequestSender =
-                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage, nodeName, clockService);
+                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
 
         txMetrics = new TransactionMetricsSource(clockService);
     }
