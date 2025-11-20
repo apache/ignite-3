@@ -179,7 +179,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Nullable
     private InternalClusterNode leaseholder;
 
-
     @BeforeEach
     void setUp() {
         metastore = StandaloneMetaStorageManager.create(clock);
