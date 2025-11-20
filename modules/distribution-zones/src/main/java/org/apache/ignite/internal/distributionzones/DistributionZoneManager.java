@@ -368,7 +368,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
+     * Gets data nodes of the zone using timestamp and catalog version. {@code timestamp} must be agreed
      * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
      * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
      * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
@@ -399,6 +399,18 @@ public class DistributionZoneManager extends
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
 
+    /**
+     * Gets data nodes of the zone using catalog version. The timestamp which is used for data nodes retrieval is taken from the catalog
+     * with the given {@code catalogVersion}.
+     *
+     * <p>Return data nodes or throw the exception:
+     * {@link IllegalArgumentException} if zoneId is not valid.
+     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
+     *
+     * @param catalogVersion Catalog version.
+     * @param zoneId Zone id.
+     * @return The future with data nodes for the zoneId.
+     */
     public CompletableFuture<Set<String>> dataNodes(int catalogVersion, int zoneId) {
         return dataNodes(INITIAL_TIMESTAMP, catalogVersion, zoneId);
     }

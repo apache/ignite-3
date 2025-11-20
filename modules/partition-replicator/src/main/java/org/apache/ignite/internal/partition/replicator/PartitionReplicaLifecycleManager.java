@@ -964,7 +964,7 @@ public class PartitionReplicaLifecycleManager extends
             Catalog catalog = catalogService.catalog(catalogVersion);
             long assignmentsTimestamp = catalog.time();
 
-            return distributionZoneMgr.dataNodes(catalogVersion, zoneDescriptor.id())
+            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes -> calculateAssignments(
                                     dataNodes,
                                     zoneDescriptor.partitions(),

@@ -47,6 +47,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
@@ -913,7 +914,7 @@ public class DataNodesManager {
                 .thenApply(history -> inBusyLock(busyLock, () -> {
                     if (history == null) {
                         // It means that the zone was created but the data nodes value had not been updated yet.
-                        // So the data nodes value will be equals to the logical topology.
+                        // So the data nodes value will be equal to the logical topology.
                         return filterDataNodes(topologyNodes(), zone);
                     }
 
@@ -1067,13 +1068,15 @@ public class DataNodesManager {
         } else {
             HybridTimestamp now = clockService.current();
             HybridTimestamp earliestTimestampNeededForHistory = earliestTimestampNeededForHistory(now);
-            DataNodesHistory compactedHistory = history.compactIfNeeded(earliestTimestampNeededForHistory);
-            DataNodesHistory newHistory = compactedHistory.addHistoryEntry(timestamp, nodes);
+            DataNodesHistory newHistory = history
+                    .addHistoryEntry(timestamp, nodes)
+                    .compactIfNeeded(earliestTimestampNeededForHistory);
             dataNodesHistoryVolatile.put(zoneId, newHistory);
 
-            if (history.size() > compactedHistory.size()) {
+            int compactedEntriesCount = history.size() - (newHistory.size() - 1);
+            if (compactedEntriesCount > 0) {
                 LOG.info("Data nodes history compacted [zoneId={}, compactedEntriesCount={}, atTimestamp={}, earliestTimestampNeeded={}].",
-                        zoneId, history.size() - compactedHistory.size(), now, earliestTimestampNeededForHistory);
+                        zoneId, compactedEntriesCount, now, earliestTimestampNeededForHistory);
             }
 
             return newHistory;
@@ -1092,9 +1095,10 @@ public class DataNodesManager {
         long minTimeAvailable = timestamp.getPhysical()
                 - gcConfiguration.lowWatermark().dataAvailabilityTimeMillis().value()
                 - clockService.maxClockSkewMillis();
-        long minCatalogTimeAvailable = catalogManager.earliestCatalog().time();
+        long minCatalogTimeAvailable = hybridTimestamp(catalogManager.earliestCatalog().time()).getPhysical();
 
-        return new HybridTimestamp(min(minTimeAvailable, minCatalogTimeAvailable), 0);
+        long minPhysical = max(min(minTimeAvailable, minCatalogTimeAvailable), 1);
+        return new HybridTimestamp(minPhysical, 0);
     }
 
     private static Operation renewTimer(ByteArray timerKey, DistributionZoneTimer timer) {
