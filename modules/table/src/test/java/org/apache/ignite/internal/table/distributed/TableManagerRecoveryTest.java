@@ -363,6 +363,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         doReturn(nullCompletedFuture())
                 .when(replicaMgr).startReplica(any(RaftGroupEventsListener.class), any(), anyBoolean(), any(), any(), any(), any(), any());
