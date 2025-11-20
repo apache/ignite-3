@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.UNKNO
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirtyFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.headerValidity;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.partitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.pinCount;
@@ -102,6 +103,7 @@ import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplace
 import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
@@ -583,6 +585,9 @@ public class PersistentPageMemory implements PageMemory {
 
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
+            // Header initialization is finished.
+            headerValidity(absPtr, true);
+
             assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : fullId; // TODO IGNITE-16612
 
             assert !isAcquired(absPtr) : String.format(
@@ -634,20 +639,6 @@ public class PersistentPageMemory implements PageMemory {
     /** {@inheritDoc} */
     @Override
     public long acquirePage(int grpId, long pageId) throws IgniteInternalCheckedException {
-        return acquirePage(grpId, pageId, false);
-    }
-
-    /**
-     * Returns an absolute pointer to a page, associated with the given page ID.
-     *
-     * @param grpId Group ID.
-     * @param pageId Page id.
-     * @param restore Get page for restore
-     * @return Page.
-     * @throws IgniteInternalCheckedException If failed.
-     * @see #acquirePage(int, long) Will read page from file if it is not present in memory.
-     */
-    public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteInternalCheckedException {
         assert started : "grpId=" + grpId + ", pageId=" + hexLong(pageId);
         assert pageIndex(pageId) != 0 : String.format(
                 "Partition meta should should not be read through PageMemory so as not to occupy memory: [grpId=%s, pageId=%s]",
@@ -676,6 +667,8 @@ public class PersistentPageMemory implements PageMemory {
                 seg.acquirePage(absPtr);
 
                 seg.pageReplacementPolicy.onHit(relPtr);
+
+                waitUntilPageIsFullyInitialized(absPtr);
 
                 return absPtr;
             }
@@ -732,28 +725,21 @@ public class PersistentPageMemory implements PageMemory {
                         partGen
                 );
 
-                long pageAddr = absPtr + PAGE_OVERHEAD;
+                delayedPageReplacementTracker.waitUnlock(fullId);
 
-                if (!restore) {
-                    delayedPageReplacementTracker.waitUnlock(fullId);
+                readPageFromStore = true;
 
-                    readPageFromStore = true;
-                } else {
-                    zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
-
-                    // Must init page ID in order to ensure RWLock tag consistency.
-                    setPageId(pageAddr, pageId);
-                }
+                // Mare page header as invalid. We have not yet read the real value of "pageId" from the page, thus the state of "rwLock"
+                // can be inconsistent. Please see "waitUntilPageIsFullyInitialized" for more details.
+                headerValidity(absPtr, false);
 
                 rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
-                if (readPageFromStore) {
-                    boolean locked = rwLock.writeLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+                boolean locked = rwLock.writeLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
 
-                    assert locked : "Page ID " + fullId + " expected to be locked";
+                assert locked : "Page ID " + fullId + " expected to be locked";
 
-                    lockedPageAbsPtr = absPtr;
-                }
+                lockedPageAbsPtr = absPtr;
             } else if (relPtr == OUTDATED_REL_PTR) {
                 assert pageIndex(pageId) == 0 : fullId;
 
@@ -787,6 +773,10 @@ public class PersistentPageMemory implements PageMemory {
 
             seg.acquirePage(absPtr);
 
+            if (!readPageFromStore) {
+                waitUntilPageIsFullyInitialized(absPtr);
+            }
+
             return absPtr;
         } finally {
             seg.writeLock().unlock();
@@ -811,11 +801,32 @@ public class PersistentPageMemory implements PageMemory {
                     actualPageId = getPageId(buf);
 
                     metrics.incrementReadFromDiskMetric();
+
+                    // At this point we guarantee that after write lock is released, page will have a valid header that's consistent with
+                    // page content.
+                    headerValidity(lockedPageAbsPtr, true);
                 } finally {
                     rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET, actualPageId == 0 ? TAG_LOCK_ALWAYS : tag(actualPageId));
                 }
             }
         }
+    }
+
+    /**
+     * This method is called when the thread finishes acquiring the page, but this thread is not the one that reads page data from the
+     * storage. Such a waiting is required to receive a valid state of page header, in particular we need a valid state of {@link #rwLock}
+     * for a given page.
+     */
+    private void waitUntilPageIsFullyInitialized(long absPtr) {
+        // We're fine with non-volatile reads and potential false-negative result, because the following operation is idempotent.
+        if (!headerValidity(absPtr)) {
+            long lockAddr = absPtr + PAGE_LOCK_OFFSET;
+
+            rwLock.readLock(lockAddr, TAG_LOCK_ALWAYS);
+            rwLock.readUnlock(lockAddr);
+        }
+
+        assert headerValidity(absPtr) : "Non fully-initialized page is acquired: " + PageIdUtils.toDetailString(PageHeader.pageId(absPtr));
     }
 
     /** {@inheritDoc} */

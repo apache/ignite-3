@@ -38,6 +38,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -84,7 +85,9 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgressImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -444,6 +447,111 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
             closeAll(
                     () -> pageMemory.stop(true),
+                    checkpointManager::stop,
+                    filePageStoreManager::stop
+            );
+        }
+    }
+
+    /**
+     * Tests that {@link PersistentPageMemory#acquirePage(int, long)} works correctly when multiple threads try to acquire the same page
+     * using different {@code padeId} values, assuming that one of the threads simply has in invalid identifier from some obsolete source.
+     */
+    @Test
+    void testAcquireRace(@WorkDirectory Path workDir) throws Exception {
+        int pages = 100;
+
+        // Step 1. Start the region, allocate a number of pages, checkpoint them to the storage, stop the region.
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
+        Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
+
+        CheckpointManager checkpointManager = createCheckpointManager(
+                CheckpointConfiguration.builder().build(),
+                filePageStoreManager,
+                partitionMetaManager,
+                dataRegions
+        );
+
+        int systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
+
+        dataRegionSize = 1024 * systemPageSize;
+
+        PersistentPageMemory pageMemory = createPageMemory(
+                new long[]{dataRegionSize},
+                128 * systemPageSize,
+                filePageStoreManager,
+                checkpointManager,
+                shouldNotHappenFlushDirtyPageForReplacement()
+        );
+
+        dataRegions.add(() -> pageMemory);
+
+        filePageStoreManager.start();
+        checkpointManager.start();
+        pageMemory.start();
+
+        try {
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
+
+            checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+
+            try {
+                for (int i = 0; i < pages; i++) {
+                    createDirtyPage(pageMemory);
+                }
+            } finally {
+                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+            }
+
+            CompletableFuture<Void> checkpointFuture = checkpointManager
+                    .forceCheckpoint("before-stopping-in-test")
+                    .futureFor(FINISHED);
+
+            assertThat(checkpointFuture, willCompleteSuccessfully());
+        } finally {
+            closeAll(
+                    () -> pageMemory.stop(true),
+                    checkpointManager::stop,
+                    filePageStoreManager::stop
+            );
+        }
+
+        // Step 2. Start a new region over the same persistence. The goal here is to test "acquirePage" that will actually read data from
+        // the storage instead of hitting the cached page.
+        PersistentPageMemory pageMemory2 = createPageMemory(
+                new long[]{dataRegionSize},
+                128 * systemPageSize,
+                filePageStoreManager,
+                checkpointManager,
+                shouldNotHappenFlushDirtyPageForReplacement()
+        );
+
+        filePageStoreManager.start();
+        checkpointManager.start();
+        pageMemory2.start();
+
+        try {
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory2);
+
+            for (int i = 0; i < pages; i++) {
+                // We skip meta page, that's why we add 1 to i.
+                long fakePageId = PageIdUtils.pageId(PARTITION_ID, PageIdAllocator.FLAG_AUX, i + 1);
+                long realPageId = PageIdUtils.pageId(PARTITION_ID, PageIdAllocator.FLAG_DATA, i + 1);
+
+                // Step 3. Run the race for all pages in the partition.
+                IgniteTestUtils.runRace(
+                        () -> pageMemory2.acquirePage(GRP_ID, fakePageId),
+                        () -> {
+                            long page = pageMemory2.acquirePage(GRP_ID, realPageId);
+
+                            assertNotEquals(0L, pageMemory2.readLock(GRP_ID, realPageId, page));
+                        }
+                );
+            }
+        } finally {
+            closeAll(
+                    () -> pageMemory2.stop(true),
                     checkpointManager::stop,
                     filePageStoreManager::stop
             );

@@ -55,6 +55,9 @@ public class PageHeader {
     /** Dirty flag. */
     private static final int DIRTY_FLAG = 0x01000000;
 
+    /** Page header validity flag. */
+    private static final int HEADER_IS_VALID_FLAG = 0x02000000;
+
     /** Unknown partition generation. */
     static final int UNKNOWN_PARTITION_GENERATION = -1;
 
@@ -117,6 +120,20 @@ public class PageHeader {
      */
     public static boolean dirty(long absPtr, boolean dirty) {
         return flag(absPtr, DIRTY_FLAG, dirty);
+    }
+
+    /**
+     * Reads the value of a header validity flag.
+     */
+    public static boolean headerValidity(long absPtr) {
+        return flag(absPtr, HEADER_IS_VALID_FLAG);
+    }
+
+    /**
+     * Updates the value of a header validity flag.
+     */
+    public static void headerValidity(long absPtr, boolean valid) {
+        flag(absPtr, HEADER_IS_VALID_FLAG, valid);
     }
 
     /**
