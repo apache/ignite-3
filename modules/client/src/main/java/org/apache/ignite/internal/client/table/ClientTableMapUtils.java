@@ -125,10 +125,9 @@ class ClientTableMapUtils {
                 }
             }
             Transaction tx0 = txns.get(i);
-            tx0.rollbackAsync().whenComplete((r, e) -> {
-                if (e != null) {
-                    log.error("Failed to rollback a transactional batch: [tx=" + tx0 + ']', e);
-                }
+            tx0.rollbackAsync().exceptionally(e -> {
+                log.error("Failed to rollback a transactional batch: [tx=" + tx0 + ']', e);
+                return null;
             });
         }
 
@@ -141,10 +140,9 @@ class ClientTableMapUtils {
 
         for (Transaction txn : txns) {
             ClientLazyTransaction tx0 = (ClientLazyTransaction) txn;
-            CompletableFuture<Void> fut = tx0.commitAsync().whenComplete((r, e) -> {
-                if (e != null) {
-                    log.error("Failed to commit a transactional batch: [tx=" + tx0 + ']', e);
-                }
+            CompletableFuture<Void> fut = tx0.commitAsync().exceptionally(e -> {
+                log.error("Failed to commit a transactional batch: [tx=" + tx0 + ']', e);
+                return null;
             });
             // Enforce sync commit to avoid lock conflicts then working in compatibility mode.
             if (!tx0.startedTx().channel().protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS)) {
