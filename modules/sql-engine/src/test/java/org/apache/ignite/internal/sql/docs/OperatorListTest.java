@@ -316,6 +316,9 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(IgniteSqlOperatorTable.GREATEST2, "GREATEST");
         ops.add(IgniteSqlOperatorTable.LEAST2, "LEAST");
 
+        ops.add(IgniteSqlOperatorTable.FIND_PREFIX, "$FIND_PREFIX");
+        ops.add(IgniteSqlOperatorTable.NEXT_GREATER_PREFIX, "$NEXT_GREATER_PREFIX");
+
         // Other functions and operators.
         ops.add(SqlStdOperatorTable.CAST).sig("(<any> AS <type>)");
         ops.add(SqlLibraryOperators.INFIX_CAST, "::").sig("<any>::<type>");

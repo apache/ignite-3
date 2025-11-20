@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.toPartitionB
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,8 +53,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -105,7 +102,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsPrimaryReplicaTrue() {
-        TablePartitionId replicaGroupId = new TablePartitionId(1, 0);
+        ZonePartitionId replicaGroupId = new ZonePartitionId(1, 0);
 
         HybridTimestamp startTime = clock.now();
         long dayInMillis = TimeUnit.DAYS.toMillis(1);
@@ -117,9 +114,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsPrimaryReplicaFalse() {
-        PartitionGroupId groupId = colocationEnabled()
-                ? new ZonePartitionId(0, 0)
-                : new TablePartitionId(1, 0);
+        ZonePartitionId groupId = new ZonePartitionId(0, 0);
 
         InternalClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
 

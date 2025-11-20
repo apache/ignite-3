@@ -511,6 +511,29 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         }
     };
 
+    /** System function. Used to extract prefix from given patter from LIKE operator. */
+    public static final SqlFunction FIND_PREFIX =
+            new SqlFunction(
+                    "$FIND_PREFIX",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.ARG0_NULLABLE,
+                    null,
+                    OperandTypes.STRING_STRING,
+                    SqlFunctionCategory.SYSTEM
+            );
+
+    /** System function. Used to compute smallest string at most
+     *  of the same length as input which is lexicographically greater than input. */
+    public static final SqlFunction NEXT_GREATER_PREFIX =
+            new SqlFunction(
+                    "$NEXT_GREATER_PREFIX",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.ARG0_NULLABLE,
+                    null,
+                    OperandTypes.STRING,
+                    SqlFunctionCategory.SYSTEM
+            );
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -797,6 +820,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(LEAST2);
         definedOperatorsBuilder.add(GREATEST2);
         definedOperatorsBuilder.add(RAND_UUID);
+        definedOperatorsBuilder.add(FIND_PREFIX);
+        definedOperatorsBuilder.add(NEXT_GREATER_PREFIX);
 
         setOperators(buildIndex(definedOperatorsBuilder.build()));
     }

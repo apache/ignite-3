@@ -21,7 +21,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
@@ -59,8 +58,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -132,7 +129,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryChangeSubscription() throws Exception {
         TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
 
-        ReplicationGroupId tblReplicationGrp = partitionReplicationGroupId(tbl);
+        ZonePartitionId tblReplicationGrp = partitionReplicationGroupId(tbl);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = igniteImpl(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -160,12 +157,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(primaryChanged::get, 10_000));
     }
 
-    private static ReplicationGroupId partitionReplicationGroupId(TableViewInternal tbl) {
-        if (colocationEnabled()) {
-            return new ZonePartitionId(tbl.internalTable().zoneId(), PART_ID);
-        } else {
-            return new TablePartitionId(tbl.tableId(), PART_ID);
-        }
+    private static ZonePartitionId partitionReplicationGroupId(TableViewInternal tbl) {
+        return new ZonePartitionId(tbl.internalTable().zoneId(), PART_ID);
     }
 
     @Test
@@ -173,7 +166,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = igniteImpl(0);
         TableViewInternal tbl = unwrapTableImpl(node.tables().table(TABLE_NAME));
 
-        ReplicationGroupId tblReplicationGrp = partitionReplicationGroupId(tbl);
+        ZonePartitionId tblReplicationGrp = partitionReplicationGroupId(tbl);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -229,7 +222,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             assertTrue(publicTableOnNode0.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
         }
 
-        ReplicationGroupId tblReplicationGrp = partitionReplicationGroupId(unwrappedTableOnNode0);
+        ZonePartitionId tblReplicationGrp = partitionReplicationGroupId(unwrappedTableOnNode0);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = igniteImpl(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -426,7 +419,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static void waitForLeaderCache(IgniteImpl node, TableViewInternal tbl) throws InterruptedException {
         RaftGroupService raftSrvc = ReplicaTestUtils.getRaftClient(
                         node,
-                        colocationEnabled() ? tbl.internalTable().zoneId() : tbl.tableId(),
+                        tbl.internalTable().zoneId(),
                         0
                 )
                 .orElseThrow(AssertionError::new);
