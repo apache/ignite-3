@@ -128,8 +128,8 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
      * @param clock The clock to use to get the system time.
      * @param username Authenticated user name or {@code null} for unknown user.
+     * @param topologyVersion Topology version the query was mapped on.
      */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
             ExpressionFactory<RowT> expressionFactory,
             QueryTaskExecutor executor,
@@ -161,49 +161,6 @@ public class ExecutionContext<RowT> implements DataContext {
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
         this.currentUser = username;
         this.topologyVersion = topologyVersion;
-
-        assert this.inBufSize > 0 : this.inBufSize;
-
-        Instant nowUtc = Instant.now(clock);
-        startTs = nowUtc.toEpochMilli();
-        startTsWithTzOffset = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
-
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("Context created [executionId={}, fragmentId={}]", executionId, fragmentId());
-        }
-    }
-
-    /** Constructor. */
-    public ExecutionContext(
-            ExpressionFactory<RowT> expressionFactory,
-            QueryTaskExecutor executor,
-            ExecutionId executionId,
-            InternalClusterNode localNode,
-            String originatingNodeName,
-            UUID originatingNodeId,
-            FragmentDescription description,
-            RowHandler<RowT> handler,
-            Map<String, Object> params,
-            TxAttributes txAttributes,
-            ZoneId timeZoneId,
-            int inBufSize,
-            Clock clock,
-            @Nullable String username
-    ) {
-        this.expressionFactory = expressionFactory;
-        this.executor = executor;
-        this.executionId = executionId;
-        this.description = description;
-        this.handler = handler;
-        this.params = params;
-        this.localNode = localNode;
-        this.originatingNodeName = originatingNodeName;
-        this.originatingNodeId = originatingNodeId;
-        this.txAttributes = txAttributes;
-        this.timeZoneId = timeZoneId;
-        this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
-        this.currentUser = username;
-        this.topologyVersion = null;
 
         assert this.inBufSize > 0 : this.inBufSize;
 

@@ -487,7 +487,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 operationContext.timeZoneId(),
                 -1,
                 Clock.systemUTC(),
-                operationContext.userName()
+                operationContext.userName(),
+                // ExecutablePlan use no mapping.
+                null
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
