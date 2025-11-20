@@ -21,6 +21,9 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
@@ -55,8 +58,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
@@ -83,7 +83,6 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -102,9 +101,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
-    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
-
-    private final PartitionGroupId group1 = replicationGroupId(1000, 0);
+    private final ZonePartitionId group1 = new ZonePartitionId(1_000, 0);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
 
@@ -149,18 +146,18 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             group1
     );
 
-    private static final String NODE_A_CONSITIENT_ID = "A";
+    private static final String NODE_A_CONSISTENT_ID = "A";
 
-    private static final String NODE_B_CONSITIENT_ID = "B";
+    private static final String NODE_B_CONSISTENT_ID = "B";
 
-    private static final String NODE_C_CONSITIENT_ID = "C";
+    private static final String NODE_C_CONSISTENT_ID = "C";
 
-    private static final Set<Assignment> ASSIGNMENTS_A = Set.of(forPeer(NODE_A_CONSITIENT_ID));
+    private static final Set<Assignment> ASSIGNMENTS_A = Set.of(forPeer(NODE_A_CONSISTENT_ID));
 
-    private static final Set<Assignment> ASSIGNMENTS_AB = Set.of(forPeer(NODE_A_CONSITIENT_ID), forPeer(NODE_B_CONSITIENT_ID));
+    private static final Set<Assignment> ASSIGNMENTS_AB = Set.of(forPeer(NODE_A_CONSISTENT_ID), forPeer(NODE_B_CONSISTENT_ID));
 
     private static final Set<Assignment> ASSIGNMENTS_ABC =
-            Set.of(forPeer(NODE_A_CONSITIENT_ID), forPeer(NODE_B_CONSITIENT_ID), forPeer(NODE_C_CONSITIENT_ID));
+            Set.of(forPeer(NODE_A_CONSISTENT_ID), forPeer(NODE_B_CONSISTENT_ID), forPeer(NODE_C_CONSISTENT_ID));
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
 
@@ -182,9 +179,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Nullable
     private InternalClusterNode leaseholder;
 
-    private PartitionGroupId replicationGroupId(int objectId, int partId) {
-        return enabledColocation ? new ZonePartitionId(objectId, partId) : new TablePartitionId(objectId, partId);
-    }
 
     @BeforeEach
     void setUp() {
@@ -686,7 +680,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 false,
                 true,
                 null,
-                replicationGroupId(groupId.objectId() + 1, groupId.partitionId() + 1)
+                new ZonePartitionId(groupId.objectId() + 1, groupId.partitionId() + 1)
         );
 
         publishLeases(lease, neighborGroupLease);
@@ -882,20 +876,17 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private void publishStableAssignments(Set<Assignment> assignments) {
-        ByteArray key = enabledColocation ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) group1)
-                : RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) group1);
+        ByteArray key = stablePartAssignmentsKey(group1);
         publishAssignments(key, Assignments.toBytes(assignments, assignmentsTimestamp));
     }
 
     private void publishPendingAssignments(Set<Assignment> assignments) {
-        ByteArray key = enabledColocation ? ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) group1)
-                : RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) group1);
+        ByteArray key = pendingPartAssignmentsQueueKey(group1);
         publishAssignments(key, AssignmentsQueue.toBytes(Assignments.of(assignments, assignmentsTimestamp)));
     }
 
     private void publishPlannedAssignments(Set<Assignment> assignments) {
-        ByteArray key = enabledColocation ? ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) group1)
-                : RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) group1);
+        ByteArray key = plannedPartAssignmentsKey(group1);
         publishAssignments(key, Assignments.toBytes(assignments, assignmentsTimestamp));
     }
 
