@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
@@ -340,7 +339,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(StreamerReceiverRunner.class),
                     () -> 10_000L,
                     () -> 10_000L,
-                    colocationEnabled(),
+                    true,
                     new TableMetricSource(QualifiedName.fromSimple("test"))
             );
             this.dataAmount = dataAmount;

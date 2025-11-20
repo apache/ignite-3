@@ -1274,7 +1274,6 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 computeComponent,
                 clock,
-                nodeProperties,
                 observableTimestampTracker
         );
 

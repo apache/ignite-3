@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -479,7 +478,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(1),
                     table.id(),
-                    colocationEnabled() ? table.zoneId() : table.id(),
+                    table.zoneId(),
                     "table PUBLIC.T1 in zone \"Default\"")));
         }
 
@@ -490,7 +489,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(3, 1),
                     table.id(),
-                    colocationEnabled() ? table.zoneId() : table.id(),
+                    table.zoneId(),
                     "table PUBLIC.T2 in zone \"Default\"")));
         }
 
@@ -501,7 +500,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(2, 1, 0),
                     table.id(),
-                    colocationEnabled() ? table.zoneId() : table.id(),
+                    table.zoneId(),
                     "table PUBLIC.T3 in zone \"Default\"")));
         }
     }
