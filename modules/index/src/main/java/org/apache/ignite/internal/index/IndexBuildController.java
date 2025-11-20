@@ -263,10 +263,8 @@ class IndexBuildController implements ManuallyCloseable {
     private void onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         inBusyLockAsync(busyLock, () -> {
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-                // Need to remove TablePartitionId check here and below.
-                assert parameters.groupId() instanceof ZonePartitionId || parameters.groupId() instanceof TablePartitionId :
-                        "Primary replica ID must be of type ZonePartitionId or TablePartitionId [groupId="
+                assert parameters.groupId() instanceof ZonePartitionId :
+                        "Primary replica ID must be of type ZonePartitionId [groupId="
                                 + parameters.groupId() + ", class=" + parameters.groupId().getClass().getSimpleName() + "].";
 
                 primaryReplicaIds.add(parameters.groupId());
@@ -275,65 +273,38 @@ class IndexBuildController implements ManuallyCloseable {
                 // metastore thread.
                 Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-                if (parameters.groupId() instanceof ZonePartitionId) {
-                    assert nodeProperties.colocationEnabled() : "Primary replica ID must be of type ZonePartitionId";
+                ZonePartitionId primaryReplicaId = (ZonePartitionId) parameters.groupId();
 
-                    ZonePartitionId primaryReplicaId = (ZonePartitionId) parameters.groupId();
-
-                    CatalogZoneDescriptor zoneDescriptor = catalog.zone(primaryReplicaId.zoneId());
-                    // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed zone by LWM
-                    if (zoneDescriptor == null) {
-                        return nullCompletedFuture();
-                    }
-
-                    var indexFutures = new ArrayList<CompletableFuture<?>>();
-                    for (CatalogTableDescriptor tableDescriptor : catalog.tables(zoneDescriptor.id())) {
-                        // Perhaps, it makes sense to get primary replica future first and then get table storage future,
-                        // because, it will be the same for all tables in the zone for the given partition.
-                        CompletableFuture<?> future =
-                                indexManager.getMvTableStorage(parameters.causalityToken(), tableDescriptor.id())
-                                        .thenCompose(mvTableStorage -> {
-                                                    HybridTimestamp buildAttemptTimestamp = clockService.now();
-                                                    return awaitPrimaryReplica(primaryReplicaId, buildAttemptTimestamp)
-                                                            .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                                                    catalog,
-                                                                    tableDescriptor,
-                                                                    primaryReplicaId,
-                                                                    mvTableStorage,
-                                                                    replicaMeta,
-                                                                    buildAttemptTimestamp
-                                                            ));
-                                                }
-                                        );
-
-                        indexFutures.add(future);
-                    }
-
-                    return CompletableFutures.allOf(indexFutures);
-                } else {
-                    TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
-
-                    // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed table by LWM
-                    CatalogTableDescriptor tableDescriptor = catalog.table(primaryReplicaId.tableId());
-                    if (tableDescriptor == null) {
-                        return nullCompletedFuture();
-                    }
-
-                    return indexManager.getMvTableStorage(parameters.causalityToken(), primaryReplicaId.tableId())
-                            .thenCompose(mvTableStorage -> {
-                                        HybridTimestamp buildAttemptTimestamp = clockService.now();
-                                        return awaitPrimaryReplica(primaryReplicaId, buildAttemptTimestamp)
-                                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                                        catalog,
-                                                        tableDescriptor,
-                                                        primaryReplicaId,
-                                                        mvTableStorage,
-                                                        replicaMeta,
-                                                        buildAttemptTimestamp
-                                                ));
-                                    }
-                            );
+                CatalogZoneDescriptor zoneDescriptor = catalog.zone(primaryReplicaId.zoneId());
+                // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed zone by LWM
+                if (zoneDescriptor == null) {
+                    return nullCompletedFuture();
                 }
+
+                var indexFutures = new ArrayList<CompletableFuture<?>>();
+                for (CatalogTableDescriptor tableDescriptor : catalog.tables(zoneDescriptor.id())) {
+                    // Perhaps, it makes sense to get primary replica future first and then get table storage future,
+                    // because, it will be the same for all tables in the zone for the given partition.
+                    CompletableFuture<?> future =
+                            indexManager.getMvTableStorage(parameters.causalityToken(), tableDescriptor.id())
+                                    .thenCompose(mvTableStorage -> {
+                                                HybridTimestamp buildAttemptTimestamp = clockService.now();
+                                                return awaitPrimaryReplica(primaryReplicaId, buildAttemptTimestamp)
+                                                        .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                                                catalog,
+                                                                tableDescriptor,
+                                                                primaryReplicaId,
+                                                                mvTableStorage,
+                                                                replicaMeta,
+                                                                buildAttemptTimestamp
+                                                        ));
+                                            }
+                                    );
+
+                    indexFutures.add(future);
+                }
+
+                return CompletableFutures.allOf(indexFutures);
             } else {
                 stopBuildingIndexesIfPrimaryExpired(parameters.groupId());
 

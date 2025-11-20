@@ -1192,10 +1192,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         readDataIdFromTxState(transactionState);
                         UUID txId = new UUID(transactionState.getLong(), transactionState.getLong());
-                        int commitTableId = transactionState.getInt();
+                        int commitZoneId = transactionState.getInt();
                         int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
 
-                        row = new RowMeta(rowId, txId, commitTableId, commitPartitionId);
+                        row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId);
                     } else {
                         row = RowMeta.withoutWriteIntent(rowId);
                     }

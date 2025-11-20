@@ -69,8 +69,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -300,9 +298,7 @@ abstract class ChangeIndexStatusTask {
                 throw new IndexTaskStoppingException();
             }
 
-            ReplicationGroupId groupId = nodeProperties.colocationEnabled()
-                    ? new ZonePartitionId(tableDescriptor.zoneId(), 0)
-                    : new TablePartitionId(indexDescriptor.tableId(), 0);
+            ZonePartitionId groupId = new ZonePartitionId(tableDescriptor.zoneId(), 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {
