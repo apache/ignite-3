@@ -51,6 +51,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
@@ -238,7 +239,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 Throwable cause = e.getCause();
 
                 if (!(cause instanceof CancellationException)) {
-                    partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-26811 HandshakeException is thrown when node is stopping.
+                    if (!(cause instanceof HandshakeException)) {
+                        partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
+                    }
 
                     if (isOk()) {
                         setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
