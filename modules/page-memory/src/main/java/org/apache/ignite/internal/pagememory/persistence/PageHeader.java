@@ -125,14 +125,14 @@ public class PageHeader {
     /**
      * Reads the value of a header validity flag.
      */
-    public static boolean headerValidity(long absPtr) {
+    public static boolean headerIsValid(long absPtr) {
         return flag(absPtr, HEADER_IS_VALID_FLAG);
     }
 
     /**
      * Updates the value of a header validity flag.
      */
-    public static void headerValidity(long absPtr, boolean valid) {
+    public static void headerIsValid(long absPtr, boolean valid) {
         flag(absPtr, HEADER_IS_VALID_FLAG, valid);
     }
 
