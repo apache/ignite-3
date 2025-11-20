@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -36,9 +35,6 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.table.RecordView;
@@ -71,9 +67,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     public void testLockExceptionRetry() {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        PartitionGroupId partitionGroupId = colocationEnabled()
-                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
-                : new TablePartitionId(tbl.tableId(), PART_ID);
+        ZonePartitionId partitionGroupId = new ZonePartitionId(tbl.zoneId(), PART_ID);
 
         String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), partitionGroupId).getLeaseholder();
 
@@ -123,7 +117,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
                 .get();
     }
 
-    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ZonePartitionId tblReplicationGrp) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
                 node.clock().now(),
