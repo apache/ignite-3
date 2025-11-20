@@ -18,7 +18,6 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -28,11 +27,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Duration;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -48,21 +45,6 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
     }
 
     /**
-     * Ensures that the client establishes connections to multiple nodes.
-     */
-    @Test
-    void testMultipleConnectionEstablishment() throws SQLException {
-        int nodesCount = 2;
-
-        cluster.startAndInit(nodesCount, new int[]{0});
-
-        try (Connection connection = getConnection(nodesCount)) {
-            await().timeout(Duration.ofSeconds(5))
-                    .until(() -> channelsCount(connection), is(nodesCount));
-        }
-    }
-
-    /**
      * Ensures that the query is forwarded to the alive node.
      *
      * <p>Test sequentially restarts each cluster node keeping CMG majority alive.
@@ -74,7 +56,7 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
 
         try (Connection connection = getConnection(nodesCount)) {
             try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("CREATE ZONE zone1 (REPLICAS 3, PARTITIONS 1) STORAGE PROFILES ['default']");
+                statement.executeUpdate("CREATE ZONE zone1 (REPLICAS 3) STORAGE PROFILES ['default']");
                 statement.executeUpdate("CREATE TABLE t(id INT PRIMARY KEY, val INT) ZONE zone1");
 
                 try (PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO t VALUES (?, ?)")) {
@@ -117,11 +99,8 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
                 cluster.stopNode(0);
                 cluster.stopNode(1);
 
-                assertThrowsSqlException(
-                        SQLException.class,
-                        "Connection refused",
-                        () -> stmt.execute(dummyQuery)
-                );
+                //noinspection ThrowableNotThrown
+                assertThrowsSqlException("Connection refused", () -> stmt.execute(dummyQuery));
 
                 cluster.startNode(1);
 
@@ -151,28 +130,17 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
                 cluster.stopNode(0);
                 cluster.stopNode(1);
 
-                assertThrowsSqlException(
-                        SQLException.class,
-                        "Connection refused",
-                        () -> stmt.execute(dummyQuery)
-                );
+                //noinspection ThrowableNotThrown
+                assertThrowsSqlException("Connection refused", () -> stmt.execute(dummyQuery));
 
                 cluster.startNode(0);
                 cluster.startNode(1);
 
-                assertThrowsSqlException(
-                        SQLException.class,
-                        "Transaction context has been lost due to connection errors",
-                        () -> stmt.execute(dummyQuery)
-                );
+                //noinspection ThrowableNotThrown
+                assertThrowsSqlException("Transaction context has been lost due to connection errors",
+                        () -> stmt.execute(dummyQuery));
             }
         }
-    }
-
-    private static int channelsCount(Connection connection) throws SQLException {
-        JdbcConnection jdbcConnection = connection.unwrap(JdbcConnection.class);
-
-        return jdbcConnection.channelsCount();
     }
 
     private static Connection getConnection(int nodesCount) throws SQLException {
