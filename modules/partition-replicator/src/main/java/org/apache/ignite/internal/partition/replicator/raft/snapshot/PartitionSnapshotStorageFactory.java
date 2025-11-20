@@ -46,8 +46,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         return new PartitionSnapshotStorageAdapter(snapshotStorage, uri);
     }
 
-    /** Partition snapshot storage adapter. */
-    public static class PartitionSnapshotStorageAdapter implements SnapshotStorage {
+    private static class PartitionSnapshotStorageAdapter implements SnapshotStorage {
         private final PartitionSnapshotStorage snapshotStorage;
 
         /** Flag indicating that startup snapshot has been opened. */
@@ -113,11 +112,6 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         public boolean setFilterBeforeCopyRemote() {
             // Option is not supported.
             return false;
-        }
-
-        /** Returns partition snapshot storage. */
-        public PartitionSnapshotStorage partitionSnapshotStorage() {
-            return snapshotStorage;
         }
     }
 }
