@@ -20,6 +20,7 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using Internal.Common;
     using NodaTime;
 
@@ -74,6 +75,7 @@ namespace Apache.Ignite.Sql
         /// For more information, see <see href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)"/>.
         /// </param>
         public SqlStatement(
+            [StringSyntax("Sql")]
             string query,
             TimeSpan? timeout = null,
             string? schema = null,
@@ -95,6 +97,7 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets the query text.
         /// </summary>
+        [StringSyntax("Sql")]
         public string Query { get; init; }
 
         /// <summary>
@@ -141,14 +144,14 @@ namespace Apache.Ignite.Sql
         /// </summary>
         /// <param name="query">Query string.</param>
         /// <returns>Statement.</returns>
-        public static implicit operator SqlStatement(string query) => ToSqlStatement(query);
+        public static implicit operator SqlStatement([StringSyntax("Sql")] string query) => ToSqlStatement(query);
 
         /// <summary>
         /// Converts a query string to an instance of <see cref="SqlStatement"/>.
         /// </summary>
         /// <param name="query">Query string.</param>
         /// <returns>Statement.</returns>
-        public static SqlStatement ToSqlStatement(string query) => new(query);
+        public static SqlStatement ToSqlStatement([StringSyntax("Sql")] string query) => new(query);
 
         /// <inheritdoc />
         public override string ToString() =>
