@@ -392,7 +392,12 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     }
 
     /** Notifies the inbox that provided node has left the cluster. */
-    public void onNodeLeft(InternalClusterNode node) {
+    public void onNodeLeft(InternalClusterNode node, long version) {
+        Long topologyVersion = context().topologyVersion();
+        if (topologyVersion != null && topologyVersion > version) {
+            return; // Ignore outdated event.
+        }
+
         if (srcNodeNames.contains(node.name())) {
             this.execute(() -> onNodeLeft0(node.name()));
         }

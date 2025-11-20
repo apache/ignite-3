@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.raft.rebalance;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
- * Write context.
+ * Special type of exception used when proposed data is stale and will not be applied.
  */
-public class WriteContext {
-    public @Nullable PartitionMapping pm;
-    public @Nullable Long enlistmentToken;
-    public CompletableFuture<ClientTransaction> firstReqFut;
-    public final HybridTimestampTracker tracker;
-    public boolean readOnly;
-    public @Nullable ClientChannel channel;
-    public final int opCode;
+public class RaftStaleUpdateException extends IgniteInternalCheckedException {
 
-    public WriteContext(HybridTimestampTracker tracker, int opCode) {
-        this.tracker = tracker;
-        this.opCode = opCode;
+    public RaftStaleUpdateException(String message) {
+        super(message);
     }
 }

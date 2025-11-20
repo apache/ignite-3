@@ -15,27 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.jetbrains.annotations.Nullable;
+import java.util.List;
 
 /**
- * Write context.
+ * Mapped fragments.
  */
-public class WriteContext {
-    public @Nullable PartitionMapping pm;
-    public @Nullable Long enlistmentToken;
-    public CompletableFuture<ClientTransaction> firstReqFut;
-    public final HybridTimestampTracker tracker;
-    public boolean readOnly;
-    public @Nullable ClientChannel channel;
-    public final int opCode;
+public final class MappedFragments {
 
-    public WriteContext(HybridTimestampTracker tracker, int opCode) {
-        this.tracker = tracker;
-        this.opCode = opCode;
+    private final long topologyVersion;
+
+    private final List<MappedFragment> fragments;
+
+    /** Constructor. */
+    public MappedFragments(List<MappedFragment> fragments, long topologyVersion) {
+        this.fragments = fragments;
+        this.topologyVersion = topologyVersion;
+    }
+
+    /** Cluster topology version these fragments were mapped on. */
+    public long topologyVersion() {
+        return topologyVersion;
+    }
+
+    /** Fragments. */
+    public List<MappedFragment> fragments() {
+        return fragments;
     }
 }

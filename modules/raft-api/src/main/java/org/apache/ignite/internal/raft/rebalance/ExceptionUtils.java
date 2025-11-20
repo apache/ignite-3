@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.raft.rebalance;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.jetbrains.annotations.Nullable;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+
+import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 
 /**
- * Write context.
+ * Helper class for exception handling.
  */
-public class WriteContext {
-    public @Nullable PartitionMapping pm;
-    public @Nullable Long enlistmentToken;
-    public CompletableFuture<ClientTransaction> firstReqFut;
-    public final HybridTimestampTracker tracker;
-    public boolean readOnly;
-    public @Nullable ClientChannel channel;
-    public final int opCode;
+public class ExceptionUtils {
 
-    public WriteContext(HybridTimestampTracker tracker, int opCode) {
-        this.tracker = tracker;
-        this.opCode = opCode;
+    /**
+     * Checks if an error is recoverable, so we can retry a rebalance intent.
+     *
+     * @param t The throwable.
+     * @return {@code True} if this is a recoverable exception.
+     */
+    public static boolean recoverable(Throwable t) {
+        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            return false;
+        }
+
+        return true;
     }
 }
