@@ -59,7 +59,7 @@ public:
         static inline const ssl_mode_t ssl_mode{ssl_mode_t::DISABLE};
 
         /** Default heartbeat interval. */
-        static inline const std::chrono::seconds heartbeat_interval{std::chrono::seconds{30}};
+        static inline const std::chrono::seconds heartbeat_interval{30};
     };
 
     // Default.

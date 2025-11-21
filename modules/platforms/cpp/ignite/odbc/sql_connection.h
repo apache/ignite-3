@@ -45,9 +45,6 @@ class sql_statement;
 class sql_connection : public diagnosable_adapter, public std::enable_shared_from_this<sql_connection> {
     friend class sql_environment;
 
-    /** Minimal heartbeat interval. */
-    constexpr static auto MIN_HEARTBEAT_INTERVAL = std::chrono::milliseconds(500);
-
 public:
     /**
      * Operation with timeout result.
@@ -115,6 +112,136 @@ public:
      * @return Pointer to valid instance on success and NULL on failure.
      */
     sql_statement *create_statement();
+
+    /**
+     * Get configuration.
+     *
+     * @return Connection configuration.
+     */
+    [[nodiscard]] const configuration &get_configuration() const;
+
+    /**
+     * Is auto commit.
+     *
+     * @return @c true if the auto commit is enabled.
+     */
+    [[nodiscard]] bool is_auto_commit() const;
+
+    /**
+     * Perform transaction commit.
+     */
+    void transaction_commit();
+
+    /**
+     * Perform transaction rollback.
+     */
+    void transaction_rollback();
+
+    /**
+     * Start transaction.
+     *
+     * @return Operation result.
+     */
+    void transaction_start();
+
+    /**
+     * Get connection attribute.
+     *
+     * @param attr Attribute type.
+     * @param buf Buffer for value.
+     * @param buf_len Buffer length.
+     * @param value_len Resulting value length.
+     */
+    void get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
+
+    /**
+     * Set connection attribute.
+     *
+     * @param attr Attribute type.
+     * @param value Value pointer.
+     * @param value_len Value length.
+     */
+    void set_attribute(int attr, void *value, SQLINTEGER value_len);
+
+    /**
+     * Get connection schema.
+     *
+     * @return Schema.
+     */
+    const std::string &get_schema() const { return m_config.get_schema().get_value(); }
+
+    /**
+     * Get timeout.
+     *
+     * @return Timeout.
+     */
+    std::int32_t get_timeout() const { return m_timeout; }
+
+    /**
+     * Make a synchronous request and get a response.
+     *
+     * @param op Operation.
+     * @param wr Payload writing function.
+     * @return Response.
+     */
+    network::data_buffer_owning sync_request(
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
+        std::unique_lock lock(m_socket_mutex);
+        auto req_id = generate_next_req_id();
+        auto request = make_request(req_id, op, wr);
+
+        send_message(request);
+        return receive_message(req_id);
+    }
+
+    /**
+     * Make a synchronous request and get a response.
+     *
+     * @param op Operation.
+     * @param wr Payload writing function.
+     * @return Response and error.
+     */
+    std::pair<network::data_buffer_owning, std::optional<odbc_error>> sync_request_nothrow(
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
+        std::unique_lock lock(m_socket_mutex);
+        auto req_id = generate_next_req_id();
+        auto request = make_request(req_id, op, wr);
+
+        send_message(request);
+        return receive_message_nothrow(req_id);
+    }
+
+    /**
+     * Get transaction ID.
+     *
+     * @return Transaction ID.
+     */
+    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const { return m_transaction_id; }
+
+    /**
+     * Mark transaction non-empty.
+     *
+     * After this call connection assumes there is at least one operation performed with this transaction.
+     */
+    void mark_transaction_non_empty() { m_transaction_empty = false; }
+
+    /**
+     * Get observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
+
+private:
+    /**
+     * Make new request.
+     *
+     * @param id Request ID.
+     * @param op Operation.
+     * @param func Function.
+     */
+    [[nodiscard]] static std::vector<std::byte> make_request(
+        std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func);
 
     /**
      * Send data by established connection.
@@ -212,134 +339,6 @@ public:
         return receive_message_nothrow(id, m_timeout);
     }
 
-    /**
-     * Get configuration.
-     *
-     * @return Connection configuration.
-     */
-    [[nodiscard]] const configuration &get_configuration() const;
-
-    /**
-     * Is auto commit.
-     *
-     * @return @c true if the auto commit is enabled.
-     */
-    [[nodiscard]] bool is_auto_commit() const;
-
-    /**
-     * Perform transaction commit.
-     */
-    void transaction_commit();
-
-    /**
-     * Perform transaction rollback.
-     */
-    void transaction_rollback();
-
-    /**
-     * Start transaction.
-     *
-     * @return Operation result.
-     */
-    void transaction_start();
-
-    /**
-     * Get connection attribute.
-     *
-     * @param attr Attribute type.
-     * @param buf Buffer for value.
-     * @param buf_len Buffer length.
-     * @param value_len Resulting value length.
-     */
-    void get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
-
-    /**
-     * Set connection attribute.
-     *
-     * @param attr Attribute type.
-     * @param value Value pointer.
-     * @param value_len Value length.
-     */
-    void set_attribute(int attr, void *value, SQLINTEGER value_len);
-
-    /**
-     * Make new request.
-     *
-     * @param id Request ID.
-     * @param op Operation.
-     * @param func Function.
-     */
-    [[nodiscard]] static std::vector<std::byte> make_request(
-        std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func);
-
-    /**
-     * Get connection schema.
-     *
-     * @return Schema.
-     */
-    const std::string &get_schema() const { return m_config.get_schema().get_value(); }
-
-    /**
-     * Get timeout.
-     *
-     * @return Timeout.
-     */
-    std::int32_t get_timeout() const { return m_timeout; }
-
-    /**
-     * Make a synchronous request and get a response.
-     *
-     * @param op Operation.
-     * @param wr Payload writing function.
-     * @return Response.
-     */
-    network::data_buffer_owning sync_request(
-        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
-        auto req_id = generate_next_req_id();
-        auto request = make_request(req_id, op, wr);
-
-        send_message(request);
-        return receive_message(req_id);
-    }
-
-    /**
-     * Make a synchronous request and get a response.
-     *
-     * @param op Operation.
-     * @param wr Payload writing function.
-     * @return Response and error.
-     */
-    std::pair<network::data_buffer_owning, std::optional<odbc_error>> sync_request_nothrow(
-        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
-        auto req_id = generate_next_req_id();
-        auto request = make_request(req_id, op, wr);
-
-        send_message(request);
-        return receive_message_nothrow(req_id);
-    }
-
-    /**
-     * Get transaction ID.
-     *
-     * @return Transaction ID.
-     */
-    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const { return m_transaction_id; }
-
-    /**
-     * Mark transaction non-empty.
-     *
-     * After this call connection assumes there is at least one operation performed with this transaction.
-     */
-    void mark_transaction_non_empty() { m_transaction_empty = false; }
-
-    /**
-     * Get observable timestamp.
-     *
-     * @return Observable timestamp.
-     */
-    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
-
-private:
     /**
      * Generate and get next request ID.
      *
@@ -598,6 +597,9 @@ private:
 
     /** Socket mutex used to protect heartbeat from call to the freed socket.*/
     std::recursive_mutex m_socket_mutex;
+
+    /** Flag which indices that the connection was manually closed. */
+    std::atomic_bool m_connection_closed{false};
 };
 
 } // namespace ignite
