@@ -268,7 +268,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
-            dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZoneTablePartitionTopologyReduce);
+            dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZonePartitionTopologyReduce);
 
             catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
 
@@ -312,40 +312,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return busyLock;
     }
 
-    private CompletableFuture<Boolean> onHaZoneTablePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
-        return inBusyLock(busyLock, () -> {
-            int zoneId = params.zoneId();
-            long revision = params.causalityToken();
-            long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
-
-            Catalog catalog = catalogManager.activeCatalog(timestamp);
-            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-
-            Map<Integer, Set<Integer>> tablePartitionsToReset = new HashMap<>();
-            for (CatalogTableDescriptor table : catalog.tables(zoneId)) {
-                Set<Integer> partitionsToReset = new HashSet<>();
-                for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
-                    TablePartitionId partitionId = new TablePartitionId(table.id(), partId);
-
-                    if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < calculateQuorum(
-                            zoneDescriptor.replicas())) {
-                        partitionsToReset.add(partId);
-                    }
-                }
-
-                if (!partitionsToReset.isEmpty()) {
-                    tablePartitionsToReset.put(table.id(), partitionsToReset);
-                }
-            }
-
-            if (!tablePartitionsToReset.isEmpty()) {
-                return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision, false).thenApply(r -> false);
-            } else {
-                return falseCompletedFuture();
-            }
-        });
-    }
-
     private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(ReplicationGroupId partitionId, long revision) {
         Set<Assignment> stableAssignments;
 
@@ -360,6 +326,34 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         return stableAssignments
                 .stream().filter(a -> logicalTopology.contains(a.consistentId())).collect(Collectors.toUnmodifiableSet());
+    }
+
+    private CompletableFuture<Boolean> onHaZonePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
+        return inBusyLock(busyLock, () -> {
+            int zoneId = params.zoneId();
+            long revision = params.causalityToken();
+            long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
+
+            Catalog catalog = catalogManager.activeCatalog(timestamp);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+            Set<Integer> partitionsToReset = new HashSet<>();
+
+            for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+                ZonePartitionId partitionId = new ZonePartitionId(zoneId, partId);
+
+                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < calculateQuorum(zoneDescriptor.replicas())) {
+                    partitionsToReset.add(partId);
+                }
+            }
+
+            if (!partitionsToReset.isEmpty()) {
+                return resetPartitions(zoneDescriptor.name(), Map.of(zoneId, partitionsToReset), false, revision, true).thenApply(
+                        r -> false);
+            } else {
+                return falseCompletedFuture();
+            }
+        });
     }
 
     /**
