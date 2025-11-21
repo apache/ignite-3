@@ -105,6 +105,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableProperties;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterTablePropertiesEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -322,7 +323,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
      * <p>Only explicitly updated in
-     * {@link #startLocalPartitionsAndClients(CompletableFuture, List, List, TableImpl, boolean, long)}.
+     * {@link #startLocalPartitionsAndClients(CompletableFuture, List, List, TableImpl, boolean, long, long)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -1272,7 +1273,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             List<@Nullable AssignmentsChain> assignmentsChains,
             TableImpl table,
             boolean isRecovery,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            long revision
     ) {
         int tableId = table.tableId();
 
@@ -1327,7 +1329,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             localAssignmentInStable,
                             stableAssignments,
                             isRecovery,
-                            assignmentsTimestamp
+                            assignmentsTimestamp,
+                            revision
                     ).whenComplete((res, ex) -> {
                         if (ex != null) {
                             String errorMessage = String.format(
@@ -1353,7 +1356,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignment localAssignment,
             Assignments stableAssignments,
             boolean isRecovery,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            long revision
     ) {
         if (nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
@@ -1476,7 +1480,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return replicaMgr.weakStartReplica(
                 replicaGrpId,
                 startReplicaSupplier,
-                forcedAssignments
+                forcedAssignments,
+                revision
         ).handle((res, ex) -> {
             if (ex != null && !(hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class))) {
                 String errorMessage = String.format(
@@ -1842,6 +1847,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
+        CatalogTableProperties descProps = tableDescriptor.properties();
+
         return new TableImpl(
                 internalTable,
                 lockMgr,
@@ -1850,10 +1857,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 sql.get(),
                 failureProcessor,
                 tableDescriptor.primaryKeyIndexId(),
-                new TableStatsStalenessConfiguration(
-                        tableDescriptor.properties().staleRowsFraction(),
-                        tableDescriptor.properties().minStaleRowsCount()
-                )
+                new TableStatsStalenessConfiguration(descProps.staleRowsFraction(), descProps.minStaleRowsCount())
         );
     }
 
@@ -1979,7 +1983,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         assignmentsChains,
                         table,
                         onNodeRecovery,
-                        assignmentsTimestamp
+                        assignmentsTimestamp,
+                        causalityToken
                 );
             }), ioExecutor);
         });
@@ -2269,6 +2274,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             } else {
                 getLatestTableFuture.completeExceptionally(th);
             }
+
+            return nullCompletedFuture();
         };
 
         assignmentsUpdatedVv.whenComplete(tablesListener);
@@ -2326,7 +2333,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(
+    protected CompletableFuture<Void> handleChangePendingAssignmentEvent(
             Entry pendingAssignmentsEntry,
             long revision,
             boolean isRecovery
@@ -2468,17 +2475,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .thenComposeAsync(unused -> createPartitionAndStartClient(
                             replicaGrpId,
                             tbl,
+                            revision,
                             isRecovery,
                             assignmentsTimestamp,
                             localAssignmentInPending,
                             computedStableAssignments
                     ), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
-                assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
-
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
-            }), ioExecutor);
+            localServicesStartFuture = replicaMgr.resetWithRetry(
+                    replicaGrpId,
+                    fromAssignments(computedStableAssignments.nodes()),
+                    revision
+            );
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
@@ -2530,6 +2538,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> createPartitionAndStartClient(
             TablePartitionId replicaGrpId,
             TableViewInternal tbl,
+            long revision,
             boolean isRecovery,
             long assignmentsTimestamp,
             Assignment localAssignmentInPending,
@@ -2563,7 +2572,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         localAssignmentInPending,
                         computedStableAssignments,
                         isRecovery,
-                        assignmentsTimestamp
+                        assignmentsTimestamp,
+                        revision
                 );
             }));
         }), ioExecutor);
@@ -2617,6 +2627,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ChangePeersAndLearnersAsyncReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersAsyncReplicaRequest()
                     .groupId(partitionIdMessage)
                     .pendingAssignments(pendingAssignments.toBytes())
+                    .sequenceToken(currentRevision)
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .build();
 
@@ -3182,9 +3193,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
         SizeSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
-        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(
-                partSizeSupplier, table::stalenessConfiguration
-        );
+
+        PartitionModificationCounter modificationCounter =
+                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration, table.tableId(), partitionId);
+
         registerPartitionModificationCounterMetrics(table, partitionId, modificationCounter);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
@@ -3518,7 +3530,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             localAssignment,
                             stableAssignments,
                             false,
-                            assignmentsTimestamp
+                            assignmentsTimestamp,
+                            revision
                     );
                 }));
             }, ioExecutor);
@@ -3549,6 +3562,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             createPartitionAndStartClient(
                                     tablePartitionId,
                                     table,
+                                    revision,
                                     false,
                                     assignmentsTimestamp,
                                     localAssignment,

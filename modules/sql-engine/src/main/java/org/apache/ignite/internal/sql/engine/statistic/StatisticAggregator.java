@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
-/** Statistic updates notifier. */
+/** Statistic aggregator. */
 @FunctionalInterface
-public interface StatisticUpdatesNotifier {
-    /** Changes callback. */
-    void changesNotifier(StatisticUpdatesSupplier updater);
+public interface StatisticAggregator<T, R> {
+    /** Estimated size and last value update. */
+    R estimatedSizeWithLastUpdate(T t);
 }

@@ -532,7 +532,7 @@ public class JraftServerImpl implements RaftServer {
 
             List<PeerId> learnerIds = configuration.learners().stream().map(PeerId::fromPeer).collect(toList());
 
-            nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds));
+            nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds, Configuration.NO_SEQUENCE_TOKEN));
 
             nodeOptions.setRpcClient(new IgniteRpcClient(service));
 
@@ -705,14 +705,14 @@ public class JraftServerImpl implements RaftServer {
      * @param raftNodeId Raft node ID.
      * @param peersAndLearners New node configuration.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+    public Status resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftGroupService raftGroupService = nodes.get(raftNodeId);
 
         List<PeerId> peerIds = peersAndLearners.peers().stream().map(PeerId::fromPeer).collect(toList());
 
         List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
 
-        raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds));
+        return raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds, sequenceToken));
     }
 
     /**
@@ -878,6 +878,8 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupConfiguration committedConf = new RaftGroupConfiguration(
                     entry.getId().getIndex(),
                     entry.getId().getTerm(),
+                    entry.getConf().getSequenceToken(),
+                    hasOldConf ? entry.getOldConf().getSequenceToken() : Configuration.NO_SEQUENCE_TOKEN,
                     peersIdsToStrings(entry.getConf().getPeers()),
                     peersIdsToStrings(entry.getConf().getLearners()),
                     hasOldConf ? peersIdsToStrings(entry.getOldConf().getPeers()) : null,

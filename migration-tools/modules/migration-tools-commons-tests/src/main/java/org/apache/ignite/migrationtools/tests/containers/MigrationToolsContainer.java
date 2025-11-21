@@ -31,8 +31,6 @@ import org.testcontainers.utility.MountableFile;
 
 /** Container running the migrtion tools. */
 public class MigrationToolsContainer implements Startable {
-    public static final String DOCKER_IMAGE_NAME = "ai3-migration-tools:" + System.getProperty("migration-tools.docker.version", "latest");
-
     public final GenericContainer container;
 
     /**
@@ -41,7 +39,12 @@ public class MigrationToolsContainer implements Startable {
      * @param network Network.
      */
     public MigrationToolsContainer(Network network) {
-        this.container = new GenericContainer<>(DOCKER_IMAGE_NAME)
+        String imageName = System.getProperty("migrationtools.cli.docker.image");
+        if (imageName == null) {
+            throw new IllegalArgumentException("'migrationtools.cli.docker.image' property must be defined");
+        }
+
+        this.container = new GenericContainer<>(imageName)
                 .withCreateContainerCmdModifier(cmd -> cmd.withEntrypoint("/bin/bash"))
                 .withNetwork(network)
                 .withCommand("-c", "sleep infinity")

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
@@ -166,7 +167,8 @@ class IndexBuildTask {
         LOG.info("Start building the index: [{}]", createCommonIndexInfo());
 
         try {
-            supplyAsync(this::handleNextBatch, executor)
+            supplyAsync(partitionStorage::highestRowId, executor)
+                    .thenApplyAsync(this::handleNextBatch, executor)
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
@@ -220,13 +222,13 @@ class IndexBuildTask {
         return taskFuture;
     }
 
-    private CompletableFuture<Void> handleNextBatch() {
+    private CompletableFuture<Void> handleNextBatch(@Nullable RowId highestRowId) {
         if (!enterBusy()) {
             return nullCompletedFuture();
         }
 
         try {
-            return createBatchToIndex()
+            return createBatchToIndex(highestRowId)
                     .thenCompose(batch -> {
                         return replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp));
                     })
@@ -247,7 +249,7 @@ class IndexBuildTask {
                             return CompletableFutures.<Void>nullCompletedFuture();
                         }
 
-                        return handleNextBatch();
+                        return handleNextBatch(highestRowId);
                     }, executor)
                     .thenCompose(Function.identity());
         } catch (Throwable t) {
@@ -257,19 +259,20 @@ class IndexBuildTask {
         }
     }
 
-    private CompletableFuture<BatchToIndex> createBatchToIndex() {
+    private CompletableFuture<BatchToIndex> createBatchToIndex(@Nullable RowId highestRowId) {
+        if (highestRowId == null) {
+            return completedFuture(new BatchToIndex(List.of(), Set.of()));
+        }
+
         RowId nextRowIdToBuild = indexStorage.getNextRowIdToBuild();
 
         List<RowId> rowIds = new ArrayList<>(batchSize);
         Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
 
-        while (rowIds.size() < batchSize && nextRowIdToBuild != null) {
-            @Nullable RowMeta row = partitionStorage.closestRow(nextRowIdToBuild);
+        List<RowMeta> rows = nextRowIdToBuild == null ? List.of()
+                : partitionStorage.rowsStartingWith(nextRowIdToBuild, highestRowId, batchSize);
 
-            if (row == null) {
-                break;
-            }
-
+        for (RowMeta row : rows) {
             rowIds.add(row.rowId());
 
             if (row.isWriteIntent()) {
@@ -284,8 +287,6 @@ class IndexBuildTask {
                     );
                 }
             }
-
-            nextRowIdToBuild = row.rowId().increment();
         }
 
         Map<UUID, CompletableFuture<TxState>> txStateResolveFutures = transactionsToResolve.entrySet().stream()

@@ -25,7 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -44,8 +45,9 @@ public class ClientResourceRegistryTest {
         assertSame(resource, returned);
         assertSame(resource, removed);
 
-        var ex = assertThrows(IgniteInternalException.class, () -> reg.get(id));
+        var ex = assertThrows(IgniteException.class, () -> reg.get(id));
         assertThat(ex.getMessage(), containsString("Failed to find resource with id: 1"));
+        assertEquals(Client.RESOURCE_NOT_FOUND_ERR, ex.code());
     }
 
     @Test

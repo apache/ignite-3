@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.client;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.table.ItDataConsistencyTest;
+import org.junit.jupiter.api.BeforeEach;
 
-// TODO: IGNITE-22522 - remove this class and switch ItInternalTableReadWriteScanTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class ItInternalTableReadWriteScanColocationTest extends ItInternalTableReadWriteScanTest {
+/**
+ * Test data consistency in mixed read-write load initiated from a client.
+ */
+public class ItClientDataConsistencyTest extends ItDataConsistencyTest {
+    private IgniteClient client;
+
+    @BeforeEach
+    public void startClient() {
+        client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+    }
+
     @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
+    protected Ignite assignNodeForIteration(int workerId) {
+        return client;
     }
 }

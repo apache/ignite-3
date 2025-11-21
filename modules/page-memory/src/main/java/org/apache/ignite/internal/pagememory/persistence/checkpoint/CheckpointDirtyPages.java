@@ -180,24 +180,55 @@ public class CheckpointDirtyPages {
         }
 
         /**
-         * Returns number of modified (not newly allocated) pages. All pages with indexes less than {@code checkpointedPages} are
-         * considered as modified.
+         * Checks whether this page (with index 0) is contained in the corresponding partition generation.
          *
-         * @param groupId Group ID.
-         * @param partitionId Partition ID.
-         * @param checkpointedPages Number of pages of the partition that were stored on the disk at the beginning of the checkpoint.
+         * <p>This implementation relies on the current implementation of the {@link #DIRTY_PAGE_COMPARATOR}
+         * (groupId -> partitionId -> pageIdx -> partitionGeneration).</p>
+         *
+         * @param partitionGeneration Partition generation.
          */
-        int modifiedPages(int groupId, int partitionId, int checkpointedPages) {
+        boolean containsMetaPage(int partitionGeneration) {
             DirtyFullPageId[] dirtyPages = dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages;
 
-            var endPageId = new DirtyFullPageId(pageId(partitionId, (byte) 0, checkpointedPages), groupId, 0);
+            for (int i = fromPosition; i < toPosition; i++) {
+                DirtyFullPageId dirtyPage = dirtyPages[i];
 
-            int index = binarySearch(dirtyPages, fromPosition, toPosition, endPageId, DIRTY_PAGE_COMPARATOR);
+                if (dirtyPage.pageIdx() > 0) {
+                    break;
+                } else if (dirtyPage.partitionGeneration() == partitionGeneration) {
+                    return true;
+                }
+            }
 
-            // If exact index is not found, binary search returns a bitwise complement to a potential insertion point.
-            return index >= 0
-                    ? index - fromPosition
-                    : ~index - fromPosition;
+            return false;
+        }
+
+        /**
+         * Counts the number of updated pages (not newly created ones) since the last checkpoint, i.e. those whose index is strictly less
+         * than {@code checkpointedPages} for the corresponding partition generation.
+         *
+         * <p>This implementation relies on the current implementation of the {@link #DIRTY_PAGE_COMPARATOR}
+         * (groupId -> partitionId -> pageIdx -> partitionGeneration).</p>
+         *
+         * @param partitionGeneration Partition generation.
+         * @param checkpointedPages Number of pages of the partition that were stored on the disk at the beginning of the checkpoint.
+         */
+        int countAlteredPages(int partitionGeneration, int checkpointedPages) {
+            DirtyFullPageId[] dirtyPages = dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages;
+
+            int count = 0;
+
+            for (int i = fromPosition; i < toPosition; i++) {
+                DirtyFullPageId dirtyPage = dirtyPages[i];
+
+                if (dirtyPage.pageIdx() >= checkpointedPages) {
+                    break;
+                } else if (dirtyPage.partitionGeneration() == partitionGeneration) {
+                    count++;
+                }
+            }
+
+            return count;
         }
     }
 

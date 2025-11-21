@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import java.util.Set;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -57,6 +58,9 @@ public class LozaTest extends IgniteAbstractTest {
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     /**
      * Checks that the all API methods throw the exception ({@link NodeStoppingException})
      * when Loza is closed.
@@ -75,7 +79,7 @@ public class LozaTest extends IgniteAbstractTest {
 
         assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        Loza loza = TestLozaFactory.create(clusterNetSvc, raftConfiguration, new HybridClockImpl());
+        Loza loza = TestLozaFactory.create(clusterNetSvc, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         assertThat(loza.startAsync(new ComponentContext()), willCompleteSuccessfully());
 

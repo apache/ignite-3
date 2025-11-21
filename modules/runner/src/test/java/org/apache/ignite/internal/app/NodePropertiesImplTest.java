@@ -19,6 +19,7 @@ package org.apache.ignite.internal.app;
 
 import static org.apache.ignite.internal.app.NodePropertiesImpl.ZONE_BASED_REPLICATION_KEY;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,11 +68,18 @@ class NodePropertiesImplTest extends BaseIgniteAbstractTest {
         doReturn(null).when(vaultManager).name();
 
         runWithColocationProperty(String.valueOf(enableColocation), () -> {
-            startComponent();
+            if (!enableColocation) {
+                assertThrowsWithCause(
+                        () -> startComponent(),
+                        IgniteException.class,
+                        "Table based replication is no longer supported, consider restarting the node in zone based replication mode.");
+            } else {
+                startComponent();
 
-            assertThat(nodeProperties.colocationEnabled(), is(enableColocation));
+                assertThat(nodeProperties.colocationEnabled(), is(enableColocation));
 
-            verifyStatusSavedToVault(enableColocation);
+                verifyStatusSavedToVault(enableColocation);
+            }
         });
     }
 
@@ -110,11 +119,19 @@ class NodePropertiesImplTest extends BaseIgniteAbstractTest {
 
         boolean oppositeColocationStatus = !originalColocationStatus;
         runWithColocationProperty(String.valueOf(oppositeColocationStatus), () -> {
-            startComponent();
+            if (!originalColocationStatus) {
+                assertThrowsWithCause(
+                        () -> startComponent(),
+                        IgniteException.class,
+                        "Table based replication is no longer supported."
+                                + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
+            } else {
+                startComponent();
 
-            assertThat(nodeProperties.colocationEnabled(), is(originalColocationStatus));
+                assertThat(nodeProperties.colocationEnabled(), is(originalColocationStatus));
 
-            verifyStatusNotWrittenToVault();
+                verifyStatusNotWrittenToVault();
+            }
         });
     }
 
@@ -129,11 +146,11 @@ class NodePropertiesImplTest extends BaseIgniteAbstractTest {
         doReturn("test").when(vaultManager).name();
 
         runWithColocationProperty(String.valueOf(colocationStatusFromSystemProps), () -> {
-            startComponent();
-
-            assertThat(nodeProperties.colocationEnabled(), is(false));
-
-            verifyStatusSavedToVault(false);
+            assertThrowsWithCause(
+                    () -> startComponent(),
+                    IgniteException.class,
+                    "Table based replication is no longer supported."
+                            + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
         });
     }
 

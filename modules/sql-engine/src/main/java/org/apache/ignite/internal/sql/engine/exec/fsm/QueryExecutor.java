@@ -451,6 +451,17 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         return firstCursor;
     }
 
+    /**
+     * Wraps data cursor with decorator providing query-related metadata.
+     *
+     * <p>If operation has been already cancelled, then given data cursor will be cancelled as well and {@link QueryCancelledException}
+     * will be thrown.
+     *
+     * @param query The query state to derive metadata from.
+     * @param dataCursor The data cursor to wrap.
+     * @return A cursor providing access to a result as well as to necessary metadata.
+     * @throws QueryCancelledException If operation has been already cancelled by user or timeout.
+     */
     @SuppressWarnings("MethodMayBeStatic")
     AsyncSqlCursor<InternalSqlRow> createAndSaveSqlCursor(Query query, AsyncDataCursor<InternalSqlRow> dataCursor) {
         QueryPlan plan = query.plan;

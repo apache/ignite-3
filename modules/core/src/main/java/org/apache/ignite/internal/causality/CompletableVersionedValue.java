@@ -90,9 +90,10 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
      *
      * @param causalityToken Causality token.
+     * @return A future that will be completed when all listeners complete.
      */
-    public void complete(long causalityToken) {
-        versionedValue.complete(causalityToken);
+    public CompletableFuture<Void> complete(long causalityToken) {
+        return versionedValue.complete(causalityToken);
     }
 
     /**
@@ -103,9 +104,10 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
      *
      * @param causalityToken Causality token.
      * @param value Current value.
+     * @return A future that will be completed when all listeners complete.
      */
-    public void complete(long causalityToken, T value) {
-        versionedValue.complete(causalityToken, CompletableFuture.completedFuture(value));
+    public CompletableFuture<Void> complete(long causalityToken, T value) {
+        return versionedValue.complete(causalityToken, CompletableFuture.completedFuture(value));
     }
 
     /**
@@ -116,8 +118,9 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
      *
      * @param causalityToken Causality token.
      * @param throwable An exception.
+     * @return A future that will be completed when all listeners complete.
      */
-    public void completeExceptionally(long causalityToken, Throwable throwable) {
-        versionedValue.complete(causalityToken, CompletableFuture.failedFuture(throwable));
+    public CompletableFuture<Void> completeExceptionally(long causalityToken, Throwable throwable) {
+        return versionedValue.complete(causalityToken, CompletableFuture.failedFuture(throwable));
     }
 }

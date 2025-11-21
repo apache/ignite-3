@@ -77,7 +77,6 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
 
         // Assert that new node got all log entries from old one.
         await().until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
-        ;
     }
 
     private void checkMetastorage() {

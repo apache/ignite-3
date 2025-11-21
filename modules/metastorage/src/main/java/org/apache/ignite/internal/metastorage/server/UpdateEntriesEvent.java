@@ -19,12 +19,16 @@ package org.apache.ignite.internal.metastorage.server;
 
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Notifier of {@link WatchProcessor} about updating metastorage {@link Entry entries}. */
 public class UpdateEntriesEvent implements NotifyWatchProcessorEvent {
+    private static final IgniteLogger LOG = Loggers.forClass(UpdateEntriesEvent.class);
+
     @IgniteToStringInclude
     private final List<Entry> updatedEntries;
 
@@ -46,7 +50,13 @@ public class UpdateEntriesEvent implements NotifyWatchProcessorEvent {
 
     @Override
     public void notify(WatchProcessor watchProcessor) {
-        watchProcessor.notifyWatches(updatedEntries.get(0).revision(), updatedEntries, timestamp);
+        watchProcessor.notifyWatches(updatedEntries.get(0).revision(), updatedEntries, timestamp)
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-26731
+                        LOG.error("Notify watches failed.", err);
+                    }
+                });
     }
 
     @Override

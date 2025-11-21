@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -223,6 +224,11 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
         // Expect all transactions to be rolled back.
         assertThat(txManager().pending(), is(0));
+
+        // Cancellation future is completed before query is deregistered.
+        // Let's wait until all signs of query are wiped out to avoid interference
+        // between several executions of this method.
+        waitUntilRunningQueriesCount(equalTo(0));
     }
 
     private static class DrainResultSet implements Executable {

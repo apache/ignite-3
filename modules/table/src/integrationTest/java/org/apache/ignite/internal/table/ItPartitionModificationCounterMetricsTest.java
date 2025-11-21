@@ -280,11 +280,11 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         expectLongValue(tableName, value, METRIC_COUNTER);
     }
 
-    private void expectNextMilestone(String tableName, long value) {
+    static void expectNextMilestone(String tableName, long value) {
         expectLongValue(tableName, value, METRIC_NEXT_MILESTONE);
     }
 
-    private void expectLongValue(String tableName, long value, String metricName) {
+    private static void expectLongValue(String tableName, long value, String metricName) {
         QualifiedName qualifiedName = QualifiedName.parse(tableName);
         CatalogManager manager = unwrapIgniteImpl(node(0)).catalogManager();
         Catalog catalog = manager.catalog(manager.latestCatalogVersion());
@@ -321,7 +321,7 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         });
     }
 
-    private int tableIdByName(QualifiedName qualifiedName) {
+    private static int tableIdByName(QualifiedName qualifiedName) {
         CatalogManager manager = unwrapIgniteImpl(node(0)).catalogManager();
         Catalog catalog = manager.catalog(manager.latestCatalogVersion());
         CatalogTableDescriptor tableDesc = catalog.table(qualifiedName.schemaName(), qualifiedName.objectName());
@@ -343,7 +343,7 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         return UNDEFINED_METRIC_VALUE;
     }
 
-    private long metricFromNode(int nodeIdx, String tableName, int partId, String metricName) {
+    private static long metricFromNode(int nodeIdx, String tableName, int partId, String metricName) {
         int tableId = tableIdByName(QualifiedName.parse(tableName));
 
         String metricSourceName =

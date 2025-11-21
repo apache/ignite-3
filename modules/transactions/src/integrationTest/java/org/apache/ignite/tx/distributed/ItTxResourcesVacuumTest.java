@@ -52,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -364,7 +365,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      *
      * <ul>
      *     <li>Start a transaction;</li>
-     *     <li>Generate some tuple and define on which nodes it would be hosted;</li>
+     *     <li>Take some tuple and define on which nodes it would be hosted;</li>
      *     <li>Choose one more node that doesn't host the first tuple and choose a tuple that will be sent on this node as primary;</li>
      *     <li>Upsert both tuples within a transaction;</li>
      *     <li>Block {@link TxCleanupMessage}-s from commit partition primary;</li>
@@ -387,8 +388,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         log.info("Test: Loading the data [tx={}].", txId);
 
-        // Generate some tuple and define on which nodes it would be hosted.
-        Tuple tuple0 = findTupleToBeHostedOnNode(node, TABLE_NAME, tx, INITIAL_TUPLE, NEXT_TUPLE, true);
+        // Take some tuple and define on which nodes it would be hosted.
+        Tuple tuple0 = INITIAL_TUPLE;
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 
@@ -524,7 +525,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(tx, tuple);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        boolean[] cleanupAllowed = new boolean[1];
+        AtomicBoolean cleanupAllowed = new AtomicBoolean();
 
         commitPartitionLeaseholder.dropMessages((n, msg) -> {
             if (msg instanceof TxCleanupMessage) {
@@ -532,7 +533,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
                 cleanupStarted.complete(null);
 
-                if (!cleanupAllowed[0]) {
+                if (!cleanupAllowed.get()) {
                     log.info("Test: dropping cleanup on [node= {}].", n);
 
                     return true;
@@ -554,7 +555,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 commitPartNodes::contains
         );
 
-        cleanupAllowed[0] = true;
+        cleanupAllowed.set(true);
 
         assertThat(commitFut, willCompleteSuccessfully());
 

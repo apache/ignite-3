@@ -15,18 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import java.util.List;
 
-// TODO: IGNITE-22522 - remove this class and switch ReadWriteTransactionImplTest to use ZonePartitionId.
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-class ReadWriteTransactionImplColocationTest extends ReadWriteTransactionImplTest {
-    @Override
-    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return new ZonePartitionId(tableOrZoneId, partId);
+/**
+ * Mapped fragments.
+ */
+public final class MappedFragments {
+
+    private final long topologyVersion;
+
+    private final List<MappedFragment> fragments;
+
+    /** Constructor. */
+    public MappedFragments(List<MappedFragment> fragments, long topologyVersion) {
+        this.fragments = fragments;
+        this.topologyVersion = topologyVersion;
+    }
+
+    /** Cluster topology version these fragments were mapped on. */
+    public long topologyVersion() {
+        return topologyVersion;
+    }
+
+    /** Fragments. */
+    public List<MappedFragment> fragments() {
+        return fragments;
     }
 }

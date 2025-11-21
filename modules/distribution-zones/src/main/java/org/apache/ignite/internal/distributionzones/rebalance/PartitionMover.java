@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.recoverable;
+import static org.apache.ignite.internal.raft.rebalance.ExceptionUtils.recoverable;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -70,7 +70,7 @@ public class PartitionMover {
      *
      * @return Function which performs {@link RaftGroupService#changePeersAndLearnersAsync}.
      */
-    public CompletableFuture<Void> movePartition(PeersAndLearners peersAndLearners, long term) {
+    public CompletableFuture<Void> movePartition(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -78,7 +78,8 @@ public class PartitionMover {
         try {
             return raftGroupServiceSupplier
                     .get()
-                    .thenCompose(raftGroupService -> raftGroupService.changePeersAndLearnersAsync(peersAndLearners, term))
+                    .thenCompose(raftGroupService ->
+                            raftGroupService.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken))
                     .handle((resp, err) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -100,7 +101,7 @@ public class PartitionMover {
                                 // We don't bother with ScheduledFuture as the delay is very short, so it will not delay the scheduler
                                 // stop for long.
                                 rebalanceScheduler.schedule(() -> {
-                                    movePartition(peersAndLearners, term).whenComplete(copyStateTo(future));
+                                    movePartition(peersAndLearners, term, sequenceToken).whenComplete(copyStateTo(future));
                                 }, MOVE_RESCHEDULE_DELAY_MILLIS, MILLISECONDS);
 
                                 return future;

@@ -219,7 +219,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
-                ForkJoinPool.commonPool(),
+                Executors.newSingleThreadScheduledExecutor(),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()
         );
