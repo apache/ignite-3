@@ -162,6 +162,8 @@ namespace Apache.Ignite.Tests
 
             CheckPooledBufferLeak();
 
+            _logger.Flush();
+
             Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
 
