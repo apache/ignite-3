@@ -16,10 +16,10 @@
 
 Apache Ignite is shipped with JDBC driver that allows processing of distributed data using standard SQL statements like `SELECT`, `INSERT`, `UPDATE`, or `DELETE` directly from the JDBC side. The name of the driver's class is `org.apache.ignite.jdbc.IgniteJdbcDriver`.
 
-This implementation of JDBC driver does not support:
-
-* Multiple endpoints
-* JDBC connection pools
+NOTE: The JDBC driver shipped with Apache Ignite version 3.2 has been completely reworked to add support for multiple endpoints and link:developers-guide/clients/overview#partition-awareness[partition awareness].
+However, this new driver is not compatible with the previous server versions (3.1 and 3.0).
+To connect to Ignite 3.1 (and 3.0), you must use the previous version of the driver that shipped with Apache Ignite 3.1.
+The server part remains compatible with previous versions of the driver, so the version 3.1 driver can successfully connect to the version 3.2 server.
 
 See also:
 
@@ -38,7 +38,7 @@ The JDBC connector needs to be included from Maven:
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>ignite-jdbc</artifactId>
-    <version>3.1.0</version>
+    <version>3.2.0</version>
 </dependency>
 ----
 
@@ -78,6 +78,7 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 *** `keyStorePassword` - Key store password.
 *** `clientAuth` - SSL client authentication. Possible values: `NONE`, `OPTIONAL`, `REQUIRE`.
 *** `ciphers` - comma-separated SSL ciphers list.
+** `partitionAwarenessMetadataCacheSize` - Size of cache to store partition awareness metadata of queries, in number of entries. Default value: `1024`.
 
 === Parameter Precedence
 
@@ -89,7 +90,9 @@ If the same parameters are passed by using different means, the JDBC driver prio
 
 == Performing Transactions
 
-With the JDBC driver, you can  perform `commit` and `rollback` transactions. For more information about transactions, see link:developers-guide/transactions[Performing Transactions].
+By default a JDBC connection is in auto-commit mode, and in this mode all its SQL statements will be executed and committed as individual transactions.
+To be able to manage the transaction, you must switch connection to non-autocommit mode (see link:https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/Connection.html#setAutoCommit(boolean)[java documentation]).
+In non-autocommit mode, you can perform `commit` and `rollback` transactions. For more information about transactions, see link:developers-guide/transactions[Performing Transactions].
 
 Here is how you can commit a transaction:
 
@@ -98,11 +101,12 @@ Here is how you can commit a transaction:
 // Open the JDBC connection.
 Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800");
 
+// Disable auto-commit mode.
+conn.setAutoCommit(false);
+
 // Commit a transaction
 conn.commit();
 ----
-
-You can also configure Apache Ignite to automatically commit transactions by using the `setAutoCommit()` method.
 
 Here is how you can rollback a transaction:
 
@@ -110,6 +114,12 @@ Here is how you can rollback a transaction:
 ----
 conn.rollback();
 ----
+
+== Partition Awareness
+
+Partition awareness is supported by the JDBC driver.
+
+See link:developers-guide/clients/overview#partition-awareness[Partition Awareness Overview] for more details.
 
 == Unsupported Mandatory JDBC Features
 
