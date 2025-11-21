@@ -69,8 +69,11 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
@@ -78,8 +81,11 @@ import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -107,6 +113,7 @@ import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -149,6 +156,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private List<Node> nodes;
 
     private static class Node implements AutoCloseable {
+        private static final IgniteLogger log = Loggers.forClass(Node.class);
         ClusterService clusterService;
 
         Loza raftManager;
@@ -235,7 +243,15 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     new NoOpFailureManager(),
                     readOperationForCompactionTracker,
                     scheduledExecutorService
-            ));
+            ) {
+                @Override
+                public boolean invoke(Condition condition, List<Operation> success, List<Operation> failure, KeyValueUpdateContext context,
+                        CommandId commandId) {
+                    var res = super.invoke(condition, success, failure, context, commandId);
+                    log.info("Test: invoke completed, node=" + clusterService.nodeName());
+                    return res;
+                }
+            });
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -305,7 +321,17 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         boolean checkValueInStorage(byte[] testKey, byte[] testValueExpected) {
             Entry e = storage.get(testKey);
 
-            return e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
+            boolean res = e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
+
+            if (!res) {
+                log.info("Test: checkValueInStorage failed, node=" + clusterService.nodeName()
+                        + ", empty=" + (e == null ? "null" : e.empty())
+                        + ", tombstone=" + (e == null ? "null" : e.tombstone())
+                        + ", equals=" + (e == null ? "null" : Arrays.equals(e.value(), testValueExpected))
+                        + ", value=" + (e == null ? "null" : Arrays.toString(e.value())));
+            }
+
+            return res;
         }
     }
 
@@ -382,7 +408,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testIdempotentInvokeAfterLeaderChange() {
         InvokeCommand invokeCommand = (InvokeCommand) buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE);
 
@@ -391,6 +417,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         CompletableFuture<Boolean> fut = raftClient.run(invokeCommand);
 
         Node currentLeader = leader(raftClient);
+
+        log.info("Test: current leader is " + currentLeader.clusterService.nodeName());
 
         assertThat(fut, willCompleteSuccessfully());
         assertTrue(fut.join());
