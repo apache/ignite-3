@@ -23,6 +23,7 @@ using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -39,8 +40,9 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     [Test]
     public async Task TestPutRoutesRequestToPrimaryNode([Values(true, false)] bool withTx)
     {
+        using var loggerFactory = new ConsoleLogger(LogLevel.Trace);
         var proxies = GetProxies();
-        using var client = await IgniteClient.StartAsync(GetConfig(proxies));
+        using var client = await IgniteClient.StartAsync(GetConfig(proxies, loggerFactory));
         var recordView = (await client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
 
         // Warm up.

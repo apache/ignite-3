@@ -202,10 +202,10 @@ namespace Apache.Ignite.Tests
             LoggerFactory = loggerFactory ?? TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
-        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
+        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies, ILoggerFactory loggerFactory) =>
             new(proxies.Select(x => x.Endpoint).ToArray())
             {
-                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+                LoggerFactory = loggerFactory
             };
 
         protected List<IgniteProxy> GetProxies()
