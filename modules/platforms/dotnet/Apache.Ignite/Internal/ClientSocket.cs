@@ -75,7 +75,7 @@ namespace Apache.Ignite.Internal
         private readonly IgniteClientConfigurationInternal _config;
 
         /** Current async operations, map from request id. */
-        private readonly ConcurrentDictionary<long, PendingRequest> _requests = new();
+        private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
         /** Current notification handlers, map from request id. */
         private readonly ConcurrentDictionary<long, NotificationHandler> _notificationHandlers = new();
@@ -684,7 +684,7 @@ namespace Apache.Ignite.Internal
 
             var requestId = Interlocked.Increment(ref _requestId);
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
-            _requests[requestId] = new PendingRequest(taskCompletionSource, Stopwatch.GetTimestamp(), clientOp);
+            _requests[requestId] = taskCompletionSource;
 
             NotificationHandler? notificationHandler = null;
             if (expectNotifications)
@@ -903,19 +903,12 @@ namespace Apache.Ignite.Internal
             var requestId = reader.ReadInt64();
             var flags = (ResponseFlags)reader.ReadInt32();
 
-            var isServerOp = (flags & ResponseFlags.ServerOp) != 0;
-            var isError = (flags & ResponseFlags.Error) != 0;
-            var isNotification = (flags & ResponseFlags.Notification) != 0;
-
-            if (isServerOp || isNotification)
-            {
-                _logger.LogReceivedResponseTrace(requestId, ClientOp.None, flags,  ConnectionContext.ClusterNode.Address, null);
-            }
+            _logger.LogReceivedResponseTrace(requestId, flags, ConnectionContext.ClusterNode.Address);
 
             HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(ref reader);
 
-            if (isServerOp)
+            if ((flags & ResponseFlags.ServerOp) != 0)
             {
                 Debug.Assert((flags & ResponseFlags.Error) == 0, "Server op should not have an exception.");
                 var serverOp = (ServerOp)reader.ReadInt32();
@@ -924,15 +917,15 @@ namespace Apache.Ignite.Internal
                 return QueueServerOp(requestId, serverOp, response);
             }
 
-            var exception = isError ? ReadError(ref reader) : null;
+            var exception = (flags & ResponseFlags.Error) != 0 ? ReadError(ref reader) : null;
             response.Position += reader.Consumed;
 
-            if (isNotification)
+            if ((flags & ResponseFlags.Notification) != 0)
             {
                 return HandleNotification(requestId, exception, response);
             }
 
-            if (!_requests.TryRemove(requestId, out var pendingReq))
+            if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
                 var message = $"Unexpected response ID ({requestId}) received from the server " +
                               $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
@@ -941,22 +934,19 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message);
             }
 
-            _logger.LogReceivedResponseTrace(
-                requestId, pendingReq.Op, flags,  ConnectionContext.ClusterNode.Address, Stopwatch.GetElapsedTime(pendingReq.StartTs));
-
             Metrics.RequestsActiveDecrement();
 
             if (exception != null)
             {
                 AddFailedRequest();
 
-                pendingReq.TaskCompletionSource.TrySetException(exception);
+                taskCompletionSource.TrySetException(exception);
                 return false;
             }
 
             Metrics.RequestsCompleted.Add(1, MetricsContext.Tags);
 
-            return pendingReq.TaskCompletionSource.TrySetResult(response);
+            return taskCompletionSource.TrySetResult(response);
         }
 
         /// <summary>
@@ -1071,7 +1061,7 @@ namespace Apache.Ignite.Internal
                     {
                         if (_requests.TryRemove(reqId, out var req))
                         {
-                            req.TaskCompletionSource.TrySetException(ex);
+                            req.TrySetException(ex);
                             Metrics.RequestsActiveDecrement();
                         }
                     }
@@ -1095,7 +1085,5 @@ namespace Apache.Ignite.Internal
                 }
             }
         }
-
-        private readonly record struct PendingRequest(TaskCompletionSource<PooledBuffer> TaskCompletionSource, long StartTs, ClientOp Op);
     }
 }
