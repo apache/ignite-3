@@ -31,7 +31,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -75,7 +74,6 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(TxType.class)
-    @Disabled("IGNITE-26521")
     void ensureLostOfNodeDoesntCausesQueryToFail(TxType txType) {
         startAdditionalNode();
         startAdditionalNode();

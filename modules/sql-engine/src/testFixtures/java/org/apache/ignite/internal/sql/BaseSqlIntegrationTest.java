@@ -36,6 +36,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -283,6 +284,17 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      */
     protected void waitUntilRunningQueriesCount(Matcher<Integer> matcher) {
         SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor(), matcher);
+    }
+
+    /**
+     * Waits until the number of queries in {@link ExecutionPhase#CURSOR_PUBLICATION Cursor Publication} phase matches the specified
+     * matcher.
+     *
+     * @param matcher THe matcher to check the number of running queries.
+     * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
+     */
+    protected void waitUntilQueriesInCursorPublicationPhaseCount(Matcher<Integer> matcher) {
+        SqlTestUtils.waitUntilQueriesInPhaseCount(queryProcessor(), ExecutionPhase.CURSOR_PUBLICATION, matcher);
     }
 
     /**

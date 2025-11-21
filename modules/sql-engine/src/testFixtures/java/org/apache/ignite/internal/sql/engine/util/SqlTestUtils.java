@@ -68,6 +68,7 @@ import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -594,6 +595,23 @@ public class SqlTestUtils {
      */
     public static void waitUntilRunningQueriesCount(SqlQueryProcessor queryProcessor, Matcher<Integer> matcher) {
         Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries().size(), matcher));
+    }
+
+    /**
+     * Waits until the number of queries in given phase matches the specified matcher.
+     *
+     * @param queryProcessor The query processor to derive list of running queries.
+     * @param phase The {@link ExecutionPhase} of the interest.
+     * @param matcher THe matcher to check the number of running queries.
+     * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
+     */
+    public static void waitUntilQueriesInPhaseCount(SqlQueryProcessor queryProcessor, ExecutionPhase phase, Matcher<Integer> matcher) {
+        Awaitility.await().untilAsserted(() -> assertThat(
+                (int) queryProcessor.runningQueries().stream()
+                        .filter(queryInfo -> queryInfo.phase() == phase)
+                        .count(),
+                matcher
+        ));
     }
 
     /**
