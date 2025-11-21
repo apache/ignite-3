@@ -101,6 +101,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -520,10 +521,16 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     private Node leader(RaftGroupService raftClient) {
         CompletableFuture<Void> refreshLeaderFut = raftClient.refreshLeader();
+        CompletableFuture<LeaderWithTerm> refreshLeaderFut0 = raftClient.refreshAndGetLeaderWithTerm();
 
         assertThat(refreshLeaderFut, willCompleteSuccessfully());
 
         String currentLeader = raftClient.leader().consistentId();
+
+        assertThat(refreshLeaderFut0, willCompleteSuccessfully());
+        String cl = refreshLeaderFut0.join().leader().consistentId();
+
+        log.info("qqq current leader on client: {}, from refreshAndGetLeaderWithTerm: {}", currentLeader, cl);
 
         return nodes.stream().filter(n -> n.clusterService.nodeName().equals(currentLeader)).findAny().orElseThrow();
     }
