@@ -127,6 +127,7 @@ public class SqlTestUtils {
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.UUID, SqlTypeName.UUID);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.PERIOD, null);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DURATION, null);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.STRUCT, null);
 
         for (ColumnType value : ColumnType.values()) {
             assert COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.containsKey(value) : "absent type is " + value;

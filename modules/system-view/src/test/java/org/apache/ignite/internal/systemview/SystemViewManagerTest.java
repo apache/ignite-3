@@ -151,7 +151,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Mode.EXCLUDE)
     public void registerAllColumnTypes(ColumnType typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
