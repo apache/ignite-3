@@ -1096,6 +1096,9 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private readonly record struct PendingRequest(TaskCompletionSource<PooledBuffer> TaskCompletionSource, long StartTs, ClientOp Op);
+        private readonly record struct PendingRequest(
+            TaskCompletionSource<PooledBuffer> TaskCompletionSource,
+            long StartTs,
+            ClientOp Op);
     }
 }
