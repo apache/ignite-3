@@ -1696,8 +1696,8 @@ public class PartitionReplicaLifecycleManager extends
         }
     }
 
-    private void printPartitionState(Set<ZonePartitionId> partitionIds) {
-        List<ZonePartitionId> nonStoppedPartitions = partitionIds.stream()
+    private void printPartitionState(Stream<ZonePartitionId> partitionIds) {
+        List<ZonePartitionId> nonStoppedPartitions = partitionIds
                 .filter(partId -> replicaMgr.replica(partId) != null)
                 .collect(toList());
 
