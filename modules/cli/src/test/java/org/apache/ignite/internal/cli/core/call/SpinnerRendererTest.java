@@ -17,27 +17,25 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-/** Pipeline that executes a call. */
-@FunctionalInterface
-public interface CallExecutionPipeline<I extends CallInput, T> {
-    /**
-     * Builder helper method.
-     *
-     * @return builder for {@link CallExecutionPipeline}.
-     */
-    static <I extends CallInput, T> SingleCallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
-        return new SingleCallExecutionPipelineBuilder<>(call);
-    }
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.is;
 
-    /** Builder helper method. */
-    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(AsyncCallFactory<I, T> callFactory) {
-        return new AsyncCallExecutionPipelineBuilder<>(callFactory);
-    }
+import org.junit.jupiter.api.Test;
 
-    /**
-     * Runs the pipeline.
-     *
-     * @return exit code.
-     */
-    int runPipeline();
+class SpinnerRendererTest {
+
+    @Test
+    void render() {
+        SpinnerRenderer renderer = new SpinnerRenderer("prefix");
+
+        assertThat(renderer.render(0), is(emptyString()));
+
+        assertThat(renderer.render(11), is("prefix.  \b\b"));
+        assertThat(renderer.render(11), is("prefix.. \b"));
+        assertThat(renderer.render(11), is("prefix..."));
+        assertThat(renderer.render(11), is("prefix.  \b\b"));
+
+        assertThat(renderer.render(1), is("p"));
+    }
 }

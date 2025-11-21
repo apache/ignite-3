@@ -17,27 +17,28 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-/** Pipeline that executes a call. */
-@FunctionalInterface
-public interface CallExecutionPipeline<I extends CallInput, T> {
-    /**
-     * Builder helper method.
-     *
-     * @return builder for {@link CallExecutionPipeline}.
-     */
-    static <I extends CallInput, T> SingleCallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
-        return new SingleCallExecutionPipelineBuilder<>(call);
+/**
+ * Simple spinner renderer which adds up to 3 dots to the prefix text on each render call.
+ */
+class SpinnerRenderer {
+    private final String prefix;
+
+    private int current;
+
+    SpinnerRenderer(String prefix) {
+        this.prefix = prefix;
     }
 
-    /** Builder helper method. */
-    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(AsyncCallFactory<I, T> callFactory) {
-        return new AsyncCallExecutionPipelineBuilder<>(callFactory);
-    }
+    public String render(int maxLength) {
+        if (maxLength <= 0) {
+            return "";
+        }
 
-    /**
-     * Runs the pipeline.
-     *
-     * @return exit code.
-     */
-    int runPipeline();
+        String res = prefix + ".".repeat(current + 1)
+                + " ".repeat(2 - current)
+                + "\b".repeat(2 - current); // Make the cursor appear after the last dot
+        current = (current + 1) % 3;
+
+        return res.substring(0, Math.min(res.length(), maxLength));
+    }
 }
