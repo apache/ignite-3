@@ -748,6 +748,9 @@ void sql_connection::ensure_connected() {
     if (m_socket)
         return;
 
+    if (m_connection_closed)
+        throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection was manually closed");
+
     bool success = try_restore_connection();
     if (!success)
         throw odbc_error(sql_state::S08001_CANNOT_CONNECT, "Failed to establish connection with any provided hosts");
