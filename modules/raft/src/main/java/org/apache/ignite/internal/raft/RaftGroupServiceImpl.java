@@ -304,7 +304,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<GetLeaderResponse>sendWithRetry(randomNode(), timeout, originDescription, requestFactory, false)
-                .thenAccept(resp -> this.leader = parsePeer(resp.leaderId()));
+                .thenAccept(resp -> {
+                    this.leader = parsePeer(resp.leaderId());
+
+                    LOG.info("qqq refreshLeader result: {}, new leader: {}", resp.leaderId(), this.leader);
+
+                });
     }
 
     @Override
