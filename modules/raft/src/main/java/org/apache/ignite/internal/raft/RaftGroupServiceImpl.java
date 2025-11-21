@@ -308,7 +308,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     this.leader = parsePeer(resp.leaderId());
 
                     LOG.info("qqq refreshLeader result: {}, new leader: {}", resp.leaderId(), this.leader);
-
                 });
     }
 

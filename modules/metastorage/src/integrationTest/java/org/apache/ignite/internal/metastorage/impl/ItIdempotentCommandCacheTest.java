@@ -530,7 +530,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         assertThat(refreshLeaderFut0, willCompleteSuccessfully());
         String cl = refreshLeaderFut0.join().leader().consistentId();
 
-        log.info("qqq current leader on client: {}, from refreshAndGetLeaderWithTerm: {}", currentLeader, cl);
+        log.info("qqq current leader: {}, on client: {}, from refreshAndGetLeaderWithTerm: {}", currentLeader, raftClient.leader(), cl);
 
         return nodes.stream().filter(n -> n.clusterService.nodeName().equals(currentLeader)).findAny().orElseThrow();
     }
