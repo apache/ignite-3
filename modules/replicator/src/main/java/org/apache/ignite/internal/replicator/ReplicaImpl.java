@@ -31,6 +31,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.IgniteBusyLock;
@@ -208,11 +210,7 @@ public class ReplicaImpl implements Replica {
         return raftClient
                 .subscribeLeader(onLeaderElectedFailoverCallback)
                 .exceptionally(e -> {
-                    if (!hasCause(e, NodeStoppingException.class)) {
-                        String errorMessage = "Rebalance failover subscription on elected primary replica failed [groupId="
-                                + replicaGrpId + "].";
-                        failureProcessor.process(new FailureContext(e, errorMessage));
-                    }
+                    maybeRunFailHandler(e);
 
                     return null;
                 })
@@ -240,11 +238,15 @@ public class ReplicaImpl implements Replica {
             );
 
             return changePeersAndLearnersWithRetry.executeOnLeader(newConfiguration, term, versionedAssignments.revision());
-        }).exceptionally(e -> {
-            LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicaGrpId, term);
-
-            return null;
         });
+    }
+
+    private void maybeRunFailHandler(Throwable ex) {
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            String errorMessage = "Rebalance failover subscription on elected primary replica failed [groupId="
+                    + replicaGrpId + "].";
+            failureProcessor.process(new FailureContext(ex, errorMessage));
+        }
     }
 
     private CompletableFuture<Boolean> unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {

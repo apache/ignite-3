@@ -143,6 +143,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.rebalance.RaftWithTerm;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -1312,17 +1313,7 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId,
                         pendingAssignments.nodes(),
                         revision);
-            }).whenComplete((v, ex) -> {
-                if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                    LOG.debug(
-                            "Failed to handle change pending assignment event "
-                                    + "[zonePartitionId={}, stableAssignments={}, pendingAssignments={}, revision={}, isRecovery={}].",
-                            zonePartitionId, stableAssignments, pendingAssignments, revision, isRecovery, ex);
-
-                    String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
-                    failureProcessor.process(new FailureContext(ex, errorMessage));
-                }
-            });
+            }).whenComplete((v, ex) -> maybeRunFailHandler(ex, zonePartitionId));
         } finally {
             busyLock.leaveBusy();
         }
@@ -1489,13 +1480,14 @@ public class PartitionReplicaLifecycleManager extends
                                     }
                                 })
                 )
-                .whenComplete((res, ex) -> {
-                    if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class)) {
+                .whenComplete((res, ex) -> maybeRunFailHandler(ex, replicaGrpId));
+    }
 
-                        String errorMessage = String.format("Failure while moving partition [partId=%s]", replicaGrpId);
-                        failureProcessor.process(new FailureContext(ex, errorMessage));
-                    }
-                });
+    private void maybeRunFailHandler(Throwable ex, ZonePartitionId replicaGrpId) {
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            String errorMessage = String.format("Failure while moving partition [partId=%s]", replicaGrpId);
+            failureProcessor.process(new FailureContext(ex, errorMessage));
+        }
     }
 
     private CompletableFuture<@Nullable RaftWithTerm> ensureLeader(

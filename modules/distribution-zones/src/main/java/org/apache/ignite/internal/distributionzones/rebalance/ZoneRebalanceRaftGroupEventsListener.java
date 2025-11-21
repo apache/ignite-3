@@ -55,6 +55,7 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -256,34 +258,29 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                             PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
                             changePeersAndLearnersWithRetry.executeOnLeader(peersAndLearners, term, entry.revision())
-                                    .whenComplete((unused, ex) -> {
-                                        if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                            String errorMessage = String.format(
-                                                    "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                                                    zonePartitionId,
-                                                    term
-                                            );
-                                            failureProcessor.process(new FailureContext(ex, errorMessage));
-                                        }
-                                    });
+                                    .whenComplete((unused, ex) -> maybeRunFailHandler(ex, term));
                         }
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
-                    if (!hasCause(e, NodeStoppingException.class)) {
-                        String errorMessage = String.format(
-                                "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                                zonePartitionId,
-                                term
-                        );
-                        failureProcessor.process(new FailureContext(e, errorMessage));
-                    }
+                    maybeRunFailHandler(e, term);
                 } finally {
                     busyLock.leaveBusy();
                 }
             });
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private void maybeRunFailHandler(Throwable ex, long term) {
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            String errorMessage = String.format(
+                    "Unable to start rebalance [zonePartitionId=%s, term=%s]",
+                    zonePartitionId,
+                    term
+            );
+            failureProcessor.process(new FailureContext(ex, errorMessage));
         }
     }
 
@@ -378,12 +375,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
             try {
                 changePeersAndLearnersWithRetry.executeOnLeader(peersAndLearners, term, revision)
-                        .whenComplete((unused, ex) -> {
-                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
-                                failureProcessor.process(new FailureContext(ex, errorMessage));
-                            }
-                        });
+                        .whenComplete((unused, ex) -> maybeRunFailHandler(ex, term));
             } finally {
                 busyLock.leaveBusy();
             }

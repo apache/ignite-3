@@ -50,6 +50,7 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.TestOnly;
@@ -271,16 +273,18 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             try {
                 changePeersAndLearnersWithRetry.executeOnLeader(peersAndLearners, term, sequenceToken)
-                        .whenComplete((unused, ex) -> {
-                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                String errorMessage = String.format("Failure while moving partition [partId=%s]", tablePartitionId);
-                                failureProcessor.process(new FailureContext(ex, errorMessage));
-                            }
-                        });
+                        .whenComplete((unused, ex) -> maybeRunFailHandler(ex));
             } finally {
                 busyLock.leaveBusy();
             }
         }, retryDelayConfiguration.currentValue(), TimeUnit.MILLISECONDS);
+    }
+
+    private void maybeRunFailHandler(Throwable ex) {
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            String errorMessage = String.format("Failure while moving partition [partId=%s]", tablePartitionId);
+            failureProcessor.process(new FailureContext(ex, errorMessage));
+        }
     }
 
     /**
