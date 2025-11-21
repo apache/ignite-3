@@ -83,6 +83,10 @@ const char *attr_id_to_string(uint16_t id) {
 
 namespace ignite {
 
+/**
+ * To support timer_thread we have to use shared_ptr to have possibility to create weak_ptr for closure inside the
+ * plan_heartbeat. Because of this ODBC handle for connection is the pointer to the shared_ptr on heap.
+ */
 using sql_connection_ptr = sql_environment::sql_connection_ptr;
 
 diagnosable *diagnosable_from_handle(SQLSMALLINT handle_type, void *handle) {

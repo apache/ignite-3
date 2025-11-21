@@ -31,6 +31,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <shared_mutex>
 #include <vector>
 
 namespace ignite {
@@ -594,6 +595,9 @@ private:
 
     /** Timer thread. */
     std::weak_ptr<detail::thread_timer> m_timer_thread;
+
+    /** Socket mutex used to protect heartbeat from call to the freed socket.*/
+    std::recursive_mutex m_socket_mutex;
 };
 
 } // namespace ignite

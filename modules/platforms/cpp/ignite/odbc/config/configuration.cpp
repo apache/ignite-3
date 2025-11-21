@@ -75,18 +75,24 @@ void try_get_string_param(
     }
 }
 
+template<typename T, typename V>
+void try_get_int_param(
+    value_with_default<V> &dst, const config_map &config_params, const std::string &key, const std::string &err_msg) {
+    auto it = config_params.find(key);
+    if (it != config_params.end()) {
+        auto opt = parse_int<T>(it->second);
+        if (!opt)
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                err_msg + it->second);
+
+        dst = {V{*opt}, true};
+    }
+}
+
 void configuration::from_config_map(const config_map &config_params) {
     *this = configuration();
 
-    auto page_size_it = config_params.find(key::page_size);
-    if (page_size_it != config_params.end()) {
-        auto page_size_opt = parse_int<std::int32_t>(page_size_it->second);
-        if (!page_size_opt)
-            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-                "Invalid page size value: " + page_size_it->second);
-
-        m_page_size = {*page_size_opt, true};
-    }
+    try_get_int_param<std::int32_t>(m_page_size, config_params, key::page_size, "Invalid page size value: ");
 
     auto address_it = config_params.find(key::address);
     if (address_it != config_params.end())
@@ -129,14 +135,12 @@ void configuration::from_config_map(const config_map &config_params) {
     try_get_string_param(m_ssl_cert_file, config_params, key::ssl_cert_file);
     try_get_string_param(m_ssl_ca_file, config_params, key::ssl_ca_file);
 
-    auto heartbeat_interval_it = config_params.find(key::heartbeat_interval);
-    if (heartbeat_interval_it != config_params.end()) {
-        auto heartbeat_interval_opt = parse_int<std::int32_t>(heartbeat_interval_it->second);
-        if (!heartbeat_interval_opt)
-            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-                "Invalid heartbeat interval value: " + heartbeat_interval_it->second);
-
-        m_heartbeat_interval = {std::chrono::milliseconds{*heartbeat_interval_opt}, true};
+    try_get_int_param<std::int32_t>(m_heartbeat_interval, config_params, key::heartbeat_interval,
+        "Invalid heartbeat interval value: ");
+    if (m_heartbeat_interval.get_value().count() < 0) {
+        throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+            std::string("Heartbeat interval value could not be negative: ") +
+            std::to_string(m_heartbeat_interval.get_value().count()));
     }
 }
 

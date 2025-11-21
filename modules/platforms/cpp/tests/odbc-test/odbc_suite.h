@@ -61,7 +61,7 @@ public:
      */
     static std::chrono::milliseconds get_heartbeat_interval() {
         using namespace std::chrono_literals;
-        return 2000ms;
+        return 2s;
     }
 
     /**
