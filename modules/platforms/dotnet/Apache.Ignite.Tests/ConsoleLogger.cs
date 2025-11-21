@@ -30,6 +30,7 @@ public class ConsoleLogger : ILogger, ILoggerFactory
 {
     private readonly string _categoryName;
     private readonly LogLevel _minLevel;
+    private readonly StringBuilder _sb = new();
 
     public ConsoleLogger(LogLevel minLevel)
         : this(string.Empty, minLevel)
@@ -43,6 +44,8 @@ public class ConsoleLogger : ILogger, ILoggerFactory
         _minLevel = minLevel;
     }
 
+    public bool AutoFlush { get; set; }
+
     public void Log<TState>(
         LogLevel logLevel,
         EventId eventId,
@@ -55,21 +58,36 @@ public class ConsoleLogger : ILogger, ILoggerFactory
             return;
         }
 
-        var sb = new StringBuilder().AppendFormat(
-            CultureInfo.InvariantCulture,
-            "[{0:HH:mm:ss}] [{1}] [{2}] ",
-            DateTime.Now,
-            GetLogLevelString(logLevel),
-            _categoryName);
-
-        sb.Append(formatter(state, exception));
-
-        if (exception != null)
+        lock (_sb)
         {
-            sb.AppendFormat(CultureInfo.InvariantCulture, " (exception: {0})", exception);
-        }
+            _sb.AppendFormat(
+                CultureInfo.InvariantCulture,
+                "[{0:HH:mm:ss}] [{1}] [{2}] ",
+                DateTime.Now,
+                GetLogLevelString(logLevel),
+                _categoryName);
 
-        Console.WriteLine(sb.ToString());
+            _sb.Append(formatter(state, exception));
+
+            if (exception != null)
+            {
+                _sb.AppendFormat(CultureInfo.InvariantCulture, " (exception: {0})", exception);
+            }
+
+            if (AutoFlush)
+            {
+                Flush();
+            }
+        }
+    }
+
+    public void Flush()
+    {
+        lock (_sb)
+        {
+            Console.WriteLine(_sb.ToString());
+            _sb.Clear();
+        }
     }
 
     public bool IsEnabled(LogLevel logLevel) => logLevel >= _minLevel;
@@ -78,10 +96,7 @@ public class ConsoleLogger : ILogger, ILoggerFactory
         where TState : notnull
         => new DisposeAction(() => { });
 
-    public void Dispose()
-    {
-        // No-op.
-    }
+    public void Dispose() => Flush();
 
     public ILogger CreateLogger(string categoryName) => new ConsoleLogger(categoryName, _minLevel);
 
