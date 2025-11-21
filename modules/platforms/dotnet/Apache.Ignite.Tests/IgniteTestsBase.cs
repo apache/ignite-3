@@ -123,6 +123,8 @@ namespace Apache.Ignite.Tests
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
             PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
             PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
+
+            _logger.Flush();
         }
 
         [OneTimeTearDown]

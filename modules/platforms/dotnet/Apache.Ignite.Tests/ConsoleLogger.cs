@@ -30,16 +30,17 @@ public class ConsoleLogger : ILogger, ILoggerFactory
 {
     private readonly string _categoryName;
     private readonly LogLevel _minLevel;
-    private readonly StringBuilder _sb = new();
+    private readonly StringBuilder _sb;
 
     public ConsoleLogger(LogLevel minLevel)
-        : this(string.Empty, minLevel)
+        : this(new StringBuilder(), string.Empty, minLevel)
     {
         // No-op.
     }
 
-    public ConsoleLogger(string categoryName, LogLevel minLevel)
+    private ConsoleLogger(StringBuilder sb, string categoryName, LogLevel minLevel)
     {
+        _sb = sb;
         _categoryName = categoryName;
         _minLevel = minLevel;
     }
@@ -98,7 +99,8 @@ public class ConsoleLogger : ILogger, ILoggerFactory
 
     public void Dispose() => Flush();
 
-    public ILogger CreateLogger(string categoryName) => new ConsoleLogger(categoryName, _minLevel);
+    // ReSharper disable once InconsistentlySynchronizedField (passed to child logger).
+    public ILogger CreateLogger(string categoryName) => new ConsoleLogger(_sb, categoryName, _minLevel);
 
     public void AddProvider(ILoggerProvider provider) => throw new NotSupportedException();
 
