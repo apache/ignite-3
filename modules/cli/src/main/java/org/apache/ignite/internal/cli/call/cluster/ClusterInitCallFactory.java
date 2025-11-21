@@ -15,29 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.call;
+package org.apache.ignite.internal.cli.call.cluster;
 
-/** Pipeline that executes a call. */
-@FunctionalInterface
-public interface CallExecutionPipeline<I extends CallInput, T> {
-    /**
-     * Builder helper method.
-     *
-     * @return builder for {@link CallExecutionPipeline}.
-     */
-    static <I extends CallInput, T> SingleCallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
-        return new SingleCallExecutionPipelineBuilder<>(call);
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
+import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
+import org.apache.ignite.internal.cli.core.call.ProgressTracker;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+
+/** Factory for {@link ClusterInitCall}. */
+@Singleton
+public class ClusterInitCallFactory implements AsyncCallFactory<ClusterInitCallInput, String> {
+
+    private final ApiClientFactory factory;
+
+    public ClusterInitCallFactory(ApiClientFactory factory) {
+        this.factory = factory;
     }
 
-    /** Builder helper method. */
-    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(AsyncCallFactory<I, T> callFactory) {
-        return new AsyncCallExecutionPipelineBuilder<>(callFactory);
+    @Override
+    public AsyncCall<ClusterInitCallInput, String> create(ProgressTracker tracker) {
+        return new ClusterInitCall(tracker, factory);
     }
-
-    /**
-     * Runs the pipeline.
-     *
-     * @return exit code.
-     */
-    int runPipeline();
 }

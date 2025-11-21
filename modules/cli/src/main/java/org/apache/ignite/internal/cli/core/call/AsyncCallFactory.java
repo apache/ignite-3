@@ -15,33 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.row;
+package org.apache.ignite.internal.cli.core.call;
 
-import org.apache.ignite.internal.tostring.S;
-
-/** A type for untyped null. This type is used to represent untyped null produced the optimizer. */
-public final class NullTypeSpec extends TypeSpec {
-
-    /** Constructor. */
-    NullTypeSpec() {
-        super(true);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int hashCode() {
-        return super.hashCode();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean equals(Object obj) {
-        return super.equals(obj);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(NullTypeSpec.class, this);
-    }
+/**
+ * Async call factory.
+ *
+ * @param <IT> Input type.
+ * @param <OT> Output type.
+ */
+@FunctionalInterface
+public interface AsyncCallFactory<IT extends CallInput, OT> {
+    AsyncCall<IT, OT> create(ProgressTracker tracker);
 }

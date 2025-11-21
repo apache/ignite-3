@@ -75,6 +75,10 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
         return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
     }
 
+    private static ErrorComponentBuilder unrecognizedErrComponent(IgniteCheckedException e) {
+        return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
+    }
+
     private static ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
         if (e.getCause() instanceof IgniteClientConnectionException) {
             IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
@@ -122,16 +126,29 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
 
     @Override
     public int handle(ExceptionWriter err, SQLException e) {
+        err.write(handleSqlException(e).build().render());
+        return 1;
+    }
+
+    private ErrorComponentBuilder handleSqlException(SQLException e) {
         Throwable unwrappedCause = ExceptionUtils.unwrapCause(e.getCause());
         if (unwrappedCause instanceof IgniteException) {
-            return handleIgniteException(err, (IgniteException) unwrappedCause);
+            return handleIgniteException((IgniteException) unwrappedCause);
         }
 
         if (unwrappedCause instanceof IgniteCheckedException) {
-            return handleIgniteCheckedException(err, (IgniteCheckedException) unwrappedCause);
+            return unrecognizedErrComponent((IgniteCheckedException) unwrappedCause);
         }
 
-        var errorComponentBuilder = ErrorUiComponent.builder();
+        if (e.getSQLState() != null) {
+            return handleExceptionWithState(e);
+        }
+
+        return handleUnrecognizedError(e);
+    }
+
+    private static ErrorComponentBuilder handleExceptionWithState(SQLException e) {
+        ErrorComponentBuilder errorComponentBuilder = ErrorUiComponent.builder();
 
         switch (e.getSQLState()) {
             case SqlStateCode.CONNECTION_FAILURE:
@@ -149,30 +166,22 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
                 errorComponentBuilder.header(CLIENT_CONNECTION_FAILED_MESSAGE).verbose(extractCauseMessage(e.getMessage()));
                 break;
             default:
-                LOG.error("Unrecognized error", e);
-                errorComponentBuilder.header("SQL query execution error").details(e.getMessage());
+                return handleUnrecognizedError(e);
         }
 
-        err.write(errorComponentBuilder.build().render());
-        return 1;
+        return errorComponentBuilder;
+    }
+
+    private static ErrorComponentBuilder handleUnrecognizedError(SQLException e) {
+        LOG.error("Unrecognized error", e);
+        return ErrorUiComponent.builder().header("SQL query execution error").details(e.getMessage());
     }
 
     /** Handles IgniteException that has more information like error code and trace id. */
-    private int handleIgniteException(ExceptionWriter err, IgniteException e) {
-        var errorComponentBuilder = sqlExceptionMappers.getOrDefault(e.code(), SqlExceptionHandler::unrecognizedErrComponent);
+    private ErrorComponentBuilder handleIgniteException(IgniteException e) {
+        var exceptionMapper = sqlExceptionMappers.getOrDefault(e.code(), SqlExceptionHandler::unrecognizedErrComponent);
 
-        String renderedError = errorComponentBuilder.apply(e).build().render();
-        err.write(renderedError);
-
-        return 1;
-    }
-
-    private static int handleIgniteCheckedException(ExceptionWriter err, IgniteCheckedException e) {
-        String renderedError = fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage())
-                .build().render();
-        err.write(renderedError);
-
-        return 1;
+        return exceptionMapper.apply(e);
     }
 
     @Override

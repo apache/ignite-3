@@ -1274,6 +1274,29 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public abstract void cancelBatch() throws InterruptedException;
 
     @Test
+    public void cancelDdlScript() {
+        IgniteSql sql = igniteSql();
+
+        String script =
+                "CREATE TABLE test1 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test2 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test3 (id INT PRIMARY KEY);";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+
+        waitUntilRunningQueriesCount(greaterThan(0));
+
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> await(scriptFut));
+
+        waitUntilRunningQueriesCount(is(0));
+    }
+
+    @Test
     public void cancelQueryBeforeExecution() {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();

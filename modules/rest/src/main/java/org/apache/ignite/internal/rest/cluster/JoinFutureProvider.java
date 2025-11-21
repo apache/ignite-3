@@ -15,29 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.call;
+package org.apache.ignite.internal.rest.cluster;
 
-/** Pipeline that executes a call. */
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
+
+/**
+ * Provides node join future for the rest components.
+ */
 @FunctionalInterface
-public interface CallExecutionPipeline<I extends CallInput, T> {
-    /**
-     * Builder helper method.
-     *
-     * @return builder for {@link CallExecutionPipeline}.
-     */
-    static <I extends CallInput, T> SingleCallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
-        return new SingleCallExecutionPipelineBuilder<>(call);
-    }
-
-    /** Builder helper method. */
-    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(AsyncCallFactory<I, T> callFactory) {
-        return new AsyncCallExecutionPipelineBuilder<>(callFactory);
-    }
-
-    /**
-     * Runs the pipeline.
-     *
-     * @return exit code.
-     */
-    int runPipeline();
+public interface JoinFutureProvider {
+    CompletableFuture<Ignite> joinFuture();
 }
