@@ -18,29 +18,29 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
-/// Console logger for tests. We don't use <see cref="Microsoft.Extensions.Logging.Console.ConsoleLogger"/> because it is asynchronous,
-/// which means the log messages may not correspond to the current test.
+/// Console logger for tests.
 /// </summary>
 public class ConsoleLogger : ILogger, ILoggerFactory
 {
     private readonly string _categoryName;
     private readonly LogLevel _minLevel;
-    private readonly StringBuilder _sb;
+    private readonly ConcurrentQueue<string> _entries;
 
     public ConsoleLogger(LogLevel minLevel)
-        : this(new StringBuilder(), string.Empty, minLevel)
+        : this(new(), string.Empty, minLevel)
     {
         // No-op.
     }
 
-    private ConsoleLogger(StringBuilder sb, string categoryName, LogLevel minLevel)
+    private ConsoleLogger(ConcurrentQueue<string> entries, string categoryName, LogLevel minLevel)
     {
-        _sb = sb;
+        _entries = entries;
         _categoryName = categoryName;
         _minLevel = minLevel;
     }
@@ -59,40 +59,35 @@ public class ConsoleLogger : ILogger, ILoggerFactory
             return;
         }
 
-        // TODO: Don't lock the logging thread to avoid affecting behavior
-        lock (_sb)
+        var sb = new StringBuilder();
+
+        sb.AppendFormat(
+            CultureInfo.InvariantCulture,
+            "[{0:HH:mm:ss}] [{1}] [{2}] ",
+            DateTime.Now,
+            GetLogLevelString(logLevel),
+            _categoryName);
+
+        sb.Append(formatter(state, exception));
+
+        if (exception != null)
         {
-            _sb.AppendFormat(
-                CultureInfo.InvariantCulture,
-                "[{0:HH:mm:ss}] [{1}] [{2}] ",
-                DateTime.Now,
-                GetLogLevelString(logLevel),
-                _categoryName);
+            sb.AppendFormat(CultureInfo.InvariantCulture, " (exception: {0})", exception);
+        }
 
-            _sb.Append(formatter(state, exception));
+        _entries.Enqueue(sb.ToString());
 
-            if (exception != null)
-            {
-                _sb.AppendFormat(CultureInfo.InvariantCulture, " (exception: {0})", exception);
-            }
-
-            if (AutoFlush)
-            {
-                Flush();
-            }
-            else
-            {
-                _sb.AppendLine();
-            }
+        if (AutoFlush)
+        {
+            Flush();
         }
     }
 
     public void Flush()
     {
-        lock (_sb)
+        while (_entries.TryDequeue(out var s))
         {
-            Console.WriteLine(_sb.ToString());
-            _sb.Clear();
+            Console.WriteLine(s);
         }
     }
 
@@ -105,7 +100,7 @@ public class ConsoleLogger : ILogger, ILoggerFactory
     public void Dispose() => Flush();
 
     // ReSharper disable once InconsistentlySynchronizedField (passed to child logger).
-    public ILogger CreateLogger(string categoryName) => new ConsoleLogger(_sb, categoryName, _minLevel);
+    public ILogger CreateLogger(string categoryName) => new ConsoleLogger(_entries, categoryName, _minLevel);
 
     public void AddProvider(ILoggerProvider provider) => throw new NotSupportedException();
 
