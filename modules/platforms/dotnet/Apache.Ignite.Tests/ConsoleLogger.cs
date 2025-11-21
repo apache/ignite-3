@@ -59,9 +59,7 @@ public class ConsoleLogger : ILogger, ILoggerFactory
             return;
         }
 
-        var sb = new StringBuilder();
-
-        sb.AppendFormat(
+        var sb = new StringBuilder().AppendFormat(
             CultureInfo.InvariantCulture,
             "[{0:HH:mm:ss}] [{1}] [{2}] ",
             DateTime.Now,
@@ -99,7 +97,6 @@ public class ConsoleLogger : ILogger, ILoggerFactory
 
     public void Dispose() => Flush();
 
-    // ReSharper disable once InconsistentlySynchronizedField (passed to child logger).
     public ILogger CreateLogger(string categoryName) => new ConsoleLogger(_entries, categoryName, _minLevel);
 
     public void AddProvider(ILoggerProvider provider) => throw new NotSupportedException();
