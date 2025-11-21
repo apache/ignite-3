@@ -59,6 +59,7 @@ public class ConsoleLogger : ILogger, ILoggerFactory
             return;
         }
 
+        // TODO: Don't lock the logging thread to avoid affecting behavior
         lock (_sb)
         {
             _sb.AppendFormat(
@@ -78,6 +79,10 @@ public class ConsoleLogger : ILogger, ILoggerFactory
             if (AutoFlush)
             {
                 Flush();
+            }
+            else
+            {
+                _sb.AppendLine();
             }
         }
     }
