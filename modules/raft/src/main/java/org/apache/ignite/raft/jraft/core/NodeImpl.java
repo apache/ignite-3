@@ -1841,11 +1841,13 @@ public class NodeImpl implements Node, RaftServerService {
                 T response = responseBuilder.apply(true);
                 responseConsumer.accept(response);
                 this.isDone = true;
+                LOG.info("qqq got confirmation from quorum");
             }
             else if (this.ackFailures >= this.failPeersThreshold) {
                 T response = responseBuilder.apply(false);
                 responseConsumer.accept(response);
                 this.isDone = true;
+                LOG.info("qqq got rejected by quorum");
             }
         }
     }
@@ -1967,6 +1969,7 @@ public class NodeImpl implements Node, RaftServerService {
                             peers.size()
                         );
                 // Send heartbeat requests to followers
+                LOG.info("qqq sending heartbeats to confirm leadership for getLeader");
                 for (final PeerId peer : peers) {
                     if (peer.equals(this.serverId)) {
                         continue;

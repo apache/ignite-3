@@ -248,7 +248,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 public boolean invoke(Condition condition, List<Operation> success, List<Operation> failure, KeyValueUpdateContext context,
                         CommandId commandId) {
                     var res = super.invoke(condition, success, failure, context, commandId);
-                    log.info("Test: invoke completed, node=" + clusterService.nodeName());
+                    log.info("qqq invoke completed, node=" + clusterService.nodeName());
                     return res;
                 }
             });
@@ -324,7 +324,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             boolean res = e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
 
             if (!res) {
-                log.info("Test: checkValueInStorage failed, node=" + clusterService.nodeName()
+                log.info("qqq checkValueInStorage failed, node=" + clusterService.nodeName()
                         + ", empty=" + (e == null ? "null" : e.empty())
                         + ", tombstone=" + (e == null ? "null" : e.tombstone())
                         + ", equals=" + (e == null ? "null" : Arrays.equals(e.value(), testValueExpected))
@@ -418,7 +418,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         Node currentLeader = leader(raftClient);
 
-        log.info("Test: current leader is " + currentLeader.clusterService.nodeName());
+        log.info("qqq current leader is " + currentLeader.clusterService.nodeName());
 
         assertThat(fut, willCompleteSuccessfully());
         assertTrue(fut.join());
