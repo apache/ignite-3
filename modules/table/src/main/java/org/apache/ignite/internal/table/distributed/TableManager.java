@@ -2333,7 +2333,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(
+    protected CompletableFuture<Void> handleChangePendingAssignmentEvent(
             Entry pendingAssignmentsEntry,
             long revision,
             boolean isRecovery
@@ -2482,12 +2482,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             computedStableAssignments
                     ), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
-                assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
-
-                // Sequence token for data partitions is MS revision.
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision);
-            }), ioExecutor);
+            localServicesStartFuture = replicaMgr.resetWithRetry(
+                    replicaGrpId,
+                    fromAssignments(computedStableAssignments.nodes()),
+                    revision
+            );
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }

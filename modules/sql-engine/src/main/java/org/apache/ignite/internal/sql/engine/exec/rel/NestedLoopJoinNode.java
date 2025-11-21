@@ -17,20 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.PrimitiveIterator;
 import java.util.function.BiPredicate;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -105,7 +104,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
             case LEFT: {
                 assert joinProjection != null;
 
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
                 RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new LeftJoin<>(ctx, cond, joinProjection, rightRowFactory);
@@ -114,7 +113,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
             case RIGHT: {
                 assert joinProjection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
                 RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
                 return new RightJoin<>(ctx, cond, joinProjection, leftRowFactory);
@@ -123,8 +122,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
             case FULL: {
                 assert joinProjection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
 
                 RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
                 RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);

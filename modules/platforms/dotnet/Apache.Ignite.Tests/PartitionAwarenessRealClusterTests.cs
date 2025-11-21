@@ -45,6 +45,8 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         using var client = await IgniteClient.StartAsync(GetConfig(proxies, loggerFactory));
         var recordView = (await client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
 
+        client.WaitForConnections(proxies.Count);
+
         // Warm up.
         await recordView.GetAsync(null, new IgniteTuple { ["KEY"] = 1L });
 

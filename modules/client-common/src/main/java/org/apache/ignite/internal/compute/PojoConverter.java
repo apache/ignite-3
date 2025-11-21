@@ -33,6 +33,7 @@ import org.apache.ignite.table.mapper.PojoMapper;
 /** Converts POJO to Tuple and back. */
 public class PojoConverter {
     private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
+            .filter(type -> type != ColumnType.STRUCT)
             .map(ColumnType::javaClass)
             .collect(Collectors.toUnmodifiableSet());
 

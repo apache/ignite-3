@@ -91,7 +91,10 @@ public enum ColumnType {
     PERIOD(17, Period.class, true, false, false),
 
     /** Time interval. SQL type: none. */
-    DURATION(18, Duration.class, true, false, false);
+    DURATION(18, Duration.class, true, false, false),
+
+    /** Structured type having named fields. SQL type: none. */
+    STRUCT(19, Object.class, false, false, false);
 
     private final Class<?> javaClass;
     private final boolean precisionAllowed;

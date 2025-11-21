@@ -49,7 +49,6 @@ import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfi
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
-import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
@@ -107,13 +106,11 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 configurationManager,
                 mock(ConfigurationManager.class)
         );
-        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(null, null, cmg);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
 
         restComponent = new RestComponent(
                 List.of(restPresentationFactory,
                         authProviderFactory,
-                        clusterManagementRestFactory,
                         restManagerFactory),
                 restManager,
                 restConfiguration
