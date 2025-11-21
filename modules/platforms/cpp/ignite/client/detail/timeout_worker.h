@@ -16,6 +16,8 @@ namespace ignite::detail {
 class timeout_worker {
 public:
     timeout_worker();
+
+    void add_connection(const std::shared_ptr<node_connection>& connection);
 private:
     std::chrono::milliseconds sleep_duration{500};
 

@@ -102,6 +102,8 @@ void cluster_connection::on_connection_success(const end_point &addr, uint64_t i
         if (!was_new)
             m_logger->log_error(
                 "Unknown error: connecting is already in progress. Connection ID: " + std::to_string(id));
+
+        m_timeout_worker->add_connection(connection);
     }
 
     try {

@@ -11,16 +11,21 @@ timeout_worker::timeout_worker() {
         while (!this->m_stopping.load()) {
             std::this_thread::sleep_for(this->sleep_duration);
 
-            for (auto it = this->connections.begin(); it != this->connections.end(); ++it) {
-                auto conn_wptr = *it;
-
-                if (auto conn_ptr = conn_wptr.lock()) {
+            auto prev = this->connections.before_begin();
+            for (auto curr = this->connections.begin(); curr != this->connections.end();) {
+                if (auto conn_ptr = curr->lock()) {
                     conn_ptr->handle_timeouts();
+                    prev = curr;
+                    ++curr;
+                } else {
+                    curr = this->connections.erase_after(prev);
                 }
-
             }
-
         }
     });
+}
+
+void timeout_worker::add_connection(const std::shared_ptr<node_connection> &connection) {
+    connections.push_front(connection);
 }
 } // namespace ignite::detail
