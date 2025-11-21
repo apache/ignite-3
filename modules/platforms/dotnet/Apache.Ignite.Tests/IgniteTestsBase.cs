@@ -104,7 +104,10 @@ namespace Apache.Ignite.Tests
             _eventListener = new TestEventListener();
             _logger = new ConsoleLogger(LogLevel.Trace);
 
-            Client = await IgniteClient.StartAsync(GetConfig());
+            var cfg = GetConfig();
+            cfg.LoggerFactory = _logger;
+
+            Client = await IgniteClient.StartAsync(cfg);
 
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
