@@ -186,7 +186,7 @@ class ReplicaStateManager {
                     assert forcedAssignments.force() :
                             format("Unexpected assignments to force [assignments={}, groupId={}].", forcedAssignments, groupId);
 
-                    replicaManager.resetPeers(groupId, fromAssignments(forcedAssignments.nodes()), revision);
+                    replicaManager.resetWithRetry(groupId, fromAssignments(forcedAssignments.nodes()), revision);
                 }
 
                 // Telling the caller that the replica is started.

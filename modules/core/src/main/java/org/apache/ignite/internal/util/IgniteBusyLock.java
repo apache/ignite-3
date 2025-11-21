@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.components;
-
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.jetbrains.annotations.TestOnly;
+package org.apache.ignite.internal.util;
 
 /**
- * Implementation that ignores persistence and always takes property values from the system properties.
- *
- * <p>Should only be used for tests.
+ * Synchronization aid to track "busy" state of a subsystem that owns it.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22522 Consider to remove this class and its usages.
-@TestOnly
-public class SystemPropertiesNodeProperties implements NodeProperties {
-    @Override
-    public boolean colocationEnabled() {
-        return IgniteSystemProperties.colocationEnabled();
-    }
+public interface IgniteBusyLock {
+    /**
+     * Enters "busy" state.
+     *
+     * @return {@code true} if entered to busy state.
+     */
+    boolean enterBusy();
+
+    /**
+     * Leaves "busy" state.
+     */
+    void leaveBusy();
 }

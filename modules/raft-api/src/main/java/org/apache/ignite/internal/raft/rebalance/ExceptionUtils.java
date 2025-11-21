@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.components;
+package org.apache.ignite.internal.raft.rebalance;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.jetbrains.annotations.TestOnly;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+
+import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 
 /**
- * Implementation that ignores persistence and always takes property values from the system properties.
- *
- * <p>Should only be used for tests.
+ * Helper class for exception handling.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22522 Consider to remove this class and its usages.
-@TestOnly
-public class SystemPropertiesNodeProperties implements NodeProperties {
-    @Override
-    public boolean colocationEnabled() {
-        return IgniteSystemProperties.colocationEnabled();
+public class ExceptionUtils {
+
+    /**
+     * Checks if an error is recoverable, so we can retry a rebalance intent.
+     *
+     * @param t The throwable.
+     * @return {@code True} if this is a recoverable exception.
+     */
+    public static boolean recoverable(Throwable t) {
+        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
+            return false;
+        }
+
+        return true;
     }
 }

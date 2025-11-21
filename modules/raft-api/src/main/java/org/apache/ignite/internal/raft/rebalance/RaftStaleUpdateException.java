@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.components;
+package org.apache.ignite.internal.raft.rebalance;
 
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.jetbrains.annotations.TestOnly;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
- * Implementation that ignores persistence and always takes property values from the system properties.
- *
- * <p>Should only be used for tests.
+ * Special type of exception used when proposed data is stale and will not be applied.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22522 Consider to remove this class and its usages.
-@TestOnly
-public class SystemPropertiesNodeProperties implements NodeProperties {
-    @Override
-    public boolean colocationEnabled() {
-        return IgniteSystemProperties.colocationEnabled();
+public class RaftStaleUpdateException extends IgniteInternalCheckedException {
+
+    public RaftStaleUpdateException(String message) {
+        super(message);
     }
 }
