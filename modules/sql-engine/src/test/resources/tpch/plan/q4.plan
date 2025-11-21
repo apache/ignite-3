@@ -24,7 +24,7 @@ ColocatedSortAggregate
               index: O_OD
               type: SORTED
               predicate: SEARCH(O_ORDERDATE, Sarg[[1993-07-01..1993-10-01)])
-              searchBounds: [RangeBounds [lowerBound=1993-07-01, upperBound=1993-10-01, lowerInclude=true, upperInclude=false]]
+              searchBounds: [RangeBounds [shouldComputeLower=true, lowerBound=1993-07-01, lowerInclude=true, shouldComputeUpper=true, upperBound=1993-10-01, upperInclude=false]]
               fieldNames: [O_ORDERKEY, O_ORDERPRIORITY]
               collation: []
               est: (rows=375000)

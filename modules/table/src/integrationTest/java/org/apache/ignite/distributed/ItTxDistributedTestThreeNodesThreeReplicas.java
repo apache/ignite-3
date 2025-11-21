@@ -17,7 +17,6 @@
 
 package org.apache.ignite.distributed;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -25,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -77,8 +75,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends TxAbstractTest {
     public void testPrimaryReplicaDirectUpdateForExplicitTxn() throws InterruptedException {
         Peer leader = txTestCluster.getLeaderId(accounts.qualifiedName());
         JraftServerImpl server = (JraftServerImpl) txTestCluster.raftServers.get(leader.consistentId()).server();
-        var groupId = colocationEnabled() ? new ZonePartitionId(accounts.internalTable().zoneId(), 0)
-                : new TablePartitionId(accounts.tableId(), 0);
+        var groupId = new ZonePartitionId(accounts.internalTable().zoneId(), 0);
 
         // BLock replication messages to both replicas.
         server.blockMessages(new RaftNodeId(groupId, leader), (msg, peerId) -> {

@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.configuration.distributed.CreateTableDefaultsView;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
@@ -111,6 +113,7 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -291,7 +294,15 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
         var nodeFilterValidator = new ClusterWideNodeFilterValidator(logicalTopologyService);
 
-        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator);
+        Supplier<TableStatsStalenessConfiguration> stalenessProperties = () -> {
+            CreateTableDefaultsView tablePropertiesView = clusterCfg.createTable().value();
+            return new TableStatsStalenessConfiguration(
+                    tablePropertiesView.staleRowsFraction(),
+                    tablePropertiesView.minStaleRowsCount()
+            );
+        };
+
+        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator, stalenessProperties);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
@@ -352,6 +363,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         logicalTopologyService.addEventListener(mappingService);
+        logicalTopologyService.addEventListener(mailboxRegistry);
+
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
         // Need to be implemented after https://issues.apache.org/jira/browse/IGNITE-23519 Add an event for lease Assignments
         // placementDriver.listen(PrimaryReplicaEvent.ASSIGNMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);
@@ -398,8 +411,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
         queriesViewProvider.init(queryExecutor, prepareSvc);
 
-        clusterSrvc.topologyService().addEventHandler(executionSrvc);
-        clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
+        logicalTopologyService.addEventListener(executionSrvc);
 
         registerService(sqlStatisticManager);
 

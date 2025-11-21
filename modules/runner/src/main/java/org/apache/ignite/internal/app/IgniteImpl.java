@@ -1027,7 +1027,6 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 clusterSvc.topologyService(),
-                nodeProperties,
                 indexNodeFinishedRwTransactionsChecker,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)
@@ -1277,7 +1276,6 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 computeComponent,
                 clock,
-                nodeProperties,
                 observableTimestampTracker
         );
 

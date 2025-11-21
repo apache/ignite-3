@@ -20,7 +20,6 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -47,10 +46,8 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -88,9 +85,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
         TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
-        PartitionGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), 0)
-                : new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), 0);
 
         // Find the leader of the table's partition group.
         String leaderId = ignite.replicaManager()
@@ -140,9 +135,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static boolean solePartitionAssignmentsContain(IgniteImpl restartingNode, InternalTableImpl table, int partId) {
         String restartingNodeConsistentId = restartingNode.name();
 
-        PartitionGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partId);
 
         CompletableFuture<Replica> replicaFut = restartingNode.replicaManager().replica(replicationGroupId);
 
@@ -167,19 +160,11 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
         Predicate<RaftNodeId> predicate;
 
-        if (colocationEnabled()) {
-            predicate = nodeId -> {
-                ReplicationGroupId groupId = nodeId.groupId();
+        predicate = nodeId -> {
+            ReplicationGroupId groupId = nodeId.groupId();
 
-                return groupId instanceof ZonePartitionId && ((ZonePartitionId) groupId).zoneId() == table.zoneId();
-            };
-        } else {
-            predicate = nodeId -> {
-                ReplicationGroupId groupId = nodeId.groupId();
-
-                return groupId instanceof TablePartitionId && ((TablePartitionId) groupId).tableId() == table.tableId();
-            };
-        }
+            return groupId instanceof ZonePartitionId && ((ZonePartitionId) groupId).zoneId() == table.zoneId();
+        };
 
         return loza.localNodes().stream().anyMatch(predicate);
     }
@@ -211,8 +196,8 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Check that it restarts.
         assertTrue(waitForCondition(
                 () -> loza.localNodes().stream().anyMatch(nodeId -> {
-                    if (nodeId.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
+                    if (nodeId.groupId() instanceof ZonePartitionId) {
+                        return ((ZonePartitionId) nodeId.groupId()).zoneId() == table.zoneId();
                     }
 
                     return true;
@@ -253,8 +238,8 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
             assertTrue(waitForCondition(
                     () -> loza.localNodes().stream().anyMatch(nodeId -> {
-                        if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
+                        if (nodeId.groupId() instanceof ZonePartitionId) {
+                            return ((ZonePartitionId) nodeId.groupId()).zoneId() == table.zoneId();
                         }
 
                         return true;

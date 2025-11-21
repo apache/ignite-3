@@ -26,4 +26,8 @@ public class SqlDistributedConfigurationSchema {
     /** Represent a configuration related to SQL planner. */
     @ConfigValue
     public SqlPlannerDistributedConfigurationSchema planner;
+
+    /** Represent a configuration related to initial table creation. */
+    @ConfigValue
+    public CreateTableDefaultsConfigurationSchema createTable;
 }
