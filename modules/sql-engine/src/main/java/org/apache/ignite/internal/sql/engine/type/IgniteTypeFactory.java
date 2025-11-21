@@ -250,16 +250,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 || relType instanceof RelRecordType
                 : "Not supported: " + relType;
 
-        if (relType instanceof RelRecordType) {
-            RowTypeBuilder builder = NativeTypes.rowBuilder();
-
-            for (RelDataTypeField field : relType.getFieldList()) {
-                builder.addField(field.getName(), relDataTypeToNative(field.getType()), field.getType().isNullable());
-            }
-
-            return builder.build(); 
-        }
-
         switch (relType.getSqlTypeName()) {
             case NULL:
                 return NativeTypes.NULL;
