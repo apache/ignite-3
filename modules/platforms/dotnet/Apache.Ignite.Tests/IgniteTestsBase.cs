@@ -104,10 +104,7 @@ namespace Apache.Ignite.Tests
             _eventListener = new TestEventListener();
             _logger = new ConsoleLogger(LogLevel.Trace);
 
-            var cfg = GetConfig();
-            cfg.LoggerFactory = _logger;
-
-            Client = await IgniteClient.StartAsync(cfg);
+            Client = await IgniteClient.StartAsync(GetConfig(_logger));
 
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
@@ -195,14 +192,14 @@ namespace Apache.Ignite.Tests
 
         protected static ValPoco GetValPoco(string? val) => new() { Val = val };
 
-        protected static IgniteClientConfiguration GetConfig() => new()
+        protected static IgniteClientConfiguration GetConfig(ILoggerFactory? loggerFactory = null) => new()
         {
             Endpoints =
             {
                 "127.0.0.1:" + ServerNode.Port,
                 "127.0.0.1:" + (ServerNode.Port + 1)
             },
-            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+            LoggerFactory = loggerFactory ?? TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
         protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
