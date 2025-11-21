@@ -69,6 +69,8 @@ namespace Apache.Ignite.Tests
 
         private TestEventListener _eventListener = null!;
 
+        private ConsoleLogger _logger = null!;
+
         static IgniteTestsBase()
         {
             ServerNode = JavaServer.StartAsync().GetAwaiter().GetResult();
@@ -100,6 +102,7 @@ namespace Apache.Ignite.Tests
         public async Task OneTimeSetUp()
         {
             _eventListener = new TestEventListener();
+            _logger = new ConsoleLogger(LogLevel.Trace);
 
             Client = await IgniteClient.StartAsync(GetConfig());
 
@@ -130,11 +133,13 @@ namespace Apache.Ignite.Tests
             CheckPooledBufferLeak();
 
             _eventListener.Dispose();
+            _logger.Dispose();
         }
 
         [SetUp]
         public void SetUp()
         {
+            _logger.Flush();
             Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
             TestUtils.CheckByteArrayPoolLeak();
         }
@@ -142,6 +147,9 @@ namespace Apache.Ignite.Tests
         [TearDown]
         public void TearDown()
         {
+            // Flush here so events from all threads are captured as current test output.
+            _logger.Flush();
+
             Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
 
             _disposables.ForEach(x => x.Dispose());
