@@ -63,6 +63,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -643,11 +644,11 @@ public class Loza implements RaftManager {
      * @param peersAndLearners New node configuration.
      * @param sequenceToken Sequence token.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
+    public Status resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
         LOG.warn("Reset peers for raft group {}, new configuration is {}, sequence token {}",
                 raftNodeId, peersAndLearners, sequenceToken);
 
-        raftServer.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
+        return raftServer.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
     }
 
     /**

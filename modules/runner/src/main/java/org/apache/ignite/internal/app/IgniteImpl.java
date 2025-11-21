@@ -721,8 +721,7 @@ public class IgniteImpl implements Ignite {
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,
                 clusterCfgDynamicDefaultsPatcher,
-                distributedCfgValidator,
-                nodeProperties
+                distributedCfgValidator
         );
 
         NodeAttributesCollector nodeAttributesCollector =
@@ -750,8 +749,7 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 clusterIdService,
                 cmgRaftConfigurer,
-                metricManager,
-                nodeProperties
+                metricManager
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -1027,7 +1025,6 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 clusterSvc.topologyService(),
-                nodeProperties,
                 indexNodeFinishedRwTransactionsChecker,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)
@@ -1277,7 +1274,6 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 computeComponent,
                 clock,
-                nodeProperties,
                 observableTimestampTracker
         );
 

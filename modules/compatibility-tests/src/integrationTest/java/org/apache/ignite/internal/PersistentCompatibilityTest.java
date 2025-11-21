@@ -94,31 +94,27 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     }
 
     @Override
-    protected void setupBaseVersion(Ignite baseIgnite) {
-        try {
-            DeploymentUtils.deployJobs();
+    protected void setupBaseVersion(Ignite baseIgnite) throws Exception {
+        DeploymentUtils.deployJobs();
 
-            createAndPopulateTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
-            createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
-            createAndPopulateTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
+        createAndPopulateTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
+        createAndPopulateTable(baseIgnite, TABLE_WITH_DELTA_FILES);
+        createAndPopulateTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
 
-            // Newly allocated pages are written straight to the page files.
-            // We need to do an initial checkpoint so subsequent modifications of the rows go to delta files.
-            doCheckpointWithCompaction();
+        // Newly allocated pages are written straight to the page files.
+        // We need to do an initial checkpoint so subsequent modifications of the rows go to delta files.
+        doCheckpointWithCompaction();
 
-            prepareTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
+        prepareTable(baseIgnite, TABLE_WITHOUT_DELTA_FILES);
 
-            // Checkpoint for TABLE_WITHOUT_DELTA_FILES and compact all delta files.
-            doCheckpointWithCompaction();
+        // Checkpoint for TABLE_WITHOUT_DELTA_FILES and compact all delta files.
+        doCheckpointWithCompaction();
 
-            prepareTable(baseIgnite, TABLE_WITH_DELTA_FILES);
-            prepareTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
+        prepareTable(baseIgnite, TABLE_WITH_DELTA_FILES);
+        prepareTable(baseIgnite, TABLE_WITH_NEW_DELTA_FILES);
 
-            // Checkpoint for TABLE_WITH_DELTA_FILES and TABLE_WITH_NEW_DELTA_FILES, cancels compaction to leave delta files.
-            doCheckpointWithoutCompaction();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        // Checkpoint for TABLE_WITH_DELTA_FILES and TABLE_WITH_NEW_DELTA_FILES, cancels compaction to leave delta files.
+        doCheckpointWithoutCompaction();
     }
 
     private static void createAndPopulateTable(Ignite baseIgnite, String tableName) {

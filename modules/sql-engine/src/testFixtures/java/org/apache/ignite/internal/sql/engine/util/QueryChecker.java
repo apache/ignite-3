@@ -39,6 +39,7 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
+import org.jetbrains.annotations.Nullable;
 
 /** Query checker interface. */
 public interface QueryChecker {
@@ -310,7 +311,7 @@ public interface QueryChecker {
 
     QueryChecker withParams(Object... params);
 
-    QueryChecker withParam(Object param);
+    QueryChecker withParam(@Nullable Object param);
 
     QueryChecker withTimeZoneId(ZoneId timeZoneId);
 

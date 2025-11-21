@@ -21,7 +21,7 @@ package org.apache.ignite.internal.util;
  * Busy lock implementation based on {@link IgniteStripedReadWriteLock}. API is analogous to {@link IgniteSpinBusyLock}, but without the
  * ability to unblock it.
  */
-public class IgniteStripedBusyLock {
+public class IgniteStripedBusyLock implements IgniteBusyLock {
     /** Underlying read-write lock. */
     private final IgniteStripedReadWriteLock lock = new IgniteStripedReadWriteLock();
 
@@ -32,6 +32,7 @@ public class IgniteStripedBusyLock {
      *
      * @return {@code true} if entered to busy state.
      */
+    @Override
     public boolean enterBusy() {
         if (!lock.readLock().tryLock()) {
             return false;
@@ -49,6 +50,7 @@ public class IgniteStripedBusyLock {
     /**
      * Leaves "busy" state.
      */
+    @Override
     public void leaveBusy() {
         lock.readLock().unlock();
     }

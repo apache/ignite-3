@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +41,7 @@ import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
@@ -67,7 +68,7 @@ class DisasterRecoveryTestUtil {
 
     static boolean stableKeySwitchMessage(
             NetworkMessage msg,
-            PartitionGroupId partId,
+            ZonePartitionId partId,
             Assignments blockedAssignments
     ) {
         return stableKeySwitchMessage(msg, partId, blockedAssignments, null);
@@ -75,7 +76,7 @@ class DisasterRecoveryTestUtil {
 
     static boolean stableKeySwitchMessage(
             NetworkMessage msg,
-            PartitionGroupId partId,
+            ZonePartitionId partId,
             Assignments blockedAssignments,
             @Nullable AtomicBoolean reached
     ) {
@@ -92,10 +93,14 @@ class DisasterRecoveryTestUtil {
                     UpdateStatement updateStatement = (UpdateStatement) andThen;
                     List<Operation> operations = updateStatement.update().operations();
 
-                    ByteArray stablePartAssignmentsKey = stablePartitionAssignmentsKey(partId);
+                    ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(partId);
 
                     for (Operation operation : operations) {
-                        ByteArray opKey = new ByteArray(toByteArray(operation.key()));
+                        ByteBuffer operationKey = operation.key();
+                        if (operationKey == null) {
+                            continue;
+                        }
+                        ByteArray opKey = new ByteArray(toByteArray(operationKey));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
                             boolean equals = blockedAssignments.equals(Assignments.fromBytes(toByteArray(operation.value())));

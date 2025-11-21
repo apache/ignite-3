@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 
@@ -37,6 +38,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
@@ -166,8 +168,9 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      * completed.</p>
      *
      * @param causalityToken Causality token.
+     * @return A future that will be completed when the operation is done.
      */
-    void complete(long causalityToken) {
+    CompletableFuture<Void> complete(long causalityToken) {
         CompletableFuture<T> futureForToken;
 
         readWriteLock.writeLock().lock();
@@ -198,7 +201,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
             readWriteLock.writeLock().unlock();
         }
 
-        notifyCompletionListeners(causalityToken, futureForToken);
+        return notifyCompletionListeners(causalityToken, futureForToken);
     }
 
     /**
@@ -212,8 +215,10 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      * completed.</p>
      *
      * @param causalityToken Causality token.
+     * @param future Future to complete the Versioned Value with.
+     * @return A future that will be completed when the operation is done.
      */
-    void complete(long causalityToken, CompletableFuture<T> future) {
+    CompletableFuture<Void> complete(long causalityToken, CompletableFuture<T> future) {
         assert future.isDone() : format("Future is not done during completion [name={}, future={}]", name, future);
 
         readWriteLock.writeLock().lock();
@@ -235,7 +240,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
             readWriteLock.writeLock().unlock();
         }
 
-        notifyCompletionListeners(causalityToken, future);
+        return notifyCompletionListeners(causalityToken, future);
     }
 
     /**
@@ -378,18 +383,22 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
     /**
      * Notifies completion listeners.
      */
-    private void notifyCompletionListeners(long causalityToken, CompletableFuture<T> future) {
-        future.whenComplete((v, t) -> {
+    private CompletableFuture<Void> notifyCompletionListeners(long causalityToken, CompletableFuture<T> future) {
+        return future.handle((v, t) -> {
             Throwable unpackedThrowable = t instanceof CompletionException ? t.getCause() : t;
+
+            ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
 
             for (CompletionListener<T> listener : completionListeners) {
                 try {
-                    listener.whenComplete(causalityToken, v, unpackedThrowable);
+                    futs.add(listener.whenComplete(causalityToken, v, unpackedThrowable));
                 } catch (Exception e) {
                     log.error("Exception when notifying a completion listener", e);
                 }
             }
-        });
+
+            return CompletableFutures.allOf(futs);
+        }).thenCompose(identity());
     }
 
     /**

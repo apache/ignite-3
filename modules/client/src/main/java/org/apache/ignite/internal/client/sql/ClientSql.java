@@ -302,7 +302,7 @@ public class ClientSql implements IgniteSql {
                 : null;
 
         // Write context carries request execution details over async chain.
-        WriteContext ctx = new WriteContext(ch.observableTimestamp());
+        WriteContext ctx = new WriteContext(ch.observableTimestamp(), ClientOp.SQL_EXEC);
 
         boolean directTxSupported = mappingProvider != null
                 && (mappingProvider.directTxMode() == ClientDirectTxMode.SUPPORTED

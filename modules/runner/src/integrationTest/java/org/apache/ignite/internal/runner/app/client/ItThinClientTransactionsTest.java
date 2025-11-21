@@ -531,6 +531,33 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         return keys;
     }
 
+    @SuppressWarnings("unused")
+    static List<Tuple> generateKeysForPartition(
+            int start,
+            int count,
+            Map<Partition, ClusterNode> map,
+            int partId,
+            Table table
+    ) {
+        List<Tuple> keys = new ArrayList<>();
+        PartitionManager partitionManager = table.partitionManager();
+
+        int k = start;
+        while (keys.size() != count) {
+            k++;
+            Tuple t = key(k);
+
+            Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
+            HashPartition hashPart = (HashPartition) part;
+
+            if (hashPart.partitionId() == partId) {
+                keys.add(t);
+            }
+        }
+
+        return keys;
+    }
+
     private static Integer partitions(Collection<Tuple> keys, Table table) {
         PartitionManager partitionManager = table.partitionManager();
 
@@ -544,6 +571,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         return count.size();
     }
 
+    @SuppressWarnings("unused")
     private List<Tuple> retainSinglePartitionKeys(List<Tuple> list, int count) {
         List<Tuple> keys = new ArrayList<>();
 
@@ -853,6 +881,136 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         assertEquals(0, view.removeAll(null, batch.keySet()).size());
         assertEquals(batch.size(), view.removeAll(null, batch.keySet()).size());
+    }
+
+    @Test
+    void testImplicitDirectMapping() {
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(600, 2, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples1 = generateKeysForNode(610, 1, map, server1.cluster().localNode(), table);
+
+        assertEquals(2, tuples0.size());
+        assertEquals(1, tuples1.size());
+
+        Map<Tuple, Tuple> batch = new HashMap<>();
+
+        for (Tuple tup : tuples0) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        for (Tuple tup : tuples1) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        KeyValueView<Tuple, Tuple> view = table.keyValueView();
+        Transaction tx = client().transactions().begin();
+        view.putAll(tx, batch);
+
+        // Should retry until timeout.
+        CompletableFuture<Map<Tuple, Tuple>> fut = view.getAllAsync(null, batch.keySet());
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        assertFalse(fut.isDone());
+        tx.commit();
+
+        assertEquals(batch.size(), fut.join().size(), "Implicit tx should be retried until timeout");
+
+        // Retry transaction without other locker.
+        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
+
+        // Retry explicit transaction.
+        Transaction tx1 = client().transactions().begin();
+        assertEquals(batch.size(), view.getAll(tx1, batch.keySet()).size());
+        tx1.commit();
+
+        // Test if we don't stuck in locks in subsequent rw txn.
+        CompletableFuture<Void> fut0 = CompletableFuture.runAsync(() -> {
+            Transaction tx0 = client().transactions().begin();
+            view.put(tx0, tuples0.get(0), val("newval0"));
+            tx0.commit();
+        });
+
+        CompletableFuture<Void> fut1 = CompletableFuture.runAsync(() -> {
+            view.put(null, tuples1.get(0), val("newval1"));
+        });
+
+        fut0.join();
+        fut1.join();
+    }
+
+    @Test
+    void testImplicitRecordDirectMapping() {
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> keys0 = generateKeysForNode(600, 2, map, server0.cluster().localNode(), table);
+        List<Tuple> keys1 = generateKeysForNode(610, 1, map, server1.cluster().localNode(), table);
+
+        assertEquals(2, keys0.size());
+        assertEquals(1, keys1.size());
+
+        List<Tuple> keys = new ArrayList<>();
+        List<Tuple> recsBatch = new ArrayList<>();
+
+        for (Tuple tup : keys0) {
+            recsBatch.add(kv(tup.intValue(0), tup.intValue(0) + ""));
+            keys.add(tup);
+        }
+
+        for (Tuple tup : keys1) {
+            recsBatch.add(kv(tup.intValue(0), tup.intValue(0) + ""));
+            keys.add(tup);
+        }
+
+        RecordView<Tuple> view = table.recordView();
+        Transaction tx = client().transactions().begin();
+        view.upsertAll(tx, recsBatch);
+
+        // Should retry until timeout.
+        CompletableFuture<List<Tuple>> fut = view.getAllAsync(null, keys);
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        assertFalse(fut.isDone());
+        tx.commit();
+
+        assertEquals(recsBatch.size(), fut.join().size(), "Implicit tx should be retried until timeout");
+
+        // Retry transaction without other locker.
+        assertEquals(recsBatch.size(), view.getAll(null, keys).size());
+
+        // Retry explicit transaction.
+        Transaction tx1 = client().transactions().begin();
+        assertEquals(recsBatch.size(), view.getAll(tx1, keys).size());
+        tx1.commit();
+
+        // Test if we don't stuck in locks in subsequent rw txn.
+        CompletableFuture.runAsync(() -> {
+            Transaction tx0 = client().transactions().begin();
+            view.upsert(tx0, keys0.get(0));
+            tx0.commit();
+        }).join();
+
+        CompletableFuture.runAsync(() -> {
+            view.upsert(null, keys1.get(0));
+        }).join();
     }
 
     @Test

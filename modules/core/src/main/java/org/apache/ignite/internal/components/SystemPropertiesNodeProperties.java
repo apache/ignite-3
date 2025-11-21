@@ -25,6 +25,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Should only be used for tests.
  */
+// TODO https://issues.apache.org/jira/browse/IGNITE-22522 Consider to remove this class and its usages.
 @TestOnly
 public class SystemPropertiesNodeProperties implements NodeProperties {
     @Override

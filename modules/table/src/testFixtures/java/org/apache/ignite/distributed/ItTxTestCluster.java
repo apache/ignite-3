@@ -505,7 +505,7 @@ public class ItTxTestCluster {
                     raftSrv,
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool(),
+                    Executors.newSingleThreadScheduledExecutor(),
                     replicaGrpId -> nullCompletedFuture(),
                     ForkJoinPool.commonPool()
             );
