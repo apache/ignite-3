@@ -68,7 +68,71 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final @Nullable String name;
 
-    InetAddressResolver addressResolver = InetAddressResolver.DEFAULT;
+    private final InetAddressResolver addressResolver;
+
+    private final long backgroundReResolveAddressesInterval;
+
+    /**
+     * Constructor.
+     *
+     * @param addressFinder Address finder.
+     * @param addresses Addresses.
+     * @param connectTimeout Socket connect timeout.
+     * @param backgroundReconnectInterval Background reconnect interval.
+     * @param asyncContinuationExecutor Async continuation executor.
+     * @param heartbeatInterval Heartbeat message interval.
+     * @param heartbeatTimeout Heartbeat message timeout.
+     * @param retryPolicy Retry policy.
+     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when
+     *         needed.
+     * @param metricsEnabled Whether metrics are enabled.
+     * @param authenticator Authenticator.
+     * @param operationTimeout Operation timeout.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
+     * @param name Client name.
+     * @param backgroundReResolveAddressesInterval Background re-resolve addresses interval.
+     * @param addressResolver Address resolver.
+     */
+    IgniteClientConfigurationImpl(
+            @Nullable IgniteClientAddressFinder addressFinder,
+            String[] addresses,
+            long connectTimeout,
+            long backgroundReconnectInterval,
+            @Nullable Executor asyncContinuationExecutor,
+            long heartbeatInterval,
+            long heartbeatTimeout,
+            @Nullable RetryPolicy retryPolicy,
+            @Nullable LoggerFactory loggerFactory,
+            @Nullable SslConfiguration sslConfiguration,
+            boolean metricsEnabled,
+            @Nullable IgniteClientAuthenticator authenticator,
+            long operationTimeout,
+            int sqlPartitionAwarenessMetadataCacheSize,
+            @Nullable String name,
+            long backgroundReResolveAddressesInterval,
+            @Nullable InetAddressResolver addressResolver
+    ) {
+        this.addressFinder = addressFinder;
+
+        //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
+        this.addresses = addresses;
+
+        this.connectTimeout = connectTimeout;
+        this.backgroundReconnectInterval = backgroundReconnectInterval;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
+        this.heartbeatInterval = heartbeatInterval;
+        this.heartbeatTimeout = heartbeatTimeout;
+        this.retryPolicy = retryPolicy;
+        this.loggerFactory = loggerFactory;
+        this.sslConfiguration = sslConfiguration;
+        this.metricsEnabled = metricsEnabled;
+        this.authenticator = authenticator;
+        this.operationTimeout = operationTimeout;
+        this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
+        this.name = name;
+        this.backgroundReResolveAddressesInterval = backgroundReResolveAddressesInterval;
+        this.addressResolver = addressResolver;
+    }
 
     /**
      * Constructor.
@@ -104,27 +168,28 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             @Nullable IgniteClientAuthenticator authenticator,
             long operationTimeout,
             int sqlPartitionAwarenessMetadataCacheSize,
-            @Nullable String name
+            @Nullable String name,
+            long backgroundReResolveAddressesInterval
     ) {
-        this.addressFinder = addressFinder;
-
-        //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
-        this.addresses = addresses;
-
-        this.connectTimeout = connectTimeout;
-        this.backgroundReconnectInterval = backgroundReconnectInterval;
-        this.asyncContinuationExecutor = asyncContinuationExecutor;
-        this.heartbeatInterval = heartbeatInterval;
-        this.heartbeatTimeout = heartbeatTimeout;
-        this.retryPolicy = retryPolicy;
-        this.loggerFactory = loggerFactory;
-        this.sslConfiguration = sslConfiguration;
-        this.metricsEnabled = metricsEnabled;
-        this.authenticator = authenticator;
-        this.operationTimeout = operationTimeout;
-        this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
-        this.name = name;
-        this.addressResolver = addressResolver == null ? InetAddressResolver.DEFAULT : addressResolver;
+        this(
+                addressFinder,
+                addresses,
+                connectTimeout,
+                backgroundReconnectInterval,
+                asyncContinuationExecutor,
+                heartbeatInterval,
+                heartbeatTimeout,
+                retryPolicy,
+                loggerFactory,
+                sslConfiguration,
+                metricsEnabled,
+                authenticator,
+                operationTimeout,
+                sqlPartitionAwarenessMetadataCacheSize,
+                name,
+                backgroundReResolveAddressesInterval,
+                null
+        );
     }
 
     /** {@inheritDoc} */
@@ -212,5 +277,19 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable String name() {
         return name;
+    }
+
+    @Override
+    public long backgroundReResolveAddressesInterval() {
+        return backgroundReResolveAddressesInterval;
+    }
+
+    /**
+     * Gets custom address resolver.
+     *
+     * @return Custom address resolver.
+     */
+    @Nullable InetAddressResolver addressResolver() {
+        return addressResolver;
     }
 }

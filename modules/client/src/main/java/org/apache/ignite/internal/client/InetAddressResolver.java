@@ -24,7 +24,7 @@ import java.net.UnknownHostException;
  * DNS resolver.
  */
 @FunctionalInterface
-interface InetAddressResolver {
+public interface InetAddressResolver {
     InetAddressResolver DEFAULT = InetAddress::getAllByName;
 
     /**
@@ -34,6 +34,5 @@ interface InetAddressResolver {
      * @return an array of {@code InetAddress} objects representing the IP addresses of the host
      * @throws UnknownHostException if the host name could not be resolved
      */
-    InetAddress[] getAllByName(String host)
-            throws UnknownHostException;
+    InetAddress[] getAllByName(String host) throws UnknownHostException;
 }

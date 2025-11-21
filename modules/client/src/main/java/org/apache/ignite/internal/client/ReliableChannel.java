@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -136,6 +138,9 @@ public final class ReliableChannel implements AutoCloseable {
     /** Inflights. */
     private final ClientTransactionInflights inflights;
 
+    /** Address resolver. */
+    private final InetAddressResolver addressResolver;
+
     /**
      * Constructor.
      *
@@ -159,6 +164,8 @@ public final class ReliableChannel implements AutoCloseable {
         connMgr.start(clientCfg);
 
         inflights = new ClientTransactionInflights();
+
+        addressResolver = requireNonNullElse(clientCfg.addressResolver(), InetAddressResolver.DEFAULT);
     }
 
     /** {@inheritDoc} */
@@ -405,7 +412,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return host:port_range address lines parsed as {@link InetSocketAddress} as a key. Value is the amount of appearences of an address
      *         in {@code addrs} parameter.
      */
-    private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs, IgniteClientConfigurationImpl cfg) {
+    private static Map<InetSocketAddress, Integer> parsedAddresses(InetAddressResolver addressResolver, String[] addrs) {
         if (addrs == null || addrs.length == 0) {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
@@ -420,7 +427,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         for (HostAndPort addr : parsedAddrs) {
             try {
-                for (InetAddress inetAddr : cfg.addressResolver.getAllByName(addr.host())) {
+                for (InetAddress inetAddr : addressResolver.getAllByName(addr.host())) {
                     var sockAddr = new InetSocketAddress(inetAddr, addr.port());
                     map.merge(sockAddr, 1, Integer::sum);
                 }
@@ -530,12 +537,12 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             if (!Arrays.equals(hostAddrs, prevHostAddrs)) {
-                newAddrs = parsedAddresses(hostAddrs, clientCfg);
+                newAddrs = parsedAddresses(addressResolver, hostAddrs);
                 prevHostAddrs = hostAddrs;
             }
         } else {
             // Re-resolve DNS.
-            newAddrs = parsedAddresses(clientCfg.addresses(), clientCfg);
+            newAddrs = parsedAddresses(addressResolver, clientCfg.addresses());
         }
 
         if (newAddrs == null) {
@@ -546,9 +553,7 @@ public final class ReliableChannel implements AutoCloseable {
         Set<InetSocketAddress> allAddrs = new HashSet<>(newAddrs.keySet());
 
         if (holders != null) {
-            for (int i = 0; i < holders.size(); i++) {
-                ClientChannelHolder h = holders.get(i);
-
+            for (ClientChannelHolder h : holders) {
                 curAddrs.put(h.chCfg.getAddress(), h);
                 allAddrs.add(h.chCfg.getAddress());
             }
@@ -614,6 +619,14 @@ public final class ReliableChannel implements AutoCloseable {
             defaultChIdx = dfltChannelIdx;
         } finally {
             curChannelsGuard.writeLock().unlock();
+        }
+
+        // Schedule the background re-resolve of addresses.
+        if (clientCfg.backgroundReResolveAddressesInterval() > 0L) {
+            supplyAsync(
+                    this::initChannelHolders,
+                    delayedExecutor(clientCfg.backgroundReResolveAddressesInterval(), TimeUnit.MILLISECONDS)
+            );
         }
 
         return true;
