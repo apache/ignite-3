@@ -94,7 +94,8 @@ public class MockNode {
             StorageConfiguration storageProfilesConfiguration,
             Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
-        this(testInfo,
+        this(
+                testInfo,
                 addr,
                 nodeFinder,
                 workDir,
@@ -103,7 +104,8 @@ public class MockNode {
                 nodeAttributes,
                 () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()),
                 storageProfilesConfiguration,
-                onConfigurationCommittedListener);
+                onConfigurationCommittedListener
+        );
     }
 
     /**
