@@ -438,6 +438,13 @@ public final class ReliableChannel implements AutoCloseable {
 
         for (HostAndPort addr : parsedAddrs) {
             try {
+                // Special handling for "localhost" to avoid unnecessary DNS resolution.
+                if ("localhost".equalsIgnoreCase(addr.host())) {
+                    map.merge(InetSocketAddress.createUnresolved(addr.host(), addr.port()), 1, Integer::sum);
+
+                    continue;
+                }
+
                 for (InetAddress inetAddr : addressResolver.getAllByName(addr.host())) {
                     var sockAddr = new InetSocketAddress(inetAddr, addr.port());
                     map.merge(sockAddr, 1, Integer::sum);

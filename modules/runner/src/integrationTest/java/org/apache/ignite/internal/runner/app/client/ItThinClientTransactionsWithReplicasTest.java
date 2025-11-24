@@ -79,6 +79,8 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
 
         Tuple k2 = tuples2.get(0);
         Tuple v2 = val(tuples2.get(0).intValue(0) + "");
+
+        view.put(tx0, k2, v2);
         assertThrows(TransactionException.class, () -> view.put(tx0, k2, v2));
 
         assertNull(view.get(null, k));
