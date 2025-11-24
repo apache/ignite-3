@@ -20,7 +20,6 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,7 +30,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -43,8 +41,6 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
@@ -55,8 +51,8 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link AssignmentsTracker}.
  */
 public class AssignmentsTrackerTest extends BaseIgniteAbstractTest {
-    private final ReplicationGroupId groupId0 = colocationEnabled() ? new ZonePartitionId(0, 0) : new TablePartitionId(0, 0);
-    private final ReplicationGroupId groupId1 = colocationEnabled() ? new ZonePartitionId(1, 0) : new TablePartitionId(1, 0);
+    private final ZonePartitionId groupId0 = new ZonePartitionId(0, 0);
+    private final ZonePartitionId groupId1 = new ZonePartitionId(1, 0);
 
     private Set<String> dataNodes0 = emptySet();
     private Set<String> dataNodes1 = emptySet();
@@ -85,7 +81,7 @@ public class AssignmentsTrackerTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
+    public void tearDown() {
         assignmentsTracker.stopTrack();
         assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
     }
@@ -94,10 +90,8 @@ public class AssignmentsTrackerTest extends BaseIgniteAbstractTest {
         return zoneId == 0 ? dataNodes0 : dataNodes1;
     }
 
-    private ByteArray assignmentsKey(ReplicationGroupId groupId) {
-        return colocationEnabled()
-                ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) groupId)
-                : RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) groupId);
+    private ByteArray assignmentsKey(ZonePartitionId groupId) {
+        return ZoneRebalanceUtil.stablePartAssignmentsKey(groupId);
     }
 
     @Test

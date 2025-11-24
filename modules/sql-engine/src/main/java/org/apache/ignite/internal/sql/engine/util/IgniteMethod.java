@@ -201,6 +201,12 @@ public enum IgniteMethod {
      */
     ADJUST_TIME_MILLIS(IgniteSqlDateTimeUtils.class, "adjustTimeMillis", Integer.class, int.class),
 
+    /** See {@link IgniteSqlFunctions#findPrefix(String, String)}. */
+    FIND_PREFIX(IgniteSqlFunctions.class, "findPrefix", String.class, String.class),
+
+    /** See {@link IgniteSqlFunctions#nextGreaterPrefix(String)}. */
+    NEXT_GREATER_PREFIX(IgniteSqlFunctions.class, "nextGreaterPrefix", String.class),
+
     ;
 
     private final Method method;

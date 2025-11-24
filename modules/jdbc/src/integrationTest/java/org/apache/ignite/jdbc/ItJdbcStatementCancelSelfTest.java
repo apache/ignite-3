@@ -113,10 +113,8 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     void fetchingNextPageAfterCancelingShouldThrow() throws Exception {
-        stmt.setFetchSize(50);
-
         {
-            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
+            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 7500)");
 
             assertTrue(rs.next());
 
@@ -134,22 +132,20 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
         {
             // but new execute should work
-            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
+            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 7500)");
 
             //noinspection StatementWithEmptyBody
-            while (rs.next()) { }
+            while (rs.next()) {
+            }
         }
     }
 
     @Test
     public void cancellationOfOneStatementShouldNotAffectAnother() throws Exception {
-        stmt.setFetchSize(50);
+
         try (Statement anotherStmt = conn.createStatement()) {
-            anotherStmt.setFetchSize(50);
-
-            ResultSet rs1 = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
-
-            ResultSet rs2 = anotherStmt.executeQuery("SELECT * FROM system_range(0, 75)");
+            ResultSet rs1 = stmt.executeQuery("SELECT * FROM system_range(0, 7500)");
+            ResultSet rs2 = anotherStmt.executeQuery("SELECT * FROM system_range(0, 7500)");
 
             stmt.cancel();
 
@@ -162,7 +158,8 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
             );
 
             //noinspection StatementWithEmptyBody
-            while (rs2.next()) { }
+            while (rs2.next()) {
+            }
         }
     }
 

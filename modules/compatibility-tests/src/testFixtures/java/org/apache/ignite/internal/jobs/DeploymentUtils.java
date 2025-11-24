@@ -45,6 +45,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.DeployMode;
 import org.apache.ignite.rest.client.model.DeploymentStatus;
 import org.apache.ignite.rest.client.model.UnitStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for deploying jobs.
@@ -106,7 +107,7 @@ public class DeploymentUtils {
     }
 
     /** Run deployed job. */
-    public static <T, R> R runJob(IgniteCluster cluster, Class<? extends ComputeJob<T, R>> jobClass, T arg) {
+    public static <T, R> R runJob(IgniteCluster cluster, Class<? extends ComputeJob<T, R>> jobClass, @Nullable T arg) {
         try (IgniteClient client = cluster.createClient()) {
             JobDescriptor<T, R> job = JobDescriptor.builder(jobClass)
                     .units(JOBS_UNIT)

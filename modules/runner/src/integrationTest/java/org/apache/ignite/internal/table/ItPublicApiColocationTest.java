@@ -69,7 +69,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
      * Check colocation by one column PK and explicit colocation key for all types.
      */
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
-    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Mode.EXCLUDE)
     public void colocationOneColumn(ColumnType type) {
         String sqlType = SqlTestUtils.toSqlType(type);
         String createTableScript = String.join(";",
@@ -121,8 +121,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
      */
     @CartesianTest
     public void colocationTwoColumns(
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
-            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
     ) {
         String sqlType0 = SqlTestUtils.toSqlType(t0);
         String sqlType1 = SqlTestUtils.toSqlType(t1);

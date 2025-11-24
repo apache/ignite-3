@@ -51,6 +51,7 @@ public final class SqlOperationContext {
     private final @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
     private final @Nullable Consumer<Throwable> errorListener;
     private final @Nullable String userName;
+    private final @Nullable Long topologyVersion;
 
     /**
      * Private constructor, used by a builder.
@@ -65,7 +66,8 @@ public final class SqlOperationContext {
             @Nullable String defaultSchemaName,
             @Nullable Consumer<QueryTransactionWrapper> txUsedListener,
             @Nullable Consumer<Throwable> errorListener,
-            @Nullable String userName
+            @Nullable String userName,
+            @Nullable Long topologyVersion
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -77,6 +79,7 @@ public final class SqlOperationContext {
         this.txUsedListener = txUsedListener;
         this.errorListener = errorListener;
         this.userName = userName;
+        this.topologyVersion = topologyVersion;
     }
 
     public static Builder builder() {
@@ -128,6 +131,15 @@ public final class SqlOperationContext {
      */
     public @Nullable QueryTransactionContext txContext() {
         return txContext;
+    }
+
+    /**
+     * Returns topology version with query was mapped on.
+     * 
+     * <p>May be null, if the node is the initiator.
+     */
+    public @Nullable Long topologyVersion() {
+        return topologyVersion;
     }
 
     /**
@@ -186,6 +198,7 @@ public final class SqlOperationContext {
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
         private @Nullable String userName;
+        private @Nullable Long topologyVersion;
 
         public Builder cancel(@Nullable QueryCancel cancel) {
             this.cancel = requireNonNull(cancel);
@@ -237,6 +250,11 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder topologyVersion(@Nullable Long topologyVersion) {
+            this.topologyVersion = topologyVersion;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -249,7 +267,8 @@ public final class SqlOperationContext {
                     defaultSchemaName,
                     txUsedListener,
                     errorListener,
-                    userName
+                    userName,
+                    topologyVersion
             );
         }
     }

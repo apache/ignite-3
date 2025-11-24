@@ -113,7 +113,6 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      */
     @Test
     public void testBatchUpdateException() throws SQLException {
-
         stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
 
         stmt.addBatch("insert into test2 (id, val) values (1, 'val1')");

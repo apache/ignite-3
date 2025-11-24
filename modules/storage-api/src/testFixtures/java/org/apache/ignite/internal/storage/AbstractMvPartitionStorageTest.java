@@ -328,6 +328,17 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
+    void testRepeatedAddWriteAndAbortWriteForSameKey() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        abortWrite(ROW_ID, txId);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        abortWrite(ROW_ID, txId);
+
+        assertNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
     void testAbortWriteForNotExistingVersionChain() {
         HybridTimestamp beforeAbortTimestamp = clock.now();
 
@@ -473,6 +484,56 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNull(read(rowId, commitTimestamp.subtractPhysicalTime(1)));
         assertThat(read(rowId, commitTimestamp), isRow(binaryRow));
         assertThat(read(rowId, commitTimestamp.addPhysicalTime(1)), isRow(binaryRow));
+    }
+
+    @Test
+    void testRepeatedAddWriteAndCommitWriteForSameKey() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testTripleAddWriteFollowedByCommitWrite() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+        addWrite(ROW_ID, TABLE_ROW, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testQuadrupleAddWriteFollowedByCommitWrite() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testReplaceWithAddWriteInNotTheMostRecentWrite() {
+        UUID txId2 = newTransactionId();
+        RowId rowId2 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(rowId2, TABLE_ROW, txId2);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+        commitWrite(rowId2, clock.now(), txId2);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+        assertNotNull(read(rowId2, clock.now()));
     }
 
     @Test

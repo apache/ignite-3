@@ -40,11 +40,11 @@ public class GroupingAccumulatorTest {
 
     @Test
     public void testFactory() {
-        assertThrows(AssertionError.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> GroupingAccumulator.newAccumulator(List.of()).get(),
                 "GROUPING function must have at least one argument"
         );
-        assertThrows(AssertionError.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> GroupingAccumulator.newAccumulator(IntStream.range(0, 64).boxed().collect(Collectors.toList())).get(),
                 "GROUPING function with more than 63 arguments is not supported"
         );
@@ -57,7 +57,7 @@ public class GroupingAccumulatorTest {
         Accumulator acc = newCall(List.of(0));
         AccumulatorsState result = newState();
 
-        assertThrows(AssertionError.class, () -> acc.end(newState(), result));
+        assertThrows(IllegalStateException.class, () -> acc.end(newState(), result));
 
         assertNull(result.get());
     }
@@ -69,7 +69,7 @@ public class GroupingAccumulatorTest {
         AccumulatorsState state = newState();
 
         assertEquals(IgniteTypeFactory.INSTANCE.createSqlType(SqlTypeName.BIGINT), acc.returnType(IgniteTypeFactory.INSTANCE));
-        assertThrows(AssertionError.class, () -> acc.add(state, new Object[]{1}));
+        assertThrows(UnsupportedOperationException.class, () -> acc.add(state, new Object[]{1}));
 
         assertFalse(state.hasValue());
     }
