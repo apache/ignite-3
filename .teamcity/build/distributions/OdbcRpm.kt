@@ -15,6 +15,7 @@ object OdbcRpm : BuildType({
 
     params {
         param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
+        hiddenText("AGENT_NUMBER", "")
     }
 
     steps {
