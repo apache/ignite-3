@@ -39,7 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1800,16 +1800,28 @@ public class NodeImpl implements Node, RaftServerService {
      * ReadIndex response closure
      */
     public static class QuorumConfirmedHeartbeatResponseClosure<T extends Message> extends RpcResponseClosureAdapter<AppendEntriesResponse>{
+        /** Accepts the success flag and response message. */
         final Function<Boolean, T> responseBuilder;
-        final Consumer<T> responseConsumer;
+
+        /** Accepts the success flag and builds the response message. */
+        final BiConsumer<Boolean, T> responseConsumer;
+
         final int quorum;
         final int failPeersThreshold;
         int ackSuccess;
         int ackFailures;
         boolean isDone;
 
+        /**
+         * Contructor.
+         *
+         * @param responseConsumer Accepts the success flag and response message.
+         * @param responseBuilder Accepts the success flag and builds the response message.
+         * @param quorum The quorum size.
+         * @param peersCount The total number of peers.
+        */
         QuorumConfirmedHeartbeatResponseClosure(
-                final Consumer<T> responseConsumer,
+                final BiConsumer<Boolean, T> responseConsumer,
                 final Function<Boolean, T> responseBuilder,
                 final int quorum,
                 final int peersCount
@@ -1839,15 +1851,13 @@ public class NodeImpl implements Node, RaftServerService {
             // Include leader self vote yes.
             if (this.ackSuccess + 1 >= this.quorum) {
                 T response = responseBuilder.apply(true);
-                responseConsumer.accept(response);
+                responseConsumer.accept(true, response);
                 this.isDone = true;
-                LOG.info("qqq got confirmation from quorum");
             }
             else if (this.ackFailures >= this.failPeersThreshold) {
                 T response = responseBuilder.apply(false);
-                responseConsumer.accept(response);
+                responseConsumer.accept(false, response);
                 this.isDone = true;
-                LOG.info("qqq got rejected by quorum");
             }
         }
     }
@@ -1892,7 +1902,7 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             switch (this.state) {
                 case STATE_LEADER:
-                    getLeaderFromLeader(done);
+                    getLeaderFromLeader(request, done);
                     break;
                 case STATE_FOLLOWER:
                     getLeaderFromFollower(request, done);
@@ -1928,7 +1938,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.rpcClientService.getLeaderAndTerm(leaderId, newRequest, -1, closure);
     }
 
-    private void getLeaderFromLeader(RpcResponseClosure<GetLeaderResponse> closure) {
+    private void getLeaderFromLeader(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> closure) {
        PeerId leaderId = this.leaderId;
 
        if (leaderId == null || leaderId.isEmpty()) {
@@ -1960,16 +1970,19 @@ public class NodeImpl implements Node, RaftServerService {
                 Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
                 final QuorumConfirmedHeartbeatResponseClosure<GetLeaderResponse> heartbeatDone =
                         new QuorumConfirmedHeartbeatResponseClosure<>(
-                            response -> {
-                                closure.setResponse(response);
-                                closure.run(Status.OK());
+                            (success, response) -> {
+                                if (success) {
+                                    closure.setResponse(response);
+                                    closure.run(Status.OK());
+                                } else {
+                                    getLeaderFromFollower(request, closure);
+                                }
                             },
                             success -> respBuilder.build(),
                             quorum,
                             peers.size()
                         );
                 // Send heartbeat requests to followers
-                LOG.info("qqq sending heartbeats to confirm leadership for getLeader");
                 for (final PeerId peer : peers) {
                     if (peer.equals(this.serverId)) {
                         continue;
@@ -2057,7 +2070,7 @@ public class NodeImpl implements Node, RaftServerService {
                 Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
                 final QuorumConfirmedHeartbeatResponseClosure<ReadIndexResponse> heartbeatDone =
                     new QuorumConfirmedHeartbeatResponseClosure<>(
-                            response -> {
+                            (success, response) -> {
                                 closure.setResponse(response);
                                 closure.run(Status.OK());
                             },

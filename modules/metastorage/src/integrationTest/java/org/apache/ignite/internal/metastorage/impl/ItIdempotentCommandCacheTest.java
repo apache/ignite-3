@@ -73,7 +73,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
@@ -81,11 +80,8 @@ import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -114,7 +110,6 @@ import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -122,7 +117,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Integration tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
+ * Integration tests for idempotency of {@link IdempotentCommand}.
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
@@ -158,6 +153,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     private static class Node implements AutoCloseable {
         private static final IgniteLogger log = Loggers.forClass(Node.class);
+
         ClusterService clusterService;
 
         Loza raftManager;
@@ -244,15 +240,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     new NoOpFailureManager(),
                     readOperationForCompactionTracker,
                     scheduledExecutorService
-            ) {
-                @Override
-                public boolean invoke(Condition condition, List<Operation> success, List<Operation> failure, KeyValueUpdateContext context,
-                        CommandId commandId) {
-                    var res = super.invoke(condition, success, failure, context, commandId);
-                    log.info("qqq invoke completed, node=" + clusterService.nodeName());
-                    return res;
-                }
-            });
+            ));
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -325,11 +313,11 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             boolean res = e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
 
             if (!res) {
-                log.info("qqq checkValueInStorage failed, node=" + clusterService.nodeName()
+                log.warn("Test: checkValueInStorage found no value [node=" + clusterService.nodeName()
                         + ", empty=" + (e == null ? "null" : e.empty())
                         + ", tombstone=" + (e == null ? "null" : e.tombstone())
-                        + ", equals=" + (e == null ? "null" : Arrays.equals(e.value(), testValueExpected))
-                        + ", value=" + (e == null ? "null" : Arrays.toString(e.value())));
+                        + ", value=" + (e == null ? "null" : Arrays.toString(e.value()))
+                        + "].");
             }
 
             return res;
@@ -409,7 +397,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
     }
 
-    @RepeatedTest(100)
+    @Test
     public void testIdempotentInvokeAfterLeaderChange() {
         InvokeCommand invokeCommand = (InvokeCommand) buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE);
 
@@ -419,7 +407,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         Node currentLeader = leader(raftClient);
 
-        log.info("qqq current leader is " + currentLeader.clusterService.nodeName());
+        log.info("Test: current leader is " + currentLeader.clusterService.nodeName());
 
         assertThat(fut, willCompleteSuccessfully());
         assertTrue(fut.join());
@@ -520,19 +508,13 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     }
 
     private Node leader(RaftGroupService raftClient) {
-        CompletableFuture<Void> refreshLeaderFut = raftClient.refreshLeader();
-        CompletableFuture<LeaderWithTerm> refreshLeaderFut0 = raftClient.refreshAndGetLeaderWithTerm();
+        CompletableFuture<LeaderWithTerm> refreshLeaderFut = raftClient.refreshAndGetLeaderWithTerm();
 
         assertThat(refreshLeaderFut, willCompleteSuccessfully());
 
-        String currentLeader = raftClient.leader().consistentId();
+        String currentLeader = refreshLeaderFut.join().leader().consistentId();
 
-        assertThat(refreshLeaderFut0, willCompleteSuccessfully());
-        String cl = refreshLeaderFut0.join().leader().consistentId();
-
-        log.info("qqq current leader: {}, on client: {}, on client consistent id: {}", currentLeader, raftClient.leader(), raftClient.leader().consistentId());
-
-        return nodes.stream().filter(n -> n.clusterService.nodeName().equals(cl)).findAny().orElseThrow();
+        return nodes.stream().filter(n -> n.clusterService.nodeName().equals(currentLeader)).findAny().orElseThrow();
     }
 
     private RaftGroupService raftClient() {
