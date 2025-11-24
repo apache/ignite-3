@@ -332,7 +332,8 @@ public class PartitionReplicaLifecycleManager extends
                         topologyService,
                         catalogService,
                         failureProcessor,
-                        partitionOperationsExecutor
+                        partitionOperationsExecutor,
+                        replicaMgr
                 )
         );
     }

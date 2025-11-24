@@ -59,7 +59,8 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
             mock(PartitionTxStateAccess.class),
             mock(CatalogService.class),
             mock(FailureProcessor.class),
-            mock(Executor.class)
+            mock(Executor.class),
+            mock(LogStorageAccess.class)
     );
 
     @Test

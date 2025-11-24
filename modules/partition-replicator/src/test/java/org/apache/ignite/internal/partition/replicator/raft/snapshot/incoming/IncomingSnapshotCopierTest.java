@@ -86,6 +86,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartiti
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -198,6 +200,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private final RowId nextRowIdToBuildIndex = new RowId(PARTITION_ID);
 
     private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
+
+    private final ReplicaManager replicaManager = mock(ReplicaManager.class);
 
     @BeforeEach
     void setUp(
@@ -396,7 +400,9 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 catalogService,
                 mock(FailureProcessor.class),
                 executorService,
-                0
+                0,
+                // TODO: IGNITE-26849 Добавить проверку что вызывается метод в каком-то тесте
+                new LogStorageAccessImpl(replicaManager)
         );
 
         storage.addMvPartition(TABLE_ID, spy(new PartitionMvStorageAccessImpl(

@@ -161,6 +161,7 @@ import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
@@ -2682,7 +2683,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txStateAccess,
                 catalogService,
                 failureProcessor,
-                incomingSnapshotsExecutor
+                incomingSnapshotsExecutor,
+                new LogStorageAccessImpl(replicaMgr)
         );
 
         snapshotStorage.addMvPartition(internalTable.tableId(), partitionAccess);

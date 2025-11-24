@@ -41,6 +41,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -72,6 +73,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
             @Mock OutgoingSnapshotsManager outgoingSnapshotsManager,
             @Mock TopologyService topologyService,
             @Mock CatalogService catalogService,
+            @Mock ReplicaManager replicaManager,
             @InjectExecutorService ScheduledExecutorService scheduler,
             @InjectExecutorService ExecutorService executor
     ) {
@@ -92,7 +94,8 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 topologyService,
                 catalogService,
                 mock(FailureProcessor.class),
-                executor
+                executor,
+                replicaManager
         );
 
         storageIndexTracker = new PendingComparableValuesTracker<>(0L);
