@@ -741,6 +741,9 @@ public class ErrorGroups {
 
         /** Error when node names are not in valid set. */
         public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Error when forwarding disaster recovery request to another node failed. */
+        public static final int REQUEST_FORWARD_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Embedded API error group. */

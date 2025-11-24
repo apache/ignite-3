@@ -129,6 +129,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryRequestForwardException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalNodesException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
@@ -1301,7 +1302,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                     if (response.errorMessage() != null) {
                         String errorMessage = response.errorMessage();
-                        throw new DisasterRecoveryException(PARTITION_STATE_ERR,  errorMessage == null ? "Unknown error" : errorMessage);
+                        throw new DisasterRecoveryRequestForwardException(targetNodeName, errorMessage == null ? "" : errorMessage);
                     }
                     return null;
                 });
