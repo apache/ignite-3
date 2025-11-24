@@ -2803,6 +2803,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 || !nodeProperties.colocationEnabled()
                                         && txStatePartitionStorage.lastAppliedIndex() == TxStatePartitionStorage.REBALANCE_IN_PROGRESS) {
                             if (nodeProperties.colocationEnabled()) {
+                                destroyReplicationProtocolStorages(
+                                        new ZonePartitionId(table.zoneId(), partitionId),
+                                        table,
+                                        false
+                                );
+
                                 return internalTable.storage().clearPartition(partitionId);
                             } else {
                                 return allOf(
@@ -3144,22 +3150,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
     }
 
-    private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableViewInternal table, boolean destroyDurably) {
+    private void destroyReplicationProtocolStorages(
+            ReplicationGroupId replicationGroupId,
+            TableViewInternal table,
+            boolean destroyDurably
+    ) {
         var internalTbl = (InternalTableImpl) table.internalTable();
 
-        destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile(), destroyDurably);
+        destroyReplicationProtocolStorages(replicationGroupId, internalTbl.storage().isVolatile(), destroyDurably);
     }
 
     private void destroyReplicationProtocolStorages(
-            TablePartitionId tablePartitionId,
+            ReplicationGroupId replicationGroupId,
             boolean isVolatileStorage,
             boolean destroyDurably
     ) {
         try {
             if (destroyDurably) {
-                replicaMgr.destroyReplicationProtocolStoragesDurably(tablePartitionId, isVolatileStorage);
+                replicaMgr.destroyReplicationProtocolStoragesDurably(replicationGroupId, isVolatileStorage);
             } else {
-                replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, isVolatileStorage);
+                replicaMgr.destroyReplicationProtocolStorages(replicationGroupId, isVolatileStorage);
             }
         } catch (NodeStoppingException e) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
