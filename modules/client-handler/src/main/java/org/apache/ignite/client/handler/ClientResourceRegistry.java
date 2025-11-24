@@ -26,6 +26,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Per-connection resource registry.
@@ -140,6 +141,11 @@ public class ClientResourceRegistry {
         if (ex != null) {
             throw ex;
         }
+    }
+
+    @TestOnly
+    public int size() {
+        return res.size();
     }
 
     /**

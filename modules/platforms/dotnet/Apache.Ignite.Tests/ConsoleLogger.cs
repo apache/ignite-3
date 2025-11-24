@@ -18,30 +18,34 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
-/// Console logger for tests. We don't use <see cref="Microsoft.Extensions.Logging.Console.ConsoleLogger"/> because it is asynchronous,
-/// which means the log messages may not correspond to the current test.
+/// Console logger for tests.
 /// </summary>
 public class ConsoleLogger : ILogger, ILoggerFactory
 {
     private readonly string _categoryName;
     private readonly LogLevel _minLevel;
+    private readonly ConcurrentQueue<string> _entries;
 
     public ConsoleLogger(LogLevel minLevel)
-        : this(string.Empty, minLevel)
+        : this(new(), string.Empty, minLevel)
     {
         // No-op.
     }
 
-    public ConsoleLogger(string categoryName, LogLevel minLevel)
+    private ConsoleLogger(ConcurrentQueue<string> entries, string categoryName, LogLevel minLevel)
     {
+        _entries = entries;
         _categoryName = categoryName;
         _minLevel = minLevel;
     }
+
+    public bool AutoFlush { get; set; }
 
     public void Log<TState>(
         LogLevel logLevel,
@@ -69,7 +73,20 @@ public class ConsoleLogger : ILogger, ILoggerFactory
             sb.AppendFormat(CultureInfo.InvariantCulture, " (exception: {0})", exception);
         }
 
-        Console.WriteLine(sb.ToString());
+        _entries.Enqueue(sb.ToString());
+
+        if (AutoFlush)
+        {
+            Flush();
+        }
+    }
+
+    public void Flush()
+    {
+        while (_entries.TryDequeue(out var s))
+        {
+            Console.WriteLine(s);
+        }
     }
 
     public bool IsEnabled(LogLevel logLevel) => logLevel >= _minLevel;
@@ -78,12 +95,9 @@ public class ConsoleLogger : ILogger, ILoggerFactory
         where TState : notnull
         => new DisposeAction(() => { });
 
-    public void Dispose()
-    {
-        // No-op.
-    }
+    public void Dispose() => Flush();
 
-    public ILogger CreateLogger(string categoryName) => new ConsoleLogger(categoryName, _minLevel);
+    public ILogger CreateLogger(string categoryName) => new ConsoleLogger(_entries, categoryName, _minLevel);
 
     public void AddProvider(ILoggerProvider provider) => throw new NotSupportedException();
 

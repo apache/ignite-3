@@ -46,6 +46,7 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-page-memory')

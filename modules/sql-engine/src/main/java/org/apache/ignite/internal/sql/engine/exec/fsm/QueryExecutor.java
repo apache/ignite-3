@@ -331,8 +331,6 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                     return ddlPlans;
                 })
                 .thenCompose(ddlPlans -> {
-                    parent.cancel.throwIfCancelled();
-
                     // First-statement-error case.
                     if (ddlPlans.isEmpty()) {
                         Iterator<Query> it = queries.iterator();
@@ -346,6 +344,14 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                         }
 
                         return failedFuture(th);
+                    }
+
+                    try {
+                        parent.cancel.throwIfCancelled();
+                    } catch (QueryCancelledException exception) {
+                        queries.forEach(query -> query.terminateExceptionally(exception));
+
+                        throw exception;
                     }
 
                     return executionService.executeDdlBatch(ddlPlans, scriptTxContext::updateObservableTime)
@@ -385,7 +391,17 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                     query.moveTo(ExecutionPhase.EXECUTING);
 
                                     AsyncDataCursor<InternalSqlRow> dataCursor = dataCursorIterator.next();
-                                    AsyncSqlCursor<InternalSqlRow> currentCursor = createAndSaveSqlCursor(query, dataCursor);
+                                    AsyncSqlCursor<InternalSqlRow> currentCursor;
+                                    try {
+                                        currentCursor = createAndSaveSqlCursor(query, dataCursor);
+                                    } catch (QueryCancelledException exception) {
+                                        // Fail current query.
+                                        query.terminateExceptionally(exception);
+
+                                        // Save the exception and fail all following with the same cause.
+                                        th = exception;
+                                        continue;
+                                    }
 
                                     if (cursorRef != null) {
                                         cursorRef.complete(currentCursor);
@@ -398,6 +414,13 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                     }
 
                                     currentCursor.onClose().thenRun(query::terminate);
+                                }
+
+                                // Query was cancelled before we have chance to create first cursor.
+                                if (firstCursor == null) {
+                                    assert th != null;
+
+                                    return CompletableFuture.<AsyncSqlCursor<InternalSqlRow>>failedFuture(th);
                                 }
 
                                 return completedFuture(firstCursor);

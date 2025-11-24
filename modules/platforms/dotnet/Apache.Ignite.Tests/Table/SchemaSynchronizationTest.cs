@@ -341,6 +341,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
+    [Timeout(60_000)] // Slow on Windows on CI.
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
     public async Task TestSchemaUpdateWhileStreaming(
         [Values(true, false)] bool insertNewColumn,
