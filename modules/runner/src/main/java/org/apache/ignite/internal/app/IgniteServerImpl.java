@@ -162,7 +162,7 @@ public class IgniteServerImpl implements IgniteServer {
             throw new NodeStartException("Node name must not be empty.");
         }
         if (configPath == null && configString == null) {
-            throw new NodeStartException("Config path or config string must not be null");
+            throw new NodeStartException("Either config path or config string must not be null");
         }
         if (configPath != null && Files.notExists(configPath)) {
             throw new NodeStartException("Config file doesn't exist");

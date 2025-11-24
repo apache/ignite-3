@@ -132,7 +132,7 @@ public interface IgniteServer {
      * @return Node instance.
      */
     static Builder builder(String nodeName, Path configPath, Path workDir) {
-        return new Builder(nodeName, workDir).configPath(configPath);
+        return new Builder(nodeName, workDir, configPath);
     }
 
     /**
@@ -144,7 +144,7 @@ public interface IgniteServer {
      * @return Node instance.
      */
     static Builder builder(String nodeName, String configString, Path workDir) {
-        return new Builder(nodeName, workDir).configString(configString);
+        return new Builder(nodeName, workDir, configString);
     }
 
     /**
@@ -235,25 +235,22 @@ public interface IgniteServer {
         private final String nodeName;
         private final Path workDir;
 
-        private @Nullable Path configPath;
-        private @Nullable String configString;
+        private Path configPath;
+        private String configString;
 
         private @Nullable ClassLoader serviceLoaderClassLoader;
         private Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
 
-        private Builder(String nodeName, Path workDir) {
+        private Builder(String nodeName, Path workDir, Path configPath) {
             this.nodeName = nodeName;
             this.workDir = workDir;
-        }
-
-        public Builder configPath(@Nullable Path configPath) {
             this.configPath = configPath;
-            return this;
         }
 
-        public Builder configString(@Nullable String configString) {
+        private Builder(String nodeName, Path workDir, String configString) {
+            this.nodeName = nodeName;
+            this.workDir = workDir;
             this.configString = configString;
-            return this;
         }
 
         /**
