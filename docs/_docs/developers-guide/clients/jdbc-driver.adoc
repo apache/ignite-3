@@ -67,8 +67,6 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 ** `connectionTimeZone` - Client connection time-zone ID. This property can be used by the client to change the time zone of the session on the server. Affects the interpretation of dates in queries that do not specify the time zone explicitly. If not set, system default on client timezone will be used.
 ** `queryTimeout` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
 ** `connectionTimeout` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
-** `reconnectThrottlingPeriod` - Reconnect throttling period, in milliseconds. 0 means there is no limit. Default value: `30_000`.
-** `reconnectThrottlingRetries` - Reconnect throttling retries. 0 means there is no limit. Default value: `3`.
 ** `username` - username for basic authentication to the cluster.
 ** `password` - user password for basic authentication to the cluster.
 ** `sslEnabled` - Determines if SSL is enabled. Possible values: `true`, `false`. Default value: `false`
