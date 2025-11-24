@@ -1175,7 +1175,6 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 failureManager,
                 partitionReplicaLifecycleManager,
-                nodeProperties,
                 systemViewManager
         );
 

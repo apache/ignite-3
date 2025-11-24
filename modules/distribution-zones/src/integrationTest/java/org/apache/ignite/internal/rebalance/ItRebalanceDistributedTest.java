@@ -142,7 +142,6 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -870,7 +869,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
 
-        Set<Assignment> union = RebalanceUtil.union(assignmentsBeforeRebalance, newAssignment);
+        Set<Assignment> union = ZoneRebalanceUtil.union(assignmentsBeforeRebalance, newAssignment);
 
         // Check that raft clients on all nodes were updated with the new list of peers.
         Predicate<Node> isNodeInReplicationGroup = n -> isNodeInAssignments(n, union);
