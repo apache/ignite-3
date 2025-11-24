@@ -12,54 +12,543 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-= Apache Ignite 3
+= Client Configurations
 
-Apache Ignite 3 is the next step of development of Apache Ignite, reworking the product from its core to bring it to a new era of interconnected networks and fast-paced and fast scaling environments. This page helps you to quickly see the improvements over Ignite 2.
+Apache Ignite 3 clients are lightweight clients that connect to the cluster via a standard socket connection. It does not become a part of the cluster topology, never holds any data, and is not used as a destination for compute calculations.
 
-== Core Improvements
+== Thin Client Features
+The following table outlines features supported by each client.
 
-Ignite core features have been reworked to better align with the most common usages.
+:yes: pass:quotes[[.checkmark]#yes#]
 
-=== Streamlined Tables
+[%header,format=csv,cols="2,1,1,1"]
+|===
+include::thin-client-comparison.csv[]
+|===
 
-In Ignite 2, data was stored in "Caches" in Binary Object format. To avoid discrepancies in SQL and other APIs, Ignite 3 was changed to directly work with both SQL and Key-Value API. So, data is now stored in "Tables".
+== Installation
 
-Due to the way data was stored in Ignite 2, the same storage was represented by multiple objects with separate schemas. This could lead to issues in configuring the relationships and potential loss of data consistency. In Ignite 3, all objects are mapped to the same schema. This way you only have one point of interaction and a universally recognized API, regardless of what you store and what your goals are.
+=== C# Client
 
-=== Expanded and Ubiquitous Transactions
+C# client is available via NuGet. To add it, use the `add package` command:
 
-Support for transactions in Ignite 2 required changing the atomicity of the cache and worked at the cost of cache performance. Transaction configuration was equally tricky, requiring the correct concurrency and isolation configuration to achieve the best results. Transactions support in Ignite 3 is vastly improved:
+----
+dotnet add package Apache.Ignite --version 3.0.0-beta1
+----
 
-- All tables are transactional by default, with no major effect on performance
-- Both SQL and key-value transactions are supported
-- All transactions are MVCC based, ensuring the lack of deadlocks
-- All transactions are serializable
-- New read-only transactions are introduced, not requiring a lock on data
+=== C++ Client
 
-=== Simpler Data Collocation and Distribution
+The source code of the C++ client comes with the Apache Ignite 3 distribution. To build it, use the following commands:
 
-Ignite 2 had multiple ways to handle data distribution in the cluster - data affinity, backup configuration, baseline topology, etc. The configuration you need may be difficult to find, and it was hard to understand how configurations were interacting with each other. Ignite 3 combines all properties related to data distribution into the distribution zones. In distribution zone configuration, you set up how you want to store data and where. Data collocation is also tied to distribution zones, all you need to specify is the key you want to collocate data by.
 
-Ignite 3 removes custom affinity functions and instead uses the rendezvous hashing algorithm to reliably deliver consistent data distribution. Unlike in Ignite 2, you cannot create custom affinity function. This was a powerful functionality, but slight issues with custom implementation could cause security and stability risks. Instead, most cases that previously required custom affinity can now be handled safely and securely by link:sql-reference/distribution-zones[distribution zones].
+[tabs]
+--
+tab:Windows[]
+[source,bat]
+----
+mkdir cmake-build-release
+cd cmake-build-release
+conan install .. --build=missing -s build_type=Release
+cmake .. -DENABLE_TESTS=OFF
+cmake --build . -j8
+----
 
-== Better Clients
+tab:Linux[]
+[source,bash,subs="attributes,specialchars"]
+----
+mkdir cmake-build-release
+cd cmake-build-release
+conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libstdc++11
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j8
+----
 
-Ignite 3 dispenses with the concept of thick clients, instead providing thin clients for all interactions with the cluster. With Ignite 3 clients, your applications do not need to get the whole Ignite application to handle operations.
+tab:MacOS[]
+[source,bash,subs="attributes,specialchars"]
+----
+mkdir cmake-build-release
+cd cmake-build-release
+conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libc++
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j8
+----
 
-The option to start Ignite from code as a client node remains, but this mode of operation is no longer the primary way to work with the cluster. This is now called running Ignite in Embedded mode.
+--
 
-== Finer Control over Distributed Computing
 
-Ignite 3 distributed computing API extends what was possible in Ignite 2. All features of Ignite 2 distributed computing are kept, and new APIs were added to keep active track of your job execution queues and job failover.
 
-== Management Improvements
 
-Ignite 2 management tools provide access to all of its features, but in a number of areas it was difficult to get to specific parts of configuration, or it could be less transparent in where to configure the specific property.
 
-Ignite 3 configuration is provided in lightweight and human-readable HOCON format, which is easy to both understand and edit. Configuration is also split between cluster-wide and individual node configuration, making each of them easier to manage.
+== Partition Awareness
 
-=== Management Tools
+In Apache Ignite 3, partition awareness is enabled automatically for all clients.
 
-Over its lifetime, Ignite 2 collected a number of management scripts, each having a separate purpose. This could lead to confusion when using the scripts to configure your cluster, or having to use multiple different scripts to configure something specific. The scripts were also part of the distribution.
+Data in the cluster is distributed between the nodes in a balanced manner for scalability and performance reasons. Each cluster node maintains a subset of the data, and the partition distribution map, which is used to determine the node that keeps the primary/backup copy of requested entries.
 
-Ignite 3 provides a brand-new management tool that can communicate with any node in the cluster to seamlessly apply the configuration, and provides you with an option to work in interactive mode with command autocomplete. This new tool is also provided as a separate distribution, so that it can be set up on any machine that has access to the node address.
+Partition awareness allows the client to send query requests directly to the node that owns the queried data.
+
+Without partition awareness, an application that is connected to the cluster via a client would execute all queries and operations via a single server node that acts as a proxy for the incoming requests.
+These operations would then be re-routed to the node that stores the data that is being requested.
+This would result in a bottleneck that could prevent the application from scaling linearly.
+
+image::images/partitionawareness01.png[Without Partition Awareness]
+
+Notice how queries must pass through the proxy server node, where they are routed to the correct node.
+
+With partition awareness in place, the client can directly route queries and operations to the primary nodes that own the data required for the queries.
+This eliminates the bottleneck, allowing the application to scale more easily.
+
+image::images/partitionawareness02.png[With Partition Awareness]
+
+
+
+
+== Connecting to Cluster
+
+To initialize a client, use the IgniteClient class, and provide it with the configuration:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+try (IgniteClient client = IgniteClient.builder()
+  .addresses("127.0.0.1:10800")
+  .build()
+) {
+  // Your code goes here
+}
+----
+
+tab:.NET[]
+[source, csharp]
+----
+var clientCfg = new IgniteClientConfiguration
+{
+  Endpoints = { "127.0.0.1" }
+};
+using var client = await IgniteClient.StartAsync(clientCfg);
+----
+
+tab:C++[]
+[source, cpp]
+----
+using namespace ignite;
+
+ignite_client_configuration cfg{"127.0.0.1"};
+auto client = ignite_client::start(cfg, std::chrono::seconds(5));
+----
+
+--
+
+
+
+
+== Table API
+
+To execute table operations on a specific table, you need to get a specific view of the table and use one of its methods. Currently, there are 4 kind of views that can be used to operate table in different ways:
+
+=== Getting a Table Instance
+
+First, get an instance of the table. To obtain an instance of table, use the `IgniteTables.table(String)` method. This method assumes a table with the specified name exists. You can also use `IgniteTables.tables()` method to list all existing tables.
+
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+IgniteTables tableApi = client.tables();
+List<Table> existingTables = tableApi.tables();
+Table firstTable = existingTables.get(0);
+
+Table myTable = tableApi.table("MY_TABLE");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+var existingTables = await Client.Tables.GetTablesAsync();
+var firstTable = existingTables[0];
+
+var myTable = await Client.Tables.GetTableAsync("MY_TABLE");
+----
+
+tab:C++[]
+[source, cpp]
+----
+using namespace ignite;
+
+auto table_api = client.get_tables();
+std::vector<table> existing_tables = table_api.get_tables();
+table first_table = existing_tables.front();
+
+std::optional<table> my_table = table_api.get_table("MY_TABLE);
+----
+--
+
+=== Basic Table Operations
+
+Once you've got a table you need to get a specific view to choose how you want to operate table records.
+
+==== Binary Record View
+
+A binary record view. It can be used to operate table tuples directly.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+RecordView<Tuple> view = table.recordView();
+
+Tuple fullRecord = Tuple.create()
+  .set("id", 42)
+  .set("name", "John Doe");
+
+view.upsert(null, fullRecord);
+
+Tuple keyRecord = Tuple.create().set("id", 42);
+
+Tuple resRecord = view.get(null, keyRecord);
+
+assert resRecord.columnCount() == 2;
+assert resRecord.intValue("id") == 42;
+assert resRecord.stringValue("name").equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IRecordView<IIgniteTuple> view = table.RecordBinaryView;
+
+IIgniteTuple fullRecord = new IgniteTuple
+{
+  ["id"] = 42,
+  ["name"] = "John Doe"
+};
+
+await view.UpsertAsync(transaction: null, fullRecord);
+
+IIgniteTuple keyRecord = new IgniteTuple { ["id"] = 42 };
+(IIgniteTuple value, bool hasValue) = await view.GetAsync(transaction: null, keyRecord);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.FieldCount == 2);
+Debug.Assert(value["id"] as int? == 42);
+Debug.Assert(value["name"] as string == "John Doe");
+----
+
+tab:C++[]
+[source, cpp]
+----
+record_view<ignite_tuple> view = table.record_binary_view();
+
+ignite_tuple full_record{
+  {"id", 42},
+  {"name", "John Doe"}
+};
+
+view.upsert(nullptr, record);
+std::optional<ignite_tuple> res_record = view.get(null, {"id", 42});
+
+assert(res_record.has_value());
+assert(res_record->column_count() == 2);
+assert(res_record->get<std::int64_t>("id") == 42);
+assert(res_record->get<std::string>("name") == "John Doe");
+----
+
+--
+
+==== Record View
+
+A record view mapped to a user type. It can be used to operate table using user objects which are mapped to table tuples.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+protected static class Pojo {
+  public long id;
+  public String name;
+
+  public Pojo() {}
+
+  public Pojo(long id) {
+    this.id = id;
+  }
+
+  public Pojo(long id, String name) {
+    this.id = id;
+    this.name = name;
+  }
+}
+
+RecordView<Pojo> pojoView = table.recordView(Mapper.of(Pojo.class));
+
+pojoView.upsert(null, new Pojo(42, "John Doe"));
+Pojo resRecord = pojoView.get(null, new Pojo(42));
+
+assert resRecord.id == 42;
+assert resRecord.name.equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+var pocoView = table.GetRecordView<Poco>();
+
+await pocoView.UpsertAsync(transaction: null, new Poco(42, "John Doe"));
+var (value, hasValue) = await pocoView.GetAsync(transaction: null, new Poco(42));
+
+Debug.Assert(hasValue);
+Debug.Assert(value.Name == "John Doe");
+
+public record Poco(long Id, string? Name = null);
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Record view is not yet supported in C++
+----
+
+--
+
+==== Key-Value Binary View
+
+A binary key-value view. It can be used to operate table using key and value tuples separately.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+Tuple key = Tuple.create().set("id", 42)
+Tuple val = Tuple.create().set("name", "John Doe");
+
+kvView.put(null, key, val);
+Tuple res = kvView.get(null, key);
+
+assert res.columnCount() == 1;
+assert res.stringValue("name").equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IKeyValueView<IIgniteTuple, IIgniteTuple> kvView = table.KeyValueBinaryView;
+
+IIgniteTuple key = new IgniteTuple { ["id"] = 42 };
+IIgniteTuple val = new IgniteTuple { ["name"] = "John Doe" };
+
+await kvView.PutAsync(transaction: null, key, val);
+(IIgniteTuple? value, bool hasValue) = await kvView.GetAsync(transaction: null, key);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.FieldCount == 1);
+Debug.Assert(value["name"] as string == "John Doe");
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Key-value binary view is not yet supported in C++
+----
+
+--
+
+
+==== Key-Value View
+
+A key-value view with user objects. It can be used to operate table using key and value user objects mapped to table tuples.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+protected static class Pojo {
+  public long id;
+  public String name;
+
+  public Pojo() {}
+
+  public Pojo(long id) {
+    this.id = id;
+  }
+
+  public Pojo(String name) {
+    this.name = name;
+  }
+}
+
+KeyValueView<Long, Pojo> pojoView =
+  table.keyValueView(Mapper.of(Long.class), Mapper.of(Pojo.class));
+
+pojoView.put(null, 42, new Pojo("John Doe"));
+Pojo val = pojoView.get(null, 42);
+
+assert val.name.equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IKeyValueView<long, Poco> kvView = table.GetKeyValueView<long, Poco>();
+
+await kvView.PutAsync(transaction: null, 42, new Poco(Id: 0, Name: "John Doe"));
+(Poco? value, bool hasValue) = await kvView.GetAsync(transaction: null, 42);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.Name == "John Doe");
+
+public record Poco(long Id, string? Name = null);
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Key-value view is not yet supported in C++
+----
+
+--
+
+== SQL API
+
+You Apache Ignite Clients provide a SQL API to execute SQL statements. You can read more about supported SQL statements in the link:sql-reference/ddl[SQL Reference] section.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+try (Session session = client.sql().createSession()) {
+  ResultSet resultSet = session.execute(null, "SELECT name from POJO where id = 42");
+
+  SqlRow row = resultSet.next();
+  assert row.stringValue(0).equals("John Doe");
+}
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IResultSet<IIgniteTuple> resultSet = await client.Sql.ExecuteAsync(transaction: null, "select name from tbl where id = ?", 42);
+List<IIgniteTuple> rows = await resultSet.ToListAsync();
+IIgniteTuple row = rows.Single();
+Debug.Assert(row["name"] as string == "John Doe");
+----
+
+tab:C++[]
+[source, cpp]
+----
+// SQL API is not yet supported in C++
+----
+
+--
+
+
+== Transactions
+
+You can use Apache Ignite 3 clients to perform distributed transactions when working with SQL and tables.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+protected static class Account {
+  public long id;
+  public long balance;
+
+  public Account() {}
+
+  public Account(long balance) {
+    this.balance = balance;
+  }
+}
+
+KeyValueView<Long, Account> accounts =
+  table.keyValueView(Mapper.of(Long.class), Mapper.of(Account.class));
+
+accounts.put(null, 42, new Account(16_000));
+
+var tx = client.transactions().begin();
+
+Account account = accounts.get(tx, 42);
+account.balance += 500;
+accounts.put(tx, 42, account);
+
+assert accounts.get(tx, 42).balance == 16_500;
+
+tx.rollback();
+
+assert accounts.get(tx, 42).balance == 16_000;
+----
+
+tab:.NET[]
+[source, csharp]
+----
+var accounts = table.GetKeyValueView<long, Account>();
+await accounts.PutAsync(transaction: null, 42, new Account(16_000));
+
+await using ITransaction tx = await client.Transactions.BeginAsync();
+
+(Account account, bool hasValue) = await accounts.GetAsync(tx, 42);
+account = account with { Balance = account.Balance + 500 };
+
+await accounts.PutAsync(tx, 42, account);
+
+Debug.Assert((await accounts.GetAsync(tx, 42)).Value.Balance == 16_500);
+
+await tx.RollbackAsync();
+
+Debug.Assert((await accounts.GetAsync(null, 42)).Value.Balance == 16_000);
+
+public record Account(decimal Balance);
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Transactions are not yet supported in C++
+----
+
+--
+
+
+== Executing Compute Tasks
+
+Apache Ignite 3 clients support basic compute capabilities. You can execute compute tasks that are already deployed in the cluster.
+
+You can run a task across all cluster nodes or a specific cluster group. The deployment assumes that you create a JAR file with the compute tasks and add the JAR to the cluster nodes' classpath.
+
+The example below shows how to get access to the compute APIs and execute the compute task named `MyTask`:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+String result = client.compute().<String>execute(
+  client.clusterNodes(), "MyTask", "Lorem", "ipsum", 42);
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
+string res = await client.Compute.ExecuteAsync<string>(nodes, "org.foo.bar.MyTask", 42)
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Compute is not yet supported in C++
+----
+
+--
