@@ -378,15 +378,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Incoming RAFT snapshots executor. */
     private final ThreadPoolExecutor incomingSnapshotsExecutor;
 
-    /** Meta storage listener for pending assignments. */
-    private final WatchListener pendingAssignmentsRebalanceListener;
-
-    /** Meta storage listener for stable assignments. */
-    private final WatchListener stableAssignmentsRebalanceListener;
-
-    /** Meta storage listener for switch reduce assignments. */
-    private final WatchListener assignmentsSwitchRebalanceListener;
-
     private final MvGc mvGc;
 
     private final LowWatermark lowWatermark;
@@ -462,7 +453,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaDestroyedListener = this::onZoneReplicaDestroyed;
 
     private final EventListener<CreateTableEventParameters> onTableCreateWithColocationListener = this::loadTableToZoneOnTableCreate;
-    private final EventListener<CreateTableEventParameters> onTableCreateWithoutColocationListener = this::onTableCreate;
     private final EventListener<DropTableEventParameters> onTableDropListener = fromConsumer(this::onTableDrop);
     private final EventListener<CatalogEventParameters> onTableAlterListener = this::onTableAlter;
 
@@ -622,12 +612,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
         incomingSnapshotsExecutor.allowCoreThreadTimeOut(true);
 
-        pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
-
-        stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
-
-        assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
-
         mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
@@ -672,22 +656,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             cleanUpResourcesForDroppedTablesOnRecoveryBusy();
 
-            if (!nodeProperties.colocationEnabled()) {
-                metaStorageMgr.registerPrefixWatch(
-                        new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
-                        pendingAssignmentsRebalanceListener
-                );
-                metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
-                metaStorageMgr.registerPrefixWatch(
-                        new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES),
-                        assignmentsSwitchRebalanceListener
-                );
-            }
-
-            catalogService.listen(
-                    CatalogEvent.TABLE_CREATE,
-                    nodeProperties.colocationEnabled() ? onTableCreateWithColocationListener : onTableCreateWithoutColocationListener
-            );
+            catalogService.listen(CatalogEvent.TABLE_CREATE, onTableCreateWithColocationListener);
             catalogService.listen(CatalogEvent.TABLE_DROP, onTableDropListener);
             catalogService.listen(CatalogEvent.TABLE_ALTER, onTableAlterListener);
 
@@ -705,8 +674,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return recoverTables(recoveryRevision, lowWatermark.getLowWatermark())
-                    .thenCompose(v -> processAssignmentsOnRecovery(recoveryRevision));
+            return recoverTables(recoveryRevision, lowWatermark.getLowWatermark());
         });
     }
 
@@ -1123,68 +1091,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return localNode().id().equals(leaseholderId);
     }
 
-    private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
-        return recoverStableAssignments(recoveryRevision).thenCompose(v -> recoverPendingAssignments(recoveryRevision));
-    }
-
-    private CompletableFuture<Void> recoverStableAssignments(long recoveryRevision) {
-        return handleAssignmentsOnRecovery(
-                new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES),
-                recoveryRevision,
-                (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
-                "stable"
-        );
-    }
-
-    private CompletableFuture<Void> recoverPendingAssignments(long recoveryRevision) {
-        return handleAssignmentsOnRecovery(
-                new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES),
-                recoveryRevision,
-                (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev, true),
-                "pending"
-        );
-    }
-
-    private CompletableFuture<Void> handleAssignmentsOnRecovery(
-            ByteArray prefix,
-            long revision,
-            BiFunction<Entry, Long, CompletableFuture<Void>> assignmentsEventHandler,
-            String assignmentsType
-    ) {
-        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, revision)) {
-            CompletableFuture<?>[] futures = cursor.stream()
-                    .map(entry -> {
-                        if (LOG.isInfoEnabled()) {
-                            LOG.info(
-                                    "Non handled {} assignments for key '{}' discovered, performing recovery",
-                                    assignmentsType,
-                                    new String(entry.key(), UTF_8)
-                            );
-                        }
-
-                        // We use the Meta Storage recovery revision here instead of the entry revision, because
-                        // 'handleChangePendingAssignmentEvent' accesses some Versioned Values that only store values starting with
-                        // tokens equal to Meta Storage recovery revision. In other words, if the entry has a lower revision than the
-                        // recovery revision, there will never be a Versioned Value corresponding to its revision.
-                        return assignmentsEventHandler.apply(entry, revision);
-                    })
-                    .toArray(CompletableFuture[]::new);
-
-            return allOf(futures)
-                    // Simply log any errors, we don't want to block watch processing.
-                    .exceptionally(e -> {
-                        LOG.error("Error when performing assignments recovery", e);
-
-                        return null;
-                    });
-        }
-    }
-
-    private CompletableFuture<Boolean> onTableCreate(CreateTableEventParameters parameters) {
-        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
-                .thenApply(unused -> false);
-    }
-
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
             unregisterMetricsSource(startedTables.get(parameters.tableId()));
@@ -1269,6 +1175,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private CompletableFuture<Void> startLocalPartitionsAndClients(
             CompletableFuture<List<Assignments>> stableAssignmentsFuture,
+            // TODO sanpwc consider removing pendingAssignmentsForPartitions and assignmentsChains
             List<@Nullable Assignments> pendingAssignmentsForPartitions,
             List<@Nullable AssignmentsChain> assignmentsChains,
             TableImpl table,
@@ -1684,17 +1591,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
 
         catalogService.removeListener(CatalogEvent.TABLE_CREATE, onTableCreateWithColocationListener);
-        catalogService.removeListener(CatalogEvent.TABLE_CREATE, onTableCreateWithoutColocationListener);
         catalogService.removeListener(CatalogEvent.TABLE_DROP, onTableDropListener);
         catalogService.removeListener(CatalogEvent.TABLE_ALTER, onTableAlterListener);
-
-        if (!nodeProperties.colocationEnabled()) {
-            metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
-            metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
-            metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
-
-            stopReplicasAndCloseTables(tables);
-        }
     }
 
     @Override
@@ -1738,41 +1636,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return nullCompletedFuture();
-    }
-
-    /**
-     * Stops resources that are related to provided tables.
-     *
-     * @param tables Tables to stop.
-     */
-    private void stopReplicasAndCloseTables(Map<Integer, TableViewInternal> tables) {
-        var futures = new ArrayList<CompletableFuture<Void>>(tables.size());
-
-        for (TableViewInternal table : tables.values()) {
-            CompletableFuture<Void> stopFuture = stopTablePartitions(table)
-                    .thenRun(() -> {
-                        try {
-                            closeTable(table);
-                        } catch (Exception e) {
-                            throw new CompletionException(e);
-                        }
-                    })
-                    .whenComplete((res, ex) -> {
-                        if (ex != null) {
-                            String errorMessage = String.format("Unable to stop table [name=%s, tableId=%s]", table.name(),
-                                    table.tableId());
-                            failureProcessor.process(new FailureContext(ex, errorMessage));
-                        }
-                    });
-
-            futures.add(stopFuture);
-        }
-
-        try {
-            allOf(futures.toArray(CompletableFuture[]::new)).get(30, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            LOG.error("Unable to clean table resources", e);
-        }
     }
 
     private CompletableFuture<Void> stopTablePartitions(TableViewInternal table) {
@@ -1859,142 +1722,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableDescriptor.primaryKeyIndexId(),
                 new TableStatsStalenessConfiguration(descProps.staleRowsFraction(), descProps.minStaleRowsCount())
         );
-    }
-
-    /**
-     * Creates local structures for a table.
-     *
-     * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version on which the table was created.
-     * @param tableDescriptor Catalog table descriptor.
-     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
-     * @return Future that will be completed when local changes related to the table creation are applied.
-     */
-    private CompletableFuture<?> createTableLocally(
-            long causalityToken,
-            int catalogVersion,
-            CatalogTableDescriptor tableDescriptor,
-            boolean onNodeRecovery
-    ) {
-        return inBusyLockAsync(busyLock, () -> {
-            int tableId = tableDescriptor.id();
-
-            // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
-            CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, catalogVersion);
-
-            CompletableFuture<List<Assignments>> stableAssignmentsFutureAfterInvoke =
-                    assignmentsService.createAndWriteTableAssignmentsToMetastorage(
-                            tableId,
-                            zoneDescriptor,
-                            tableDescriptor,
-                            causalityToken,
-                            catalogVersion
-                    );
-
-            return createTableLocally(
-                    causalityToken,
-                    tableDescriptor,
-                    zoneDescriptor,
-                    schemaDescriptor,
-                    stableAssignmentsFutureAfterInvoke,
-                    tablePendingAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken),
-                    tableAssignmentsChainGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken),
-                    onNodeRecovery,
-                    catalogService.catalog(catalogVersion).time()
-            );
-        });
-    }
-
-    /**
-     * Creates local structures for a table.
-     *
-     * @param causalityToken Causality token.
-     * @param tableDescriptor Catalog table descriptor.
-     * @param zoneDescriptor Catalog distributed zone descriptor.
-     * @param schemaDescriptor Catalog schema descriptor.
-     * @param stableAssignmentsFuture Future with assignments.
-     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
-     * @return Future that will be completed when local changes related to the table creation are applied.
-     */
-    private CompletableFuture<Void> createTableLocally(
-            long causalityToken,
-            CatalogTableDescriptor tableDescriptor,
-            CatalogZoneDescriptor zoneDescriptor,
-            CatalogSchemaDescriptor schemaDescriptor,
-            CompletableFuture<List<Assignments>> stableAssignmentsFuture,
-            List<Assignments> pendingAssignments,
-            List<AssignmentsChain> assignmentsChains,
-            boolean onNodeRecovery,
-            long assignmentsTimestamp
-    ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
-
-        int tableId = tableDescriptor.id();
-
-        tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
-
-            return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
-        }));
-
-        // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
-                (ignore, throwable) -> inBusyLock(busyLock, () -> stableAssignmentsFuture.thenComposeAsync(newAssignments -> {
-                    PartitionSet parts = new BitSetPartitionSet();
-
-                    for (int i = 0; i < newAssignments.size(); i++) {
-                        Assignments partitionAssignments = newAssignments.get(i);
-                        if (localAssignment(partitionAssignments) != null) {
-                            parts.set(i);
-                        }
-                    }
-
-                    return getOrCreatePartitionStorages(table, parts)
-                            .thenRun(() -> localPartsByTableId.put(tableId, parts))
-                            // If the table is already closed, it's not a problem (probably the node is stopping).
-                            .exceptionally(ignoreTableClosedException());
-                }, ioExecutor)));
-
-        CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
-        //  event triggered by zone create or alter.
-        CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
-
-            // `stableAssignmentsFuture` is already completed by this time (it's in chain of `localPartsUpdateFuture`).
-            return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
-                if (onNodeRecovery) {
-                    SchemaRegistry schemaRegistry = table.schemaView();
-                    PartitionSet partitionSet = localPartsByTableId.get(tableId);
-                    // LWM starts updating only after the node is restored.
-                    HybridTimestamp lwm = lowWatermark.getLowWatermark();
-
-                    registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
-                }
-                return startLocalPartitionsAndClients(
-                        stableAssignmentsFuture,
-                        pendingAssignments,
-                        assignmentsChains,
-                        table,
-                        onNodeRecovery,
-                        assignmentsTimestamp,
-                        causalityToken
-                );
-            }), ioExecutor);
-        });
-
-        tables.put(tableId, table);
-
-        // TODO should be reworked in IGNITE-16763
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table));
     }
 
     /**
@@ -2312,229 +2039,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return new IgniteException(INTERNAL_ERR, th);
     }
 
-    /**
-     * Creates meta storage listener for pending assignments updates.
-     *
-     * @return The watch listener.
-     */
-    private WatchListener createPendingAssignmentsRebalanceListener() {
-        return evt -> {
-            if (!busyLock.enterBusy()) {
-                return failedFuture(new NodeStoppingException());
-            }
-
-            try {
-                Entry newEntry = evt.entryEvent().newEntry();
-
-                return handleChangePendingAssignmentEvent(newEntry, evt.revision(), false);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        };
-    }
-
-    protected CompletableFuture<Void> handleChangePendingAssignmentEvent(
-            Entry pendingAssignmentsEntry,
-            long revision,
-            boolean isRecovery
-    ) {
-        if (pendingAssignmentsEntry.value() == null) {
-            return nullCompletedFuture();
-        }
-
-        TablePartitionId replicaGrpId = extractTablePartitionId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES);
-
-        // Stable assignments from the meta store, which revision is bounded by the current pending event.
-        Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, replicaGrpId, revision);
-
-        AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
-
-        return tablesVv.get(revision)
-                .thenApply(ignore -> {
-                    if (!busyLock.enterBusy()) {
-                        return CompletableFuture.<Void>failedFuture(new NodeStoppingException());
-                    }
-
-                    try {
-                        TableViewInternal table = tables.get(replicaGrpId.tableId());
-
-                        // Table can be null only recovery, because we use a revision from the future. See comment inside
-                        // performRebalanceOnRecovery.
-                        if (table == null) {
-                            if (LOG.isInfoEnabled()) {
-                                LOG.info("Skipping Pending Assignments update, because table {} does not exist", replicaGrpId.tableId());
-                            }
-
-                            return CompletableFutures.<Void>nullCompletedFuture();
-                        }
-
-                        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
-
-                        if (LOG.isInfoEnabled()) {
-                            var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
-
-                            LOG.info(
-                                    "Received update on pending assignments. Check if new raft group should be started [key={}, "
-                                            + "partition={}, table={}, localMemberAddress={}, pendingAssignmentsQueue={}, revision={}]",
-                                    stringKey,
-                                    replicaGrpId.partitionId(),
-                                    table.name(),
-                                    localNode().address(),
-                                    pendingAssignmentsQueue,
-                                    revision
-                            );
-                        }
-
-                        Assignments pendingAssignments =
-                                pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
-
-                        return handleChangePendingAssignmentEvent(
-                                replicaGrpId,
-                                table,
-                                stableAssignments,
-                                pendingAssignments,
-                                assignmentsChain,
-                                revision,
-                                isRecovery
-                        ).thenAccept(v -> executeIfLocalNodeIsPrimaryForGroup(
-                                replicaGrpId,
-                                replicaMeta -> sendChangePeersAndLearnersRequest(
-                                        replicaMeta,
-                                        replicaGrpId,
-                                        pendingAssignments,
-                                        revision
-                                )
-                        ));
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                })
-                .thenCompose(identity());
-    }
-
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(
-            TablePartitionId replicaGrpId,
-            TableViewInternal tbl,
-            @Nullable Assignments stableAssignments,
-            Assignments pendingAssignments,
-            @Nullable AssignmentsChain assignmentsChain,
-            long revision,
-            boolean isRecovery
-    ) {
-        boolean pendingAssignmentsAreForced = pendingAssignments.force();
-        Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
-        long assignmentsTimestamp = pendingAssignments.timestamp();
-
-        // Start a new Raft node and Replica if this node has appeared in the new assignments.
-        Assignment localAssignmentInPending = localAssignment(pendingAssignments);
-        Assignment localAssignmentInStable = localAssignment(stableAssignments);
-
-        boolean shouldStartLocalGroupNode;
-        if (isRecovery) {
-            // The condition to start the replica is
-            // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
-            // This condition covers the left part of the OR expression.
-            // The right part of it is covered in `startLocalPartitionsAndClients`.
-            if (lastRebalanceWasGraceful(assignmentsChain)) {
-                shouldStartLocalGroupNode = localAssignmentInPending != null;
-            } else {
-                // TODO: Use logic from https://issues.apache.org/jira/browse/IGNITE-23874.
-                LOG.warn("Recovery after a forced rebalance for table is not supported yet [tablePartitionId={}].",
-                        replicaGrpId);
-                shouldStartLocalGroupNode = localAssignmentInPending != null;
-            }
-        } else {
-            shouldStartLocalGroupNode = localAssignmentInPending != null && localAssignmentInStable == null;
-        }
-
-        // This is a set of assignments for nodes that are not the part of stable assignments, i.e. unstable part of the distribution.
-        // For regular pending assignments we use (old) stable set, so that none of new nodes would be able to propose itself as a leader.
-        // For forced assignments, we should do the same thing, but only for the subset of stable set that is alive right now. Dead nodes
-        // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
-        Assignments computedStableAssignments;
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
-        //  when we will have a proper handling of empty stable assignments
-        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
-            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
-            // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes, assignmentsTimestamp);
-        } else if (pendingAssignmentsAreForced) {
-            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
-            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
-            // have a live majority.
-            computedStableAssignments = pendingAssignments;
-        } else {
-            computedStableAssignments = stableAssignments;
-        }
-
-        CompletableFuture<Void> localServicesStartFuture;
-
-        if (shouldStartLocalGroupNode) {
-            localServicesStartFuture = localPartitionsVv.get(revision)
-                    .thenComposeAsync(unused -> createPartitionAndStartClient(
-                            replicaGrpId,
-                            tbl,
-                            revision,
-                            isRecovery,
-                            assignmentsTimestamp,
-                            localAssignmentInPending,
-                            computedStableAssignments
-                    ), ioExecutor);
-        } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = replicaMgr.resetWithRetry(
-                    replicaGrpId,
-                    fromAssignments(computedStableAssignments.nodes()),
-                    revision
-            );
-        } else {
-            localServicesStartFuture = nullCompletedFuture();
-        }
-
-        return localServicesStartFuture
-                .thenComposeAsync(v -> inBusyLock(busyLock, () -> isLocalNodeIsPrimary(replicaGrpId)), ioExecutor)
-                .thenAcceptAsync(isLeaseholder -> inBusyLock(busyLock, () -> {
-                    boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
-                            replicaGrpId,
-                            stableAssignments,
-                            pendingAssignments,
-                            revision
-                    );
-
-                    if (!isLocalNodeInStableOrPending && !isLeaseholder) {
-                        return;
-                    }
-
-                    assert isLocalNodeInStableOrPending || isLeaseholder
-                            : "The local node is outside of the replication group [inStableOrPending=" + isLocalNodeInStableOrPending
-                            + ", isLeaseholder=" + isLeaseholder + "].";
-
-                    // A node might exist in stable yet we don't want to start the replica
-                    // The case is: nodes A, B and C hold a replication group,
-                    // nodes A and B die.
-                    // Reset adds C into force pending and user writes data onto C.
-                    // Then A and B go back online. In this case
-                    // stable = [A, B, C], pending = [C, force] and only C should be started.
-                    if (isRecovery && !replicaMgr.isReplicaStarted(replicaGrpId)) {
-                        return;
-                    }
-
-                    assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
-                            + "stable=" + stableAssignments
-                            + ", pending=" + pendingAssignments
-                            + ", localName=" + localNode().name() + "].";
-
-                    // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
-                    // Union is not required in such a case.
-                    Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
-                            ? pendingAssignmentsNodes
-                            : union(pendingAssignmentsNodes, stableAssignments.nodes());
-
-                    replicaMgr.replica(replicaGrpId)
-                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
-                }), ioExecutor);
-    }
-
     private CompletableFuture<Void> createPartitionAndStartClient(
             TablePartitionId replicaGrpId,
             TableViewInternal tbl,
@@ -2635,25 +2139,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private boolean isNodeInReducedStableOrPendingAssignments(
-            TablePartitionId replicaGrpId,
-            @Nullable Assignments stableAssignments,
-            Assignments pendingAssignments,
-            long revision
-    ) {
-        Entry reduceEntry = metaStorageMgr.getLocally(RebalanceUtil.switchReduceKey(replicaGrpId), revision);
-
-        Assignments reduceAssignments = reduceEntry != null
-                ? Assignments.fromBytes(reduceEntry.value())
-                : null;
-
-        Set<Assignment> reducedStableAssignments = reduceAssignments != null
-                ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
-                : stableAssignments.nodes();
-
-        return isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()));
-    }
-
     private SnapshotStorageFactory createSnapshotStorageFactory(
             TablePartitionId replicaGrpId,
             PartitionUpdateHandlers partitionUpdateHandlers,
@@ -2687,70 +2172,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         snapshotStorage.addMvPartition(internalTable.tableId(), partitionAccess);
 
         return new PartitionSnapshotStorageFactory(snapshotStorage);
-    }
-
-    /**
-     * Creates Meta storage listener for stable assignments updates.
-     *
-     * @return The watch listener.
-     */
-    private WatchListener createStableAssignmentsRebalanceListener() {
-        return evt -> {
-            if (!busyLock.enterBusy()) {
-                return failedFuture(new NodeStoppingException());
-            }
-
-            try {
-                return handleChangeStableAssignmentEvent(evt);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        };
-    }
-
-    /** Creates Meta storage listener for switch reduce assignments updates. */
-    private WatchListener createAssignmentsSwitchRebalanceListener() {
-        return evt -> inBusyLockAsync(busyLock, () -> {
-            byte[] key = evt.entryEvent().newEntry().key();
-
-            TablePartitionId replicaGrpId = extractTablePartitionId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES);
-
-            return tablesById(evt.revision())
-                    .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
-                        Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
-
-                        long assignmentsTimestamp = assignments.timestamp();
-
-                        return reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
-                                .thenCompose(catalog -> inBusyLockAsync(busyLock, () -> {
-                                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(replicaGrpId.tableId(), catalog);
-
-                                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
-
-                                    return handleReduceChanged(evt, catalog.version(), zoneDescriptor, replicaGrpId, assignmentsTimestamp);
-                                }));
-                    }));
-        });
-    }
-
-    private CompletableFuture<Void> handleReduceChanged(
-            WatchEvent evt,
-            int catalogVersion,
-            CatalogZoneDescriptor zoneDescriptor,
-            TablePartitionId replicaGrpId,
-            long assignmentsTimestamp
-    ) {
-        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
-                .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
-                        metaStorageMgr,
-                        dataNodes,
-                        zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas(),
-                        zoneDescriptor.consensusGroupSize(),
-                        replicaGrpId,
-                        evt,
-                        assignmentsTimestamp
-                ));
     }
 
     /**
@@ -2814,87 +2235,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }).toArray(CompletableFuture[]::new);
 
         return allOf(storageFuts);
-    }
-
-    /**
-     * Handles the {@link RebalanceUtil#STABLE_ASSIGNMENTS_PREFIX} update event.
-     *
-     * @param evt Event.
-     */
-    protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
-        if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
-            // It's the initial write to table stable assignments on table create event.
-            return nullCompletedFuture();
-        }
-
-        if (!evt.single()) {
-            // If there is not a single entry, then all entries must be tombstones (this happens after table drop).
-            assert evt.entryEvents().stream().allMatch(entryEvent -> entryEvent.newEntry().tombstone()) : evt;
-
-            return nullCompletedFuture();
-        }
-
-        // here we can receive only update from the rebalance logic
-        // these updates always processing only 1 partition, so, only 1 stable partition key.
-        assert evt.single() : evt;
-
-        if (evt.entryEvent().oldEntry() == null) {
-            // This means it's an event on table creation.
-            return nullCompletedFuture();
-        }
-
-        Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
-
-        long revision = evt.revision();
-
-        assert stableAssignmentsWatchEvent.revision() == revision : stableAssignmentsWatchEvent;
-
-        if (stableAssignmentsWatchEvent.value() == null) {
-            return nullCompletedFuture();
-        }
-
-        return handleChangeStableAssignmentEvent(stableAssignmentsWatchEvent, evt.revision(), false);
-    }
-
-    protected CompletableFuture<Void> handleChangeStableAssignmentEvent(
-            Entry stableAssignmentsWatchEvent,
-            long revision,
-            boolean isRecovery
-    ) {
-        TablePartitionId tablePartitionId = extractTablePartitionId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES);
-
-        Set<Assignment> stableAssignments = stableAssignmentsWatchEvent.value() == null
-                ? emptySet()
-                : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
-
-        return supplyAsync(() -> {
-            Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(tablePartitionId), revision);
-            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
-
-            if (LOG.isInfoEnabled()) {
-                var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
-
-                LOG.info("Received update on stable assignments [key={}, partition={}, localMemberAddress={}, "
-                                + "stableAssignments={}, pendingAssignmentsQueue={}, revision={}]",
-                        stringKey,
-                        tablePartitionId,
-                        localNode().address(),
-                        stableAssignments,
-                        pendingAssignmentsQueue,
-                        revision
-                );
-            }
-
-            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
-
-            return stopAndDestroyTablePartitionAndUpdateClients(
-                    tablePartitionId,
-                    stableAssignments,
-                    pendingAssignments,
-                    isRecovery,
-                    revision
-            );
-        }, ioExecutor).thenCompose(identity());
     }
 
     private CompletableFuture<Void> updatePartitionClients(
@@ -3331,26 +2671,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     continue;
                 }
 
-                CompletableFuture<?> startTableFuture;
+                CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver);
+                CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver);
 
-                if (nodeProperties.colocationEnabled()) {
-                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver);
-                    CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver);
+                CompletableFuture<?> startTableFuture = prepareTableResourcesOnRecovery(
+                        recoveryRevision,
+                        zoneDescriptor,
+                        tableDescriptor,
+                        schemaDescriptor
+                );
 
-                    startTableFuture = prepareTableResourcesOnRecovery(
-                            recoveryRevision,
-                            zoneDescriptor,
-                            tableDescriptor,
-                            schemaDescriptor
-                    );
-
-                    if (destroyTableEventFired) {
-                        // prepareTableResourcesOnRecovery registers a table metric source, so we need to unregister it here,
-                        // just because the table is being dropped and there is no need to keep the metric source.
-                        unregisterMetricsSource(tables.get(tableId));
-                    }
-                } else {
-                    startTableFuture = createTableLocally(recoveryRevision, ver, tableDescriptor, true);
+                if (destroyTableEventFired) {
+                    // prepareTableResourcesOnRecovery registers a table metric source, so we need to unregister it here,
+                    // just because the table is being dropped and there is no need to keep the metric source.
+                    unregisterMetricsSource(tables.get(tableId));
                 }
 
                 startTableFutures.add(startTableFuture);
