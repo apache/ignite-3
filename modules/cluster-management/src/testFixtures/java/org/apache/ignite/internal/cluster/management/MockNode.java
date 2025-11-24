@@ -39,12 +39,12 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -89,7 +89,37 @@ public class MockNode {
             NodeFinder nodeFinder,
             Path workDir,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             NodeAttributesConfiguration nodeAttributes,
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
+    ) {
+        this(
+                testInfo,
+                addr,
+                nodeFinder,
+                workDir,
+                raftConfiguration,
+                systemLocalConfiguration,
+                nodeAttributes,
+                () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()),
+                storageProfilesConfiguration,
+                onConfigurationCommittedListener
+        );
+    }
+
+    /**
+     * Fake node constructor.
+     */
+    public MockNode(
+            TestInfo testInfo,
+            NetworkAddress addr,
+            NodeFinder nodeFinder,
+            Path workDir,
+            RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
+            NodeAttributesConfiguration nodeAttributes,
+            NodeAttributesProvider attributesProvider,
             StorageConfiguration storageProfilesConfiguration,
             Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
@@ -115,7 +145,7 @@ public class MockNode {
                 this.workDir.resolve("partitions/log")
         );
 
-        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         var clusterStateStorage =
                 new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
@@ -131,11 +161,9 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
-        boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
-
         var collector = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
 
-        collector.register(() -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled)));
+        collector.register(attributesProvider);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -144,8 +172,7 @@ public class MockNode {
                 new ClusterInitializer(
                         clusterService,
                         hocon -> hocon,
-                        new TestConfigurationValidator(),
-                        () -> colocationEnabled
+                        new TestConfigurationValidator()
                 ),
                 raftManager,
                 clusterStateStorage,
@@ -155,7 +182,6 @@ public class MockNode {
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 new NoOpMetricManager(),
-                () -> colocationEnabled,
                 onConfigurationCommittedListener
         );
 

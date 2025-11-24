@@ -51,6 +51,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -99,7 +101,11 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         assertEquals(TEST_VALUE + incrementCount, fut.get());
 
-        assertThrows(AssertionError.class, () -> versionedValue.update(1L, (i, t) -> nullCompletedFuture()));
+        IgniteTestUtils.assertThrows(
+                IgniteException.class,
+                () -> versionedValue.update(1L, (i, t) -> nullCompletedFuture()),
+                "Causality token is outdated, previous token 1, got 1"
+        );
     }
 
     /**
@@ -188,7 +194,11 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         AtomicReference<Throwable> exceptionRef = new AtomicReference<>();
 
-        vv.whenComplete((t, v, e) -> exceptionRef.set(e));
+        vv.whenComplete((t, v, e) -> {
+            exceptionRef.set(e);
+
+            return nullCompletedFuture();
+        });
 
         vv.complete(0L);
 
@@ -211,7 +221,11 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         IncrementalVersionedValue<Map<UUID, String>> schemasVv = new IncrementalVersionedValue<>("test", register, HashMap::new);
         IncrementalVersionedValue<Map<UUID, String>> assignmentsVv = new IncrementalVersionedValue<>("test", register, HashMap::new);
 
-        schemasVv.whenComplete((token, value, ex) -> tablesVv.complete(token));
+        schemasVv.whenComplete((token, value, ex) -> {
+            tablesVv.complete(token);
+
+            return nullCompletedFuture();
+        });
 
         BiFunction<Long, UUID, CompletableFuture<String>> schemaRegistry =
                 (token, uuid) -> schemasVv.get(token).thenApply(schemas -> schemas.get(uuid));
@@ -397,6 +411,8 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         CompletionListener<Integer> listener = mock(CompletionListener.class);
 
+        when(listener.whenComplete(anyLong(), any(), any())).thenReturn(nullCompletedFuture());
+
         vv.whenComplete(listener);
 
         // Test complete.
@@ -555,5 +571,34 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         assertTrue(f.isDone());
 
         assertEquals(expectedDefault == null ? null : expectedDefault + 2, f.join());
+    }
+
+    @Test
+    public void testDependingVv() {
+        var versionedVv = new IncrementalVersionedValue<Integer>("versionedVv", register);
+        var dependentVv = new IncrementalVersionedValue<Void>("dependentVv", dependingOn(versionedVv));
+
+        CompletableFuture<Integer> versionedVvUpdateResult = new CompletableFuture<>();
+
+        versionedVv.update(0, (integer, throwable) -> versionedVvUpdateResult);
+
+        CompletableFuture<Void> dependentVvUpdateResult = new CompletableFuture<>();
+
+        dependentVv.update(0, (integer, throwable) -> dependentVvUpdateResult);
+
+        CompletableFuture<?> registerFut = register.updateRevision(0L);
+
+        assertFalse(registerFut.isDone());
+
+        IgniteTestUtils.runAsync(() -> versionedVvUpdateResult.complete(TEST_VALUE));
+
+        assertThat(versionedVv.get(0), willCompleteSuccessfully());
+        assertFalse(dependentVv.get(0).isDone());
+        assertFalse(registerFut.isDone());
+
+        IgniteTestUtils.runAsync(() -> dependentVvUpdateResult.complete(null));
+
+        assertThat(dependentVv.get(0), willCompleteSuccessfully());
+        assertThat(registerFut, willCompleteSuccessfully());
     }
 }

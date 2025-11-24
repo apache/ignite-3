@@ -70,6 +70,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -197,7 +198,12 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private final RaftGroupOptionsConfigurer partitionsRaftConfigurer;
 
-        Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
+        Node(
+                ClusterService clusterService,
+                RaftConfiguration raftConfiguration,
+                SystemLocalConfiguration systemLocalConfiguration,
+                Path dataPath
+        ) {
             this.clusterService = clusterService;
 
             clock = new HybridClockImpl();
@@ -215,6 +221,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             this.raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock
             );
             this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), new IgniteSpinBusyLock(), clock);
@@ -301,6 +308,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     private final List<Node> nodes = new ArrayList<>();
 
     @BeforeEach
@@ -316,7 +326,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
-                .forEach(clusterService -> nodes.add(new Node(clusterService, raftConfiguration, workDir)));
+                .forEach(clusterService -> nodes.add(new Node(clusterService, raftConfiguration, systemLocalConfiguration, workDir)));
 
         return nodes;
     }

@@ -18,25 +18,17 @@
 #include "ignite/client/detail/table/name_utils.h"
 #include "ignite/client/table/qualified_name.h"
 #include "ignite/common/ignite_error.h"
+#include "tests/test-common/hidden_param.h"
 
 #include <gtest/gtest.h>
 
 using namespace ignite;
 using namespace detail;
 
-namespace {
-
-template<typename T>
-std::string PrintTestIndex(const testing::TestParamInfo<typename T::ParamType>& info) {
-    return "_" + std::to_string(info.index);
-}
-
-}
-
-class quote_if_needed_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+class quote_if_needed_fixture : public ::testing::TestWithParam<std::tuple<hidden, hidden>> {};
 
 TEST_P(quote_if_needed_fixture, quote_if_needed) {
-    auto [name, expected] = GetParam();
+    auto [name, expected] = unhide(GetParam());
 
     EXPECT_EQ(expected, quote_if_needed(name, qualified_name::QUOTE_CHAR));
     EXPECT_EQ(name, parse_identifier(quote_if_needed(
@@ -71,14 +63,14 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("foo\"bar\"", "\"foo\"\"bar\"\"\""),
         std::make_tuple("foo\"bar", "\"foo\"\"bar\"")
     ),
-    PrintTestIndex<quote_if_needed_fixture>
+    print_test_index<quote_if_needed_fixture>
 );
 
 
-class malformed_identifiers_fixture : public ::testing::TestWithParam<std::string> {};
+class malformed_identifiers_fixture : public ::testing::TestWithParam<hidden> {};
 
 TEST_P(malformed_identifiers_fixture, parse_identifier_malformed) {
-    auto malformed = GetParam();
+    auto malformed = unhide(GetParam());
 
     EXPECT_THROW(
         {
@@ -111,14 +103,14 @@ INSTANTIATE_TEST_SUITE_P(
         "$foo",
         "foo$"
     ),
-    PrintTestIndex<malformed_identifiers_fixture>
+    print_test_index<malformed_identifiers_fixture>
 );
 
 
-class valid_identifiers_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+class valid_identifiers_fixture : public ::testing::TestWithParam<std::tuple<hidden, hidden>> {};
 
 TEST_P(valid_identifiers_fixture, parse_identifier_valid) {
-    auto [name, expected] = GetParam();
+    auto [name, expected] = unhide(GetParam());
 
     EXPECT_EQ(name, parse_identifier(quote_if_needed(
         name, qualified_name::QUOTE_CHAR), qualified_name::QUOTE_CHAR, qualified_name::SEPARATOR_CHAR));
@@ -146,6 +138,6 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"\xF0\x9F\x98\x85\"", "\xF0\x9F\x98\x85"),
         std::make_tuple("\"f\xF0\x9F\x98\x85\"", "f\xF0\x9F\x98\x85")
     ),
-    PrintTestIndex<valid_identifiers_fixture>
+    print_test_index<valid_identifiers_fixture>
 );
 

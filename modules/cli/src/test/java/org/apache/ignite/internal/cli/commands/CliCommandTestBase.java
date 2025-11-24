@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesRegex;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -42,6 +42,8 @@ import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
+import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -162,8 +164,6 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
      * @param expectedOutput Expected command output.
      */
     protected void assertSuccessfulOutputIs(String expectedOutput) {
-        log.info(sout.toString());
-        log.info(serr.toString());
         assertAll(
                 this::assertExitCodeIsZero,
                 () -> assertOutputIs(expectedOutput),
@@ -172,14 +172,29 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Asserts that the command's exit code is zero, output contains expected output and the error output is empty.
+     *
+     * @param expectedOutput Expected command output.
+     */
+    protected void assertSuccessfulOutputContains(String expectedOutput) {
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputContains(expectedOutput),
+                this::assertErrOutputIsEmpty
+        );
+    }
+
+    /**
      * Asserts that {@code expected} and {@code actual} are equals ignoring differences in line separators.
      *
      * @param reason Description of the assertion.
-     * @param exp Expected result.
      * @param actual Actual result.
+     * @param exp Expected result.
      */
-    private static void assertEqualsIgnoreLineSeparators(String reason, String exp, String actual) {
-        assertThat(reason, exp.lines().collect(toList()), contains(actual.lines().toArray(String[]::new)));
+    private static void assertEqualsIgnoreLineSeparators(String reason, String actual, String exp) {
+        String actualJoined = actual.lines().collect(joining(System.lineSeparator()));
+        String expJoined = exp.lines().collect(joining(System.lineSeparator()));
+        assertThat(reason, actualJoined, is(expJoined));
     }
 
     /**
@@ -206,9 +221,52 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
         T call = registerMockCall(callClass);
         // Recreate the CommandLine object so that the registered mocks are available to this command.
         createCommand();
+
         execute(command + " " + parameters);
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty
+        );
+
         IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(expected, inputTransformer.apply(callInput));
+        assertThat(inputTransformer.apply(callInput), is(expected));
+    }
+
+    /**
+     * Runs the command with the mock call and verifies that the call was executed with the expected input.
+     *
+     * @param command Command string.
+     * @param callFactoryClass Call factory class.
+     * @param callClass Call class.
+     * @param callInputClass Call input class.
+     * @param inputTransformer Function which transforms the call input to string.
+     * @param parameters Command arguments.
+     * @param expected Expected call input string.
+     * @param <IT> Input for the call.
+     * @param <OT> Output of the call.
+     * @param <T> Call type.
+     */
+    protected <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>> void checkParametersAsync(
+            String command,
+            Class<FT> callFactoryClass,
+            Class<T> callClass,
+            Class<IT> callInputClass,
+            Function<IT, String> inputTransformer,
+            String parameters,
+            String expected
+    ) {
+        AsyncCall<IT, OT> call = registerMockCallAsync(callFactoryClass, callClass);
+        // Recreate the CommandLine object so that the registered mocks are available to this command.
+        createCommand();
+
+        execute(command + " " + parameters);
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty
+        );
+
+        IT callInput = verifyCallInputAsync(call, callInputClass);
+        assertThat(inputTransformer.apply(callInput), is(expected));
     }
 
     /**
@@ -228,6 +286,29 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Registers mock async call factory of the specified class into the Micronaut's context. Mock factory creates mock calls. Mock call
+     * returns empty output when executed.
+     *
+     * @param callFactoryClass Call class.
+     * @param <IT> Input for the call.
+     * @param <OT> Output of the call.
+     * @param <FT> Call factory type.
+     * @param <T> Call type.
+     * @return Created mock.
+     */
+    private <IT extends CallInput, OT, T extends AsyncCall<IT, OT>, FT extends AsyncCallFactory<IT, OT>>
+            T registerMockCallAsync(Class<FT> callFactoryClass, Class<T> callClass) {
+        FT mockCallFactory = mock(callFactoryClass);
+        context.registerSingleton(mockCallFactory);
+
+        T mockCall = mock(callClass);
+        when(mockCall.execute(any())).thenReturn(completedFuture(DefaultCallOutput.empty()));
+
+        when(mockCallFactory.create(any())).thenReturn(mockCall);
+        return mockCall;
+    }
+
+    /**
      * Verifies that the call was executed and returns its input.
      *
      * @param call Call mock.
@@ -238,6 +319,22 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
      * @return Call input.
      */
     private static <IT extends CallInput, OT, T extends Call<IT, OT>> IT verifyCallInput(T call, Class<IT> inputClass) {
+        ArgumentCaptor<IT> captor = ArgumentCaptor.forClass(inputClass);
+        verify(call).execute(captor.capture());
+        return captor.getValue();
+    }
+
+    /**
+     * Verifies that the async call was executed and returns its input.
+     *
+     * @param call Call mock.
+     * @param inputClass Call input class.
+     * @param <IT> Input for the call.
+     * @param <OT> Output of the call.
+     * @param <T> Call type.
+     * @return Call input.
+     */
+    private static <IT extends CallInput, OT, T extends AsyncCall<IT, OT>> IT verifyCallInputAsync(T call, Class<IT> inputClass) {
         ArgumentCaptor<IT> captor = ArgumentCaptor.forClass(inputClass);
         verify(call).execute(captor.capture());
         return captor.getValue();

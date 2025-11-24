@@ -296,19 +296,14 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         Collection<Long> keys = List.of(DEFAULT_ID, 101L, 100L);
 
         Map<Long, PersonValPojo> res = pojoView.getAll(null, keys);
-        Long[] resKeys = res.keySet().toArray(new Long[0]);
-        PersonValPojo[] resVals = res.values().toArray(new PersonValPojo[0]);
 
-        assertEquals(2, resVals.length);
+        assertEquals(2, res.size());
 
-        assertNotNull(resVals[0]);
-        assertNotNull(resVals[1]);
+        assertTrue(res.keySet().contains(DEFAULT_ID));
+        assertEquals(DEFAULT_NAME, res.get(DEFAULT_ID).name);
 
-        assertEquals(DEFAULT_ID, resKeys[0]);
-        assertEquals(DEFAULT_NAME, resVals[0].name);
-
-        assertEquals(100L, resKeys[1]);
-        assertEquals("100", resVals[1].name);
+        assertTrue(res.keySet().contains(100L));
+        assertEquals("100", res.get(100L).name);
     }
 
     @Test
@@ -321,11 +316,11 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         Collection<Long> keys = List.of(DEFAULT_ID, 101L, 100L);
 
-        String[] res = pojoView.getAll(null, keys).values().toArray(new String[0]);
+        Map<Long, String> res = pojoView.getAll(null, keys);
 
-        assertEquals(2, res.length);
-        assertEquals(DEFAULT_NAME, res[0]);
-        assertEquals("100", res[1]);
+        assertEquals(2, res.size());
+        assertEquals(DEFAULT_NAME, res.get(DEFAULT_ID));
+        assertEquals("100", res.get(100L));
     }
 
     @Test

@@ -56,7 +56,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -71,6 +70,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -177,7 +177,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock DataStorageManager dataStorageManager,
             @Mock CatalogService catalogService,
             @Mock OutgoingSnapshotsManager outgoingSnapshotsManager,
-            @InjectExecutorService ExecutorService executorService,
+            @InjectExecutorService ScheduledExecutorService executorService,
             @InjectExecutorService ScheduledExecutorService scheduledExecutorService,
             @InjectConfiguration SystemDistributedConfiguration systemDistributedConfiguration
 
@@ -215,7 +215,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
                 TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage) {
                     @Override
-                    public TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+                    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
                         return txStatePartitionStorage;
                     }
                 };
@@ -295,6 +295,10 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 .thenCompose(v -> catalogManager.catalogInitializationFuture());
 
         assertThat(startFuture, willCompleteSuccessfully());
+
+        when(clockService.waitFor(any())).thenReturn(nullCompletedFuture());
+
+        DistributionZonesTestUtil.createDefaultZone(catalogManager);
     }
 
     @AfterEach

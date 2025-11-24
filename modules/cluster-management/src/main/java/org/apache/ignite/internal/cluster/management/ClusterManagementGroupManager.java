@@ -70,8 +70,6 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -190,8 +188,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final LocalTopologyMetricsSource localTopologyMetricsSource;
 
-    private final NodeProperties nodeProperties;
-
     private final Consumer<RaftGroupConfiguration> onConfigurationCommittedListener;
 
     /** Constructor. */
@@ -208,8 +204,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
-            MetricManager metricManager,
-            NodeProperties nodeProperties
+            MetricManager metricManager
     ) {
         this(
                 vault,
@@ -225,7 +220,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 clusterIdStore,
                 raftGroupOptionsConfigurer,
                 metricManager,
-                nodeProperties,
                 config -> {}
         );
     }
@@ -245,7 +239,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             MetricManager metricManager,
-            NodeProperties nodeProperties,
             Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this.clusterResetStorage = clusterResetStorage;
@@ -281,7 +274,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, message -> scheduledExecutor, cmgMessageHandler);
 
-        this.nodeProperties = nodeProperties;
         this.onConfigurationCommittedListener = onConfigurationCommittedListener;
     }
 
@@ -359,8 +351,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 failureProcessor,
                 clusterIdStore,
                 raftGroupOptionsConfigurer,
-                metricManager,
-                new SystemPropertiesNodeProperties()
+                metricManager
         );
     }
 
@@ -379,7 +370,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             MetricManager metricManager,
-            NodeProperties nodeProperties,
             Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this(
@@ -396,7 +386,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 clusterIdStore,
                 raftGroupOptionsConfigurer,
                 metricManager,
-                nodeProperties,
                 onConfigurationCommittedListener
         );
     }
@@ -678,13 +667,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 msg.initInitiatorColocationEnabled());
 
         NetworkMessage response;
-        if (nodeProperties.colocationEnabled() != msg.initInitiatorColocationEnabled()) {
+        if (!msg.initInitiatorColocationEnabled()) {
             String colocationEnabledMismatchResponseMessage = IgniteStringFormatter.format(
                     "Colocation modes do not match [initInitiatorNodeName={}, initInitiatorColocationMode={}, "
                             + "recipientColocationMode={}].",
                     sender.name(),
                     msg.initInitiatorColocationEnabled(),
-                    nodeProperties.colocationEnabled()
+                    Boolean.TRUE
             );
 
             response = preparePhaseInitErrorMessage(colocationEnabledMismatchResponseMessage);
@@ -728,7 +717,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             long term,
             long configurationTerm,
             long configurationIndex,
-            PeersAndLearners configuration
+            PeersAndLearners configuration,
+            long sequenceToken
     ) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping onLeaderElected callback, because the node is stopping");
@@ -814,7 +804,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
-                    // TODO: IGNITE-18681 - respect removal timeout.
                     return nodesToRemove.isEmpty() ? nullCompletedFuture() : service.removeFromCluster(nodesToRemove);
                 }));
     }

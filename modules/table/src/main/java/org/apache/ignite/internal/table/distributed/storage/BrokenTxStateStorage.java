@@ -33,11 +33,6 @@ public class BrokenTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public TxStatePartitionStorage createPartitionStorage(int partitionId) {
-        return null;
-    }
-
-    @Override
     public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
         return new BrokenTxStatePartitionStorage();
     }

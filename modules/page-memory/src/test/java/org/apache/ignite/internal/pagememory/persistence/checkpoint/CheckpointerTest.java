@@ -27,13 +27,15 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.awaitility.Awaitility.with;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -146,11 +148,17 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         checkpointer.start();
 
-        assertTrue(waitForCondition(() -> checkpointer.runner() != null, 10, 100));
+        with().pollInterval(10, MILLISECONDS)
+                .await()
+                .timeout(100, MILLISECONDS)
+                .until(checkpointer::runner, notNullValue());
 
         checkpointer.stop();
 
-        assertTrue(waitForCondition(() -> checkpointer.runner() == null, 10, 100));
+        with().pollInterval(10, MILLISECONDS)
+                .await()
+                .timeout(100, MILLISECONDS)
+                .until(checkpointer::runner, nullValue());
 
         assertTrue(checkpointer.isShutdownNow());
         assertTrue(checkpointer.isCancelled());
@@ -428,7 +436,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         verify(compactor, times(1)).triggerCompaction();
         verify(mockLogSyncer, times(1)).sync();
 
-        assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
+        assertEquals(3, checkpointer.lastCheckpointProgress().currentCheckpointPagesCount());
 
         verify(checkpointer, times(1)).updateLastProgressAfterReleaseWriteLock();
     }
@@ -466,13 +474,13 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         verify(checkpointer, times(1)).startCheckpointProgress();
         verify(compactor, never()).triggerCompaction();
 
-        assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 0);
+        assertEquals(0, checkpointer.lastCheckpointProgress().currentCheckpointPagesCount());
 
         verify(checkpointer, times(1)).updateLastProgressAfterReleaseWriteLock();
     }
 
     @Test
-    void testNextCheckpointInterval() throws Exception {
+    void testNextCheckpointInterval() {
         Checkpointer checkpointer = new Checkpointer(
                 "test",
                 null,
@@ -554,7 +562,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         return mock;
     }
 
-    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
+    private static CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
             PartitionMetaManager partitionMetaManager,
             PartitionDestructionLockManager partitionDestructionLockManager
     ) {

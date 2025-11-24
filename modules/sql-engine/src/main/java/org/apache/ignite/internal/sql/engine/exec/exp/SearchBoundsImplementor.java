@@ -53,13 +53,15 @@ class SearchBoundsImplementor {
             List<SearchBounds> searchBounds,
             RelDataType indexKeyType,
             @Nullable SqlComparator<RowT> comparator,
-            Function<List<RexNode>, SqlRowProvider<RowT>> rowProviderImplementor
+            Function<List<RexNode>, SqlRowProvider<RowT>> rowProviderImplementor,
+            Function<RexNode, SqlScalar<RowT, Boolean>> scalarImplementor
     ) {
         return context -> {
             List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
             expandBounds(
                     rowProviderImplementor,
+                    scalarImplementor,
                     context,
                     ranges,
                     searchBounds,
@@ -105,6 +107,7 @@ class SearchBoundsImplementor {
      */
     private <RowT> void expandBounds(
             Function<List<RexNode>, SqlRowProvider<RowT>> rowProviderFunction,
+            Function<RexNode, SqlScalar<RowT, Boolean>> scalarImplementor,
             ExecutionContext<RowT> context,
             List<RangeCondition<RowT>> ranges,
             List<SearchBounds> searchBounds,
@@ -142,8 +145,8 @@ class SearchBoundsImplementor {
         for (SearchBounds fieldSingleBounds : fieldMultiBounds) {
             RexNode fieldLowerBound;
             RexNode fieldUpperBound;
-            boolean fieldLowerInclude;
-            boolean fieldUpperInclude;
+            boolean fieldLowerInclude = lowerInclude;
+            boolean fieldUpperInclude = upperInclude;
 
             if (fieldSingleBounds instanceof ExactBounds) {
                 fieldLowerBound = fieldUpperBound = ((ExactBounds) fieldSingleBounds).bound();
@@ -151,10 +154,19 @@ class SearchBoundsImplementor {
             } else if (fieldSingleBounds instanceof RangeBounds) {
                 RangeBounds fieldRangeBounds = (RangeBounds) fieldSingleBounds;
 
-                fieldLowerBound = fieldRangeBounds.lowerBound();
-                fieldUpperBound = fieldRangeBounds.upperBound();
-                fieldLowerInclude = fieldRangeBounds.lowerInclude();
-                fieldUpperInclude = fieldRangeBounds.upperInclude();
+                fieldLowerBound = deriveBound(
+                        scalarImplementor, context, fieldRangeBounds, true
+                );
+                if (fieldLowerBound != null) {
+                    fieldLowerInclude = fieldRangeBounds.lowerInclude();
+                }
+
+                fieldUpperBound = deriveBound(
+                        scalarImplementor, context, fieldRangeBounds, false
+                );
+                if (fieldUpperBound != null) {
+                    fieldUpperInclude = fieldRangeBounds.upperInclude();
+                }
             } else {
                 throw new IllegalStateException("Unexpected bounds: " + fieldSingleBounds);
             }
@@ -169,6 +181,7 @@ class SearchBoundsImplementor {
 
             expandBounds(
                     rowProviderFunction,
+                    scalarImplementor,
                     context,
                     ranges,
                     searchBounds,
@@ -423,5 +436,36 @@ class SearchBoundsImplementor {
 
             return newRangeCondition;
         }
+    }
+
+    private static <RowT> @Nullable RexNode deriveBound(
+            Function<RexNode, SqlScalar<RowT, Boolean>> scalarImplementor,
+            ExecutionContext<RowT> context,
+            RangeBounds bounds,
+            boolean lower
+    ) {
+        RexNode shouldComputeExpression;
+        RexNode bound;
+        if (lower) {
+            shouldComputeExpression = bounds.shouldComputeLower();
+            bound = bounds.lowerBound();
+        } else {
+            shouldComputeExpression = bounds.shouldComputeUpper();
+            bound = bounds.upperBound();
+        }
+
+        if (shouldComputeExpression == null) {
+            return null;
+        }
+
+        boolean shouldCompute = shouldComputeExpression.isAlwaysTrue();
+
+        if (!shouldCompute) {
+            SqlScalar<RowT, Boolean> scalar = scalarImplementor.apply(shouldComputeExpression);
+
+            shouldCompute = scalar.get(context) == Boolean.TRUE;
+        }
+
+        return shouldCompute ? bound : null;
     }
 }

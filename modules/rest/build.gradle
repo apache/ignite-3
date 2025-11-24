@@ -67,6 +67,7 @@ dependencies {
     testImplementation project(':ignite-security')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-rest-api'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
 

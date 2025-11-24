@@ -21,7 +21,6 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.time.temporal.ChronoUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
@@ -34,16 +33,16 @@ import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHan
 /** Builder for {@link AsyncCallExecutionPipeline}. */
 public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implements CallExecutionPipelineBuilder<I, T> {
 
-    private final Function<ProgressTracker, AsyncCall<I, T>> callFactory;
+    private final AsyncCallFactory<I, T> callFactory;
 
     private final ProgressBarBuilder progressBarBuilder = new ProgressBarBuilder()
             .setStyle(ProgressBarStyle.UNICODE_BLOCK)
             .continuousUpdate()
             .setSpeedUnit(ChronoUnit.SECONDS)
             .setInitialMax(100)
-            .hideETA()
-            .setTaskName("")
-            .showSpeed();
+            .hideEta()
+            .showSpeed()
+            .setUpdateIntervalMillis(60);
 
     private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
 
@@ -57,7 +56,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
 
     private boolean[] verbose;
 
-    AsyncCallExecutionPipelineBuilder(Function<ProgressTracker, AsyncCall<I, T>> callFactory) {
+    AsyncCallExecutionPipelineBuilder(AsyncCallFactory<I, T> callFactory) {
         this.callFactory = callFactory;
     }
 
@@ -110,14 +109,26 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
         return this;
     }
 
-    @Override
-    public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose) {
-        this.verbose = verbose;
+    /**
+     * Changes default progress bar to simple spinner, which prints 1 to 3 dots after the prefix.
+     *
+     * @param prefix Prefix.
+     * @return This builder.
+     */
+    public AsyncCallExecutionPipelineBuilder<I, T> enableSpinner(String prefix) {
+        SpinnerRenderer renderer = new SpinnerRenderer(prefix);
+        this.progressBarBuilder.setRenderer((progress, maxLength) -> renderer.render(maxLength));
         return this;
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> name(String name) {
-        this.progressBarBuilder.setTaskName(name);
+    public AsyncCallExecutionPipelineBuilder<I, T> updateIntervalMillis(int updateIntervalMillis) {
+        this.progressBarBuilder.setUpdateIntervalMillis(updateIntervalMillis);
+        return this;
+    }
+
+    @Override
+    public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose) {
+        this.verbose = verbose;
         return this;
     }
 

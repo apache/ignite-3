@@ -158,7 +158,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 SqlCommon.DEFAULT_TIME_ZONE_ID,
                 bufferSize,
                 Clock.systemUTC(),
-                null
+                null,
+                1L
         );
 
         contexts.add(executionContext);

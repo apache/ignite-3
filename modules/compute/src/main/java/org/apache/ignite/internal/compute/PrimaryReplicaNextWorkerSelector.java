@@ -24,7 +24,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Next worker selector that returns a node that holds a primary replica for the partition specified in a subclass as a next worker. If
@@ -63,5 +63,5 @@ abstract class PrimaryReplicaNextWorkerSelector implements NextWorkerSelector {
                 .thenApply(topologyService::getById);
     }
 
-    protected abstract PartitionGroupId partitionGroupId();
+    protected abstract ZonePartitionId partitionGroupId();
 }

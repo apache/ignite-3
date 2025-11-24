@@ -34,12 +34,14 @@ public class EnlistedPartitionGroup {
     private final Set<Integer> tableIds;
 
     /** Constructor. */
+    // TODO IGNITE-22522 Convert ReplicationGroupId to ZonePartitionId.
     public EnlistedPartitionGroup(ReplicationGroupId groupId, Set<Integer> tableIds) {
         this.groupId = groupId;
         this.tableIds = Set.copyOf(tableIds);
     }
 
     /** Constructor. */
+    // TODO IGNITE-22522 Remove.
     public EnlistedPartitionGroup(TablePartitionId groupId) {
         this(groupId, Set.of(groupId.tableId()));
     }

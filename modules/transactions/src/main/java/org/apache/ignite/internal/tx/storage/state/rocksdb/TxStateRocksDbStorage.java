@@ -88,7 +88,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
+    public TxStateRocksDbPartitionStorage getOrCreatePartitionStorage(int partitionId) {
         checkPartitionId(partitionId);
 
         TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
@@ -104,8 +104,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return storage;
     }
 
-    @Override
-    public TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+    /*
+     * Creates transaction state storage for partition.
+     *
+     * @param partitionId Partition id.
+     * @throws IgniteInternalException In case when the operation has failed.
+     */
+    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
         return new TxStateRocksDbPartitionStorage(partitionId, this);
     }
 

@@ -671,7 +671,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 LOG.info("Lonely leader has been established, changing voting set to target set: {}", currentState.targetPeers);
 
                 PeersAndLearners newConfig = PeersAndLearners.fromConsistentIds(currentState.targetPeers);
-                raftService.changePeersAndLearners(newConfig, configuration.term())
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                raftService.changePeersAndLearners(newConfig, configuration.term(), 0)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
                                 Throwable unwrapped = ExceptionUtils.unwrapCause(ex);
@@ -1135,7 +1136,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /**
      * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private void onRevisionApplied(long revision) {
+    protected void onRevisionApplied(long revision) {
         appliedRevision = revision;
     }
 
@@ -1185,7 +1186,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 RaftNodeId raftNodeId = raftNodeId();
                 PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
 
-                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration, 0);
             }
         });
     }

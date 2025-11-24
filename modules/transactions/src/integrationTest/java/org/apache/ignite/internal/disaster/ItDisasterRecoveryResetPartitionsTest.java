@@ -19,7 +19,7 @@ package org.apache.ignite.internal.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -71,7 +71,7 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
 
         stopNode(nodeToStop);
 
-        assertThrows(SqlException.class, () -> executeSql(selectSql), "Mandatory nodes was excluded from mapping:");
+        assertThrows(SqlException.class, () -> executeSql(selectSql), "Mandatory nodes were excluded from mapping:");
 
         DisasterRecoveryManager disasterRecoveryManager = unwrapIgniteImpl(cluster.aliveNode()).disasterRecoveryManager();
         CompletableFuture<Void> resetFuture = TestDisasterRecoveryUtils.resetPartitions(

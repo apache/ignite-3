@@ -22,6 +22,9 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.NodeStopper;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -31,6 +34,8 @@ import org.apache.ignite.internal.tostring.S;
  * then JVM process will be terminated forcibly using {@code Runtime.getRuntime().halt()}.
  */
 public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(StopNodeOrHaltFailureHandler.class);
+
     /**
      * This is kill code that can be used by external tools, like Shell scripts,
      * to auto-stop the Ignite JVM process without restarting.
@@ -77,16 +82,18 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
         if (tryStop) {
             CountDownLatch latch = new CountDownLatch(1);
 
-            new Thread(
+            Thread stopperThread = new Thread(
                     () -> {
                         nodeStopper.stopNode();
 
                         latch.countDown();
                     },
                     "node-stopper"
-            ).start();
+            );
+            stopperThread.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
+            stopperThread.start();
 
-            new Thread(
+            Thread haltOnStopTimeoutThread = new Thread(
                     () -> {
                         try {
                             if (!latch.await(timeout, TimeUnit.MILLISECONDS)) {
@@ -97,7 +104,9 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
                         }
                     },
                     "jvm-halt-on-stop-timeout"
-            ).start();
+            );
+            haltOnStopTimeoutThread.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
+            haltOnStopTimeoutThread.start();
         } else {
             Runtime.getRuntime().halt(KILL_EXIT_CODE);
         }

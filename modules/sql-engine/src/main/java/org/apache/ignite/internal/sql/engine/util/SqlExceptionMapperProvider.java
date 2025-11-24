@@ -77,7 +77,7 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
         mappers.add(unchecked(InternalCompilerException.class,
                 err -> new SqlException(Common.INTERNAL_ERR, "Expression compiler error. " + err.getMessage(), err)));
 
-        mappers.add(unchecked(TxControlInsideExternalTxNotSupportedException.class, 
+        mappers.add(unchecked(TxControlInsideExternalTxNotSupportedException.class,
                 err -> new SqlException(err.traceId(), err.code(), err.getMessage(), err)));
 
         return mappers;
