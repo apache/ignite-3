@@ -46,7 +46,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -139,7 +138,6 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -556,8 +554,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Dummy metastore activity mock. */
     private void mockMetastore() {
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
-
-        when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
 
     private void mockZoneLockForRead() {
