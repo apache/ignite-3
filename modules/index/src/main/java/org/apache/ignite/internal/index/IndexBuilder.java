@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -72,8 +71,6 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final FinalTransactionStateResolver finalTransactionStateResolver;
 
     private final IndexMetaStorage indexMetaStorage;
@@ -91,14 +88,12 @@ class IndexBuilder implements ManuallyCloseable {
             Executor executor,
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             FinalTransactionStateResolver finalTransactionStateResolver,
             IndexMetaStorage indexMetaStorage
     ) {
         this.executor = executor;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.finalTransactionStateResolver = finalTransactionStateResolver;
         this.indexMetaStorage = indexMetaStorage;
     }
@@ -154,7 +149,6 @@ class IndexBuilder implements ManuallyCloseable {
                     partitionStorage,
                     replicaService,
                     failureProcessor,
-                    nodeProperties,
                     finalTransactionStateResolver,
                     executor,
                     busyLock,
@@ -219,7 +213,6 @@ class IndexBuilder implements ManuallyCloseable {
                     partitionStorage,
                     replicaService,
                     failureProcessor,
-                    nodeProperties,
                     finalTransactionStateResolver,
                     executor,
                     busyLock,
@@ -241,17 +234,6 @@ class IndexBuilder implements ManuallyCloseable {
 
         long tsLong = indexMeta.statusChange(MetaIndexStatus.REGISTERED).activationTimestamp();
         return HybridTimestamp.hybridTimestamp(tsLong);
-    }
-
-    /**
-     * Stops building all indexes (for a table partition) if they are in progress.
-     *
-     * @param tableId Table ID.
-     * @param partitionId Partition ID.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
-    public void stopBuildingTableIndexes(int tableId, int partitionId) {
-        stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
     }
 
     /**

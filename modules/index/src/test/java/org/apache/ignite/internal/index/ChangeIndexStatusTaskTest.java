@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -55,6 +56,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -66,10 +68,10 @@ import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -92,7 +94,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -194,7 +196,6 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 clockService,
                 indexMetaStorage,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 executor,
                 busyLock
         ) {
@@ -367,7 +368,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     }
 
     private ReplicaMeta createLocalNodeReplicaMeta(HybridTimestamp startTime, HybridTimestamp expirationTime) {
-        return newPrimaryReplicaMeta(LOCAL_NODE, new TablePartitionId(indexDescriptor.tableId(), 0), startTime, expirationTime);
+        return newPrimaryReplicaMeta(LOCAL_NODE, new ZonePartitionId(0, 0), startTime, expirationTime);
     }
 
     private static ClusterService createClusterService() {
@@ -393,14 +394,20 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     }
 
     private PrimaryReplicaAwaitTimeoutException primaryReplicaAwaitTimeoutException() {
-        TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
-
-        return new PrimaryReplicaAwaitTimeoutException(groupId, HybridTimestamp.MIN_VALUE, null, null);
+        return new PrimaryReplicaAwaitTimeoutException(createReplicationGroupId(0), HybridTimestamp.MIN_VALUE, null, null);
     }
 
     private PrimaryReplicaAwaitException primaryReplicaAwaitException() {
-        TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+        return new PrimaryReplicaAwaitException(createReplicationGroupId(0), HybridTimestamp.MIN_VALUE, null);
+    }
 
-        return new PrimaryReplicaAwaitException(groupId, HybridTimestamp.MIN_VALUE, null);
+    private ZonePartitionId createReplicationGroupId(int partId) {
+        Collection<CatalogZoneDescriptor> zones = catalogManager.catalog(catalogManager.latestCatalogVersion()).zones();
+
+        assertThat("Only one zone should be defined [zones=" + zones + ']', zones, hasSize(1));
+
+        int zoneId = zones.iterator().next().id();
+
+        return new ZonePartitionId(zoneId, partId);
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.test;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,8 +35,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -72,10 +71,7 @@ public class ItTransactionTestUtils {
     public static Set<String> partitionAssignment(IgniteImpl node, PartitionGroupId grpId) {
         MetaStorageManager metaStorageManager = node.metaStorageManager();
 
-        ByteArray stableAssignmentKey =
-                colocationEnabled()
-                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) grpId)
-                        : RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) grpId);
+        ByteArray stableAssignmentKey = stablePartAssignmentsKey((ZonePartitionId) grpId);
 
         CompletableFuture<Entry> assignmentEntryFut = metaStorageManager.get(stableAssignmentKey);
 

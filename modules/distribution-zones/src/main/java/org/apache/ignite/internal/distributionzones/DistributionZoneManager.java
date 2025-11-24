@@ -89,7 +89,7 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
+import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngineV2;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -157,7 +157,7 @@ public class DistributionZoneManager extends
     private final WatchListener topologyWatchListener;
 
     /** Rebalance engine. */
-    private final DistributionZoneRebalanceEngine rebalanceEngine;
+    private final DistributionZoneRebalanceEngineV2 rebalanceEngine;
 
     /** Catalog manager. */
     private final CatalogManager catalogManager;
@@ -262,12 +262,11 @@ public class DistributionZoneManager extends
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
         //noinspection ThisEscapedInObjectConstruction
-        rebalanceEngine = new DistributionZoneRebalanceEngine(
+        rebalanceEngine = new DistributionZoneRebalanceEngineV2(
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager,
-                nodeProperties
+                catalogManager
         );
 
         partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -314,20 +313,12 @@ public class DistributionZoneManager extends
 
             restoreGlobalStateFromLocalMetaStorage(recoveryRevision);
 
-            // If Catalog manager is empty, it gets initialized asynchronously and at this moment the initialization might not complete,
-            // nevertheless everything works correctly.
-            // All components execute the synchronous part of startAsync sequentially and only when they all complete,
-            // we enable metastorage listeners (see IgniteImpl.joinClusterAsync: metaStorageMgr.deployWatches()).
-            // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
-            // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
-            int catalogVersion = catalogManager.latestCatalogVersion();
-
             registerMetricSourcesOnStart();
 
             return allOf(
                     restoreLogicalTopologyChangeEvent(recoveryRevision),
                     dataNodesManager.startAsync(currentZones(), recoveryRevision)
-            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
+            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(), componentContext.executor());
         });
     }
 
