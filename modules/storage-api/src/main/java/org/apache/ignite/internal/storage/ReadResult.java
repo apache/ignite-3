@@ -41,7 +41,7 @@ public class ReadResult {
     /** Commit zone id. Not {@code null} iff this is a write-intent. */
     private final @Nullable Integer commitZoneId;
 
-    /** Commit table id. If this is not a write-intent it is equal to {@link #UNDEFINED_COMMIT_PARTITION_ID}. */
+    /** Commit partition id. If this is not a write-intent it is equal to {@link #UNDEFINED_COMMIT_PARTITION_ID}. */
     private final int commitPartitionId;
 
     /**
@@ -92,9 +92,9 @@ public class ReadResult {
         return new ReadResult(rowId, null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
-    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable BinaryRow binaryRow, UUID transactionId, int commitTableId,
+    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable BinaryRow binaryRow, UUID transactionId, int commitZoneId,
             int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
-        return new ReadResult(rowId, binaryRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
+        return new ReadResult(rowId, binaryRow, transactionId, commitZoneId, null, lastCommittedTimestamp, commitPartitionId);
     }
 
     public static ReadResult createFromCommitted(RowId rowId, @Nullable BinaryRow binaryRow, HybridTimestamp commitTs) {
