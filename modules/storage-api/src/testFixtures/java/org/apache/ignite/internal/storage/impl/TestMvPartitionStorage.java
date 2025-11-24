@@ -42,7 +42,6 @@ import org.apache.ignite.internal.storage.AddWriteCommittedResult;
 import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -139,7 +138,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         private final @Nullable BinaryRow row;
         private final @Nullable HybridTimestamp ts;
         private final @Nullable UUID txId;
-        private final @Nullable Integer commitTableId;
+        private final @Nullable Integer commitZoneId;
         private final int commitPartitionId;
         volatile @Nullable VersionChain next;
 
@@ -148,7 +147,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 @Nullable BinaryRow row,
                 @Nullable HybridTimestamp ts,
                 @Nullable UUID txId,
-                @Nullable Integer commitTableId,
+                @Nullable Integer commitZoneId,
                 int commitPartitionId,
                 @Nullable VersionChain next
         ) {
@@ -156,14 +155,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             this.row = row;
             this.ts = ts;
             this.txId = txId;
-            this.commitTableId = commitTableId;
+            this.commitZoneId = commitZoneId;
             this.commitPartitionId = commitPartitionId;
             this.next = next;
         }
 
-        static VersionChain forWriteIntent(RowId rowId, @Nullable BinaryRow row, @Nullable UUID txId, @Nullable Integer commitTableId,
+        static VersionChain forWriteIntent(RowId rowId, @Nullable BinaryRow row, @Nullable UUID txId, @Nullable Integer commitZoneId,
                 int commitPartitionId, @Nullable VersionChain next) {
-            return new VersionChain(rowId, row, null, txId, commitTableId, commitPartitionId, next);
+            return new VersionChain(rowId, row, null, txId, commitZoneId, commitPartitionId, next);
         }
 
         static VersionChain forCommitted(RowId rowId, HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
@@ -265,11 +264,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
         assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
-                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+                + ", commitZoneId=" + commitZoneId + ", commitPartitionId=" + commitPartitionId;
 
         checkStorageClosed();
 
@@ -285,18 +284,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
                 addWriteResult[0] = AddWriteResult.success(versionChain.row);
 
-                return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain.next);
+                return VersionChain.forWriteIntent(rowId, row, txId, commitZoneId, commitPartitionId, versionChain.next);
             }
 
             addWriteResult[0] = AddWriteResult.success(null);
 
-            return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
+            return VersionChain.forWriteIntent(rowId, row, txId, commitZoneId, commitPartitionId, versionChain);
         });
 
         AddWriteResult res = addWriteResult[0];
 
         assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
-                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+                + ", commitZoneId=" + commitZoneId + ", commitPartitionId=" + commitPartitionId;
 
         return res;
     }
@@ -493,7 +492,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 // We *only* have a write-intent, return it.
                 BinaryRow binaryRow = cur.row;
 
-                return ReadResult.createFromWriteIntent(cur.rowId, binaryRow, cur.txId, cur.commitTableId, cur.commitPartitionId, null);
+                return ReadResult.createFromWriteIntent(cur.rowId, binaryRow, cur.txId, cur.commitZoneId, cur.commitPartitionId, null);
             }
 
             // Move to first commit.
@@ -511,7 +510,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     versionChain.rowId,
                     versionChain.row,
                     versionChain.txId,
-                    versionChain.commitTableId,
+                    versionChain.commitZoneId,
                     versionChain.commitPartitionId, fillLastCommittedTs && next != null ? next.ts : null
             );
         }
@@ -539,7 +538,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     chainHead.rowId,
                     binaryRow,
                     chainHead.txId,
-                    chainHead.commitTableId,
+                    chainHead.commitZoneId,
                     chainHead.commitPartitionId,
                     firstCommit.ts);
         }
@@ -695,7 +694,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         VersionChain versionChain = entry.getValue();
 
-        return new RowMeta(versionChain.rowId, versionChain.txId, versionChain.commitTableId, versionChain.commitPartitionId);
+        return new RowMeta(versionChain.rowId, versionChain.txId, versionChain.commitZoneId, versionChain.commitPartitionId);
     }
 
     @Override

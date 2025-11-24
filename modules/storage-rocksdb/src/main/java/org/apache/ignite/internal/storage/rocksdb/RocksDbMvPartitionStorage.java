@@ -111,17 +111,17 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>Key:
  * <pre>{@code
  * For write-intents
- * | Table ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) |
+ * | Zone ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) |
  *
  * For committed rows
- * | Table ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) | Commit Timestamp (8 bytes, DESC) |
+ * | Zone ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) | Commit Timestamp (8 bytes, DESC) |
  * }</pre>
  *
  * <p>Value:
  *
  * <pre>{@code
  * For write-intents
- * | Data ID (24 bytes, BE) | Commit Table ID (16 bytes) | Commit Partition ID (2 bytes) |
+ * | Data ID (24 bytes, BE) | Commit Zone ID (16 bytes) | Commit Partition ID (2 bytes) |
  *
  * For committed rows
  * | Data ID (24 bytes, BE) |
@@ -449,15 +449,15 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
-        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
         return busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
-            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
             try {
                 // Check concurrent transaction data.
@@ -504,7 +504,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     return AddWriteResult.success(previousRow);
                 } else {
-                    ByteBuffer txState = createTxState(rowId, txId, commitTableOrZoneId, commitPartitionId, row == null);
+                    ByteBuffer txState = createTxState(rowId, txId, commitZoneId, commitPartitionId, row == null);
 
                     ByteBuffer dataId = readDataIdFromTxState(txState);
 
@@ -520,7 +520,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 throw new IgniteRocksDbException(
                         "Failed to update a row in storage: [{}]",
                         e,
-                        addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId)
+                        addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId)
                 );
             }
         });
@@ -534,7 +534,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return buffer.rewind();
     }
 
-    private static ByteBuffer createTxState(RowId rowId, UUID txId, int commitTableId, int commitPartitionId, boolean isTombstone) {
+    private static ByteBuffer createTxState(RowId rowId, UUID txId, int commitZoneId, int commitPartitionId, boolean isTombstone) {
         ByteBuffer buffer = TX_STATE_BUFFER.get().clear();
 
         putDataId(buffer, rowId, TransactionIds.beginTimestamp(txId), isTombstone);
@@ -542,7 +542,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return buffer
                 .putLong(txId.getMostSignificantBits())
                 .putLong(txId.getLeastSignificantBits())
-                .putInt(commitTableId)
+                .putInt(commitZoneId)
                 .putShort((short) commitPartitionId)
                 .rewind();
     }
@@ -1741,12 +1741,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) {
         return format(
-                "rowId={}, rowIsTombstone={}, txId={}, commitTableOrZoneId={}, commitPartitionId={}, {}",
-                rowId, row == null, txId, commitTableOrZoneId, commitPartitionId, createStorageInfo()
+                "rowId={}, rowIsTombstone={}, txId={}, commitZoneId={}, commitPartitionId={}, {}",
+                rowId, row == null, txId, commitZoneId, commitPartitionId, createStorageInfo()
         );
     }
 

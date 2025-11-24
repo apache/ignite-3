@@ -242,7 +242,7 @@ class ItZoneTxFinishTest extends ItAbstractColocationTest {
         waitOnAllNodes("A write intent should appear on every node with expected commitZoneId", tableName, storage -> {
             List<ReadResult> readResults = readAll(storage);
             return readResults.size() == 1
-                    && readResults.stream().allMatch(version -> Objects.equals(version.commitTableOrZoneId(), commitZoneId));
+                    && readResults.stream().allMatch(version -> Objects.equals(version.commitZoneId(), commitZoneId));
         });
     }
 }
