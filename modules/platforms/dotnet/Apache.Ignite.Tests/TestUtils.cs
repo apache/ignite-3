@@ -101,7 +101,11 @@ namespace Apache.Ignite.Tests
         public static bool IsRecordClass(this Type type) =>
             type.GetMethods().Any(m => m.Name == "<Clone>$" && m.ReturnType == type);
 
-        public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) => new ConsoleLogger(minLevel);
+        public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel, bool autoFlush = true) =>
+            new ConsoleLogger(minLevel)
+            {
+                AutoFlush = autoFlush
+            };
 
         public static void CheckByteArrayPoolLeak(int timeoutMs = 1000)
         {

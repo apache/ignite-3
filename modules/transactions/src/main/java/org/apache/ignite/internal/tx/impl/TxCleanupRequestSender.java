@@ -41,6 +41,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
@@ -122,16 +123,36 @@ public class TxCleanupRequestSender {
     private void markTxnCleanupReplicated(UUID txId, TxState state, ReplicationGroupId commitPartitionId) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        txStateVolatileStorage.updateMeta(txId, oldMeta ->
+        TxStateMeta txStateMeta = txStateVolatileStorage.state(txId);
+        final CompletableFuture<HybridTimestamp> commitTimestampFuture;
+        if (state == TxState.COMMITTED && (txStateMeta == null || txStateMeta.commitTimestamp() == null)) {
+            commitTimestampFuture = placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartitionId)
+                    .thenCompose(replicaMeta -> {
+                                String primaryNode = replicaMeta.getLeaseholder();
+                                HybridTimestamp startTime = replicaMeta.getStartTime();
+                                return txMessageSender.resolveTxStateFromCommitPartition(
+                                        primaryNode,
+                                        txId,
+                                        commitPartitionId,
+                                        startTime.longValue()).thenApply(TransactionMeta::commitTimestamp);
+                            }
+                    );
+        } else {
+            HybridTimestamp existingCommitTs = txStateMeta == null ? null : txStateMeta.commitTimestamp();
+            commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
+        }
+
+        commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta ->
                 new TxStateMeta(
                         oldMeta == null ? state : oldMeta.txState(),
                         oldMeta == null ? null : oldMeta.txCoordinatorId(),
                         commitPartitionId,
-                        oldMeta == null ? null : oldMeta.commitTimestamp(),
+                        oldMeta == null ? commitTimestamp : oldMeta.commitTimestamp(),
                         oldMeta == null ? null : oldMeta.tx(),
                         oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
                         cleanupCompletionTimestamp,
                         oldMeta == null ? null : oldMeta.isFinishedDueToTimeout()
+                )
                 )
         );
     }

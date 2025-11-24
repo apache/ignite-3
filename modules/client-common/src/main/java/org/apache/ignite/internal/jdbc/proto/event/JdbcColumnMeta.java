@@ -303,7 +303,7 @@ public class JdbcColumnMeta extends Response {
      * @param columnType Column type.
      * @return SQL type name.
      */
-    private static String typeName(ColumnType columnType) {
+    public static String typeName(ColumnType columnType) {
         switch (columnType) {
             case BOOLEAN: return "BOOLEAN";
             case INT8: return "TINYINT";
@@ -323,6 +323,7 @@ public class JdbcColumnMeta extends Response {
             case UUID: return "UUID";
             case PERIOD:
             case DURATION:
+            case STRUCT:
                 // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
                 // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
                 return "OTHER";
@@ -331,7 +332,13 @@ public class JdbcColumnMeta extends Response {
         }
     }
 
-    private static int typeId(ColumnType columnType) {
+    /**
+     * Converts column type to SQL type id.
+     *
+     * @param columnType Column type.
+     * @return SQL type id.
+     */
+    public static int typeId(ColumnType columnType) {
         switch (columnType) {
             case BOOLEAN: return BOOLEAN;
             case INT8: return TINYINT;
@@ -351,6 +358,7 @@ public class JdbcColumnMeta extends Response {
             case PERIOD:
             case DURATION:
             case TIMESTAMP:
+            case STRUCT:
                 // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
                 // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
                 return OTHER;

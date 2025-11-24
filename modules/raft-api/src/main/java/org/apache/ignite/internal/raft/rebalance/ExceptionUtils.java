@@ -15,43 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.row;
+package org.apache.ignite.internal.raft.rebalance;
 
-import java.util.Objects;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+
+import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 
 /**
- * Base class for types of fields of {@link RowSchema}.
+ * Helper class for exception handling.
  */
-public abstract class TypeSpec {
+public class ExceptionUtils {
 
-    private final boolean nullable;
-
-    /** Constructor. */
-    public TypeSpec(boolean nullable) {
-        this.nullable = nullable;
-    }
-
-    /** Returns {@code true} if values of this type can be {@code null}. */
-    public boolean isNullable() {
-        return nullable;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+    /**
+     * Checks if an error is recoverable, so we can retry a rebalance intent.
+     *
+     * @param t The throwable.
+     * @return {@code True} if this is a recoverable exception.
+     */
+    public static boolean recoverable(Throwable t) {
+        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
             return false;
         }
-        TypeSpec typeSpec = (TypeSpec) o;
-        return nullable == typeSpec.nullable;
-    }
 
-    /** {@inheritDoc} */
-    @Override
-    public int hashCode() {
-        return Objects.hash(nullable);
+        return true;
     }
 }

@@ -516,6 +516,9 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
 
+    /** Future that completes when the node has joined the cluster. */
+    private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
+
     /**
      * The Constructor.
      *
@@ -722,8 +725,7 @@ public class IgniteImpl implements Ignite {
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,
                 clusterCfgDynamicDefaultsPatcher,
-                distributedCfgValidator,
-                nodeProperties
+                distributedCfgValidator
         );
 
         NodeAttributesCollector nodeAttributesCollector =
@@ -751,8 +753,7 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 clusterIdService,
                 cmgRaftConfigurer,
-                metricManager,
-                nodeProperties
+                metricManager
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -1277,7 +1278,6 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 computeComponent,
                 clock,
-                nodeProperties,
                 observableTimestampTracker
         );
 
@@ -1408,7 +1408,12 @@ public class IgniteImpl implements Ignite {
     private RestComponent createRestComponent(String name) {
         RestManager restManager = new RestManager();
         Supplier<RestFactory> presentationsFactory = () -> new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, clusterInitializer, cmgMgr);
+        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(
+                clusterSvc,
+                clusterInitializer,
+                cmgMgr,
+                () -> joinFuture
+        );
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name,
                 new JdbcPortProviderImpl(nodeCfgMgr.configurationRegistry()));
         Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);
@@ -1559,7 +1564,7 @@ public class IgniteImpl implements Ignite {
         );
         ComponentContext componentContext = new ComponentContext(joinExecutor);
 
-        return cmgMgr.joinFuture()
+        cmgMgr.joinFuture()
                 .thenComposeAsync(unused -> cmgMgr.clusterState(), joinExecutor)
                 .thenAcceptAsync(clusterState -> {
                     this.clusterState = clusterState;
@@ -1674,7 +1679,16 @@ public class IgniteImpl implements Ignite {
                     return (Ignite) this;
                 }, joinExecutor)
                 // Moving to the common pool on purpose to close the join pool and proceed with user's code in the common pool.
-                .whenCompleteAsync((res, ex) -> joinExecutor.shutdownNow());
+                .whenCompleteAsync((res, ex) -> {
+                    joinExecutor.shutdownNow();
+                    if (ex != null) {
+                        joinFuture.completeExceptionally(ex);
+                    } else {
+                        joinFuture.complete(res);
+                    }
+                });
+
+        return joinFuture;
     }
 
     private CompletableFuture<Void> awaitSelfInLocalLogicalTopology() {

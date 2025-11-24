@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.jdbc;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.sql.Array;
@@ -42,9 +42,6 @@ import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.text.ParseException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -54,371 +51,203 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Jdbc result set implementation.
+ * JDBC ResultSet adapter backed by {@link org.apache.ignite.sql.ResultSet}.
  */
 public class JdbcResultSet implements ResultSet {
-    /** Decimal format to convert string to decimal. */
-    private static final ThreadLocal<DecimalFormat> decimalFormat = new ThreadLocal<>() {
-        /** {@inheritDoc} */
-        @Override
-        protected DecimalFormat initialValue() {
-            DecimalFormatSymbols symbols = new DecimalFormatSymbols();
 
-            symbols.setGroupingSeparator(',');
-            symbols.setDecimalSeparator('.');
+    private static final String UPDATES_ARE_NOT_SUPPORTED = "Updates are not supported.";
 
-            DecimalFormat decimalFormat = new DecimalFormat("", symbols);
+    private static final String SQL_STRUCTURED_TYPE_ARE_NOT_SUPPORTED = "SQL structured type are not supported.";
 
-            decimalFormat.setParseBigDecimal(true);
+    private static final String SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED = "SQL-specific types are not supported.";
 
-            return decimalFormat;
-        }
-    };
+    private static final BigDecimal MIN_DOUBLE = BigDecimal.valueOf(-Double.MAX_VALUE);
 
-    private final JdbcStatement stmt;
-    private final @Nullable Long cursorId;
-    private final boolean hasResultSet;
-    private final boolean hasNextResult;
+    private static final BigDecimal MAX_DOUBLE = BigDecimal.valueOf(Double.MAX_VALUE);
 
-    /** Jdbc metadata. */
-    private final @Nullable JdbcResultSetMetadata jdbcMeta;
+    private final ClientSyncResultSet rs;
 
-    /** Column order map. */
-    private @Nullable Map<String, Integer> colOrder;
+    private final ResultSetMetadata rsMetadata;
 
-    /** Rows. */
-    private @Nullable List<BinaryTupleReader> rows;
+    private final Supplier<ZoneId> zoneIdSupplier;
 
-    /** Rows iterator. */
-    private @Nullable Iterator<List<Object>> rowsIter;
+    private final @Nullable Statement statement;
 
-    /** Current row. */
-    private @Nullable List<Object> curRow;
+    private final JdbcResultSetMetadata jdbcMeta;
 
-    /** Current position. */
-    private int curPos;
+    private final int maxRows;
 
-    /** Finished flag. */
-    private boolean finished;
+    private boolean closeOnCompletion;
 
-    /** Closed flag. */
-    private boolean closed;
-
-    /** If {#code true} indicates that handler still holds cursor in resources. */
-    private boolean holdsResource;
-
-    /** Was {@code NULL} flag. */
-    private boolean wasNull;
-
-    /** Fetch size. */
     private int fetchSize;
 
-    /** Update count. */
-    private long updCnt;
+    private @Nullable SqlRow currentRow;
 
-    /** Close statement after close result set count. */
-    private boolean closeStmt;
+    private int currentPosition;
 
-    /** Query request handler. */
-    private JdbcQueryCursorHandler cursorHandler;
+    boolean closed;
 
-    /** Count of columns in resultSet row. */
-    private int columnCount;
-
-    /** Function to deserialize raw rows to list of objects. */
-    private @Nullable Function<BinaryTupleReader, List<Object>> transformer;
+    private boolean wasNull;
 
     /**
-     * Creates new result set.
-     *
-     * @param handler JdbcQueryCursorHandler.
-     * @param stmt Statement.
-     * @param cursorId Cursor ID.
-     * @param fetchSize Fetch size.
-     * @param finished Finished flag.
-     * @param rows Rows.
-     * @param hasResultSet Is Result ser for Select query.
-     * @param hasNextResult Whether this result is part of multi statement and there is at least one more result available.
-     * @param updCnt Update count.
-     * @param closeStmt Close statement on the result set close.
-     * @param columnCount Count of columns in resultSet row.
-     * @param transformer Function to deserialize raw rows to list of objects.
+     * Constructor.
      */
     JdbcResultSet(
-            JdbcQueryCursorHandler handler,
-            JdbcStatement stmt,
-            @Nullable Long cursorId,
-            int fetchSize,
-            boolean finished,
-            @Nullable List<BinaryTupleReader> rows,
-            @Nullable List<JdbcColumnMeta> meta,
-            boolean hasResultSet,
-            boolean hasNextResult,
-            long updCnt,
-            boolean closeStmt,
-            int columnCount,
-            @Nullable Function<BinaryTupleReader, List<Object>> transformer
+            ClientSyncResultSet rs,
+            @Nullable Statement statement,
+            Supplier<ZoneId> zoneIdSupplier,
+            boolean closeOnCompletion,
+            int maxRows
     ) {
-        assert stmt != null;
-        assert fetchSize > 0;
+        this.rs = rs;
 
-        this.cursorHandler = handler;
-        this.stmt = stmt;
-        this.cursorId = cursorId;
-        this.fetchSize = fetchSize;
-        this.finished = finished;
-        this.hasResultSet = hasResultSet;
-        this.hasNextResult = hasNextResult;
-        this.closeStmt = closeStmt;
-        this.columnCount = columnCount;
+        this.rsMetadata = rs.metadata();
+        this.zoneIdSupplier = zoneIdSupplier;
+        this.statement = statement;
+        this.currentRow = null;
+        this.closed = false;
+        this.wasNull = false;
+        this.jdbcMeta = new JdbcResultSetMetadata(rsMetadata);
+        this.closeOnCompletion = closeOnCompletion;
+        this.maxRows = maxRows;
+    }
 
-        if (this.hasResultSet) {
-            this.transformer = Objects.requireNonNull(transformer);
-            this.rows = Objects.requireNonNull(rows);
-            this.jdbcMeta = new JdbcResultSetMetadata(Objects.requireNonNull(meta));
+    ClientSyncResultSet resultSet() {
+        return rs;
+    }
 
-            rowsIter = new TransformingIterator<>(rows.iterator(), transformer);
-        } else {
-            this.updCnt = updCnt;
-            this.jdbcMeta = null;
+    @Nullable
+    JdbcResultSet tryNextResultSet() throws SQLException {
+        if (!rs.hasNextResultSet()) {
+            return null;
         }
 
-        holdsResource = cursorId != null;
-    }
+        assert statement != null;
 
-    /**
-     * Creates new result set.
-     *
-     * @param rows Rows.
-     * @param meta Column metadata.
-     *
-     * @exception SQLException if a database access error occurs
-     */
-    JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta) throws SQLException {
-        stmt = null;
-        cursorId = null;
+        ClientSyncResultSet clientResultSet;
 
-        finished = true;
-        hasResultSet = true;
-        hasNextResult = false;
-        holdsResource = false;
-
-        this.rowsIter = rows.iterator();
-        this.jdbcMeta = new JdbcResultSetMetadata(meta);
-
-        initColumnOrder(jdbcMeta);
-    }
-
-    boolean holdResults() {
-        return rows != null;
-    }
-
-    @Nullable JdbcResultSet getNextResultSet() throws SQLException {
         try {
-            if (hasNextResult) {
-                assert cursorId != null;
-
-                // all resources will be freed on server by `getMoreResultsAsync` call, so we need to reflect this in local result set
-                closed = true;
-                holdsResource = false;
-
-                JdbcFetchQueryResultsRequest req = new JdbcFetchQueryResultsRequest(cursorId, fetchSize);
-                JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
-
-                if (!res.success()) {
-                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-                }
-
-                Long newCursorId = res.cursorId();
-
-                List<JdbcColumnMeta> meta = res.meta();
-
-                rows = List.of();
-
-                Function<BinaryTupleReader, List<Object>> transformer = meta != null ? createTransformer(meta) : null;
-
-                int colCount = meta != null ? meta.size() : 0;
-
-                return new JdbcResultSet(cursorHandler, stmt, newCursorId, fetchSize, !res.hasMoreData(), res.items(),
-                        meta, res.hasResultSet(), res.hasNextResult(), res.updateCount(), closeStmt, colCount, transformer);
-            } else {
-                // cursor doesn't have next result, thus let's just close current one
-                close0(true);
-
-                return null;
-            }
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Fetch request failed.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Fetch request canceled.", SqlStateCode.QUERY_CANCELLED);
+            clientResultSet = rs.nextResultSet();
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         }
+
+        JdbcStatement jdbcStatement = statement.unwrap(JdbcStatement.class);
+        // isCloseOnCompletion throws SQLException if a statement is closed
+        boolean closeOnCompletion = jdbcStatement.closeOnCompletion;
+
+        return new JdbcResultSet(clientResultSet, statement, zoneIdSupplier, closeOnCompletion, maxRows);
     }
 
-    /** {@inheritDoc} */
+    boolean isCloseOnCompletion() {
+        return closeOnCompletion;
+    }
+
+    void setCloseStatement(boolean close) {
+        closeOnCompletion = close;
+    }
+
+    private boolean hasNext() {
+        return rs.hasNext() && (maxRows == 0 || currentPosition < maxRows);
+    }
+
     @Override
     public boolean next() throws SQLException {
         ensureNotClosed();
-        if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            try {
-                JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcFetchQueryResultsRequest(cursorId, fetchSize)).get();
 
-                if (!res.success()) {
-                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-                }
-
-                rows = new ArrayList<>(res.items().size());
-                for (ByteBuffer item : res.items()) {
-                    rows.add(new BinaryTupleReader(columnCount, item));
-                }
-
-                finished = res.last();
-
-                rowsIter = new TransformingIterator<>(rows.iterator(), transformer);
-            } catch (InterruptedException e) {
-                throw new SQLException("Thread was interrupted.", e);
-            } catch (ExecutionException e) {
-                throw new SQLException("Fetch request failed.", e);
-            } catch (CancellationException e) {
-                throw new SQLException("Fetch request canceled.", SqlStateCode.QUERY_CANCELLED);
-            }
-        }
-
-        if (rowsIter != null) {
-            if (rowsIter.hasNext()) {
-                curRow = rowsIter.next();
-
-                curPos++;
-
-                return true;
-            } else {
-                rowsIter = null;
-                curRow = null;
-
+        try {
+            if (!hasNext()) {
+                currentRow = null;
                 return false;
             }
-        } else {
-            return false;
+            currentRow = rs.next();
+            currentPosition += 1;
+            return true;
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws SQLException {
-        close0(!hasNextResult);
-
-        if (closeStmt) {
-            stmt.closeIfAllResultsClosed();
+        if (closed) {
+            return;
         }
-    }
+        closed = true;
 
-    /**
-     * Close result set.
-     *
-     * @param removeFromResources If {@code true} cursor need to be removed from client resources.
-     *
-     * @throws SQLException On error.
-     */
-    void close0(boolean removeFromResources) throws SQLException {
+        boolean moreResultSets = rs.hasNextResultSet();
+
         try {
-            if (!holdsResource) {
-                return;
-            }
-
-            holdsResource = !removeFromResources;
-
-            assert cursorId != null;
-
-            if (stmt != null) {
-                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId, removeFromResources)).get();
-
-                if (!res.success()) {
-                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-                }
-            }
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Unable to close result set.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Close result set request canceled.", e);
+            rs.close();
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException(e);
         } finally {
-            closed = true;
+            // Close the statement if this result set is the last one.
+            if (closeOnCompletion && !moreResultSets) {
+                JdbcStatement statement2 = statement.unwrap(JdbcStatement.class);
+                statement2.closeIfAllResultsClosed();
+            }
         }
-    }
-
-    boolean holdsResources() {
-        return holdsResource;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean wasNull() throws SQLException {
         ensureNotClosed();
-        ensureHasCurrentRow();
 
         return wasNull;
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public String getString(int colIdx) throws SQLException {
-        Object value = getValue(colIdx);
+        ensureNotClosed();
+        ensureHasCurrentRow();
 
-        if (value == null) {
+        Object val = getValue(colIdx);
+        if (val == null) {
             return null;
-        } else if (value instanceof Instant) {
-            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
-            assert jdbcMeta != null;
+        }
 
-            return Formatters.formatDateTime(localDateTime, colIdx, jdbcMeta);
-        } else if (value instanceof LocalTime) {
-            assert jdbcMeta != null;
-
-            return Formatters.formatTime((LocalTime) value, colIdx, jdbcMeta);
-        } else if (value instanceof LocalDateTime) {
-            assert jdbcMeta != null;
-
-            return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMeta);
-        } else if (value instanceof LocalDate) {
-            return Formatters.formatDate((LocalDate) value);
-        } else if (value instanceof byte[]) {
-            return StringUtils.toHexString((byte[]) value);
-        } else {
-            return String.valueOf(value);
+        ColumnType columnType = getColumnType(colIdx);
+        try {
+            switch (columnType) {
+                case DATE:
+                    return Formatters.formatDate((LocalDate) val);
+                case TIME:
+                    return Formatters.formatTime((LocalTime) val, getColumnPrecision(colIdx));
+                case DATETIME:
+                    return Formatters.formatDateTime((LocalDateTime) val, getColumnPrecision(colIdx));
+                case TIMESTAMP:
+                    LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+                    return Formatters.formatDateTime(localDateTime, getColumnPrecision(colIdx));
+                case BYTE_ARRAY:
+                    return StringUtils.toHexString((byte[]) val);
+                default:
+                    return String.valueOf(val);
+            }
+        } catch (Exception e) {
+            throw conversionError("string", e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public String getString(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -434,21 +263,29 @@ public class JdbcResultSet implements ResultSet {
             return false;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (cls == Boolean.class) {
-            return ((Boolean) val);
-        } else if (val instanceof Number) {
-            return ((Number) val).intValue() != 0;
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Integer.parseInt(val.toString()) != 0;
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnMetadata column = rsMetadata.columns().get(colIdx - 1);
+        switch (column.type()) {
+            case BOOLEAN:
+                return ((Boolean) val);
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+                long num = ((Number) val).longValue();
+                return num != 0;
+            case STRING:
+                String str = (String) val;
+                if ("0".equals(str)) {
+                    return false;
+                } else if ("1".equals(str)) {
+                    return true;
+                }
+                break;
+            default:
+                // Fallthrough
         }
+
+        throw conversionError("boolean", val);
     }
 
     /** {@inheritDoc} */
@@ -468,20 +305,34 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (val instanceof Number) {
-            return ((Number) val).byteValue();
-        } else if (cls == Boolean.class) {
-            return (Boolean) val ? (byte) 1 : (byte) 0;
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Byte.parseByte(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? (byte) 1 : (byte) 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+            case INT32:
+            case INT64:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getLongValue(((Number) val).longValue(), Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case FLOAT:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getFloatValueAsLong((float) val, Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case DOUBLE:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getDoubleValueAsLong((double) val, Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case DECIMAL:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getDecimalValueAsLong((BigDecimal) val, Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case STRING:
+                try {
+                    return Byte.parseByte(val.toString());
+                } catch (NumberFormatException e) {
+                    throw conversionError(Byte.TYPE.getTypeName(), val, e);
+                }
+            default:
+                throw conversionError(Byte.TYPE.getTypeName(), val);
         }
     }
 
@@ -502,20 +353,35 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (val instanceof Number) {
-            return ((Number) val).shortValue();
-        } else if (cls == Boolean.class) {
-            return (Boolean) val ? (short) 1 : (short) 0;
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Short.parseShort(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? (short) 1 : (short) 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+                return (short) val;
+            case INT32:
+            case INT64:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getLongValue(((Number) val).longValue(), Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case FLOAT:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getFloatValueAsLong((float) val, Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case DOUBLE:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getDoubleValueAsLong((double) val, Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case DECIMAL:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getDecimalValueAsLong((BigDecimal) val, Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case STRING:
+                try {
+                    return Short.parseShort(val.toString());
+                } catch (NumberFormatException e) {
+                    throw conversionError(Short.TYPE.getTypeName(), val, e);
+                }
+            default:
+                throw conversionError(Short.TYPE.getTypeName(), val);
         }
     }
 
@@ -536,20 +402,36 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (val instanceof Number) {
-            return ((Number) val).intValue();
-        } else if (cls == Boolean.class) {
-            return (Boolean) val ? 1 : 0;
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Integer.parseInt(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? 1 : 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+                return (short) val;
+            case INT32:
+                return (int) val;
+            case INT64:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getLongValue(((Number) val).longValue(), Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case FLOAT:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getFloatValueAsLong((float) val, Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case DOUBLE:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getDoubleValueAsLong((double) val, Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case DECIMAL:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getDecimalValueAsLong((BigDecimal) val, Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case STRING:
+                try {
+                    return Integer.parseInt(val.toString());
+                } catch (NumberFormatException e) {
+                    throw conversionError(Integer.TYPE.getTypeName(), val, e);
+                }
+            default:
+                throw conversionError(Integer.TYPE.getTypeName(), val);
         }
     }
 
@@ -570,20 +452,32 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (val instanceof Number) {
-            return ((Number) val).longValue();
-        } else if (cls == Boolean.class) {
-            return ((Boolean) val ? 1 : 0);
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Long.parseLong(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? 1 : 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+                return (short) val;
+            case INT32:
+                return (int) val;
+            case INT64:
+                return (long) val;
+            case FLOAT:
+                return getFloatValueAsLong((float) val, Long.TYPE.getTypeName(), Long.MIN_VALUE, Long.MAX_VALUE);
+            case DOUBLE:
+                return getDoubleValueAsLong((double) val, Long.TYPE.getTypeName(), Long.MIN_VALUE, Long.MAX_VALUE);
+            case DECIMAL:
+                return getDecimalValueAsLong((BigDecimal) val, Long.TYPE.getTypeName(), Long.MIN_VALUE, Long.MAX_VALUE);
+            case STRING:
+                try {
+                    return Long.parseLong(val.toString());
+                } catch (NumberFormatException e) {
+                    throw conversionError(Long.TYPE.getTypeName(), val, e);
+                }
+            default:
+                throw conversionError(Long.TYPE.getTypeName(), val);
         }
     }
 
@@ -604,20 +498,35 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (val instanceof Number) {
-            return ((Number) val).floatValue();
-        } else if (cls == Boolean.class) {
-            return ((Boolean) val ? 1 : 0);
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Float.parseFloat(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+                return ((Number) val).floatValue();
+            case DOUBLE:
+                double num = (double) val;
+                if (num < -Float.MAX_VALUE || num > Float.MAX_VALUE) {
+                    throw conversionError(Float.TYPE.getTypeName(), val);
+                }
+                //noinspection NumericCastThatLosesPrecision
+                return (float) num;
+            case DECIMAL:
+                BigDecimal bd = (BigDecimal) val;
+                if (bd.doubleValue() < -Float.MAX_VALUE || bd.doubleValue() > Float.MAX_VALUE) {
+                    throw conversionError(Float.TYPE.getTypeName(), val);
+                }
+                return bd.floatValue();
+            case STRING:
+                try {
+                    return Float.parseFloat(val.toString());
+                } catch (NumberFormatException e) {
+                    throw conversionError(Float.TYPE.getTypeName(), val, e);
+                }
+            default:
+                throw conversionError(Float.TYPE.getTypeName(), val);
         }
     }
 
@@ -635,23 +544,33 @@ public class JdbcResultSet implements ResultSet {
         Object val = getValue(colIdx);
 
         if (val == null) {
-            return 0d;
+            return 0.0d;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (val instanceof Number) {
-            return ((Number) val).doubleValue();
-        } else if (cls == Boolean.class) {
-            return ((Boolean) val ? 1d : 0d);
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Double.parseDouble(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+                return ((Number) val).doubleValue();
+            case DOUBLE:
+                return (double) val;
+            case DECIMAL:
+                BigDecimal bd = (BigDecimal) val;
+                if (bd.compareTo(MIN_DOUBLE) < 0 || bd.compareTo(MAX_DOUBLE) > 0) {
+                    throw conversionError(Double.TYPE.getTypeName(), val);
+                }
+                return bd.doubleValue();
+            case STRING:
+                try {
+                    return Double.parseDouble(val.toString());
+                } catch (NumberFormatException e) {
+                    throw conversionError(Double.TYPE.getTypeName(), val, e);
+                }
+            default:
+                throw conversionError(Double.TYPE.getTypeName(), val);
         }
     }
 
@@ -665,6 +584,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(int colIdx, int scale) throws SQLException {
         BigDecimal val = getBigDecimal(colIdx);
 
@@ -673,6 +593,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -680,27 +601,32 @@ public class JdbcResultSet implements ResultSet {
             return null;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (cls == BigDecimal.class) {
-            return (BigDecimal) val;
-        } else if (val instanceof Number) {
-            return new BigDecimal(((Number) val).doubleValue());
-        } else if (cls == Boolean.class) {
-            return new BigDecimal((Boolean) val ? 1 : 0);
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return (BigDecimal) decimalFormat.get().parse(val.toString());
-            } catch (ParseException e) {
-                throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+                return new BigDecimal(((Number) val).longValue());
+            case FLOAT:
+            case DOUBLE:
+                return new BigDecimal(((Number) val).doubleValue());
+            case DECIMAL:
+                return (BigDecimal) val;
+            case STRING:
+                try {
+                    return new BigDecimal(val.toString());
+                } catch (Exception e) {
+                    throw conversionError("BigDecimal", val, e);
+                }
+            default:
+                throw conversionError("BigDecimal", val);
         }
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(String colLb, int scale) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -709,6 +635,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -717,53 +644,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public byte[] getBytes(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
-
-        if (val == null) {
-            return null;
-        }
-
-        Class<?> cls = val.getClass();
-
-        if (cls == byte[].class) {
-            return (byte[]) val;
-        } else if (cls == Byte.class) {
-            return new byte[]{(byte) val};
-        } else if (cls == Short.class) {
-            short x = (short) val;
-
-            return new byte[]{(byte) (x >> 8), (byte) x};
-        } else if (cls == Integer.class) {
-            int x = (int) val;
-
-            return new byte[]{(byte) (x >> 24), (byte) (x >> 16), (byte) (x >> 8), (byte) x};
-        } else if (cls == Long.class) {
-            long x = (long) val;
-
-            return new byte[]{(byte) (x >> 56), (byte) (x >> 48), (byte) (x >> 40), (byte) (x >> 32),
-                    (byte) (x >> 24), (byte) (x >> 16), (byte) (x >> 8), (byte) x};
-        } else if (cls == Float.class) {
-            return ByteBuffer.allocate(4).putFloat(((Float) val)).array();
-        } else if (cls == Double.class) {
-            return ByteBuffer.allocate(8).putDouble(((Double) val)).array();
-        } else if (cls == String.class) {
-            return ((String) val).getBytes(UTF_8);
-        } else if (cls == UUID.class) {
-            ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-
-            bb.putLong(((UUID) val).getMostSignificantBits());
-            bb.putLong(((UUID) val).getLeastSignificantBits());
-
-            return bb.array();
-        } else {
-            throw new SQLException("Cannot convert to byte[]: " + val, SqlStateCode.CONVERSION_FAILED);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public byte[] getBytes(String colLb) throws SQLException {
+    public byte @Nullable [] getBytes(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
         return getBytes(colIdx);
@@ -771,6 +652,45 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public byte @Nullable [] getBytes(int colIdx) throws SQLException {
+        Object val = getValue(colIdx);
+
+        if (val == null) {
+            return null;
+        }
+
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BYTE_ARRAY:
+                return (byte[]) val;
+            case INT8:
+                return new byte[]{(byte) val};
+            case INT16:
+                return ByteBuffer.allocate(2).putShort((short) val).array();
+            case INT32:
+                return ByteBuffer.allocate(4).putInt((int) val).array();
+            case INT64:
+                return ByteBuffer.allocate(8).putLong((long) val).array();
+            case FLOAT:
+                return ByteBuffer.allocate(4).putFloat(((float) val)).array();
+            case DOUBLE:
+                return ByteBuffer.allocate(8).putDouble(((double) val)).array();
+            case STRING:
+                return ((String) val).getBytes(UTF_8);
+            case UUID: {
+                ByteBuffer buf = ByteBuffer.allocate(16);
+                buf.putLong(((UUID) val).getMostSignificantBits());
+                buf.putLong(((UUID) val).getLeastSignificantBits());
+                return buf.array();
+            }
+            default:
+                throw conversionError("byte[]", val);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Nullable
     public Date getDate(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -778,25 +698,25 @@ public class JdbcResultSet implements ResultSet {
             return null;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (cls == LocalDate.class) {
-            return Date.valueOf((LocalDate) val);
-        } else if (cls == LocalTime.class) {
-            return new Date(Time.valueOf((LocalTime) val).getTime());
-        } else if (cls == Instant.class) {
-            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
-
-            return Date.valueOf(localDateTime.toLocalDate());
-        } else if (cls == LocalDateTime.class) {
-            return Date.valueOf(((LocalDateTime) val).toLocalDate());
-        } else {
-            throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case TIME:
+                return new Date(Time.valueOf((LocalTime) val).getTime());
+            case DATE:
+                return Date.valueOf((LocalDate) val);
+            case DATETIME:
+                return Date.valueOf(((LocalDateTime) val).toLocalDate());
+            case TIMESTAMP:
+                LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+                return Date.valueOf(localDateTime.toLocalDate());
+            default:
+                throw conversionError("date", val);
         }
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Date getDate(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -805,12 +725,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Date getDate(int colIdx, Calendar cal) throws SQLException {
         return getDate(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Date getDate(String colLb, Calendar cal) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -819,6 +741,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Time getTime(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -826,26 +749,26 @@ public class JdbcResultSet implements ResultSet {
             return null;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (cls == LocalTime.class) {
-            return Time.valueOf((LocalTime) val);
-        } else if (cls == LocalDate.class) {
-            return new Time(Date.valueOf((LocalDate) val).getTime());
-        } else if (cls == Instant.class) {
-            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
-            LocalTime localTime = localDateTime.toLocalTime();
-
-            return Time.valueOf(localTime);
-        } else if (cls == LocalDateTime.class) {
-            return Time.valueOf(((LocalDateTime) val).toLocalTime());
-        } else {
-            throw new SQLException("Cannot convert to time: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case TIME:
+                return Time.valueOf((LocalTime) val);
+            case DATE:
+                return new Time(Date.valueOf((LocalDate) val).getTime());
+            case DATETIME:
+                return Time.valueOf(((LocalDateTime) val).toLocalTime());
+            case TIMESTAMP:
+                LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+                LocalTime localTime = localDateTime.toLocalTime();
+                return Time.valueOf(localTime);
+            default:
+                throw conversionError("time", val);
         }
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Time getTime(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -854,12 +777,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Time getTime(int colIdx, Calendar cal) throws SQLException {
         return getTime(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Time getTime(String colLb, Calendar cal) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -868,6 +793,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Timestamp getTimestamp(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -875,31 +801,32 @@ public class JdbcResultSet implements ResultSet {
             return null;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (cls == LocalTime.class) {
-            return new Timestamp(Time.valueOf((LocalTime) val).getTime());
-        } else if (cls == LocalDate.class) {
-            return new Timestamp(Date.valueOf((LocalDate) val).getTime());
-        } else if (cls == Instant.class) {
-            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
-
-            return Timestamp.valueOf(localDateTime);
-        } else if (cls == LocalDateTime.class) {
-            return Timestamp.valueOf((LocalDateTime) val);
-        } else {
-            throw new SQLException("Cannot convert to timestamp: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case TIME:
+                return new Timestamp(Time.valueOf((LocalTime) val).getTime());
+            case DATE:
+                return new Timestamp(Date.valueOf((LocalDate) val).getTime());
+            case DATETIME:
+                return Timestamp.valueOf((LocalDateTime) val);
+            case TIMESTAMP:
+                LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+                return Timestamp.valueOf(localDateTime);
+            default:
+                throw conversionError("timestamp", val);
         }
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Timestamp getTimestamp(int colIdx, Calendar cal) throws SQLException {
         return getTimestamp(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Timestamp getTimestamp(String colLb, Calendar cal) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -908,6 +835,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Timestamp getTimestamp(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -964,6 +892,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         ensureNotClosed();
 
@@ -981,7 +910,7 @@ public class JdbcResultSet implements ResultSet {
     public String getCursorName() throws SQLException {
         ensureNotClosed();
 
-        return null;
+        throw new SQLFeatureNotSupportedException("Cursor name is not supported.");
     }
 
     /** {@inheritDoc} */
@@ -989,7 +918,7 @@ public class JdbcResultSet implements ResultSet {
     public ResultSetMetaData getMetaData() throws SQLException {
         ensureNotClosed();
 
-        return metaOrThrow();
+        return jdbcMeta;
     }
 
     /** {@inheritDoc} */
@@ -997,17 +926,16 @@ public class JdbcResultSet implements ResultSet {
     public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
-        Objects.requireNonNull(colLb);
-
-        Integer order = columnOrder().get(colLb.toUpperCase());
-
-        if (order == null) {
-            throw new SQLException("Column not found: " + colLb, SqlStateCode.PARSING_EXCEPTION);
+        try {
+            int index = rsMetadata.indexOf(colLb);
+            if (index >= 0) {
+                return index + 1;
+            }
+        } catch (Exception ignore) {
+            // ignore
         }
 
-        assert order >= 0;
-
-        return order + 1;
+        throw new SQLException("Column not found: " + colLb, SqlStateCode.INVALID_ARGUMENT);
     }
 
     /** {@inheritDoc} */
@@ -1031,7 +959,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isBeforeFirst() throws SQLException {
         ensureNotClosed();
 
-        return curPos == 0 && rowsIter != null && rowsIter.hasNext();
+        return currentRow == null && hasNext();
     }
 
     /** {@inheritDoc} */
@@ -1039,7 +967,13 @@ public class JdbcResultSet implements ResultSet {
     public boolean isAfterLast() throws SQLException {
         ensureNotClosed();
 
-        return finished && rowsIter == null && curRow == null;
+        boolean hasNext = hasNext();
+        // Result set is empty
+        if (currentPosition == 0 && !hasNext) {
+            return false;
+        } else {
+            return currentRow == null && !hasNext;
+        }
     }
 
     /** {@inheritDoc} */
@@ -1047,7 +981,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isFirst() throws SQLException {
         ensureNotClosed();
 
-        return curPos == 1;
+        return currentRow != null && currentPosition == 1;
     }
 
     /** {@inheritDoc} */
@@ -1055,7 +989,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isLast() throws SQLException {
         ensureNotClosed();
 
-        return finished && rowsIter != null && !rowsIter.hasNext() && curRow != null;
+        return currentRow != null && !hasNext();
     }
 
     /** {@inheritDoc} */
@@ -1095,7 +1029,7 @@ public class JdbcResultSet implements ResultSet {
     public int getRow() throws SQLException {
         ensureNotClosed();
 
-        return isAfterLast() ? 0 : curPos;
+        return isAfterLast() ? 0 : currentPosition;
     }
 
     /** {@inheritDoc} */
@@ -1165,7 +1099,7 @@ public class JdbcResultSet implements ResultSet {
     public int getType() throws SQLException {
         ensureNotClosed();
 
-        return stmt.getResultSetType();
+        return TYPE_FORWARD_ONLY;
     }
 
     /** {@inheritDoc} */
@@ -1181,7 +1115,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowUpdated() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1189,7 +1123,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowInserted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1197,7 +1131,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowDeleted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1205,7 +1139,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNull(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1213,7 +1147,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNull(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1221,7 +1155,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBoolean(int colIdx, boolean x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1229,7 +1163,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBoolean(String colLb, boolean x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1237,7 +1171,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateByte(int colIdx, byte x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1245,7 +1179,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateByte(String colLb, byte x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1253,7 +1187,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateShort(int colIdx, short x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1261,7 +1195,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateShort(String colLb, short x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1269,7 +1203,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateInt(int colIdx, int x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1277,7 +1211,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateInt(String colLb, int x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1285,7 +1219,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateLong(int colIdx, long x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1293,7 +1227,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateLong(String colLb, long x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1301,7 +1235,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateFloat(int colIdx, float x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1309,7 +1243,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateFloat(String colLb, float x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1317,7 +1251,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateDouble(int colIdx, double x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1325,7 +1259,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateDouble(String colLb, double x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1333,7 +1267,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBigDecimal(int colIdx, BigDecimal x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1341,7 +1275,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBigDecimal(String colLb, BigDecimal x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1349,7 +1283,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateString(int colIdx, String x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1357,7 +1291,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateString(String colLb, String x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1365,7 +1299,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBytes(int colIdx, byte[] x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1373,7 +1307,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBytes(String colLb, byte[] x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1381,7 +1315,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateDate(int colIdx, Date x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1389,7 +1323,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateDate(String colLb, Date x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1397,7 +1331,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateTime(int colIdx, Time x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1405,7 +1339,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateTime(String colLb, Time x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1413,7 +1347,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateTimestamp(int colIdx, Timestamp x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1421,7 +1355,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateTimestamp(String colLb, Timestamp x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1429,7 +1363,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateAsciiStream(int colIdx, InputStream x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1437,7 +1371,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateAsciiStream(String colLb, InputStream x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1445,7 +1379,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateAsciiStream(int colIdx, InputStream x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1453,7 +1387,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateAsciiStream(String colLb, InputStream x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1461,7 +1395,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateAsciiStream(int colIdx, InputStream x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1469,7 +1403,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateAsciiStream(String colLb, InputStream x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1477,7 +1411,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBinaryStream(int colIdx, InputStream x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1485,7 +1419,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBinaryStream(int colIdx, InputStream x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1493,7 +1427,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBinaryStream(String colLb, InputStream x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1501,7 +1435,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBinaryStream(int colIdx, InputStream x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1509,7 +1443,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBinaryStream(String colLb, InputStream x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1517,7 +1451,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBinaryStream(String colLb, InputStream x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1525,7 +1459,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateCharacterStream(int colIdx, Reader x, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1533,7 +1467,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateCharacterStream(String colLb, Reader reader, int len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1541,7 +1475,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateCharacterStream(int colIdx, Reader x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1549,7 +1483,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateCharacterStream(String colLb, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1557,7 +1491,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateCharacterStream(int colIdx, Reader x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1565,7 +1499,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateCharacterStream(String colLb, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1573,7 +1507,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateObject(int colIdx, Object x, int scaleOrLen) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1581,7 +1515,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateObject(int colIdx, Object x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1589,7 +1523,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateObject(String colLb, Object x, int scaleOrLen) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1597,7 +1531,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateObject(String colLb, Object x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1605,7 +1539,7 @@ public class JdbcResultSet implements ResultSet {
     public void insertRow() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1613,7 +1547,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateRow() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1621,7 +1555,7 @@ public class JdbcResultSet implements ResultSet {
     public void deleteRow() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1645,7 +1579,7 @@ public class JdbcResultSet implements ResultSet {
     public void moveToInsertRow() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1663,17 +1597,18 @@ public class JdbcResultSet implements ResultSet {
     public Statement getStatement() throws SQLException {
         ensureNotClosed();
 
-        return stmt;
+        return statement;
     }
 
     /** {@inheritDoc} */
     @Override
     public Object getObject(int colIdx, Map<String, Class<?>> map) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQL structured type are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_STRUCTURED_TYPE_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public <T> T getObject(int colIdx, Class<T> targetCls) throws SQLException {
         ensureNotClosed();
 
@@ -1682,6 +1617,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public <T> T getObject(String colLb, Class<T> type) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -1690,12 +1626,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Object getObject(int colIdx) throws SQLException {
         return getValue(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Object getObject(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -1705,7 +1643,7 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public Object getObject(String colLb, Map<String, Class<?>> map) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQL structured type are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_STRUCTURED_TYPE_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1713,7 +1651,7 @@ public class JdbcResultSet implements ResultSet {
     public Ref getRef(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1721,7 +1659,7 @@ public class JdbcResultSet implements ResultSet {
     public Ref getRef(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1729,7 +1667,7 @@ public class JdbcResultSet implements ResultSet {
     public Blob getBlob(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1737,7 +1675,7 @@ public class JdbcResultSet implements ResultSet {
     public Blob getBlob(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1745,7 +1683,7 @@ public class JdbcResultSet implements ResultSet {
     public Clob getClob(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1753,7 +1691,7 @@ public class JdbcResultSet implements ResultSet {
     public Clob getClob(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1761,7 +1699,7 @@ public class JdbcResultSet implements ResultSet {
     public Array getArray(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1769,63 +1707,55 @@ public class JdbcResultSet implements ResultSet {
     public Array getArray(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public URL getURL(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
+        ensureNotClosed();
 
-        if (val == null) {
-            return null;
-        }
-
-        Class<?> cls = val.getClass();
-
-        if (cls == URL.class) {
-            return (URL) val;
-        } else if (cls == String.class) {
-            try {
-                return new URL(val.toString());
-            } catch (MalformedURLException e) {
-                throw new SQLException("Cannot convert to URL: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to URL: " + val, SqlStateCode.CONVERSION_FAILED);
-        }
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public URL getURL(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
+        ensureNotClosed();
 
-        return getURL(colIdx);
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateRef(int colIdx, Ref x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateRef(String colLb, Ref x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateBlob(int colIdx, Blob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateBlob(String colLb, Blob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1833,7 +1763,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBlob(int colIdx, InputStream inputStream, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1841,7 +1771,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBlob(String colLb, InputStream inputStream, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1849,7 +1779,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateBlob(int colIdx, InputStream inputStream) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1857,19 +1787,23 @@ public class JdbcResultSet implements ResultSet {
     public void updateBlob(String colLb, InputStream inputStream) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateClob(int colIdx, Clob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateClob(String colLb, Clob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1877,7 +1811,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateClob(int colIdx, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1885,7 +1819,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateClob(String colLb, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1893,7 +1827,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateClob(int colIdx, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1901,19 +1835,23 @@ public class JdbcResultSet implements ResultSet {
     public void updateClob(String colLb, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateArray(int colIdx, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateArray(String colLb, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1921,7 +1859,7 @@ public class JdbcResultSet implements ResultSet {
     public RowId getRowId(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1929,7 +1867,7 @@ public class JdbcResultSet implements ResultSet {
     public RowId getRowId(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1937,7 +1875,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateRowId(int colIdx, RowId x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1945,7 +1883,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateRowId(String colLb, RowId x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1959,7 +1897,7 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean isClosed() throws SQLException {
-        return closed || stmt == null || stmt.isClosed();
+        return closed || (statement != null && statement.isClosed());
     }
 
     /** {@inheritDoc} */
@@ -1967,7 +1905,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNString(int colIdx, String val) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1975,7 +1913,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNString(String colLb, String val) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1983,7 +1921,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNClob(int colIdx, NClob val) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1991,7 +1929,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNClob(String colLb, NClob val) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1999,7 +1937,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNClob(int colIdx, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2007,7 +1945,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNClob(String colLb, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2015,7 +1953,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNClob(int colIdx, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2023,7 +1961,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNClob(String colLb, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2031,7 +1969,7 @@ public class JdbcResultSet implements ResultSet {
     public NClob getNClob(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2039,7 +1977,7 @@ public class JdbcResultSet implements ResultSet {
     public NClob getNClob(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2047,7 +1985,7 @@ public class JdbcResultSet implements ResultSet {
     public SQLXML getSQLXML(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2055,7 +1993,7 @@ public class JdbcResultSet implements ResultSet {
     public SQLXML getSQLXML(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2063,7 +2001,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateSQLXML(int colIdx, SQLXML xmlObj) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2071,11 +2009,12 @@ public class JdbcResultSet implements ResultSet {
     public void updateSQLXML(String colLb, SQLXML xmlObj) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public String getNString(int colIdx) throws SQLException {
         return getString(colIdx);
     }
@@ -2091,7 +2030,7 @@ public class JdbcResultSet implements ResultSet {
     public Reader getNCharacterStream(int colIdx) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2099,7 +2038,7 @@ public class JdbcResultSet implements ResultSet {
     public Reader getNCharacterStream(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+        throw new SQLFeatureNotSupportedException(SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2107,7 +2046,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNCharacterStream(int colIdx, Reader x, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2115,7 +2054,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNCharacterStream(String colLb, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2123,7 +2062,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNCharacterStream(int colIdx, Reader x) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2131,7 +2070,7 @@ public class JdbcResultSet implements ResultSet {
     public void updateNCharacterStream(String colLb, Reader reader) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -2151,45 +2090,31 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
-     * Get the isQuery flag.
-     *
-     * @return Is query flag.
-     */
-    public boolean hasResultSet() {
-        return hasResultSet;
-    }
-
-    /**
      * Gets object field value by index.
      *
      * @param colIdx Column index.
      * @return Object field value.
      * @throws SQLException In case of error.
      */
-    private Object getValue(int colIdx) throws SQLException {
+    @Nullable
+    Object getValue(int colIdx) throws SQLException {
         ensureNotClosed();
         ensureHasCurrentRow();
 
-        try {
-            assert curRow != null;
+        if (colIdx < 1 || colIdx > rsMetadata.columns().size()) {
+            throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.INVALID_ARGUMENT);
+        }
 
-            Object val = curRow.get(colIdx - 1);
+        try {
+            assert currentRow != null;
+            Object val = currentRow.value(colIdx - 1);
 
             wasNull = val == null;
 
             return val;
-        } catch (IndexOutOfBoundsException e) {
-            throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.PARSING_EXCEPTION, e);
+        } catch (Exception e) {
+            throw JdbcExceptionMapperUtil.mapToJdbcException("Unable to value for column: " + colIdx, e);
         }
-    }
-
-    private LocalDateTime instantWithLocalTimeZone(Instant val) throws SQLException {
-        JdbcConnection connection = (JdbcConnection) stmt.getConnection();
-        ZoneId zoneId = connection.connectionProperties().getConnectionTimeZone();
-        if (zoneId == null) {
-            zoneId = ZoneId.systemDefault();
-        }
-        return LocalDateTime.ofInstant(val, zoneId);
     }
 
     /**
@@ -2198,7 +2123,7 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException If result set is not positioned on a row.
      */
     private void ensureHasCurrentRow() throws SQLException {
-        if (curRow == null) {
+        if (currentRow == null) {
             throw new SQLException("Result set is not positioned on a row.");
         }
     }
@@ -2215,32 +2140,14 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
-     * Get the update count.
-     *
-     * @return Update count for no-SELECT queries.
-     */
-    public long updatedCount() {
-        return updCnt;
-    }
-
-    /**
-     * Set the close statement flag.
-     *
-     * @param closeStmt Close statement on this result set close.
-     */
-    public void closeStatement(boolean closeStmt) {
-        this.closeStmt = closeStmt;
-    }
-
-    /**
      * Get object of given class.
      *
-     * @param colIdx    Column index.
+     * @param colIdx Column index.
      * @param targetCls Class representing the Java data type to convert the designated column to.
      * @return Converted object.
      * @throws SQLException On error.
      */
-    private Object getObject0(int colIdx, Class<?> targetCls) throws SQLException {
+    private @Nullable Object getObject0(int colIdx, Class<?> targetCls) throws SQLException {
         if (targetCls == Boolean.class) {
             return getBoolean(colIdx);
         } else if (targetCls == Byte.class) {
@@ -2267,8 +2174,6 @@ public class JdbcResultSet implements ResultSet {
             return getTimestamp(colIdx);
         } else if (targetCls == byte[].class) {
             return getBytes(colIdx);
-        } else if (targetCls == URL.class) {
-            return getURL(colIdx);
         } else {
             Object val = getValue(colIdx);
 
@@ -2281,69 +2186,81 @@ public class JdbcResultSet implements ResultSet {
             if (targetCls.isAssignableFrom(cls)) {
                 return val;
             } else {
-                throw new SQLException("Cannot convert to " + targetCls.getName() + ": " + val,
-                        SqlStateCode.CONVERSION_FAILED);
+                throw conversionError(targetCls.getTypeName(), val);
             }
         }
     }
 
-    /**
-     * Init if needed and return column order.
-     *
-     * @return Column order map.
-     * @throws SQLException On error.
-     */
-    private Map<String, Integer> columnOrder() throws SQLException {
-        if (colOrder != null) {
-            return colOrder;
-        }
-
-        initColumnOrder(metaOrThrow());
-
-        return colOrder;
+    private ColumnType getColumnType(int colIdx) {
+        ColumnMetadata column = rsMetadata.columns().get(colIdx - 1);
+        return column.type();
     }
 
-    /**
-     * Init column order map.
-     */
-    private void initColumnOrder(JdbcResultSetMetadata jdbcMeta) throws SQLException {
-        colOrder = new HashMap<>(jdbcMeta.getColumnCount());
-
-        for (int i = 0; i < jdbcMeta.getColumnCount(); ++i) {
-            String colName = jdbcMeta.getColumnLabel(i + 1).toUpperCase();
-
-            if (!colOrder.containsKey(colName)) {
-                colOrder.put(colName, i);
-            }
-        }
+    private int getColumnPrecision(int colIdx) {
+        int precision = rsMetadata.columns().get(colIdx - 1).precision();
+        assert precision <= 9 : "Precision is out of range. Precision: " + precision + ". Column: " + colIdx;
+        return precision;
     }
 
-    private JdbcResultSetMetadata metaOrThrow() throws SQLException {
-        if (jdbcMeta == null) {
-            throw new SQLException("Result doesn't have metadata");
+    private static long getLongValue(long val, String typeName, long min, long max) throws SQLException {
+        if (val < min || val > max) {
+            throw conversionError(typeName, val);
         }
-
-        return jdbcMeta;
+        return val;
     }
 
-    static Function<BinaryTupleReader, List<Object>> createTransformer(List<JdbcColumnMeta> meta) {
-        return (tuple) -> {
-            int columnCount = meta.size();
-            List<Object> row = new ArrayList<>(columnCount);
-            int currentDecimalScale = -1;
+    private static long getFloatValueAsLong(float val, String typeName, long min, long max) throws SQLException {
+        if (val < min || val > max || Float.isInfinite(val) || Float.isNaN(val)) {
+            throw conversionError(typeName, val);
+        }
+        //noinspection NumericCastThatLosesPrecision
+        return (long) val;
+    }
 
-            int idx = 0;
-            for (JdbcColumnMeta columnMeta : meta) {
-                ColumnType type = columnMeta.columnType();
-                if (type == ColumnType.DECIMAL) {
-                    currentDecimalScale = columnMeta.scale();
-                }
+    private static long getDoubleValueAsLong(double val, String typeName, long min, long max) throws SQLException {
+        if (val < min || val > max || Double.isInfinite(val) || Double.isNaN(val)) {
+            throw conversionError(typeName, val);
+        }
+        //noinspection NumericCastThatLosesPrecision
+        return (long) val;
+    }
 
-                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, idx++, currentDecimalScale));
-            }
+    private static long getDecimalValueAsLong(BigDecimal num, String typeName, long min, long max) throws SQLException {
+        long val;
+        boolean failed;
 
-            return row;
-        };
+        // We can safely remove a fractional part, conversion from one int type to another involves rounding but 
+        // longValueExact fails if a fractional part present.
+        BigDecimal intNum = num.setScale(0, RoundingMode.DOWN);
+        try {
+            val = intNum.longValueExact();
+            failed = false;
+        } catch (ArithmeticException e) {
+            failed = true;
+            val = 0;
+        }
+
+        if (failed || val < min || val > max) {
+            throw conversionError(typeName, num);
+        }
+
+        return val;
+    }
+
+    private static SQLException conversionError(String typeName, Object val) {
+        return conversionError(typeName, val, null);
+    }
+
+    private static SQLException conversionError(String typeName, Object val, @Nullable Throwable cause) {
+        return new SQLException(format("Cannot convert to {}: {}", typeName, val), SqlStateCode.CONVERSION_FAILED, cause);
+    }
+
+    private LocalDateTime instantWithLocalTimeZone(Instant val) {
+        ZoneId zoneId = zoneIdSupplier.get();
+        if (zoneId == null) {
+            zoneId = ZoneId.systemDefault();
+        }
+        return LocalDateTime.ofInstant(val, zoneId);
     }
 
     private static class Formatters {
@@ -2377,12 +2294,12 @@ public class JdbcResultSet implements ResultSet {
                 .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
                 .toFormatter();
 
-        static String formatTime(LocalTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
-            return formatWithPrecision(TIME, value, colIdx, jdbcMeta);
+        static String formatTime(LocalTime value, int precision) {
+            return formatWithPrecision(TIME, value, precision);
         }
 
-        static String formatDateTime(LocalDateTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
-            return formatWithPrecision(DATE_TIME, value, colIdx, jdbcMeta);
+        static String formatDateTime(LocalDateTime value, int precision) {
+            return formatWithPrecision(DATE_TIME, value, precision);
         }
 
         static String formatDate(LocalDate value) {
@@ -2390,26 +2307,23 @@ public class JdbcResultSet implements ResultSet {
         }
 
         private static String formatWithPrecision(
-                DateTimeFormatter formatter, 
-                TemporalAccessor value, 
-                int colIdx,
-                JdbcResultSetMetadata jdbcMeta
-        ) throws SQLException {
+                DateTimeFormatter formatter,
+                TemporalAccessor value,
+                int precision
+        ) {
 
             StringBuilder sb = new StringBuilder();
 
             formatter.formatTo(value, sb);
 
-            int precision = jdbcMeta.getPrecision(colIdx);
             if (precision <= 0) {
                 return sb.toString();
             }
 
-            assert precision <= 9 : "Precision is out of range. Precision: " + precision + ". Column: " + colIdx;
-
             // Append nano seconds according to the specified precision.
             long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
-            long scaled  = nanos / (long) Math.pow(10, 9 - precision);
+            //noinspection NumericCastThatLosesPrecision
+            long scaled = nanos / (long) Math.pow(10, 9 - precision);
 
             sb.append('.');
             for (int i = 0; i < precision; i++) {
