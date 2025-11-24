@@ -470,6 +470,8 @@ public final class ReliableChannel implements AutoCloseable {
      * On current channel failure.
      */
     private void onChannelFailure(ClientChannel ch) {
+        scheduledChannelsReinit.compareAndSet(false, true);
+
         // There is nothing wrong if defaultChIdx was concurrently changed, since channel was closed by another thread
         // when current index was changed and no other wrong channel will be closed by current thread because
         // onChannelFailure checks channel binded to the holder before closing it.
@@ -485,7 +487,7 @@ public final class ReliableChannel implements AutoCloseable {
         // Roll current channel even if a topology changes. To help find working channel faster.
         rollCurrentChannel(hld);
 
-        if (scheduledChannelsReinit.compareAndSet(false, true)) {
+        if (scheduledChannelsReinit.get()) {
             // Refresh addresses and reinit channels.
             channelsInitAsync();
         }

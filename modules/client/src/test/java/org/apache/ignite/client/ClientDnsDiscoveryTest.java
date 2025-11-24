@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.client;
 
-import static java.time.Duration.ofMillis;
-import static java.time.Duration.ofSeconds;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.awaitility.Awaitility.await;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
-import java.util.UUID;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.client.TestServer;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import org.apache.ignite.internal.client.InetAddressResolver;
+import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -41,7 +42,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client DNS resolution.
  */
-class ClientDnsDiscoveryTest {
+class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
     protected static final String DEFAULT_TABLE = "DEFAULT_TEST_TABLE";
 
     private static TestServer server1;
@@ -54,8 +55,6 @@ class ClientDnsDiscoveryTest {
 
     private static String hostAddress;
 
-    private static final UUID clusterId = UUID.randomUUID();
-
     private static int port;
 
     @BeforeAll
@@ -66,7 +65,7 @@ class ClientDnsDiscoveryTest {
         server1 = TestServer.builder()
                 .listenAddresses(loopbackAddress)
                 .nodeName("server1")
-                .clusterId(clusterId)
+                .clusterId(AbstractClientTest.clusterId)
                 .build();
 
         port = server1.port();
@@ -74,13 +73,13 @@ class ClientDnsDiscoveryTest {
         server2 = TestServer.builder()
                 .listenAddresses(hostAddress)
                 .nodeName("server2")
-                .clusterId(clusterId)
+                .clusterId(AbstractClientTest.clusterId)
                 .port(port)
                 .build();
 
         server3 = TestServer.builder()
                 .nodeName("server3")
-                .clusterId(clusterId)
+                .clusterId(AbstractClientTest.clusterId)
                 .port(port + 1)
                 .build();
     }
@@ -104,7 +103,7 @@ class ClientDnsDiscoveryTest {
     }
 
     @Test
-    void testClientConnectToAllNodes() {
+    void testClientConnectToAllNodes() throws InterruptedException {
         String[] addresses = {"my-cluster:" + port, "my-cluster:" + server3.port()};
 
         // All nodes addresses.
@@ -114,14 +113,14 @@ class ClientDnsDiscoveryTest {
             assertDoesNotThrow(() -> client.tables().tables());
 
             // Wait until client connects to all nodes.
-            await().pollDelay(ofMillis(100L)).atMost(ofSeconds(1L))
-                    .until(() -> client.connections().stream().map(ClusterNode::name).collect(toList()),
-                            containsInAnyOrder("server1", "server2", "server3"));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().stream().map(ClusterNode::name).collect(toSet())
+                            .containsAll(Set.of("server1", "server2", "server3")), 1000),
+                    () -> "Client should have three connections: " + client.connections().size());
         }
     }
 
     @Test
-    void testClientRefreshesDnsOnNodeFailure() {
+    void testClientRefreshesDnsOnNodeFailure() throws Exception {
         int port = server3.port();
         String[] addresses = {"my-cluster:" + port};
 
@@ -129,8 +128,11 @@ class ClientDnsDiscoveryTest {
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress});
 
         try (var server4 = TestServer.builder()
-                .listenAddresses(loopbackAddress).nodeName("server4").clusterId(clusterId).port(port).build();
+                .listenAddresses(loopbackAddress).nodeName("server4").clusterId(AbstractClientTest.clusterId).port(port).build();
                 var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, 0L, resolvedAddressesRef)).join()) {
+            // Skip channels refresh on partition assignment during connection.
+            Thread.sleep(100L);
+
             assertDoesNotThrow(() -> client.tables().tables());
             assertEquals("server4", client.connections().get(0).name());
 
@@ -147,13 +149,16 @@ class ClientDnsDiscoveryTest {
     }
 
     @Test
-    void testClientRefreshesDnsOnPrimaryReplicaChange() throws InterruptedException {
+    void testClientRefreshesDnsOnPrimaryReplicaChange() throws Exception {
         String[] addresses = {"my-cluster:" + port};
 
         // One valid address points to first node.
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress});
 
         try (var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, 0L, resolvedAddressesRef)).join()) {
+            // Skip channels refresh on partition assignment during connection.
+            Thread.sleep(100L);
+
             assertDoesNotThrow(() -> client.tables().tables());
             assertEquals("server1", client.connections().get(0).name());
 
@@ -172,13 +177,16 @@ class ClientDnsDiscoveryTest {
     }
 
     @Test
-    void testClientRefreshesDnsByTimeout() throws InterruptedException {
+    void testClientRefreshesDnsByTimeout() throws Exception {
         String[] addresses = {"my-cluster:" + port};
 
         // One valid address points to first node.
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress});
 
         try (var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, 500L, resolvedAddressesRef)).join()) {
+            // Skip channels refresh on partition assignment during connection.
+            Thread.sleep(100L);
+
             assertDoesNotThrow(() -> client.tables().tables());
             assertEquals("server1", client.connections().get(0).name());
 
@@ -194,24 +202,38 @@ class ClientDnsDiscoveryTest {
     }
 
     @Test
-    void testMultipleIpsSameNode() {
+    void testMultipleIpsSameNode() throws InterruptedException {
         String[] addresses = {"my-cluster:" + server3.port()};
 
         // One node.
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress, hostAddress});
 
         try (var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, 0L, resolvedAddressesRef)).join()) {
+            // Skip channels refresh on partition assignment during connection.
+            Thread.sleep(100L);
+
             assertDoesNotThrow(() -> client.tables().tables());
             assertEquals("server3", client.connections().get(0).name());
+
+            ReliableChannel ch = ((TcpIgniteClient) client).channel();
+
+            List<?> channels = IgniteTestUtils.getFieldValue(ch, "channels");
+            assertEquals(2, channels.size());
 
             // Update to another IPs for the same node.
             resolvedAddressesRef.set(new String[]{hostAddress});
 
-            ((TcpIgniteClient) client).channel().channelsInitAsync().join();
+            server3.placementDriver().setReplicas(List.of("server3", "server2", "server1", "server2"),
+                    1,
+                    1,
+                    server3.clock().nowLong());
 
             // Client should reconnect to the second node.
             assertDoesNotThrow(() -> client.tables().tables());
             assertEquals("server3", client.connections().get(0).name());
+
+            channels = IgniteTestUtils.getFieldValue(ch, "channels");
+            assertEquals(1, channels.size());
         }
     }
 
@@ -239,7 +261,7 @@ class ClientDnsDiscoveryTest {
                 null,
                 addresses,
                 1000,
-                1000,
+                0,
                 null,
                 1000,
                 1000,

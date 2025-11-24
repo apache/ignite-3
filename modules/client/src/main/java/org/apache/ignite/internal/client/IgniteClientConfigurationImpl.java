@@ -25,6 +25,7 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Immutable client configuration.
@@ -93,7 +94,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param backgroundReResolveAddressesInterval Background re-resolve addresses interval.
      * @param addressResolver Address resolver.
      */
-    IgniteClientConfigurationImpl(
+    @VisibleForTesting
+    public IgniteClientConfigurationImpl(
             @Nullable IgniteClientAddressFinder addressFinder,
             String[] addresses,
             long connectTimeout,
