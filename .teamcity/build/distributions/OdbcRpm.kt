@@ -3,6 +3,7 @@ package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.buildSteps.ExecBuildStep
+import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
 import jetbrains.buildServer.configs.kotlin.buildSteps.exec
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
