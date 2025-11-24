@@ -63,7 +63,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     private StorageConfiguration storageConfig;
 
     @InjectExecutorService
-    ExecutorService executorService;
+    private ExecutorService executorService;
 
     @WorkDirectory
     private Path workDir;
