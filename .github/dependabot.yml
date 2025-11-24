@@ -9,6 +9,8 @@ updates:
       - dependency-name: "io.github.bonede:tree-sitter"
         # TODO https://issues.apache.org/jira/browse/IGNITE-24978
         versions: [ "0.24.5" ]
+
+      # Calcite is updated manually
       - dependency-name: "org.apache.calcite:calcite-core"
       - dependency-name: "org.apache.calcite:calcite-linq4j"
 
