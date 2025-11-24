@@ -1628,30 +1628,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             ? spy(new TestTxStateStorage())
                             : super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
                 }
-
-                @Override
-                protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
-                    ZonePartitionId partitionGroupId = getPartitionGroupId(evt);
-
-                    return super.handleChangeStableAssignmentEvent(evt)
-                            .whenComplete((v, e) -> {
-                                if (partitionGroupId == null) {
-                                    return;
-                                }
-
-                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(partitionGroupId);
-
-                                if (finishFuture == null) {
-                                    return;
-                                }
-
-                                if (e == null) {
-                                    finishFuture.complete(null);
-                                } else {
-                                    finishFuture.completeExceptionally(e);
-                                }
-                            });
-                }
             };
 
             tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
