@@ -1902,7 +1902,7 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             switch (this.state) {
                 case STATE_LEADER:
-                    getLeaderFromLeader(request, done);
+                    getLeaderFromLeader(done);
                     break;
                 case STATE_FOLLOWER:
                     getLeaderFromFollower(request, done);
@@ -1938,7 +1938,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.rpcClientService.getLeaderAndTerm(leaderId, newRequest, -1, closure);
     }
 
-    private void getLeaderFromLeader(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> closure) {
+    private void getLeaderFromLeader(RpcResponseClosure<GetLeaderResponse> closure) {
        PeerId leaderId = this.leaderId;
 
        if (leaderId == null || leaderId.isEmpty()) {
@@ -1975,7 +1975,7 @@ public class NodeImpl implements Node, RaftServerService {
                                     closure.setResponse(response);
                                     closure.run(Status.OK());
                                 } else {
-                                    getLeaderFromFollower(request, closure);
+                                    closure.run(new Status(RaftError.EAGAIN, "Failed to confirm leadership from quorum."));
                                 }
                             },
                             success -> respBuilder.build(),
