@@ -254,6 +254,7 @@
   <Match>
     <!-- I literally have no idea why these checks fail. -->
     <Bug pattern="MS_PKGPROTECT"/>
+    <Class name="org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil"/>
     <Or>
       <Field name="STABLE_ASSIGNMENTS_PREFIX_BYTES"/>
       <Field name="PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES"/>
