@@ -855,7 +855,6 @@ public class Node {
                 logicalTopologyService,
                 clockService,
                 failureManager,
-                nodeProperties,
                 lowWatermark,
                 txManager
         );

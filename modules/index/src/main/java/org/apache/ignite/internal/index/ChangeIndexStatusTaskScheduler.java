@@ -32,7 +32,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,8 +59,6 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final Executor executor;
 
     private final Map<ChangeIndexStatusTaskId, ChangeIndexStatusTask> taskById = new ConcurrentHashMap<>();
@@ -78,7 +75,6 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
             PlacementDriver placementDriver,
             IndexMetaStorage indexMetaStorage,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             Executor executor
     ) {
         this.catalogManager = catalogManager;
@@ -88,7 +84,6 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
         this.placementDriver = placementDriver;
         this.indexMetaStorage = indexMetaStorage;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.executor = executor;
     }
 
@@ -128,7 +123,6 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 clockService,
                 indexMetaStorage,
                 failureProcessor,
-                nodeProperties,
                 executor,
                 busyLock
         ) {
@@ -164,7 +158,6 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 clockService,
                 indexMetaStorage,
                 failureProcessor,
-                nodeProperties,
                 executor,
                 busyLock
         ) {

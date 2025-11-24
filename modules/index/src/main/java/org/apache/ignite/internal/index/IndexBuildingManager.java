@@ -34,7 +34,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -93,7 +92,6 @@ public class IndexBuildingManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             LowWatermark lowWatermark,
             TxManager txManager
     ) {
@@ -125,7 +123,6 @@ public class IndexBuildingManager implements IgniteComponent {
                 executor,
                 replicaService,
                 failureProcessor,
-                nodeProperties,
                 new RetryingFinalTransactionStateResolver(transactionStateResolver, executor),
                 indexMetaStorage
         );
@@ -139,8 +136,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService,
                 placementDriver,
                 clockService,
-                failureProcessor,
-                nodeProperties
+                failureProcessor
         );
 
         var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
@@ -151,7 +147,6 @@ public class IndexBuildingManager implements IgniteComponent {
                 placementDriver,
                 indexMetaStorage,
                 failureProcessor,
-                nodeProperties,
                 executor
         );
 
@@ -160,7 +155,6 @@ public class IndexBuildingManager implements IgniteComponent {
                 placementDriver,
                 clusterService,
                 lowWatermark,
-                nodeProperties,
                 indexTaskScheduler
         );
     }
