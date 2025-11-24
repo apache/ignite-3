@@ -34,7 +34,7 @@ object OdbcRpm : BuildType({
             tasks = ":packaging-odbc:buildRpm"
             workingDir = "%VCSROOT__GRIDGAIN9%"
             gradleParams = "-i -Pplatforms.enable"
-            dockerImage = "ggshared/tc-agent:rockylinux_latest"
+            dockerImage = "gridgain/tc-agent:rockylinux_latest"
             dockerPull = true
             dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
             dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
