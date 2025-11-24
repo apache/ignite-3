@@ -15,7 +15,6 @@ object OdbcRpm : BuildType({
 
     params {
         param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
-        hiddenText("AGENT_NUMBER", "")
     }
 
     steps {
@@ -30,27 +29,15 @@ object OdbcRpm : BuildType({
             """.trimIndent()
         }
 
-        script {
-            name = "[HACK] Set AGENT_NUMBER"
-            id = "HACK_Set_AGENT_NUMBER"
-            enabled = true
-            scriptContent = """
-                AGENT_NUMBER=${'$'}(echo %system.agent.name% | tail -c 3)
-                echo "##teamcity[setParameter name='AGENT_NUMBER' value='${'$'}{AGENT_NUMBER}']"
-            """.trimIndent()
-        }
-
-        exec {
+        customGradle {
             name = "Build ODBC RPM (Under Rocky Linux 8 container)"
-            id = "Build_ODBC_RPM_Under_Rocky_Linux_8_container"
-            enabled = true
-            path = "./gradlew"
-            arguments = ":packaging-odbc:buildRpm -i -Pplatforms.enable"
+            tasks = ":packaging-odbc:buildRpm"
+            workingDir = "%VCSROOT__GRIDGAIN9%"
+            gradleParams = "-i -Pplatforms.enable"
             dockerImage = "ggshared/tc-agent:rockylinux_latest"
-            dockerImagePlatform = ExecBuildStep.ImagePlatform.Linux
             dockerPull = true
-            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% -v /mnt/teamcity/%AGENT_NUMBER%/work/%teamcity.build.default.checkoutDir%:%teamcity.build.checkoutDir%"
-            param("script.content", "./gradlew")
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
         }
     }
 
