@@ -66,7 +66,7 @@ public class ClientSqlExecuteBatchRequest {
         cancelHandleMap.put(requestId, cancelHandle);
 
         InternalTransaction tx = readTx(in, tsTracker, resources, null, null, null);
-        ClientSqlProperties props = new ClientSqlProperties(in);
+        ClientSqlProperties props = new ClientSqlProperties(in, false);
         String statement = in.unpackString();
         BatchedArguments arguments = readArgs(in);
 

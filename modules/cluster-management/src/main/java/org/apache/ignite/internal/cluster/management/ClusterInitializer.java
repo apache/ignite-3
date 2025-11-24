@@ -41,7 +41,6 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepare
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.PrepareInitCompleteMessage;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -69,19 +68,15 @@ public class ClusterInitializer {
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
-    private final NodeProperties nodeProperties;
-
     /** Constructor. */
     public ClusterInitializer(
             ClusterService clusterService,
             ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
-            ConfigurationValidator clusterConfigurationValidator,
-            NodeProperties nodeProperties
+            ConfigurationValidator clusterConfigurationValidator
     ) {
         this.clusterService = clusterService;
         this.configurationDynamicDefaultsPatcher = configurationDynamicDefaultsPatcher;
         this.clusterConfigurationValidator = clusterConfigurationValidator;
-        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -193,7 +188,7 @@ public class ClusterInitializer {
             validateConfiguration(patchedClusterConfiguration, clusterConfiguration);
 
             CmgPrepareInitMessage prepareInitMessage = msgFactory.cmgPrepareInitMessage()
-                    .initInitiatorColocationEnabled(nodeProperties.colocationEnabled())
+                    .initInitiatorColocationEnabled(true)
                     .build();
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()

@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
@@ -40,7 +39,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
@@ -378,8 +376,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         List<AccumulatorWrapper<Object[]>> accumulators =
                 ctx.expressionFactory().accumulatorsFactory(aggregateType, List.of(call), inputType).get(ctx);
 
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(outputType));
-        RowFactory<Object[]> rowFactory = rowHandler().factory(rowSchema);
+        RowFactory<Object[]> rowFactory = rowHandler().factory(TypeUtils.convertStructuredType(outputType));
 
         return new HashAggregateNode<>(ctx, aggregateType, grpSets, accumulators, rowFactory);
     }

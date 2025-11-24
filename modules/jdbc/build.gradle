@@ -48,6 +48,8 @@ dependencies {
     integrationTestImplementation project(":ignite-api")
     integrationTestImplementation project(":ignite-system-view-api")
     integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.hikariCP
+    integrationTestImplementation libs.c3p0
 
     testFixturesImplementation testFixtures(project(":ignite-core"))
 }

@@ -23,7 +23,9 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
@@ -51,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client async result set.
  */
-class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
+public class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Channel. */
     private final ClientChannel ch;
 
@@ -90,6 +92,17 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Prefetched next page future. */
     private volatile CompletableFuture<Page<T>> nextPageFut;
 
+    /** ID of the resource that holds the next cursor, can be {@code null} if current result set is the last one. */
+    @Nullable
+    private final Long nextResultResourceId;
+
+    /** Future that holds the next result set, can be {@code null} if the current result set is the last one. */
+    @Nullable
+    private final CompletableFuture<ClientAsyncResultSet<T>> nextResultFuture;
+
+    /** A flag indicating whether the next result set already was requested or not. */
+    private final AtomicBoolean nextResultSetRetrieved = new AtomicBoolean();
+
     /**
      * Constructor.
      *
@@ -99,6 +112,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
      * @param mapper Mapper.
      * @param partitionAwarenessEnabled Whether partitions awareness is enabled, hence response may contain related metadata.
      * @param sqlDirectMappingSupported Whether direct mapping is supported, hence response may contain additional metadata.
+     * @param sqlMultiStatementsSupported Whether iteration over the results of script execution is supported.
      */
     ClientAsyncResultSet(
             ClientChannel ch,
@@ -106,7 +120,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             ClientMessageUnpacker in,
             @Nullable Mapper<T> mapper,
             boolean partitionAwarenessEnabled,
-            boolean sqlDirectMappingSupported
+            boolean sqlDirectMappingSupported,
+            boolean sqlMultiStatementsSupported
     ) {
         this.ch = ch;
 
@@ -121,6 +136,14 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in, sqlDirectMappingSupported);
         } else {
             partitionAwarenessMetadata = null;
+        }
+
+        if (sqlMultiStatementsSupported && !in.tryUnpackNil()) {
+            nextResultResourceId = in.unpackLong();
+            nextResultFuture = new CompletableFuture<>();
+        } else {
+            nextResultResourceId = null;
+            nextResultFuture = null;
         }
 
         this.mapper = mapper;
@@ -153,6 +176,47 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Override
     public boolean hasRowSet() {
         return hasRowSet;
+    }
+
+    /**
+     * Returns flag indicating whether the current result set is the result of
+     * a multi-statement query and this statement is not the last one.
+     */
+    public boolean hasNextResultSet() {
+        return nextResultResourceId != null;
+    }
+
+    /**
+     * Retrieves the next result set of a multi-statement query.
+     *
+     * @return Next result set.
+     * @throws NoSuchElementException if the query has no more statements to execute.
+     */
+    public CompletableFuture<ClientAsyncResultSet<T>> nextResultSet() {
+        if (nextResultResourceId == null) {
+            return CompletableFuture.failedFuture(new NoSuchElementException("Query has no more results"));
+        }
+
+        assert nextResultFuture != null;
+
+        if (!nextResultSetRetrieved.compareAndSet(false, true)) {
+            return nextResultFuture;
+        }
+
+        ch.<ClientAsyncResultSet<T>>serviceAsync(ClientOp.SQL_CURSOR_NEXT_RESULT_SET,
+                        w -> w.out().packLong(nextResultResourceId),
+                        r -> new ClientAsyncResultSet<>(
+                                r.clientChannel(), null, r.in(), null, false, false, true
+                        ))
+                .whenComplete((r, e) -> {
+                    if (e != null) {
+                        nextResultFuture.completeExceptionally(e);
+                    } else {
+                        nextResultFuture.complete(r);
+                    }
+                });
+
+        return nextResultFuture;
     }
 
     /** {@inheritDoc} */
