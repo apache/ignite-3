@@ -233,10 +233,9 @@ public interface IgniteServer {
      */
     final class Builder {
         private final String nodeName;
-        private final Path workDir;
-
         private Path configPath;
         private String configString;
+        private final Path workDir;
 
         private @Nullable ClassLoader serviceLoaderClassLoader;
         private Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
