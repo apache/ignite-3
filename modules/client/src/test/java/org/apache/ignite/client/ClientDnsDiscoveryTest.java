@@ -121,15 +121,17 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
     @Test
     void testClientRefreshesDnsOnNodeFailure() throws Exception {
-        int port = server3.port();
         String[] addresses = {"my-cluster:" + port};
 
         // One valid address.
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress});
 
-        try (var server4 = TestServer.builder()
-                .listenAddresses(loopbackAddress).nodeName("server4").clusterId(AbstractClientTest.clusterId).port(port).build();
-                var client = TcpIgniteClient.startAsync(getClientConfiguration(addresses, 0L, resolvedAddressesRef)).join()) {
+        try (var server4 = TestServer.builder().listenAddresses(loopbackAddress).nodeName("server4").clusterId(AbstractClientTest.clusterId)
+                .build();
+                var server5 = TestServer.builder().listenAddresses(hostAddress).nodeName("server5").clusterId(AbstractClientTest.clusterId)
+                        .port(server4.port()).build();
+                var client = TcpIgniteClient.startAsync(getClientConfiguration(new String[]{"my-cluster:" + server4.port()},
+                        0L, resolvedAddressesRef)).join()) {
             // Skip channels refresh on partition assignment during connection.
             Thread.sleep(100L);
 
@@ -144,7 +146,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
             // Client should reconnect to the second node.
             assertDoesNotThrow(() -> client.tables().tables());
-            assertEquals("server3", client.connections().get(0).name());
+            assertEquals("server5", client.connections().get(0).name());
         }
     }
 
@@ -165,10 +167,11 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
             // Change address to second node.
             resolvedAddressesRef.set(new String[]{hostAddress});
 
+            ReliableChannel ch = ((TcpIgniteClient) client).channel();
             server1.placementDriver().setReplicas(List.of("server3", "server2", "server1", "server2"),
                     1,
                     1,
-                    server1.clock().nowLong());
+                    ch.partitionAssignmentTimestamp() + 1);
 
             // Client should reconnect to the second node.
             assertDoesNotThrow(() -> client.tables().tables());
@@ -226,13 +229,11 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
             server3.placementDriver().setReplicas(List.of("server3", "server2", "server1", "server2"),
                     1,
                     1,
-                    server3.clock().nowLong());
+                    ch.partitionAssignmentTimestamp() + 1);
 
             // Client should reconnect to the second ips.
             assertDoesNotThrow(() -> client.tables().tables());
-            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 1
-                            && "server3".equals(client.connections().get(0).name()), 500),
-                    () -> "Client should reconnect to: " + server3.nodeName());
+            assertEquals("server3", client.connections().get(0).name());
 
             channels = IgniteTestUtils.getFieldValue(ch, "channels");
             assertEquals(1, channels.size());
