@@ -60,7 +60,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -71,22 +71,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ItClusterManagerTest extends BaseItClusterManagementTest {
     private final List<MockNode> cluster = new ArrayList<>();
 
-    private String commonColocationFeatureFlag;
-
-    @BeforeEach
-    public void setUp() {
-        commonColocationFeatureFlag = System.getProperty(COLOCATION_FEATURE_FLAG);
-    }
-
     @AfterEach
     void tearDown() throws Exception {
         stopCluster();
-
-        if (commonColocationFeatureFlag == null) {
-            System.clearProperty(COLOCATION_FEATURE_FLAG);
-        } else {
-            System.setProperty(COLOCATION_FEATURE_FLAG, commonColocationFeatureFlag);
-        }
     }
 
     private void startCluster(int numNodes, BiConsumer<Integer, RaftGroupConfiguration> onConfigurationCommittedListener) {
@@ -748,6 +735,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     }
 
     @SuppressWarnings("ThrowableNotThrown")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27071")
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) {
@@ -771,17 +759,17 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     @Test
     void testJoinFailsOnDifferentEnabledColocationModesWithinCmgNodes() throws Exception {
-        final boolean colocationEnabled = true;
-
-        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
         startCluster(1);
 
         String[] cmgNodes = clusterNodeNames();
         initCluster(cmgNodes, cmgNodes);
 
-        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(!colocationEnabled));
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27071
+        // Perhaps, this test should be re-worked along with testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes
+        MockNode secondNode = createNode(
+                cluster.size(), cluster.size(), config -> {}, () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString()));
 
-        MockNode secondNode = addNodeToCluster(cluster);
+        cluster.add(secondNode);
 
         secondNode.startAndJoin();
 
@@ -789,7 +777,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 () -> secondNode.startFuture().get(),
                 InvalidNodeConfigurationException.class,
                 IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
-                        + " cluster colocation mode is: {}", !colocationEnabled, colocationEnabled)
+                        + " cluster colocation mode is: {}", false, true)
         );
     }
 }

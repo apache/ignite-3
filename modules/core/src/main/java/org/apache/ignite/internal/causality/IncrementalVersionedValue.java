@@ -297,9 +297,11 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
             if (updaterFuture.isDone()) {
                 // Since the future has already been completed, there's no need to store a new future object in the history map and we can
                 // save a little bit of memory. This is useful when no "update" calls have been made between two "complete" calls.
-                updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+                updaterFuture = versionedValue.complete(causalityToken, localUpdaterFuture)
+                        .thenCompose(unused -> localUpdaterFuture);
             } else {
-                updaterFuture = updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+                updaterFuture = updaterFuture.thenCompose(v -> versionedValue.complete(causalityToken, localUpdaterFuture))
+                        .thenCompose(unused -> localUpdaterFuture);
             }
 
             return updaterFuture;

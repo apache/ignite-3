@@ -26,9 +26,8 @@ class OtherTestsModule(
         hiddenText("JVM_ARGS", jvmArgs + configuration.jvmArg)
 
         hiddenText("IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS", "-DtestAllVersions=false")
-        hiddenText("IGNITE_ZONE_BASED_REPLICATION", "-DIGNITE_ZONE_BASED_REPLICATION=true")
         hiddenText("IGNITE_DEFAULT_STORAGE_ENGINE", "")
-        hiddenText("env.GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_ZONE_BASED_REPLICATION% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
+        hiddenText("env.GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
     }
 
     steps {

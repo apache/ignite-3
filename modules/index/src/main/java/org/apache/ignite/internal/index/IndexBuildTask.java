@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -40,7 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -53,13 +51,11 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.RowMeta;
@@ -93,8 +89,6 @@ class IndexBuildTask {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final FinalTransactionStateResolver finalTransactionStateResolver;
 
     private final Executor executor;
@@ -126,7 +120,6 @@ class IndexBuildTask {
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             FinalTransactionStateResolver finalTransactionStateResolver,
             Executor executor,
             IgniteSpinBusyLock busyLock,
@@ -143,7 +136,6 @@ class IndexBuildTask {
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.finalTransactionStateResolver = finalTransactionStateResolver;
         this.executor = executor;
         this.busyLock = busyLock;
@@ -283,7 +275,7 @@ class IndexBuildTask {
                 if (TransactionIds.beginTimestamp(transactionId).compareTo(indexCreationActivationTs) < 0) {
                     transactionsToResolve.put(
                             row.transactionId(),
-                            new CommitPartitionId(row.commitTableOrZoneId(), row.commitPartitionId())
+                            new CommitPartitionId(row.commitZoneId(), row.commitPartitionId())
                     );
                 }
             }
@@ -305,26 +297,19 @@ class IndexBuildTask {
     }
 
     private CompletableFuture<TxState> resolveFinalTxStateIfNeeded(UUID transactionId, CommitPartitionId commitPartitionId) {
-        assert commitPartitionId.commitTableOrZoneId != null;
+        assert commitPartitionId.commitZoneId != null;
 
-        ReplicationGroupId commitGroupId = targetGroupId(commitPartitionId.commitTableOrZoneId, commitPartitionId.commitPartitionId);
+        ZonePartitionId commitGroupId = new ZonePartitionId(commitPartitionId.commitZoneId, commitPartitionId.commitPartitionId);
 
         return finalTransactionStateResolver.resolveFinalTxState(transactionId, commitGroupId);
-    }
-
-    private ReplicationGroupId targetGroupId(int tableOrZoneId, int partitionIndex) {
-        return nodeProperties.colocationEnabled()
-                ? new ZonePartitionId(tableOrZoneId, partitionIndex)
-                : new TablePartitionId(tableOrZoneId, partitionIndex);
     }
 
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(BatchToIndex batch, HybridTimestamp initialOperationTimestamp) {
         List<RowId> rowIds = batch.rowIds;
         boolean finish = rowIds.size() < batchSize;
 
-        ReplicationGroupIdMessage groupIdMessage = nodeProperties.colocationEnabled()
-                ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId()))
-                : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()));
+        ZonePartitionIdMessage groupIdMessage =
+                toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId()));
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
                 .groupId(groupIdMessage)
@@ -374,11 +359,11 @@ class IndexBuildTask {
     }
 
     private static class CommitPartitionId {
-        private final @Nullable Integer commitTableOrZoneId;
+        private final @Nullable Integer commitZoneId;
         private final int commitPartitionId;
 
-        private CommitPartitionId(@Nullable Integer commitTableOrZoneId, int commitPartitionId) {
-            this.commitTableOrZoneId = commitTableOrZoneId;
+        private CommitPartitionId(@Nullable Integer commitZoneId, int commitPartitionId) {
+            this.commitZoneId = commitZoneId;
             this.commitPartitionId = commitPartitionId;
         }
     }

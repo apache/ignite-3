@@ -67,7 +67,6 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -416,8 +415,7 @@ public class Node {
         var clusterInitializer = new ClusterInitializer(
                 clusterService,
                 hocon -> hocon,
-                new TestConfigurationValidator(),
-                new SystemPropertiesNodeProperties()
+                new TestConfigurationValidator()
         );
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
@@ -858,7 +856,6 @@ public class Node {
                 logicalTopologyService,
                 clockService,
                 failureManager,
-                nodeProperties,
                 lowWatermark,
                 txManager
         );

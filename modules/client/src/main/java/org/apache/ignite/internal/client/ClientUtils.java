@@ -175,6 +175,9 @@ public class ClientUtils {
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientOperationType.SQL_CURSOR_NEXT_PAGE;
 
+            case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
+                return ClientOperationType.SQL_CURSOR_NEXT_RESULT_SET;
+
             case ClientOp.SQL_CURSOR_CLOSE:
                 return null;
 

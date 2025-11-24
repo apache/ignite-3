@@ -28,13 +28,13 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -50,9 +50,9 @@ public class IdentityDistributionFunctionSelfTest {
 
     private final RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
-    private final RowSchema rowSchema = RowSchema.builder()
-            .addField(NativeTypes.STRING)
-            .addField(NativeTypes.STRING)
+    private final StructNativeType rowSchema = NativeTypes.rowBuilder()
+            .addField("C1", NativeTypes.STRING, true)
+            .addField("C2", NativeTypes.STRING, true)
             .build();
 
     private final ColocationGroup colocationGroup = new ColocationGroup(LongList.of(1L), List.of(NODE_1, NODE_2, NODE_3),

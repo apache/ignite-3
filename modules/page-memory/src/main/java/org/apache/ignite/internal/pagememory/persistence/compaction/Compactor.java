@@ -206,7 +206,7 @@ public class Compactor extends IgniteWorker {
      * pages, we must look for it from the oldest delta file.
      */
     void doCompaction() {
-        while (true) {
+        while (!isPaused()) {
             // Let's collect one delta file for each partition.
             Queue<DeltaFileForCompaction> queue = filePageStoreManager.allPageStores()
                     .map(groupPartitionFilePageStore -> {

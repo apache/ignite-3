@@ -406,7 +406,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();
-        int commitTableId = chain.commitTableId();
+        int commitTableId = chain.commitZoneId();
         int commitPartitionId = chain.commitPartitionId();
 
         return ReadResult.createFromWriteIntent(
@@ -647,7 +647,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     RowMeta row = new RowMeta(
                             versionChain.rowId(),
                             versionChain.transactionId(),
-                            versionChain.commitTableId(),
+                            versionChain.commitZoneId(),
                             versionChain.commitPartitionId()
                     );
                     result.add(row);
