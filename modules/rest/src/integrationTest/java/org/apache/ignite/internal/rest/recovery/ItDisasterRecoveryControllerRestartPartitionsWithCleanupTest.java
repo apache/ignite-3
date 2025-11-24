@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -57,6 +58,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 
 /** Test for disaster recovery restart partitions with cleanup command. */
@@ -234,8 +237,20 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
         assertThat(client1.toBlocking().exchange(post), hasStatus(OK));
     }
 
-    @Test
-    public void testRestartTablePartitionsWithCleanupAllPartitionsOnDifferentNode() throws InterruptedException {
+    private static Stream<Boolean> restartZoneParameters() {
+        if (colocationEnabled()) {
+            // When collocation is enabled, test both restartZone=true and restartZone=false,
+            // since we permit calling RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT with enabled collocation.
+            return Stream.of(true, false);
+        } else {
+            // When collocation is disabled, only test restartZone=false.
+            return Stream.of(false);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("restartZoneParameters")
+    public void testRestartTablePartitionsWithCleanupAllPartitionsOnDifferentNode(boolean restartZone) throws InterruptedException {
         awaitPartitionsToBeHealthy(FIRST_ZONE, Set.of());
         IgniteImpl calledNode = unwrapIgniteImpl(CLUSTER.nodes().get(1));
         IgniteImpl targetNode = unwrapIgniteImpl(CLUSTER.nodes().get(0));
@@ -263,7 +278,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
         Set<String> nodeName = Set.of(CLUSTER.nodes().get(0).name());
 
-        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeName, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(), restartZone);
 
         // Send the request to the second node, which should forward it to the first node.
         HttpResponse<Void> response = client2.toBlocking().exchange(post);
@@ -286,7 +301,17 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
             String tableName,
             Collection<Integer> partitionIds
     ) {
-        if (colocationEnabled()) {
+        return restartPartitionsRequest(nodeNames, zoneName, tableName, partitionIds, colocationEnabled());
+    }
+
+    private static MutableHttpRequest<?> restartPartitionsRequest(
+            Set<String> nodeNames,
+            String zoneName,
+            String tableName,
+            Collection<Integer> partitionIds,
+            boolean restartZone
+    ) {
+        if (restartZone) {
             return HttpRequest.POST(RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT,
                     new RestartZonePartitionsRequest(nodeNames, zoneName, partitionIds));
         } else {
