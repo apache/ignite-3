@@ -360,6 +360,11 @@ public class IgniteCluster {
         return nodes;
     }
 
+    /** Returns base client port number from cluster configuration. */
+    public int clientPort() {
+        return clusterConfiguration.baseClientPort();
+    }
+
     /**
      * Starts an embedded node with the given index.
      *

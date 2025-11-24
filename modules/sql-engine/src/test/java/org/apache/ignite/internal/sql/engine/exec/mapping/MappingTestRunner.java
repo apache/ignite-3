@@ -237,7 +237,7 @@ final class MappingTestRunner {
 
         mappingService.onTopologyLeap(snapshot);
 
-        List<MappedFragment> mappedFragments;
+        MappedFragments mappedFragments;
 
         try {
             mappedFragments = await(mappingService.map(plan, readFromPrimaryOnly
@@ -256,7 +256,7 @@ final class MappingTestRunner {
             throw new IllegalStateException("Mapped fragments");
         }
 
-        return FragmentPrinter.fragmentsToString(true, mappedFragments);
+        return FragmentPrinter.fragmentsToString(true, mappedFragments.fragments());
     }
 
     static class TestCaseDef {

@@ -234,7 +234,7 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 .collect(Collectors.toSet());
 
         for (ColumnType columnType : ColumnType.values()) {
-            if (columnType == ColumnType.NULL) {
+            if (columnType == ColumnType.NULL || columnType == ColumnType.STRUCT) {
                 continue;
             }
 

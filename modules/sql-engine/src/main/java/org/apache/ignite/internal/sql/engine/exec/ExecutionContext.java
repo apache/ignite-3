@@ -110,6 +110,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private SharedState sharedState = new SharedState();
 
+    private final @Nullable Long topologyVersion;
+
     /**
      * Constructor.
      *
@@ -126,8 +128,8 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
      * @param clock The clock to use to get the system time.
      * @param username Authenticated user name or {@code null} for unknown user.
+     * @param topologyVersion Topology version the query was mapped on.
      */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
             ExpressionFactory<RowT> expressionFactory,
             QueryTaskExecutor executor,
@@ -142,7 +144,8 @@ public class ExecutionContext<RowT> implements DataContext {
             ZoneId timeZoneId,
             int inBufSize,
             Clock clock,
-            @Nullable String username
+            @Nullable String username,
+            @Nullable Long topologyVersion
     ) {
         this.expressionFactory = expressionFactory;
         this.executor = executor;
@@ -157,6 +160,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
         this.currentUser = username;
+        this.topologyVersion = topologyVersion;
 
         assert this.inBufSize > 0 : this.inBufSize;
 
@@ -314,6 +318,11 @@ public class ExecutionContext<RowT> implements DataContext {
         }
     }
 
+    /** Returns the topology version the query was mapped on. */
+    public @Nullable Long topologyVersion() {
+        return topologyVersion;
+    }
+
     /** Gets dynamic parameters by name. */
     private @Nullable Object getParameter(String name) {
         assert name.startsWith("?") : name;
@@ -398,7 +407,7 @@ public class ExecutionContext<RowT> implements DataContext {
                 Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
                 onError.accept(unwrappedException);
 
-                if (unwrappedException instanceof IgniteException 
+                if (unwrappedException instanceof IgniteException
                         || unwrappedException instanceof IgniteInternalException
                         || unwrappedException instanceof IgniteCheckedException
                         || unwrappedException instanceof IgniteInternalCheckedException

@@ -40,7 +40,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -171,13 +171,12 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
         SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
+        StructNativeType rowType = NativeTypes.rowBuilder()
+                .addField("COUNT", NativeTypes.INT64, false)
+                .build();
 
         return rowCount -> {
-            RowSchema rowSchema = RowSchema.builder()
-                    .addField(NativeTypes.INT64)
-                    .build();
-
-            RowT rowCountRow = ctx.rowHandler().factory(rowSchema)
+            RowT rowCountRow = ctx.rowHandler().factory(rowType)
                     .rowBuilder()
                     .addField(rowCount)
                     .build();

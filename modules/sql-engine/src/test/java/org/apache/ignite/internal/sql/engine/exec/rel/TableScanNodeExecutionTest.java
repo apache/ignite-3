@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -75,7 +75,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -98,6 +97,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -131,8 +131,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
-        RowSchema rowSchema = rowSchemaFromRelTypes(List.of(rowType));
-
         int inBufSize = IN_BUFFER_SIZE;
 
         List<PartitionWithConsistencyToken> partsWithConsistencyTokens = IntStream.range(0, TestInternalTableImpl.PART_CNT)
@@ -147,7 +145,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             sizes[i] = inBufSize * (i + 1) + ThreadLocalRandom.current().nextInt(100);
         }
 
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(convertStructuredType(rowType));
 
         int i = 0;
 
@@ -276,7 +274,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 .mapToObj(i -> new PartitionWithConsistencyToken(1, 42L))
                 .collect(Collectors.toList());
 
-        RowSchema schema = RowSchema.builder().addField(NativeTypes.INT32).build();
+        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(schema);
 
         ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));
