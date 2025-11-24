@@ -22,10 +22,13 @@ import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -33,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +50,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -61,16 +66,11 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -690,7 +690,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return allOf(
                     aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, snapshotContext),
                     partitionSnapshotStorage.txState().startRebalance()
-            );
+            ).thenComposeAsync(unused -> destroyReplicationLogStorages(snapshotContext), executor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -739,8 +739,31 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
     }
 
-    // TODO: IGNITE-26849 Реализовать и по нормальному
-    private CompletableFuture<Void> destroyReplicationLogStorage(SnapshotContext snapshotContext) {
-        return nullCompletedFuture();
+    private CompletableFuture<Void> destroyReplicationLogStorages(SnapshotContext snapshotContext) {
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            Set<DestroyReplicationLogStorageKey> keys = collectDestroyReplicationLogStorageKeys(snapshotContext);
+
+            return runAsync(() -> inBusyLockSafe(busyLock, () -> keys.forEach(this::destroyReplicationLogStorage)), executor);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private Set<DestroyReplicationLogStorageKey> collectDestroyReplicationLogStorageKeys(SnapshotContext snapshotContext) {
+        return snapshotContext.partitionsByTableId.values().stream()
+                .map(partitionMvStorage -> DestroyReplicationLogStorageKey.create(partitionSnapshotStorage, partitionMvStorage))
+                .collect(toSet());
+    }
+
+    private void destroyReplicationLogStorage(DestroyReplicationLogStorageKey key) {
+        try {
+            partitionSnapshotStorage.logStorage().destroy(key.replicationGroupId(), key.isVolatile());
+        } catch (Exception e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "Failed to destroy replication log storage: {}", e, key);
+        }
     }
 }

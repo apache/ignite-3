@@ -20,8 +20,7 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/** No doc yet. */
-// TODO: IGNITE-26849 Добаить документацию и методы
+/** {@link LogStorageAccess} implementation. */
 public class LogStorageAccessImpl implements LogStorageAccess {
     private final ReplicaManager replicaManager;
 
@@ -30,7 +29,8 @@ public class LogStorageAccessImpl implements LogStorageAccess {
         this.replicaManager = replicaManager;
     }
 
-    public void destroy(ReplicationGroupId replicationGroupId) throws Exception {
-        replicaManager.destroyReplicationProtocolStorages(replicationGroupId, false);
+    @Override
+    public void destroy(ReplicationGroupId replicationGroupId, boolean isVolatile) throws Exception {
+        replicaManager.destroyReplicationProtocolStorages(replicationGroupId, isVolatile);
     }
 }

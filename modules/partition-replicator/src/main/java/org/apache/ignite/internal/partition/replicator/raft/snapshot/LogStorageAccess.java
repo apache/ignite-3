@@ -17,7 +17,16 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
-/** No doc yet. */
-// TODO: IGNITE-26849 Добаить документацию и методы
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+
+/** Small abstraction for accessing the replication log. */
 public interface LogStorageAccess {
+    /**
+     * Destroys the replication log.
+     *
+     * @param replicationGroupId Replication group ID.
+     * @param isVolatile Is storage volatile.
+     * @throws Exception If there was an error during destruction.
+     */
+    void destroy(ReplicationGroupId replicationGroupId, boolean isVolatile) throws Exception;
 }

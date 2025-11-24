@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -223,7 +224,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void test() {
+    void test() throws Exception {
         fillOriginalStorages();
 
         createTargetStorages();
@@ -273,6 +274,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         verify(incomingMvTableStorage).startRebalancePartition(PARTITION_ID);
         verify(incomingTxStatePartitionStorage).startRebalance();
+        verify(replicaManager).destroyReplicationProtocolStorages(any(), anyBoolean());
 
         var expSnapshotInfo = new PartitionSnapshotInfo(
                 expLastAppliedIndex,
@@ -401,7 +403,6 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 mock(FailureProcessor.class),
                 executorService,
                 0,
-                // TODO: IGNITE-26849 Добавить проверку что вызывается метод в каком-то тесте
                 new LogStorageAccessImpl(replicaManager)
         );
 
