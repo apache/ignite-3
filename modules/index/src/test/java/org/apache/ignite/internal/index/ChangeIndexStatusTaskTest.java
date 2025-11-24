@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -55,6 +56,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -66,6 +68,7 @@ import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -390,15 +393,21 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         return completedFuture(FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(finished).build());
     }
 
-    private static PrimaryReplicaAwaitTimeoutException primaryReplicaAwaitTimeoutException() {
-        ZonePartitionId groupId = new ZonePartitionId(0, 0);
-
-        return new PrimaryReplicaAwaitTimeoutException(groupId, HybridTimestamp.MIN_VALUE, null, null);
+    private PrimaryReplicaAwaitTimeoutException primaryReplicaAwaitTimeoutException() {
+        return new PrimaryReplicaAwaitTimeoutException(createReplicationGroupId(0), HybridTimestamp.MIN_VALUE, null, null);
     }
 
-    private static PrimaryReplicaAwaitException primaryReplicaAwaitException() {
-        ZonePartitionId groupId = new ZonePartitionId(0, 0);
+    private PrimaryReplicaAwaitException primaryReplicaAwaitException() {
+        return new PrimaryReplicaAwaitException(createReplicationGroupId(0), HybridTimestamp.MIN_VALUE, null);
+    }
 
-        return new PrimaryReplicaAwaitException(groupId, HybridTimestamp.MIN_VALUE, null);
+    private ZonePartitionId createReplicationGroupId(int partId) {
+        Collection<CatalogZoneDescriptor> zones = catalogManager.catalog(catalogManager.latestCatalogVersion()).zones();
+
+        assertThat("Only one zone should be defined [zones=" + zones + ']', zones, hasSize(1));
+
+        int zoneId = zones.iterator().next().id();
+
+        return new ZonePartitionId(zoneId, partId);
     }
 }
