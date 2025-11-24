@@ -121,7 +121,7 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <pre>{@code
  * For write-intents
- * | Data ID (24 bytes, BE) | Commit Table ID (16 bytes) | Commit Partition ID (2 bytes) |
+ * | Data ID (24 bytes, BE) | Commit Zone ID (16 bytes) | Commit Partition ID (2 bytes) |
  *
  * For committed rows
  * | Data ID (24 bytes, BE) |
