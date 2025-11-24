@@ -26,6 +26,6 @@ timeout_worker::timeout_worker() {
 }
 
 void timeout_worker::add_connection(const std::shared_ptr<node_connection> &connection) {
-    connections.push_front(connection);
+    // connections.push_front(connection);
 }
 } // namespace ignite::detail

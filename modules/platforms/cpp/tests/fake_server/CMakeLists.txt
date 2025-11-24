@@ -15,24 +15,15 @@
 # limitations under the License.
 #
 
-project(ignite-test-common)
+project(ignite-fake-server)
 
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
-    basic_auth_test_suite.h
-    cmd_process.h
-    ignite_runner.cpp ignite_runner.h
-    process.cpp
-    test_utils.cpp test_utils.h
-    hidden_param.h
-    ../fake_server/tcp_client_channel.cpp
-    ../fake_server/tcp_client_channel.h
+    main.cpp
+    fake_server.cpp
+    tcp_client_channel.cpp
+    connection_test.cpp
 )
 
-add_library(${TARGET} OBJECT ${SOURCES})
-target_link_libraries(${TARGET} ignite-common)
-target_include_directories(${TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
-set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client)
