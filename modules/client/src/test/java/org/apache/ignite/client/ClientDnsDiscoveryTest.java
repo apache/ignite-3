@@ -228,9 +228,11 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
                     1,
                     server3.clock().nowLong());
 
-            // Client should reconnect to the second node.
+            // Client should reconnect to the second ips.
             assertDoesNotThrow(() -> client.tables().tables());
-            assertEquals("server3", client.connections().get(0).name());
+            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 1
+                            && "server3".equals(client.connections().get(0).name()), 500),
+                    () -> "Client should reconnect to: " + server3.nodeName());
 
             channels = IgniteTestUtils.getFieldValue(ch, "channels");
             assertEquals(1, channels.size());

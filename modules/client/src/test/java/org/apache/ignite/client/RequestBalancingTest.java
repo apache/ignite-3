@@ -71,10 +71,10 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
             assertEquals(5, res.size());
             assertEquals("s2", res.get(0));
-            assertEquals("s1", res.get(1));
-            assertEquals("s3", res.get(2));
+            assertEquals("s3", res.get(1));
+            assertEquals("s1", res.get(2));
             assertEquals("s2", res.get(3));
-            assertEquals("s1", res.get(4));
+            assertEquals("s3", res.get(4));
         }
     }
 }
