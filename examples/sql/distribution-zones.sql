@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS employee (
 ) ZONE "my_example_zone";
 
 -- Show all distribution zones
-SELECT * FROM SYSTEM.ZONES;
+SELECT * FROM system.zones;
 
 -- Show specific zone details
-SELECT * FROM SYSTEM.ZONES WHERE NAME = 'renamed_zone';
+SELECT * FROM system.zones WHERE name = 'renamed_zone';
