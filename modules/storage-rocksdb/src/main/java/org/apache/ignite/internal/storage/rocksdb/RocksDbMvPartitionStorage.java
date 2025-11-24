@@ -111,10 +111,10 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>Key:
  * <pre>{@code
  * For write-intents
- * | Table ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) |
+ * | Zone ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) |
  *
  * For committed rows
- * | Table ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) | Commit Timestamp (8 bytes, DESC) |
+ * | Zone ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) | Commit Timestamp (8 bytes, DESC) |
  * }</pre>
  *
  * <p>Value:
