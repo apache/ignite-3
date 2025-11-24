@@ -141,7 +141,6 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -1970,8 +1969,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .map(listener -> {
                     if (listener instanceof ZoneRebalanceRaftGroupEventsListener) {
                         return ((ZoneRebalanceRaftGroupEventsListener) listener).currentRetryDelay();
-                    } else if (listener instanceof RebalanceRaftGroupEventsListener) {
-                        return ((RebalanceRaftGroupEventsListener) listener).currentRetryDelay();
                     } else {
                         // This value can be used, because configuration framework checks delay for positive value.
                         return -1;

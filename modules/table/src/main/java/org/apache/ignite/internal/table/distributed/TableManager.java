@@ -32,15 +32,11 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED;
-import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.table.distributed.TableUtils.aliveTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -85,7 +81,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -108,8 +103,6 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -142,9 +135,6 @@ import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
@@ -152,20 +142,15 @@ import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSc
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
-import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
-import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -196,7 +181,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -1131,32 +1115,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return null;
     }
 
-    private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
-            CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
-            if (replicaFut == null) {
-                return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
-                        + " in table " + replicaGrpId.tableId()));
-            }
-            return replicaFut.thenApply(Replica::raftClient);
-        });
-    }
-
-    private RaftGroupEventsListener createRaftGroupEventsListener(TablePartitionId replicaGrpId) {
-        PartitionMover partitionMover = createPartitionMover(replicaGrpId);
-
-        return new RebalanceRaftGroupEventsListener(
-                metaStorageMgr,
-                failureProcessor,
-                replicaGrpId,
-                busyLock,
-                partitionMover,
-                this::calculateAssignments,
-                rebalanceScheduler,
-                rebalanceRetryDelayConfiguration
-        );
-    }
-
     private PartitionReplicaListener createReplicaListener(
             // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Use ZonePartitionIdInstead.
             PartitionGroupId replicationGroupId,
@@ -1199,87 +1157,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 nodeProperties,
                 table.metrics()
         );
-    }
-
-    private CompletableFuture<Set<Assignment>> calculateAssignments(
-            TablePartitionId tablePartitionId,
-            Long assignmentsTimestamp
-    ) {
-        CompletableFuture<Set<Assignment>> assignmentsFuture =
-                reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
-                        .thenCompose(catalog -> calculateAssignments(tablePartitionId, catalog));
-
-        return orStopManagerFuture(assignmentsFuture);
-    }
-
-    private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId, Catalog catalog) {
-        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalog);
-        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
-
-        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), tableDescriptor.zoneId())
-                .thenApply(dataNodes -> calculateAssignmentForPartition(
-                        dataNodes,
-                        tablePartitionId.partitionId(),
-                        zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas(),
-                        zoneDescriptor.consensusGroupSize()
-                ));
-    }
-
-    private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
-        return assignments.stream().anyMatch(isLocalNodeAssignment);
-    }
-
-    private CompletableFuture<Boolean> isLocalNodeIsPrimary(ReplicationGroupId replicationGroupId) {
-        return isLocalNodeIsPrimary(getPrimaryReplica(replicationGroupId));
-    }
-
-    private CompletableFuture<Boolean> isLocalNodeIsPrimary(CompletableFuture<ReplicaMeta> primaryReplicaFuture) {
-        return primaryReplicaFuture.thenApply(primaryReplicaMeta -> primaryReplicaMeta != null
-                && primaryReplicaMeta.getLeaseholder() != null
-                && primaryReplicaMeta.getLeaseholder().equals(localNode().name())
-        );
-    }
-
-    /**
-     * Returns future with {@link ReplicaMeta} if primary is presented or null otherwise.
-     * <br>
-     * Internally we use there {@link PlacementDriver#getPrimaryReplica} with a penultimate safe time value, because metastore is waiting
-     * for pending or stable assignments events handling over and only then metastore will increment the safe time. On the other hand
-     * placement driver internally is waiting the metastore for given safe time plus {@link ClockService#maxClockSkewMillis}. So, if given
-     * time is just {@link ClockService#now}, then there is a dead lock: metastore is waiting until assignments handling is over, but
-     * internally placement driver is waiting for a non-applied safe time.
-     * <br>
-     * To solve this issue we pass to {@link PlacementDriver#getPrimaryReplica} current time minus the skew, so placement driver could
-     * successfully get primary replica for the time stamp before the handling has began. Also there a corner case for tests that are using
-     * {@code WatchListenerInhibitor#metastorageEventsInhibitor} and it leads to current time equals {@link HybridTimestamp#MIN_VALUE} and
-     * the skew's subtraction will lead to {@link IllegalArgumentException} from {@link HybridTimestamp}. Then, if we got the minimal
-     * possible timestamp, then we also couldn't have any primary replica, then return {@code null} as a future's result.
-     *
-     * @param replicationGroupId Replication group ID for that we check is the local node a primary.
-     * @return completed future with primary replica's meta or {@code null} otherwise.
-     */
-    private CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId) {
-        HybridTimestamp currentSafeTime = metaStorageMgr.clusterTime().currentSafeTime();
-
-        if (HybridTimestamp.MIN_VALUE.equals(currentSafeTime)) {
-            return nullCompletedFuture();
-        }
-
-        long skewMs = clockService.maxClockSkewMillis();
-
-        try {
-            HybridTimestamp previousMetastoreSafeTime = currentSafeTime.subtractPhysicalTime(skewMs);
-
-            return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime);
-        } catch (IllegalArgumentException e) {
-            long currentSafeTimeMs = currentSafeTime.longValue();
-
-            throw new AssertionError("Got a negative time [currentSafeTime=" + currentSafeTime
-                    + ", currentSafeTimeMs=" + currentSafeTimeMs
-                    + ", skewMs=" + skewMs
-                    + ", internal=" + (currentSafeTimeMs + ((-skewMs) << LOGICAL_TIME_BITS_SIZE)) + "]", e);
-        }
     }
 
     private PartitionDataStorage partitionDataStorage(PartitionKey partitionKey, int tableId, MvPartitionStorage partitionStorage) {
@@ -1781,41 +1658,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return newPartitionSet;
     }
 
-    private SnapshotStorageFactory createSnapshotStorageFactory(
-            TablePartitionId replicaGrpId,
-            PartitionUpdateHandlers partitionUpdateHandlers,
-            InternalTable internalTable
-    ) {
-        int partitionId = replicaGrpId.partitionId();
-
-        var partitionAccess = new PartitionMvStorageAccessImpl(
-                partitionId,
-                internalTable.storage(),
-                mvGc,
-                partitionUpdateHandlers.indexUpdateHandler,
-                partitionUpdateHandlers.gcUpdateHandler,
-                fullStateTransferIndexChooser,
-                schemaManager.schemaRegistry(replicaGrpId.tableId()),
-                lowWatermark
-        );
-
-        var txStateAccess = new PartitionTxStateAccessImpl(internalTable.txStateStorage().getPartitionStorage(partitionId));
-
-        var snapshotStorage = new PartitionSnapshotStorage(
-                new TablePartitionKey(replicaGrpId.tableId(), replicaGrpId.partitionId()),
-                topologyService,
-                outgoingSnapshotsManager,
-                txStateAccess,
-                catalogService,
-                failureProcessor,
-                incomingSnapshotsExecutor
-        );
-
-        snapshotStorage.addMvPartition(internalTable.tableId(), partitionAccess);
-
-        return new PartitionSnapshotStorageFactory(snapshotStorage);
-    }
-
     /**
      * Gets partition stores.
      *
@@ -1877,64 +1719,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }).toArray(CompletableFuture[]::new);
 
         return allOf(storageFuts);
-    }
-
-    private CompletableFuture<Void> updatePartitionClients(
-            TablePartitionId tablePartitionId,
-            Set<Assignment> stableAssignments,
-            Set<Assignment> pendingAssignments
-    ) {
-        return isLocalNodeIsPrimary(tablePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
-            boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
-
-            if (!isLocalInStable && !isLeaseholder) {
-                return nullCompletedFuture();
-            }
-
-            assert replicaMgr.isReplicaStarted(tablePartitionId)
-                    : "The local node is outside of the replication group [stable=" + stableAssignments
-                            + ", isLeaseholder=" + isLeaseholder + "].";
-
-            // Update raft client peers and learners according to the actual assignments.
-            return replicaMgr.replica(tablePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(union(stableAssignments, pendingAssignments))));
-        }));
-    }
-
-    private CompletableFuture<Void> stopAndDestroyTablePartitionAndUpdateClients(
-            TablePartitionId tablePartitionId,
-            Set<Assignment> stableAssignments,
-            Assignments pendingAssignments,
-            boolean isRecovery,
-            long revision
-    ) {
-        CompletableFuture<Void> clientUpdateFuture = isRecovery
-                // Updating clients is not needed on recovery.
-                ? nullCompletedFuture()
-                : updatePartitionClients(tablePartitionId, stableAssignments, pendingAssignments.nodes());
-
-        boolean shouldStopLocalServices = (pendingAssignments.force()
-                        ? pendingAssignments.nodes().stream()
-                        : Stream.concat(stableAssignments.stream(), pendingAssignments.nodes().stream())
-                )
-                .noneMatch(isLocalNodeAssignment);
-
-        if (shouldStopLocalServices) {
-            return allOf(
-                    clientUpdateFuture,
-                    weakStopAndDestroyTablePartition(tablePartitionId, revision)
-            );
-        } else {
-            return clientUpdateFuture;
-        }
-    }
-
-    private CompletableFuture<Void> weakStopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return replicaMgr.weakStopReplica(
-                tablePartitionId,
-                WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopAndDestroyTablePartition(tablePartitionId, causalityToken)
-        );
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartitions(TableViewInternal table) {
@@ -2249,14 +2033,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @TestOnly
     public @Nullable TableViewInternal cachedTable(String name) {
         return findTableImplByName(tables.values(), name);
-    }
-
-    private static CatalogTableDescriptor getTableDescriptor(int tableId, Catalog catalog) {
-        CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
-
-        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalog.version();
-
-        return tableDescriptor;
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
