@@ -521,18 +521,18 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     private Node leader(RaftGroupService raftClient) {
         CompletableFuture<Void> refreshLeaderFut = raftClient.refreshLeader();
-        //CompletableFuture<LeaderWithTerm> refreshLeaderFut0 = raftClient.refreshAndGetLeaderWithTerm();
+        CompletableFuture<LeaderWithTerm> refreshLeaderFut0 = raftClient.refreshAndGetLeaderWithTerm();
 
         assertThat(refreshLeaderFut, willCompleteSuccessfully());
 
         String currentLeader = raftClient.leader().consistentId();
 
-        //assertThat(refreshLeaderFut0, willCompleteSuccessfully());
-        //String cl = refreshLeaderFut0.join().leader().consistentId();
+        assertThat(refreshLeaderFut0, willCompleteSuccessfully());
+        String cl = refreshLeaderFut0.join().leader().consistentId();
 
         log.info("qqq current leader: {}, on client: {}, on client consistent id: {}", currentLeader, raftClient.leader(), raftClient.leader().consistentId());
 
-        return nodes.stream().filter(n -> n.clusterService.nodeName().equals(currentLeader)).findAny().orElseThrow();
+        return nodes.stream().filter(n -> n.clusterService.nodeName().equals(cl)).findAny().orElseThrow();
     }
 
     private RaftGroupService raftClient() {
