@@ -80,6 +80,7 @@ dependencies {
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-security')
