@@ -886,7 +886,6 @@ public class TestBuilders {
         return new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
-                new SystemPropertiesNodeProperties(),
                 CaffeineCacheFactory.INSTANCE,
                 0
         );

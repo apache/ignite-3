@@ -264,7 +264,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
-                nodeProperties,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
