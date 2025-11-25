@@ -75,7 +75,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
@@ -1299,10 +1298,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
                     int partsCnt = assignments.size();
 
-                    tx.assignCommitPartition(targetReplicationGroupId(tableId, zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
+                    tx.assignCommitPartition(new ZonePartitionId(zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        ReplicationGroupId replicationGroupId = targetReplicationGroupId(tableId, zoneId, partWithToken.getIntKey());
+                        ReplicationGroupId replicationGroupId = new ZonePartitionId(zoneId, partWithToken.getIntKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
@@ -1324,14 +1323,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                     enlist(igniteTable.id(), igniteTable.zoneId(), assignments);
                 }
             }.visit(mappedFragment.fragment().root());
-        }
-
-        private ReplicationGroupId targetReplicationGroupId(int tableId, int zoneId, int partitionId) {
-            if (nodeProperties.colocationEnabled()) {
-                return new ZonePartitionId(zoneId, partitionId);
-            } else {
-                return new TablePartitionId(tableId, partitionId);
-            }
         }
 
         private CompletableFuture<Void> close(CancellationReason reason) {

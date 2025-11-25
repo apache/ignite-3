@@ -339,7 +339,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
-                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, nodeProperties, TABLE_CACHE_SIZE, CACHE_FACTORY
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE, CACHE_FACTORY
         );
 
         var tableFunctionRegistry = new TableFunctionRegistryImpl();

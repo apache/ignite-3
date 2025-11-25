@@ -136,7 +136,6 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
                     sqlSchemaManager,
                     replicaService,
                     new TestClockService(clock),
-                    new SystemPropertiesNodeProperties(),
                     cacheSize,
                     CaffeineCacheFactory.INSTANCE
             );

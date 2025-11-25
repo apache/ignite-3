@@ -65,6 +65,7 @@ public class ReplicaMessageUtils {
      * @param replicationGroupId Replication group ID for a given partition.
      * @return New instance of network message.
      */
+    // TODO remove
     public static ReplicationGroupIdMessage toReplicationGroupIdMessage(
             ReplicaMessagesFactory messagesFactory,
             ReplicationGroupId replicationGroupId
