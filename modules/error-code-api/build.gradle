@@ -15,19 +15,4 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-
-dependencies {
-    implementation project(':ignite-error-code-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
-    implementation libs.javapoet
-    implementation libs.auto.service.annotations
-    implementation libs.guava
-
-    annotationProcessor libs.auto.service
-}
-
-description = 'ignite-error-code-annotation-processor'
+description = 'ignite-error-code-api'
