@@ -43,6 +43,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -101,6 +102,35 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
 
         verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
+        verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class));
+
+        verify(filePageStore, times(1)).sync();
+        verify(filePageStore, times(1)).removeDeltaFile(eq(deltaFilePageStoreIo));
+
+        verify(deltaFilePageStoreIo, times(1)).markMergedToFilePageStore();
+        verify(deltaFilePageStoreIo, times(1)).stop(eq(true));
+    }
+
+    @Test
+    void testMergeDeltaFileToMainFileWithNewerDeltaFile() throws Throwable {
+        Compactor compactor = newCompactor();
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = createDeltaFilePageStoreIo(new int[]{0, 1});
+        when(deltaFilePageStoreIo.fileIndex()).thenReturn(2);
+        FilePageStore filePageStore = createFilePageStore(deltaFilePageStoreIo);
+
+        DeltaFilePageStoreIo newerDeltaFile = createDeltaFilePageStoreIo(new int[]{1, 2});
+        when(newerDeltaFile.fileIndex()).thenReturn(3);
+        DeltaFilePageStoreIo olderDeltaFile = createDeltaFilePageStoreIo(new int[]{0, 1});
+        when(olderDeltaFile.fileIndex()).thenReturn(1);
+
+        when(filePageStore.getCompletedDeltaFiles()).thenReturn(List.of(deltaFilePageStoreIo, olderDeltaFile, newerDeltaFile));
+
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
+
+        verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
+
+        verify(filePageStore, times(1)).getCompletedDeltaFiles();
         verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class));
 
         verify(filePageStore, times(1)).sync();
@@ -282,9 +312,13 @@ public class CompactorTest extends BaseIgniteAbstractTest {
     }
 
     private static DeltaFilePageStoreIo createDeltaFilePageStoreIo() throws Exception {
+        return createDeltaFilePageStoreIo(new int[]{0});
+    }
+
+    private static DeltaFilePageStoreIo createDeltaFilePageStoreIo(int[] pageIndexes) throws Exception {
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
 
-        when(deltaFilePageStoreIo.pageIndexes()).thenReturn(new int[]{0});
+        when(deltaFilePageStoreIo.pageIndexes()).thenReturn(pageIndexes);
 
         when(deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(ByteBuffer.class), anyBoolean()))
                 .then(answer -> {

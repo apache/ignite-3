@@ -30,7 +30,12 @@ public class CompactionMetricsTracker {
     private static final AtomicIntegerFieldUpdater<CompactionMetricsTracker> DATA_PAGES_WRITTEN_UPDATER =
             newUpdater(CompactionMetricsTracker.class, "dataPagesWritten");
 
+    private static final AtomicIntegerFieldUpdater<CompactionMetricsTracker> DATA_PAGES_SKIPPED_UPDATER =
+            newUpdater(CompactionMetricsTracker.class, "dataPagesSkipped");
+
     private volatile int dataPagesWritten;
+
+    private volatile int dataPagesSkipped;
 
     private final long startNanos = System.nanoTime();
 
@@ -45,6 +50,14 @@ public class CompactionMetricsTracker {
         DATA_PAGES_WRITTEN_UPDATER.incrementAndGet(this);
     }
 
+    /**
+     * Increments counter if data page was skipped.
+     *
+     * <p>Thread safe.
+     */
+    public void onPageSkipped() {
+        DATA_PAGES_SKIPPED_UPDATER.incrementAndGet(this);
+    }
     /**
      * Callback on compaction end.
      *
@@ -61,6 +74,15 @@ public class CompactionMetricsTracker {
      */
     public int dataPagesWritten() {
         return dataPagesWritten;
+    }
+
+    /**
+     * Returns data pages skipped.
+     *
+     * <p>Thread safe.
+     */
+    public int dataPagesSkipped() {
+        return dataPagesSkipped;
     }
 
     /**

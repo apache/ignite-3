@@ -409,6 +409,14 @@ public class FilePageStore implements PageStore {
         return deltaFilePageStoreIos.get(deltaFilePageStoreIos.size() - 1);
     }
 
+    public List<DeltaFilePageStoreIo> getCompletedDeltaFiles() {
+        if (newDeltaFilePageStoreIoFuture != null) {
+            return deltaFilePageStoreIos.subList(1, deltaFilePageStoreIos.size());
+        }
+
+        return deltaFilePageStoreIos;
+    }
+
     /**
      * Deletes delta file.
      *
