@@ -49,8 +49,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -141,7 +139,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 execProvider,
-                nodeProperties(),
                 Runnable::run
         ));
 
@@ -157,10 +154,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertSame(defaultMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(mappingOnBackups, await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS)));
         assertNotSame(defaultMapping, mappingOnBackups);
-    }
-
-    private static NodeProperties nodeProperties() {
-        return new SystemPropertiesNodeProperties();
     }
 
     @Test
@@ -219,7 +212,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 execProvider,
-                nodeProperties(),
                 Runnable::run
         ));
 
@@ -281,7 +273,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 execProvider,
-                nodeProperties(),
                 Runnable::run
         ));
 
@@ -318,7 +309,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 cacheSize,
                 PARTITION_PRUNER,
                 execProvider,
-                nodeProperties(),
                 Runnable::run
         );
 

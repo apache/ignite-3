@@ -63,7 +63,6 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.Debuggable;
@@ -185,8 +184,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
     private final ClockService clockService;
 
-    private final NodeProperties nodeProperties;
-
     private final KillCommandHandler killCommandHandler;
 
     private final ExpressionFactory<RowT> expressionFactory;
@@ -218,7 +215,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
-            NodeProperties nodeProperties,
             KillCommandHandler killCommandHandler,
             ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
@@ -234,7 +230,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
         this.clockService = clockService;
-        this.nodeProperties = nodeProperties;
         this.killCommandHandler = killCommandHandler;
         this.expressionFactory = expressionFactory;
         this.shutdownTimeout = shutdownTimeout;
@@ -275,7 +270,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ExecutionDependencyResolver dependencyResolver,
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
-            NodeProperties nodeProperties,
             KillCommandHandler killCommandHandler,
             ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
@@ -298,7 +292,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                         tableFunctionRegistry
                 ),
                 clockService,
-                nodeProperties,
                 killCommandHandler,
                 expressionFactory,
                 shutdownTimeout

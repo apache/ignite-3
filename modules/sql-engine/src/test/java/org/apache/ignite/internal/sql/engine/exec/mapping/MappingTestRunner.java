@@ -38,7 +38,6 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
@@ -231,7 +230,6 @@ final class MappingTestRunner {
                 0,
                 partitionPruner,
                 executionDistributionProvider,
-                new SystemPropertiesNodeProperties(),
                 Runnable::run
         );
 

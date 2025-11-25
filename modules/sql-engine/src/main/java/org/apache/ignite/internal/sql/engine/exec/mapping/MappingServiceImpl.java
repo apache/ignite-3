@@ -44,7 +44,6 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
@@ -88,7 +87,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private final PartitionPruner partitionPruner;
     private final ExecutionDistributionProvider distributionProvider;
     private final Executor taskExecutor;
-    private final NodeProperties nodeProperties;
 
     /**
      * Constructor.
@@ -99,7 +97,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param partitionPruner Partition pruner.
      * @param distributionProvider Execution distribution provider.
-     * @param nodeProperties Node-wide properties.
      * @param taskExecutor Mapper service task executor.
      */
     public MappingServiceImpl(
@@ -109,7 +106,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             int cacheSize,
             PartitionPruner partitionPruner,
             ExecutionDistributionProvider distributionProvider,
-            NodeProperties nodeProperties,
             Executor taskExecutor
     ) {
         this.localNodeName = localNodeName;
@@ -119,7 +115,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         // this.mappingsCache = cacheFactory.create(cacheSize);
         this.partitionPruner = partitionPruner;
         this.distributionProvider = distributionProvider;
-        this.nodeProperties = nodeProperties;
         this.taskExecutor = taskExecutor;
     }
 
