@@ -113,6 +113,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -204,7 +205,8 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            MetricManager metricManager
+            MetricManager metricManager,
+            GcConfiguration gcConfiguration
     ) {
         this(
                 nodeName,
@@ -217,7 +219,8 @@ public class DistributionZoneManager extends
                 systemDistributedConfiguration,
                 clockService,
                 new SystemPropertiesNodeProperties(),
-                metricManager
+                metricManager,
+                gcConfiguration
         );
     }
 
@@ -233,6 +236,9 @@ public class DistributionZoneManager extends
      * @param catalogManager Catalog manager.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param clockService Clock service.
+     * @param nodeProperties Node properties.
+     * @param metricManager Metric manager.
+     * @param gcConfiguration Garbage collector configuration.
      */
     public DistributionZoneManager(
             String nodeName,
@@ -245,7 +251,8 @@ public class DistributionZoneManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
             NodeProperties nodeProperties,
-            MetricManager metricManager
+            MetricManager metricManager,
+            GcConfiguration gcConfiguration
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -284,7 +291,8 @@ public class DistributionZoneManager extends
                 failureProcessor,
                 partitionResetClosure,
                 partitionDistributionResetTimeoutConfiguration::currentValue,
-                this::logicalTopology
+                this::logicalTopology,
+                gcConfiguration
         );
 
         this.metricManager = metricManager;
@@ -351,7 +359,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
+     * Gets data nodes of the zone using timestamp and catalog version. {@code timestamp} must be agreed
      * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
      * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
      * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
@@ -380,6 +388,22 @@ public class DistributionZoneManager extends
         }
 
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
+    }
+
+    /**
+     * Gets data nodes of the zone using catalog version. The timestamp which is used for data nodes retrieval is taken from the catalog
+     * with the given {@code catalogVersion}.
+     *
+     * <p>Return data nodes or throw the exception:
+     * {@link IllegalArgumentException} if zoneId is not valid.
+     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
+     *
+     * @param catalogVersion Catalog version.
+     * @param zoneId Zone id.
+     * @return The future with data nodes for the zoneId.
+     */
+    public CompletableFuture<Set<String>> dataNodes(int catalogVersion, int zoneId) {
+        return dataNodes(INITIAL_TIMESTAMP, catalogVersion, zoneId);
     }
 
     public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {

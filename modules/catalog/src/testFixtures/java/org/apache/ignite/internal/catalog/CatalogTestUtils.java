@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -212,7 +213,7 @@ public class CatalogTestUtils {
      * @param metastore Meta storage manager.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock, MetaStorageManager metastore) {
-        return createTestCatalogManager(nodeName, clock, metastore, () -> TEST_DELAY_DURATION);
+        return createTestCatalogManager(nodeName, clock, metastore, () -> TEST_DELAY_DURATION, () -> null);
     }
 
     /**
@@ -222,7 +223,8 @@ public class CatalogTestUtils {
             String nodeName,
             HybridClock clock,
             MetaStorageManager metastore,
-            LongSupplier delayDurationMsSupplier
+            LongSupplier delayDurationMsSupplier,
+            Supplier<Catalog> fakeCatalogSupplier
     ) {
         ScheduledExecutorService scheduledExecutor = createScheduledExecutorService(nodeName);
 
@@ -254,6 +256,18 @@ public class CatalogTestUtils {
                         () -> clockWaiter.stopAsync(componentContext),
                         () -> shutdownAsync(scheduledExecutor)
                 );
+            }
+
+            @Override
+            public Catalog catalog(int catalogVersion) {
+                Catalog fakeCatalog = fakeCatalogSupplier.get();
+                return fakeCatalog == null ? super.catalog(catalogVersion) : fakeCatalog;
+            }
+
+            @Override
+            public Catalog earliestCatalog() {
+                Catalog fakeCatalog = fakeCatalogSupplier.get();
+                return fakeCatalog == null ? super.earliestCatalog() : fakeCatalog;
             }
         };
     }

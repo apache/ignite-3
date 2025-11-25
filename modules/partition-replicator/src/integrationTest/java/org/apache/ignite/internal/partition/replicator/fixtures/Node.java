@@ -710,7 +710,8 @@ public class Node {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                metricManager
+                metricManager,
+                gcConfiguration
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
