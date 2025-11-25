@@ -20,7 +20,6 @@ package org.apache.ignite.client;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.InetAddress;
@@ -139,6 +138,8 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
             // Stop first node.
             server4.close();
+
+            Thread.sleep(100); // Wait for the server close to be processed.
 
             // Client should reconnect to the second node.
             assertDoesNotThrow(() -> client.tables().tables());

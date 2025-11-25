@@ -336,6 +336,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
                 .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
                 .loggerFactory(loggerFactory)
+                .backgroundReResolveAddressesInterval(0)
                 .build();
     }
 
