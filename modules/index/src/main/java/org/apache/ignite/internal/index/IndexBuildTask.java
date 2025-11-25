@@ -168,7 +168,7 @@ class IndexBuildTask {
         }
 
         try {
-            statisticsLoggingListener.onIndexBuildStarted(taskId);
+            statisticsLoggingListener.onIndexBuildStarted();
 
             supplyAsync(partitionStorage::highestRowId, executor)
                     .thenApplyAsync(this::handleNextBatch, executor)
@@ -183,10 +183,10 @@ class IndexBuildTask {
                             }
 
                             taskFuture.completeExceptionally(throwable);
-                            statisticsLoggingListener.onIndexBuildFailure(taskId, throwable);
+                            statisticsLoggingListener.onIndexBuildFailure(throwable);
                         } else {
                             taskFuture.complete(null);
-                            statisticsLoggingListener.onIndexBuildSuccess(taskId);
+                            statisticsLoggingListener.onIndexBuildSuccess();
                         }
                     });
         } catch (Throwable t) {
@@ -238,14 +238,14 @@ class IndexBuildTask {
                             replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
                                     .whenComplete((unused, throwable) -> {
                                         if (throwable == null) {
-                                            statisticsLoggingListener.onRaftCallSuccess(taskId);
+                                            statisticsLoggingListener.onRaftCallSuccess();
                                         } else {
-                                            statisticsLoggingListener.onRaftCallFailure(taskId);
+                                            statisticsLoggingListener.onRaftCallFailure();
                                         }
                                     })
                                     .thenApply(unused -> batch)
                     )
-                    .thenAccept(batch -> statisticsLoggingListener.onBatchProcessed(taskId, batch.rowIds.size()))
+                    .thenAccept(batch -> statisticsLoggingListener.onBatchProcessed(batch.rowIds.size()))
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
@@ -324,11 +324,7 @@ class IndexBuildTask {
         ZonePartitionId commitGroupId = new ZonePartitionId(commitPartitionId.commitZoneId, commitPartitionId.commitPartitionId);
 
         return finalTransactionStateResolver.resolveFinalTxState(transactionId, commitGroupId)
-                .thenApply(txState -> {
-                    statisticsLoggingListener.onWriteIntentResolved(taskId, txState);
-
-                    return txState;
-                });
+                .thenApply(statisticsLoggingListener::onWriteIntentResolved);
     }
 
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(BatchToIndex batch, HybridTimestamp initialOperationTimestamp) {

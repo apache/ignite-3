@@ -55,31 +55,33 @@ class IndexBuildTaskStatisticsLoggingListener {
         this.afterDisasterRecovery = afterDisasterRecovery;
     }
 
-    public void onIndexBuildStarted(IndexBuildTaskId taskId) {
+    public void onIndexBuildStarted() {
         startTime.set(System.nanoTime());
     }
 
-    public void onWriteIntentResolved(IndexBuildTaskId taskId, TxState txState) {
+    public TxState onWriteIntentResolved(TxState txState) {
         resolvedWriteIntentCount.computeIfAbsent(txState, unused -> new AtomicInteger(0)).incrementAndGet();
+
+        return txState;
     }
 
-    public void onRaftCallSuccess(IndexBuildTaskId taskId) {
+    public void onRaftCallSuccess() {
         successfulRaftCallCount.incrementAndGet();
     }
 
-    public void onRaftCallFailure(IndexBuildTaskId taskId) {
+    public void onRaftCallFailure() {
         failedRaftCallCount.incrementAndGet();
     }
 
-    public void onBatchProcessed(IndexBuildTaskId taskId, int rowCount) {
+    public void onBatchProcessed(int rowCount) {
         rowIndexedCount.addAndGet(rowCount);
     }
 
-    public void onIndexBuildSuccess(IndexBuildTaskId taskId) {
+    public void onIndexBuildSuccess() {
         logStatistics(null);
     }
 
-    public void onIndexBuildFailure(IndexBuildTaskId taskId, Throwable throwable) {
+    public void onIndexBuildFailure(Throwable throwable) {
         logStatistics(throwable);
     }
 

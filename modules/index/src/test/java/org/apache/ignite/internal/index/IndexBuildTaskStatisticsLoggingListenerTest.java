@@ -35,38 +35,38 @@ class IndexBuildTaskStatisticsLoggingListenerTest {
 
     @Test
     void testOnIndexBuildSuccessPasses() {
-        listener.onIndexBuildStarted(taskId);
+        listener.onIndexBuildStarted();
 
-        assertDoesNotThrow(() -> listener.onIndexBuildSuccess(taskId));
+        assertDoesNotThrow(listener::onIndexBuildSuccess);
     }
 
     @Test
     void testOnIndexBuildFailurePasses() {
-        listener.onIndexBuildStarted(taskId);
+        listener.onIndexBuildStarted();
 
-        assertDoesNotThrow(() -> listener.onIndexBuildFailure(taskId, new RuntimeException("Index build exception")));
+        assertDoesNotThrow(() -> listener.onIndexBuildFailure(new RuntimeException("Index build exception")));
     }
 
     @Test
     void testOnIndexBuildStartedSetsStartTime() {
-        listener.onIndexBuildStarted(taskId);
+        listener.onIndexBuildStarted();
 
         assertTrue(listener.startTime().get() > 0);
     }
 
     @Test
     void testOnBatchProcessedAccumulatesRowCount() {
-        listener.onBatchProcessed(taskId, 10);
-        listener.onBatchProcessed(taskId, 5);
+        listener.onBatchProcessed(10);
+        listener.onBatchProcessed(5);
 
         assertEquals(15, listener.rowIndexedCount().get());
     }
 
     @Test
     void testOnRaftCallSuccessAndFailureAccumulateCounts() {
-        listener.onRaftCallSuccess(taskId);
-        listener.onRaftCallSuccess(taskId);
-        listener.onRaftCallFailure(taskId);
+        listener.onRaftCallSuccess();
+        listener.onRaftCallSuccess();
+        listener.onRaftCallFailure();
 
         assertEquals(2, listener.successfulRaftCallCount().get());
         assertEquals(1, listener.failedRaftCallCount().get());
@@ -74,9 +74,9 @@ class IndexBuildTaskStatisticsLoggingListenerTest {
 
     @Test
     void testOnWriteIntentResolvedAccumulatesCounts() {
-        listener.onWriteIntentResolved(taskId, TxState.COMMITTED);
-        listener.onWriteIntentResolved(taskId, TxState.COMMITTED);
-        listener.onWriteIntentResolved(taskId, TxState.ABANDONED);
+        listener.onWriteIntentResolved(TxState.COMMITTED);
+        listener.onWriteIntentResolved(TxState.COMMITTED);
+        listener.onWriteIntentResolved(TxState.ABANDONED);
 
         assertEquals(2, listener.resolvedWriteIntentCount().size());
         assertEquals(2, listener.resolvedWriteIntentCount().get(TxState.COMMITTED).get());
@@ -85,6 +85,6 @@ class IndexBuildTaskStatisticsLoggingListenerTest {
 
     @Test
     void testExceptionOnStartTimeHasNotBeenSet() {
-        assertThrows(IllegalStateException.class, () -> listener.onIndexBuildSuccess(taskId));
+        assertThrows(IllegalStateException.class, listener::onIndexBuildSuccess);
     }
 }
