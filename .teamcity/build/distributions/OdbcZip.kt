@@ -14,6 +14,10 @@ object OdbcZip : BuildType({
         %VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.tar => odbc-zip
     """.trimIndent()
 
+    params {
+        param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
+    }
+
     steps {
         script {
             name = "Check env"

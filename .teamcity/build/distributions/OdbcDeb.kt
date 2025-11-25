@@ -14,6 +14,10 @@ object OdbcDeb : BuildType({
         %VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.changes => odbc-deb
     """.trimIndent()
 
+    params {
+        param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
+    }
+
     steps {
         script {
             name = "Check env"
