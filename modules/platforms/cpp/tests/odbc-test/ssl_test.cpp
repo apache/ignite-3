@@ -251,15 +251,13 @@ TEST_F(ssl_test, ssl_connection_error_non_existing_cert)
         ignite_error);
 }
 
-// TODO: IGNITE-27013 Re-enable after heartbeats are implemented.
-TEST_F(ssl_test, DISABLED_ssl_batch_select_1000_345) {
+TEST_F(ssl_test, ssl_batch_select_1000_345) {
     connect_successfully_to_ssl_server();
 
     insert_non_full_batch_select(1000, 345);
 }
 
-// TODO: IGNITE-27013 Re-enable after heartbeats are implemented.
-TEST_F(ssl_test, DISABLED_ssl_ca_batch_select_1000_345) {
+TEST_F(ssl_test, ssl_ca_batch_select_1000_345) {
     connect_successfully_to_ssl_ca_server();
 
     insert_non_full_batch_select(1000, 345);
