@@ -16,5 +16,6 @@
  */
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
 
 description = 'ignite-error-code-api'
