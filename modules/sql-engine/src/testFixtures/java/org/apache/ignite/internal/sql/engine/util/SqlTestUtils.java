@@ -614,12 +614,12 @@ public class SqlTestUtils {
      * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
      */
     public static void waitUntilQueriesInPhaseCount(SqlQueryProcessor queryProcessor, ExecutionPhase phase, Matcher<Integer> matcher) {
-        Awaitility.await().untilAsserted(() -> assertThat(
-                (int) queryProcessor.runningQueries().stream()
+        Awaitility.await().until(
+                () -> (int) queryProcessor.runningQueries().stream()
                         .filter(queryInfo -> queryInfo.phase() == phase)
                         .count(),
                 matcher
-        ));
+        );
     }
 
     /**
