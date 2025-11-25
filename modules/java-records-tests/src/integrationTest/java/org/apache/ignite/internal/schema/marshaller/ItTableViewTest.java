@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.schema.marshaller.Records.ComponentsEmpty;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsExact;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsNarrow;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsReordered;
@@ -92,6 +93,7 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
         assertView(t, new ComponentsExact.ExplicitCanonical(1, "a"));
         assertView(t, new ComponentsExact.ExplicitCompact(1, "a"));
         assertView(t, new ComponentsExact.ExplicitMultiple(1, "a"));
+        assertView(t, new ComponentsExact.ExplicitNoArgs(1, "a"));
 
         assertView(t, new ComponentsNarrow.Record(1));
         assertView(t, new ComponentsNarrow.Class(1));
@@ -109,6 +111,7 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
         assertView(t, new ComponentsExact.RecordK(1), new ComponentsExact.ExplicitCanonicalV("a"));
         assertView(t, new ComponentsExact.RecordK(1), new ComponentsExact.ExplicitCompactV("a"));
         assertView(t, new ComponentsExact.RecordK(1), new ComponentsExact.ExplicitMultipleV("a"));
+        assertView(t, new ComponentsExact.RecordK(1), new ComponentsExact.ExplicitNoArgsV());
     }
 
     @ParameterizedTest
@@ -144,6 +147,24 @@ class ItTableViewTest extends ClusterPerClassIntegrationTest {
         assertViewThrows(Exception.class, msgSubstring, t,
                 new ComponentsWrongTypes.ClassK((short) 1),
                 new ComponentsWrongTypes.ClassV(2)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("tableImpls")
+    void componentsEmptyThrowsException(Table t) {
+        String msgSubstring = "Empty mapping isn't allowed";
+
+        assertViewThrows(Exception.class, msgSubstring, t, new ComponentsEmpty.Record());
+        assertViewThrows(Exception.class, msgSubstring, t, new ComponentsEmpty.Class());
+
+        assertViewThrows(Exception.class, msgSubstring, t,
+                new ComponentsExact.RecordK(1),
+                new ComponentsEmpty.Record()
+        );
+        assertViewThrows(Exception.class, msgSubstring, t,
+                new ComponentsExact.ClassK(1),
+                new ComponentsEmpty.Class()
         );
     }
 

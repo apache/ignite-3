@@ -99,6 +99,18 @@ class Records {
             }
         }
 
+        record ExplicitNoArgs(@Column("key") Integer id, @Column("val") String val) {
+            ExplicitNoArgs() {
+                this(-1, "no-arg");
+            }
+        }
+
+        record ExplicitNoArgsV(@Column("val") String val) {
+            ExplicitNoArgsV() {
+                this("no-arg");
+            }
+        }
+
         static final class Class {
             @Column("key")
             private Integer id;
@@ -393,6 +405,11 @@ class Records {
                 return Objects.hash(val);
             }
         }
+    }
+
+    static class ComponentsEmpty {
+        record Record() { }
+        static final class Class {}
     }
 
     static class NotAnnotatedNotMapped {

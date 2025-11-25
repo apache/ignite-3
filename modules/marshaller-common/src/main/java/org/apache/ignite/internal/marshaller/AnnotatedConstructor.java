@@ -55,7 +55,7 @@ class AnnotatedConstructor implements Creator.Annotated {
     private static List<String> argsNames(Constructor<?> ctor) {
         Parameter[] creatorParams = ctor.getParameters();
 
-        if (Arrays.stream(creatorParams).anyMatch(p -> p.getAnnotation(Column.class) == null)) {
+        if (Arrays.stream(creatorParams).anyMatch(p -> !p.isAnnotationPresent(Column.class))) {
             throw new IllegalArgumentException("All constructor parameters must be annotated with @Column");
         }
 

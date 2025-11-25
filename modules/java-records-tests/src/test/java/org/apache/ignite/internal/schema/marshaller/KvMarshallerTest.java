@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.marshaller;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertMarshallerThrows;
 
+import org.apache.ignite.internal.schema.marshaller.Records.ComponentsEmpty;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsExact;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsWide;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsWrongTypes;
@@ -36,6 +37,8 @@ class KvMarshallerTest {
     void marshalUnmarshalTest() {
         assertMarshaller(new ComponentsExact.RecordK(1), new ComponentsExact.RecordV("a"));
         assertMarshaller(new ComponentsExact.ClassK(1), new ComponentsExact.ClassV("a"));
+
+        assertMarshaller(new ComponentsExact.RecordK(1), new ComponentsExact.ExplicitNoArgsV());
     }
 
     @Test
@@ -74,6 +77,19 @@ class KvMarshallerTest {
         assertMarshallerThrows(MarshallerException.class, msgSubstring,
                 new ComponentsExact.ClassK(1),
                 new NotAnnotatedNotMapped.Class(1, "a")
+        );
+    }
+
+    @Test
+    void componentsEmptyThrowsException() {
+        String msgSubstring = "Empty mapping isn't allowed";
+        assertMarshallerThrows(IllegalArgumentException.class, msgSubstring,
+                new ComponentsExact.RecordK(1),
+                new ComponentsEmpty.Record()
+        );
+        assertMarshallerThrows(IllegalArgumentException.class, msgSubstring,
+                new ComponentsExact.RecordK(1),
+                new ComponentsEmpty.Class()
         );
     }
 

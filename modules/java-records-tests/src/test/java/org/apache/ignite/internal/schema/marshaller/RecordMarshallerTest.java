@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.marshaller;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertMarshallerThrows;
 
+import org.apache.ignite.internal.schema.marshaller.Records.ComponentsEmpty;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsExact;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsNarrow;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsReordered;
@@ -42,6 +43,7 @@ class RecordMarshallerTest {
         assertMarshaller(new ComponentsExact.ExplicitCanonical(1, "a"));
         assertMarshaller(new ComponentsExact.ExplicitCompact(1, "a"));
         assertMarshaller(new ComponentsExact.ExplicitMultiple(1, "a"));
+        assertMarshaller(new ComponentsExact.ExplicitNoArgs());
 
         assertMarshaller(new ComponentsNarrow.Record(1));
         assertMarshaller(new ComponentsNarrow.Class(1));
@@ -62,6 +64,13 @@ class RecordMarshallerTest {
         String msgSubstring = "Column's type mismatch";
         assertMarshallerThrows(ClassCastException.class, msgSubstring, new ComponentsWrongTypes.Record((short) 1, 2));
         assertMarshallerThrows(ClassCastException.class, msgSubstring, new ComponentsWrongTypes.Class((short) 1, 2));
+    }
+
+    @Test
+    void componentsEmptyThrowsException() {
+        String msgSubstring = "Empty mapping isn't allowed";
+        assertMarshallerThrows(IllegalArgumentException.class, msgSubstring, new ComponentsEmpty.Record());
+        assertMarshallerThrows(IllegalArgumentException.class, msgSubstring, new ComponentsEmpty.Class());
     }
 
     @Test
