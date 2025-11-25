@@ -656,8 +656,6 @@ public class JraftServerImpl implements RaftServer {
 
             Path dataPath = getServerDataPath(context.serverDataPath(), nodeId);
 
-            LOG.info(">>>>> JraftServerImpl#destroyStorages: {}", dataPath);
-
             // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
             IgniteUtils.deleteIfExistsThrowable(dataPath);
         } catch (Exception e) {
@@ -1047,9 +1045,5 @@ public class JraftServerImpl implements RaftServer {
 
             return latestDone;
         }
-    }
-
-    public void recreate() {
-
     }
 }
