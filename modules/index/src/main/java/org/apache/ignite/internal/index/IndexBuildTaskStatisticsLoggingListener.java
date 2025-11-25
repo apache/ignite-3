@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -55,7 +56,7 @@ class IndexBuildTaskStatisticsLoggingListener {
     }
 
     public void onIndexBuildStarted(IndexBuildTaskId taskId) {
-        startTime.set(System.currentTimeMillis());
+        startTime.set(System.nanoTime());
     }
 
     public void onWriteIntentResolved(IndexBuildTaskId taskId, TxState txState) {
@@ -117,7 +118,7 @@ class IndexBuildTaskStatisticsLoggingListener {
             throw new IllegalStateException(message);
         }
 
-        return System.currentTimeMillis() - startTime.get();
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime.get());
     }
 
     @TestOnly
