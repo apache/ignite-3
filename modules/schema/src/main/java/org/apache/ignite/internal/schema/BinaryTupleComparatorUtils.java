@@ -356,7 +356,7 @@ public class BinaryTupleComparatorUtils {
      * @return Comparison result.
      * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int)
      */
-    static int compareAsString(
+    public static int compareAsString(
             ByteBufferAccessor buf1, int begin1, int end1,
             ByteBufferAccessor buf2, int begin2, int end2
     ) {
