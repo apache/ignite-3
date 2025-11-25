@@ -856,9 +856,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     @Override
     public String endpoint() {
-        InetSocketAddress addr = cfg.getAddress();
-
-        return addr.getAddress().getHostAddress() + ":" + addr.getPort();
+        return cfg.getAddress().toString();
     }
 
     private static void completeRequestFuture(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker unpacker) {

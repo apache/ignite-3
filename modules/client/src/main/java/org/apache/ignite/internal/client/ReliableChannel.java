@@ -446,6 +446,13 @@ public final class ReliableChannel implements AutoCloseable {
                 }
 
                 for (InetAddress inetAddr : addressResolver.getAllByName(addr.host())) {
+                    // Preserve unresolved address if the resolved address equals to the original host string.
+                    if (Objects.equals(addr.host(), inetAddr.getHostAddress())) {
+                        map.merge(InetSocketAddress.createUnresolved(addr.host(), addr.port()), 1, Integer::sum);
+
+                        continue;
+                    }
+
                     var sockAddr = new InetSocketAddress(inetAddr, addr.port());
                     map.merge(sockAddr, 1, Integer::sum);
                 }
@@ -999,6 +1006,20 @@ public final class ReliableChannel implements AutoCloseable {
             return ch;
         }
 
+        private void rollNodeChannelsByName() {
+            List<ClientChannelHolder> holders = channels;
+
+            for (ClientChannelHolder h : holders) {
+                if (h != this && h.serverNode != null && Objects.equals(serverNode.id(), h.serverNode.id())) {
+                    nodeChannelsByName.put(h.serverNode.name(), h);
+
+                    return;
+                }
+            }
+
+            nodeChannelsByName.remove(serverNode.name(), this);
+        }
+
         /**
          * Close channel.
          */
@@ -1017,7 +1038,7 @@ public final class ReliableChannel implements AutoCloseable {
                 var oldServerNode = serverNode;
 
                 if (oldServerNode != null) {
-                    nodeChannelsByName.remove(oldServerNode.name(), this);
+                    rollNodeChannelsByName();
                 }
 
                 chFut = null;
@@ -1033,7 +1054,7 @@ public final class ReliableChannel implements AutoCloseable {
             var oldServerNode = serverNode;
 
             if (oldServerNode != null) {
-                nodeChannelsByName.remove(oldServerNode.name(), this);
+                rollNodeChannelsByName();
             }
 
             closeChannel();
