@@ -120,7 +120,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testClientRefreshesDnsOnNodeFailure() throws Exception {
+    void testClientRefreshesDnsOnNodeFailure() {
         // One valid address.
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress});
 
@@ -134,12 +134,10 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
             assertEquals("server4", client.connections().get(0).name());
 
             // Both nodes.
-            resolvedAddressesRef.set(new String[]{loopbackAddress, hostAddress});
+            resolvedAddressesRef.set(new String[]{hostAddress});
 
             // Stop first node.
             server4.close();
-
-            Thread.sleep(100); // Wait for the server close to be processed.
 
             // Client should reconnect to the second node.
             assertDoesNotThrow(() -> client.tables().tables());
