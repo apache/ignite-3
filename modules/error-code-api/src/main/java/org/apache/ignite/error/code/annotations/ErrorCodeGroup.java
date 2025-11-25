@@ -21,10 +21,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 
 /**
- * Annotation that should be placed on the ErrorGroup in the java/org/apache/ignite/lang/ErrorGroups.java
- *
- * <p>Group will be processed by the @{@link org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessor}
- * and C++ and C# files with errors will be generated.
+ * Annotation that should be placed on the ErrorGroup in the {@code java/org/apache/ignite/lang/ErrorGroups.java}.
  */
 @Target(ElementType.TYPE)
 public @interface ErrorCodeGroup {

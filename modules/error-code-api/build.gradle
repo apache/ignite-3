@@ -17,37 +17,5 @@
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-
-dependencies {
-    annotationProcessor project(':ignite-error-code-annotation-processor')
-
-    implementation project(':ignite-error-code-api')
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-}
-
-def platformsHeadersDir = file("${buildDir}/platforms/")
-
-compileJava {
-    options.headerOutputDirectory = platformsHeadersDir
-}
-
-configurations {
-    platformsHeaders {
-        canBeConsumed = true
-        canBeResolved = false
-    }
-}
-
-artifacts {
-    platformsHeaders(platformsHeadersDir) {
-        builtBy compileJava
-    }
-}
-
-description = 'ignite-api'
+description = 'ignite-error-code-api'
