@@ -449,8 +449,7 @@ public class OutgoingSnapshot {
                 assert i == 0 : rowVersionsN2O;
 
                 transactionId = version.transactionId();
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
-                commitTableOrZoneId = version.commitTableOrZoneId();
+                commitTableOrZoneId = version.commitZoneId();
                 commitPartitionId = version.commitPartitionId();
             } else {
                 commitTimestamps[j++] = version.commitTimestamp().longValue();
