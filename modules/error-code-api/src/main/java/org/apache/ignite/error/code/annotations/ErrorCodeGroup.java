@@ -21,7 +21,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 
 /**
- * Annotation that should be placed on the ErrorGroup in the java/org/apache/ignite/lang/ErrorGroups.java
+ * Annotation that should be placed on the ErrorGroup in the {@code java/org/apache/ignite/lang/ErrorGroups.java}.
  */
 @Target(ElementType.TYPE)
 public @interface ErrorCodeGroup {
