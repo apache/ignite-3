@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.error.code.annotations;
+package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Target;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Annotation that should be placed on the ErrorGroup in the java/org/apache/ignite/lang/ErrorGroups.java
- *
- * <p>Group will be processed by the @{@link org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessor}
- * and C++ and C# files with errors will be generated.
+ * Response for disaster recovery forwarding request.
  */
-@Target(ElementType.TYPE)
-public @interface ErrorCodeGroup {
+@Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_RESPONSE)
+public interface DisasterRecoveryResponseMessage extends NetworkMessage {
+    /**
+     * Error message if processing failed, null otherwise.
+     */
+    @Nullable
+    String errorMessage();
 }

@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-dependencies {
-    implementation project(':ignite-error-code-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
-    implementation libs.javapoet
-    implementation libs.auto.service.annotations
-    implementation libs.guava
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 
-    annotationProcessor libs.auto.service
+/**
+ * Request for forwarding disaster recovery operation to a specific node.
+ */
+@Transferable(DisasterRecoveryMessages.DISASTER_RECOVERY_REQUEST)
+public interface DisasterRecoveryRequestMessage extends NetworkMessage {
+    /**
+     * Serialized disaster recovery request.
+     */
+    byte[] requestBytes();
+
+    /**
+     * Revision of the event which produced this recovery request, or -1 for manual requests.
+     */
+    long revision();
 }
-
-description = 'ignite-error-code-annotation-processor'

@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.error.code.annotations;
 
-dependencies {
-    implementation project(':ignite-error-code-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
-    implementation libs.javapoet
-    implementation libs.auto.service.annotations
-    implementation libs.guava
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
 
-    annotationProcessor libs.auto.service
+/**
+ * Annotation that should be placed on the ErrorGroup in the {@code java/org/apache/ignite/lang/ErrorGroups.java}.
+ */
+@Target(ElementType.TYPE)
+public @interface ErrorCodeGroup {
 }
-
-description = 'ignite-error-code-annotation-processor'
