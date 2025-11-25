@@ -124,13 +124,18 @@ public final class DataNodesTestUtil {
             String zoneName,
             Set<String> expectedDataNodes
     ) {
-        CompletableFuture<Set<String>> futureRecalculationResult = node.distributionZoneManager()
-                .dataNodesManager()
+        DistributionZoneManager distributionZoneManager = node.distributionZoneManager();
+
+        CompletableFuture<Void> futureRecalculationResult = distributionZoneManager.dataNodesManager()
                 .recalculateDataNodes(zoneName);
 
         assertThat(futureRecalculationResult, willCompleteSuccessfully());
 
-        assertEquals(expectedDataNodes, futureRecalculationResult.join());
+        CompletableFuture<Set<String>> futureCurrentDataNodes = distributionZoneManager.currentDataNodes(zoneName);
+
+        assertThat(futureCurrentDataNodes, willCompleteSuccessfully());
+
+        assertEquals(expectedDataNodes, futureCurrentDataNodes.join());
 
         waitForDataNodes(node, zoneName, expectedDataNodes);
     }

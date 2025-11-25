@@ -59,6 +59,8 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
 
     private static final String UNKNOWN_ZONE_NAME = "test_zone_unknown";
 
+    private static final String WRONG_CASE_ZONE_NAME = ZONE_NAME.toUpperCase();
+
     private static final String DATA_NODES_ENDPOINT = "/datanodes";
 
     private static final String DATA_NODES_RESET_ENDPOINT = DATA_NODES_ENDPOINT + "/reset";
@@ -129,6 +131,13 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    public void restDataNodesResetWithWrongCaseZoneNameTest() {
+        Set<String> unknownZoneNames = Set.of(WRONG_CASE_ZONE_NAME);
+
+        assertZonesNotFoundExceptionThrown(unknownZoneNames, this::doRestDataNodesResetForZonesCall);
+    }
+
+    @Test
     public void restDataNodesResetWithEmptyZoneNamesThatTriggersAllZonesTest() {
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
@@ -177,6 +186,11 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    public void restDataNodesResetForWrongCaseZoneNameTest() {
+        assertZoneNotFoundResponse(WRONG_CASE_ZONE_NAME, this::doRestDataNodesResetForZoneCall);
+    }
+
+    @Test
     public void restGetDataNodesForZoneTest() {
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
@@ -192,6 +206,11 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
     @Test
     public void restGetDataNodesForUnknownZoneTest() {
         assertZoneNotFoundResponse(UNKNOWN_ZONE_NAME, this::doRestGetDataNodesForZoneCall);
+    }
+
+    @Test
+    public void restGetDataNodesForWrongCaseZoneNameTest() {
+        assertZoneNotFoundResponse(WRONG_CASE_ZONE_NAME, this::doRestGetDataNodesForZoneCall);
     }
 
     private static void assertZoneNotFoundResponse(String zoneName, Function<String, HttpResponse<?>> httpRequestAction) {

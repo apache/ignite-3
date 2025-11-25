@@ -924,7 +924,7 @@ public class DataNodesManager {
      * @param zoneName Zone name.
      * @return The future with recalculated data nodes for the given zone.
      */
-    public CompletableFuture<Set<String>> recalculateDataNodes(String zoneName) {
+    public CompletableFuture<Void> recalculateDataNodes(String zoneName) {
         Objects.requireNonNull(zoneName, "Zone name is required.");
 
         int catalogVersion = catalogManager.latestCatalogVersion();
@@ -938,7 +938,7 @@ public class DataNodesManager {
         return recalculateDataNodes(zoneDescriptor);
     }
 
-    private CompletableFuture<Set<String>> recalculateDataNodes(CatalogZoneDescriptor zoneDescriptor) {
+    private CompletableFuture<Void> recalculateDataNodes(CatalogZoneDescriptor zoneDescriptor) {
         int zoneId = zoneDescriptor.id();
 
         Set<NodeWithAttributes> currentLogicalTopology = topologyNodes();
@@ -956,7 +956,7 @@ public class DataNodesManager {
                         "manual data nodes recalculation"
                 )),
                 true
-        ).thenApply(v -> nodeNames(filteredDataNodes));
+        );
     }
 
     private @Nullable DataNodesHistoryMetaStorageOperation recalculateAndApplyDataNodesToMetastoreImmediately(

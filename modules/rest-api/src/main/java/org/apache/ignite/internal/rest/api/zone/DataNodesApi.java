@@ -61,7 +61,7 @@ public interface DataNodesApi {
     @Produces({ MediaType.APPLICATION_JSON, MediaType.PROBLEM_JSON })
     CompletableFuture<Set<String>> getDataNodesForZone(
             @PathVariable
-            @Schema(description = "Case-sensitive zone name to return datanodes for.")
+            @Schema(description = "Case-sensitive zone name to return data nodes for.")
             String zoneName
     );
 
@@ -78,7 +78,7 @@ public interface DataNodesApi {
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> resetDataNodesForZone(
             @PathVariable
-            @Schema(description = "Case-sensitive zone name to recalculate datanodes for.")
+            @Schema(description = "Case-sensitive zone name to recalculate data nodes for.")
             String zoneName
     );
 
