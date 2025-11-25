@@ -17,13 +17,25 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/**
- * Uniquely identifies a partition.
- */
-public interface PartitionKey {
-    int partitionId();
+/** Small abstraction for accessing the replication log. */
+public interface LogStorageAccess {
+    /**
+     * Destroys the replication log.
+     *
+     * @param replicationGroupId Replication group ID.
+     * @param isVolatile Is storage volatile.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    void destroy(ReplicationGroupId replicationGroupId, boolean isVolatile) throws NodeStoppingException;
 
-    ReplicationGroupId toReplicationGroupId();
+    /**
+     * Creates a replication log meta storage.
+     *
+     * @param replicationGroupId Replication group ID.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    void createMetaStorage(ReplicationGroupId replicationGroupId) throws NodeStoppingException;
 }

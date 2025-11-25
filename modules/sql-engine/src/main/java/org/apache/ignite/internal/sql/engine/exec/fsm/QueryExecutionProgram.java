@@ -48,6 +48,10 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             ),
             new Transition(
                     ExecutionPhase.CURSOR_INITIALIZATION,
+                    query -> ExecutionPhase.CURSOR_PUBLICATION
+            ),
+            new Transition(
+                    ExecutionPhase.CURSOR_PUBLICATION,
                     query -> ExecutionPhase.EXECUTING
             ),
             new Transition(
@@ -71,6 +75,10 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
     static boolean errorHandler(Query query, Throwable th) {
         if (canRecover(query, th)) {
             query.error.set(null);
+            if (query.currentPhase() == ExecutionPhase.CURSOR_PUBLICATION) {
+                // Should initialize a new cursor.
+                query.moveTo(ExecutionPhase.CURSOR_INITIALIZATION);
+            }
 
             if (nodeLeft(th)) {
                 SqlOperationContext context = query.operationContext;
@@ -95,7 +103,8 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     @SuppressWarnings("SimplifiableIfStatement")
     private static boolean canRecover(Query query, Throwable th) {
-        if (query.currentPhase() != ExecutionPhase.CURSOR_INITIALIZATION) {
+        if (query.currentPhase() != ExecutionPhase.CURSOR_INITIALIZATION
+                && query.currentPhase() != ExecutionPhase.CURSOR_PUBLICATION) {
             return false;
         }
 

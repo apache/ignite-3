@@ -1381,6 +1381,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
+     * Creates replication log meta storage for the given group ID.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void createMetaStorage(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+        var raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+
+        ((Loza) raftManager).createMetaStorage(raftNodeId);
+    }
+
+    /**
      * Returns IDs of all partitions of tables for which any storage of replication protocol is present on disk.
      */
     public Set<TablePartitionId> replicationProtocolTablePartitionIdsOnDisk() throws NodeStoppingException {

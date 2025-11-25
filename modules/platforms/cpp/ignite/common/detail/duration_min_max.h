@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft.snapshot;
+#pragma once
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+#include <algorithm>
+#include <type_traits>
 
-/**
- * Uniquely identifies a partition.
- */
-public interface PartitionKey {
-    int partitionId();
+namespace ignite::detail {
 
-    ReplicationGroupId toReplicationGroupId();
+template<typename D1, typename D2>
+std::common_type_t<D1, D2> min(const D1& d1, const D2& d2) {
+    return std::min<std::common_type_t<D1, D2>>(d1, d2);
 }
+
+template<typename D1, typename D2>
+std::common_type_t<D1, D2> max(const D1& d1, const D2& d2) {
+    return std::max<std::common_type_t<D1, D2>>(d1, d2);
+}
+
+} // namespace ignite::detail

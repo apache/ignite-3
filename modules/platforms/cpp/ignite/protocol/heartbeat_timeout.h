@@ -15,15 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.raft.snapshot;
+#pragma once
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+#include <ignite/common/detail/duration_min_max.h>
 
-/**
- * Uniquely identifies a partition.
- */
-public interface PartitionKey {
-    int partitionId();
+#include <cassert>
+#include <chrono>
 
-    ReplicationGroupId toReplicationGroupId();
+namespace ignite {
+
+inline std::chrono::milliseconds calculate_heartbeat_interval(std::chrono::milliseconds config_value,
+    std::chrono::milliseconds idle_timeout) {
+    static const std::chrono::milliseconds MIN_HEARTBEAT_INTERVAL = std::chrono::milliseconds(500);
+
+    if (config_value.count()) {
+        assert(config_value.count() > 0);
+
+        config_value = min(idle_timeout / 3, config_value);
+        config_value = max(MIN_HEARTBEAT_INTERVAL, config_value);
+    }
+
+    return config_value;
 }
+
+} // namespace ignite

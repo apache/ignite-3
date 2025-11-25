@@ -27,6 +27,8 @@ public enum ExecutionPhase {
     OPTIMIZING(OptimizingPhaseHandler.INSTANCE),
     /** Query has been validated, plan is ready as well. At this point plan is mapped on cluster and cursor are initialised. */
     CURSOR_INITIALIZATION(CursorInitializationPhaseHandler.INSTANCE),
+    /** Additional step to make sure cursor won't be published too early. */
+    CURSOR_PUBLICATION(CursorPublicationPhaseHandler.INSTANCE),
     /** Multiple queries must be scheduled in a way to not to interfere with each other. */
     SCRIPT_INITIALIZATION(ScriptInitializationPhaseHandler.INSTANCE),
     /**
