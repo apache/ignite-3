@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
@@ -31,10 +32,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.PayloadReader;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.DirectTxUtils;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
@@ -56,6 +60,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -77,6 +82,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class ClientSql implements IgniteSql {
     private static final Mapper<SqlRow> sqlRowMapper = () -> SqlRow.class;
+
+    private final IgniteLogger log;
 
     /** Channel. */
     private final ReliableChannel ch;
@@ -103,6 +110,7 @@ public class ClientSql implements IgniteSql {
     ) {
         this.ch = ch;
         this.marshallers = marshallers;
+        this.log = ClientUtils.logger(ch.configuration(), ClientSql.class);
 
         partitionAwarenessEnabled = sqlPartitionAwarenessMetadataCacheSize > 0;
 
@@ -287,6 +295,41 @@ public class ClientSql implements IgniteSql {
             @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments) {
+        return executeAsyncInternal(
+                transaction,
+                mapper,
+                cancellationToken,
+                QueryModifier.SINGLE_STMT_MODIFIERS,
+                statement,
+                arguments
+        );
+    }
+
+    /**
+     * Executes SQL statement in an asynchronous way.
+     *
+     * <p>Note: This method isn't part of the public API, it is used to execute only specific types of queries.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
+     * @param statement SQL statement to execute.
+     * @param queryModifiers Query modifiers.
+     * @param arguments Arguments for the statement.
+     * @param <T> A type of object contained in result set.
+     * @return Operation future.
+     */
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsyncInternal(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
+            Set<QueryModifier> queryModifiers,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        assert mapper == null || mapper.targetType() == SqlRow.class
+                || !queryModifiers.contains(QueryModifier.ALLOW_MULTISTATEMENT) : "Mapper is not supported for multi-statements.";
+
         Objects.requireNonNull(statement);
 
         PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
@@ -296,7 +339,7 @@ public class ClientSql implements IgniteSql {
                 : null;
 
         // Write context carries request execution details over async chain.
-        WriteContext ctx = new WriteContext(ch.observableTimestamp());
+        WriteContext ctx = new WriteContext(ch.observableTimestamp(), ClientOp.SQL_EXEC);
 
         boolean directTxSupported = mappingProvider != null
                 && (mappingProvider.directTxMode() == ClientDirectTxMode.SUPPORTED
@@ -320,7 +363,7 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, statement, arguments, shouldTrackOperation),
+                payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
@@ -339,10 +382,11 @@ public class ClientSql implements IgniteSql {
                     && r.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS);
 
             boolean sqlDirectMappingSupported = r.clientChannel().protocolContext().isFeatureSupported(SQL_DIRECT_TX_MAPPING);
+            boolean sqlMultistatementsSupported = r.clientChannel().protocolContext().allFeaturesSupported(SQL_MULTISTATEMENT_SUPPORT);
 
             DirectTxUtils.readTx(r, ctx, tx, ch.observableTimestamp());
             ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(
-                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported
+                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported, sqlMultistatementsSupported
             );
 
             ClientPartitionAwarenessMetadata partitionAwarenessMetadata = rs.partitionAwarenessMetadata();
@@ -365,10 +409,20 @@ public class ClientSql implements IgniteSql {
 
                 assert table != null;
 
+                PaCacheKey key = new PaCacheKey(statement);
                 mappingProviderCache.put(
-                        new PaCacheKey(statement),
+                        key,
                         PartitionMappingProvider.create(
-                                table, partitionAwarenessMetadata
+                                table,
+                                partitionAwarenessMetadata,
+                                th -> {
+                                    log.debug("Unable to derive node for partition-aware query.", th);
+
+                                    if (th instanceof TableNotFoundException) {
+                                        tableCache.invalidate(tableId);
+                                    }
+                                    mappingProviderCache.invalidate(key);
+                                }
                         )
                 );
             }
@@ -381,6 +435,7 @@ public class ClientSql implements IgniteSql {
             WriteContext ctx,
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
+            Set<QueryModifier> queryModifiers,
             Statement statement,
             @Nullable Object[] arguments,
             boolean requestAck
@@ -400,6 +455,10 @@ public class ClientSql implements IgniteSql {
             w.out().packString(statement.timeZoneId().getId());
 
             packProperties(w, null);
+
+            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_MULTISTATEMENT_SUPPORT)) {
+                w.out().packByte(QueryModifier.pack(queryModifiers));
+            }
 
             w.out().packString(statement.query());
 

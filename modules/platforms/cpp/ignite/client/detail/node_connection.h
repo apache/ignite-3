@@ -49,9 +49,6 @@ class node_connection : public std::enable_shared_from_this<node_connection> {
 public:
     typedef std::function<void(protocol::writer&, const protocol::protocol_context&)> writer_function_type;
 
-    /** Minimal heartbeat interval. */
-    constexpr static auto MIN_HEARTBEAT_INTERVAL = std::chrono::milliseconds(500);
-
     // Deleted
     node_connection() = delete;
     node_connection(node_connection &&) = delete;

@@ -50,7 +50,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -93,7 +92,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
             new NoOpFailureManager(),
-            new SystemPropertiesNodeProperties(),
             new CommittedFinalTransactionStateResolver(),
             indexMetaStorage
     );
@@ -125,6 +123,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
+
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
         assert catalog != null;
@@ -136,8 +136,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         partitions = zoneDescriptor.partitions();
 
         assertThat(partitions, greaterThan(4));
-
-        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach

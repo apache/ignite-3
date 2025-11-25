@@ -95,6 +95,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     @Nullable
     private Consumer<Boolean> afterInvokeInterceptor;
 
+    @Nullable
+    private Consumer<Long> onRevisionAppliedInterceptor;
+
     /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
         return create(TEST_NODE_NAME);
@@ -239,6 +242,19 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         this.afterInvokeInterceptor = afterInvokeInterceptor;
     }
 
+    public void setOnRevisionAppliedInterceptor(@Nullable Consumer<Long> onRevisionAppliedInterceptor) {
+        this.onRevisionAppliedInterceptor = onRevisionAppliedInterceptor;
+    }
+
+    @Override
+    protected void onRevisionApplied(long revision) {
+        super.onRevisionApplied(revision);
+
+        if (onRevisionAppliedInterceptor != null) {
+            onRevisionAppliedInterceptor.accept(revision);
+        }
+    }
+
     @Override
     public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
         return super.invoke(cond, success, failure)
@@ -291,7 +307,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 Command command = invocation.getArgument(0);
 
                 if (listener instanceof BeforeApplyHandler && command instanceof WriteCommand) {
-                    ((BeforeApplyHandler) listener).onBeforeApply(command);
+                    command = ((BeforeApplyHandler) listener).onBeforeApply(command);
                 }
 
                 return runCommand(command, listener);

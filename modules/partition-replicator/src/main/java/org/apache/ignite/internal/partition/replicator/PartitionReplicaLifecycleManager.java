@@ -21,8 +21,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -45,6 +45,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
@@ -55,6 +56,7 @@ import static org.apache.ignite.internal.partitiondistribution.Assignments.assig
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.COLLECTION_LIMIT;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -69,10 +71,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -108,7 +110,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -154,6 +155,8 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.thread.ThreadUtils;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -206,7 +209,8 @@ public class PartitionReplicaLifecycleManager extends
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
 
-    private final Set<ZonePartitionId> replicationGroupIds = ConcurrentHashMap.newKeySet();
+    /** Tracks starting and started replicas. */
+    private final StartedReplicationGroups startedReplicationGroups = new StartedReplicationGroups();
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-25347
     /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
@@ -330,7 +334,8 @@ public class PartitionReplicaLifecycleManager extends
                         topologyService,
                         catalogService,
                         failureProcessor,
-                        partitionOperationsExecutor
+                        partitionOperationsExecutor,
+                        replicaMgr
                 )
         );
     }
@@ -562,7 +567,7 @@ public class PartitionReplicaLifecycleManager extends
             int partitionCount,
             boolean onNodeRecovery
     ) {
-        assert stableAssignmentsForZone != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
+        assert stableAssignmentsForZone != null : format("Zone has empty assignments [id={}].", zoneId);
 
         Supplier<CompletableFuture<Void>> createZoneReplicationNodes = () -> inBusyLockAsync(busyLock, () -> {
             var partitionsStartFutures = new CompletableFuture<?>[stableAssignmentsForZone.size()];
@@ -696,6 +701,8 @@ public class PartitionReplicaLifecycleManager extends
                     storageIndexTracker
             );
 
+            startedReplicationGroups.beforeStartingGroup(zonePartitionId);
+
             return fireEvent(LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED, eventParams)
                     .thenCompose(v -> {
                         try {
@@ -738,9 +745,15 @@ public class PartitionReplicaLifecycleManager extends
                             return failedFuture(e);
                         }
                     })
+                    .whenComplete((replica, throwable) -> {
+                        if (throwable != null) {
+                            startedReplicationGroups.startingFailed(zonePartitionId);
+                        }
+                    })
                     .thenCompose(v -> {
                         Supplier<CompletableFuture<Void>> addReplicationGroupIdFuture = () -> {
-                            replicationGroupIds.add(zonePartitionId);
+                            startedReplicationGroups.startingCompleted(zonePartitionId);
+
                             return nullCompletedFuture();
                         };
 
@@ -753,7 +766,7 @@ public class PartitionReplicaLifecycleManager extends
                     .thenApply(unused -> true);
         };
 
-        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
+        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments, revision)
                 .whenComplete((res, ex) -> {
                     if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         String errorMessage = String.format(
@@ -828,7 +841,8 @@ public class PartitionReplicaLifecycleManager extends
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        cleanUpPartitionsResources(replicationGroupIds);
+        startedReplicationGroups.waitForStartingReplicas();
+        cleanUpPartitionsResources(startedReplicationGroups.streamStartedReplicationGroups());
     }
 
     /**
@@ -988,9 +1002,12 @@ public class PartitionReplicaLifecycleManager extends
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-25107 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
-        assert zonePartitionsLocks.get(zonePartitionId.zoneId()).isReadLocked() : zonePartitionId;
+        assert Optional.ofNullable(zonePartitionsLocks.get(zonePartitionId.zoneId()))
+                .map(NaiveAsyncReadWriteLock::isReadLocked)
+                .orElse(false)
+                : zonePartitionId;
 
-        return replicationGroupIds.contains(zonePartitionId);
+        return startedReplicationGroups.hasReplicationGroupStarted(zonePartitionId);
     }
 
     /**
@@ -1292,6 +1309,13 @@ public class PartitionReplicaLifecycleManager extends
                         zonePartitionId,
                         pendingAssignments.nodes(),
                         revision);
+            }).whenComplete((v, ex) -> {
+                if (ex != null) {
+                    LOG.debug(
+                            "Failed to handle change pending assignment event "
+                                    + "[zonePartitionId={}, stableAssignments={}, pendingAssignments={}, revision={}, isRecovery={}].",
+                            zonePartitionId, stableAssignments, pendingAssignments, revision, isRecovery, ex);
+                }
             });
         } finally {
             busyLock.leaveBusy();
@@ -1336,22 +1360,7 @@ public class PartitionReplicaLifecycleManager extends
         // For regular pending assignments we use (old) stable set, so that none of new nodes would be able to propose itself as a leader.
         // For forced assignments, we should do the same thing, but only for the subset of stable set that is alive right now. Dead nodes
         // are excluded. It is calculated precisely as an intersection between forced assignments and (old) stable assignments.
-        Assignments computedStableAssignments;
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
-        //  when we will have a proper handling of empty stable assignments
-        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
-            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
-            // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes, pendingAssignments.timestamp());
-        } else if (pendingAssignmentsAreForced) {
-            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
-            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
-            // have a live majority.
-            computedStableAssignments = pendingAssignments;
-        } else {
-            computedStableAssignments = stableAssignments;
-        }
+        Assignments computedStableAssignments = getComputedStableAssignments(stableAssignments, pendingAssignments);
 
         CompletableFuture<?> localServicesStartFuture;
 
@@ -1374,9 +1383,8 @@ public class PartitionReplicaLifecycleManager extends
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> {
-                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
-            }, ioExecutor);
+            localServicesStartFuture =
+                    replicaMgr.resetWithRetry(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
@@ -1424,6 +1432,23 @@ public class PartitionReplicaLifecycleManager extends
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    private static Assignments getComputedStableAssignments(@Nullable Assignments stableAssignments, Assignments pendingAssignments) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22600 remove the second condition
+        //  when we will have a proper handling of empty stable assignments
+        if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
+            // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
+            // In this case new initial configuration must match new forced assignments.
+            return Assignments.forced(pendingAssignments.nodes(), pendingAssignments.timestamp());
+        } else if (pendingAssignments.force()) {
+            // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
+            // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will
+            // have a live majority.
+            return pendingAssignments;
+        } else {
+            return stableAssignments;
+        }
     }
 
     private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {
@@ -1481,7 +1506,7 @@ public class PartitionReplicaLifecycleManager extends
 
                                         PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
+                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term(), revision)
                                                 .exceptionally(e -> null);
                                     });
                         }))
@@ -1629,7 +1654,7 @@ public class PartitionReplicaLifecycleManager extends
                                             return nullCompletedFuture();
                                         }
 
-                                        replicationGroupIds.remove(zonePartitionId);
+                                        startedReplicationGroups.afterStoppingGroup(zonePartitionId);
 
                                         return fireEvent(afterReplicaStoppedEvent, eventParameters);
                                     }, ioExecutor);
@@ -1645,8 +1670,8 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param partitionIds Partitions to stop.
      */
-    private void cleanUpPartitionsResources(Set<ZonePartitionId> partitionIds) {
-        CompletableFuture<?>[] stopPartitionsFuture = partitionIds.stream()
+    private void cleanUpPartitionsResources(Stream<ZonePartitionId> partitionIds) {
+        CompletableFuture<?>[] stopPartitionsFuture = partitionIds
                 .map(zonePartitionId -> stopPartitionInternal(
                         zonePartitionId,
                         BEFORE_REPLICA_STOPPED,
@@ -1657,10 +1682,33 @@ public class PartitionReplicaLifecycleManager extends
                 .toArray(CompletableFuture[]::new);
 
         try {
-            allOf(stopPartitionsFuture).get(30, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            LOG.error("Unable to clean up zones resources", e);
+            CompletableFuture<Void> fut = allOf(stopPartitionsFuture);
+
+            delayedExecutor(30, TimeUnit.SECONDS, Runnable::run)
+                    .execute(() -> {
+                        if (!fut.isDone()) {
+                            printPartitionState(partitionIds);
+                        }
+                    });
+
+            fut.get();
+        } catch (Throwable e) {
+            failureProcessor.process(new FailureContext(e, "Unable to clean up zones resources"));
         }
+    }
+
+    private void printPartitionState(Stream<ZonePartitionId> partitionIds) {
+        List<ZonePartitionId> nonStoppedPartitions = partitionIds
+                .filter(partId -> replicaMgr.replica(partId) != null)
+                .collect(toList());
+
+        int exceedLimit = nonStoppedPartitions.size() - COLLECTION_LIMIT;
+
+        String partitionsStr = "There are still some partitions that are being stopped: "
+                + S.toString(nonStoppedPartitions, (sb, e, i) -> sb.app(e).app(i < nonStoppedPartitions.size() - 1 ? ", " : ""))
+                + (exceedLimit > 0 ? format(" and {} more; ", exceedLimit) : "; ");
+
+        ThreadUtils.dumpThreads(LOG, partitionsStr, false);
     }
 
     /**

@@ -23,7 +23,9 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.checkpointUrgency;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.pageIndexesForDeltaFilePageStore;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.PageIndexesWithPartitionGeneration.pageIndexesWithPartGen;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.dirtyFullPageIds;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -58,6 +60,8 @@ import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.PageIndexesWithPartitionGeneration;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -152,8 +156,8 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        when(pageMemory0.partGeneration(anyInt(), anyInt())).thenReturn(1);
-        when(pageMemory1.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        setPartitionGeneration(pageMemory0, 1);
+        setPartitionGeneration(pageMemory1, 1);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1, 3, 5)),
@@ -182,9 +186,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory2 = mock(PersistentPageMemory.class);
 
-        when(pageMemory0.partGeneration(anyInt(), anyInt())).thenReturn(1);
-        when(pageMemory1.partGeneration(anyInt(), anyInt())).thenReturn(1);
-        when(pageMemory2.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        setPartitionGeneration(pageMemory0, 1);
+        setPartitionGeneration(pageMemory1, 1);
+        setPartitionGeneration(pageMemory2, 1);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1, 3, 5)),
@@ -211,6 +215,115 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         assertArrayEquals(
                 new int[]{0, 6, 7, 9},
                 pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 0, 1, 10)
+        );
+    }
+
+    @Test
+    void testPageIndexesForDeltaFilePageStoreWithDifferentPartitionGeneration() {
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
+
+        PageIndexesWithPartitionGeneration[] pageIndexes = {
+                pageIndexesWithPartGen(1, 0, 1, 2, 3),
+                pageIndexesWithPartGen(2, 4, 5),
+                pageIndexesWithPartGen(3, 0),
+                pageIndexesWithPartGen(4, 1),
+                pageIndexesWithPartGen(5, 0, 1, 3, 4),
+        };
+
+        var dirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory, dirtyFullPageIds(0, 0, pageIndexes))
+        ));
+
+        // Checks for 1 generation.
+        setPartitionGeneration(pageMemory, 1);
+
+        CheckpointDirtyPagesView partitionView = dirtyPages.getPartitionView(pageMemory, 0, 0);
+        assertNotNull(partitionView);
+
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 1)
+        );
+        assertArrayEquals(
+                new int[]{0, 1}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 2)
+        );
+        assertArrayEquals(
+                new int[]{0, 1, 2}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 3)
+        );
+        assertArrayEquals(
+                new int[]{0, 1, 2, 3}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 4)
+        );
+        assertArrayEquals(
+                new int[]{0, 1, 2, 3}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 5)
+        );
+
+        // Checks for 2 generation.
+        setPartitionGeneration(pageMemory, 2);
+
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 1)
+        );
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 2)
+        );
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 3)
+        );
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 4)
+        );
+        assertArrayEquals(
+                new int[]{0, 4}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 5)
+        );
+        assertArrayEquals(
+                new int[]{0, 4, 5}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 6)
+        );
+        assertArrayEquals(
+                new int[]{0, 4, 5}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 7)
+        );
+
+        // Checks for 3 generation.
+        setPartitionGeneration(pageMemory, 3);
+
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 1)
+        );
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 2)
+        );
+
+        // Checks for 4 generation.
+        setPartitionGeneration(pageMemory, 4);
+
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 1)
+        );
+        assertArrayEquals(
+                new int[]{0, 1}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 2)
+        );
+        assertArrayEquals(
+                new int[]{0, 1}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 3)
+        );
+
+        // Checks for 5 generation.
+        setPartitionGeneration(pageMemory, 5);
+
+        assertArrayEquals(
+                new int[]{0}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 1)
+        );
+        assertArrayEquals(
+                new int[]{0, 1}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 2)
+        );
+        assertArrayEquals(
+                new int[]{0, 1}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 3)
+        );
+        assertArrayEquals(
+                new int[]{0, 1, 3}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 4)
+        );
+        assertArrayEquals(
+                new int[]{0, 1, 3, 4}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 5)
+        );
+        assertArrayEquals(
+                new int[]{0, 1, 3, 4}, pageIndexesForDeltaFilePageStore(partitionView, 0, 0, 6)
         );
     }
 
@@ -284,5 +397,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         return IntStream.of(pageIndex)
                 .mapToObj(pageIdx -> new DirtyFullPageId(pageId(partId, (byte) 0, pageIdx), grpId, 1))
                 .toArray(DirtyFullPageId[]::new);
+    }
+
+    private static void setPartitionGeneration(PersistentPageMemory pageMemory, int partitionGeneration) {
+        when(pageMemory.partGeneration(anyInt(), anyInt())).thenReturn(partitionGeneration);
     }
 }

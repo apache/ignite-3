@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.storage.CommitResultMatcher.equalsToCom
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -327,6 +328,17 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
+    void testRepeatedAddWriteAndAbortWriteForSameKey() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        abortWrite(ROW_ID, txId);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        abortWrite(ROW_ID, txId);
+
+        assertNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
     void testAbortWriteForNotExistingVersionChain() {
         HybridTimestamp beforeAbortTimestamp = clock.now();
 
@@ -472,6 +484,56 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNull(read(rowId, commitTimestamp.subtractPhysicalTime(1)));
         assertThat(read(rowId, commitTimestamp), isRow(binaryRow));
         assertThat(read(rowId, commitTimestamp.addPhysicalTime(1)), isRow(binaryRow));
+    }
+
+    @Test
+    void testRepeatedAddWriteAndCommitWriteForSameKey() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testTripleAddWriteFollowedByCommitWrite() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+        addWrite(ROW_ID, TABLE_ROW, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testQuadrupleAddWriteFollowedByCommitWrite() {
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+    }
+
+    @Test
+    void testReplaceWithAddWriteInNotTheMostRecentWrite() {
+        UUID txId2 = newTransactionId();
+        RowId rowId2 = new RowId(PARTITION_ID);
+
+        addWrite(ROW_ID, TABLE_ROW, txId);
+        addWrite(rowId2, TABLE_ROW, txId2);
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+
+        commitWrite(ROW_ID, clock.now(), txId);
+        commitWrite(rowId2, clock.now(), txId2);
+
+        assertNotNull(read(ROW_ID, clock.now()));
+        assertNotNull(read(rowId2, clock.now()));
     }
 
     @Test
@@ -1100,7 +1162,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertNull(res.transactionId());
-        assertNull(res.commitTableOrZoneId());
+        assertNull(res.commitZoneId());
         assertEquals(ReadResult.UNDEFINED_COMMIT_PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow));
 
@@ -1109,7 +1171,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
 
         assertEquals(txId2, res.transactionId());
-        assertEquals(COMMIT_TABLE_ID, res.commitTableOrZoneId());
+        assertEquals(COMMIT_ZONE_ID, res.commitZoneId());
         assertEquals(PARTITION_ID, res.commitPartitionId());
         assertThat(res.binaryRow(), isRow(binaryRow2));
     }
@@ -1520,45 +1582,80 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    void testClosestRow() {
+    void testHighestRowId() {
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        assertThat(storage.highestRowId(), is(nullValue()));
+
+        addWrite(rowId1, binaryRow, txId);
+
+        assertThat(storage.highestRowId(), is(rowId1));
+
+        addWrite(rowId2, binaryRow2, txId);
+
+        assertThat(storage.highestRowId(), is(rowId2));
+    }
+
+    @Test
+    void testRowsStartingWith() {
+        RowId highestRowId = RowId.highestRowId(PARTITION_ID);
+
         RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
 
-        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_TABLE_ID, PARTITION_ID);
-        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_ZONE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_ZONE_ID, PARTITION_ID);
 
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow2, txId);
 
-        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0));
-        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId0.increment()));
+        // Limiting with 0 provides no rows.
+        assertThat(storage.rowsStartingWith(rowId0, highestRowId, 0), is(empty()));
 
-        assertRowMetaEquals(expectedRowMeta1, storage.closestRow(rowId1));
+        // Starting with rowId0 (which does not exist in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, highestRowId, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId0, highestRowId, Integer.MAX_VALUE));
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0.increment(), highestRowId, 1));
+        assertRowMetasEqual(
+                List.of(expectedRowMeta1, expectedRowMeta2),
+                storage.rowsStartingWith(rowId0.increment(), highestRowId, Integer.MAX_VALUE)
+        );
 
-        assertRowMetaEquals(expectedRowMeta2, storage.closestRow(rowId2));
+        // Starting with rowId1 (which exists in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, highestRowId, 1));
+        assertRowMetasEqual(List.of(expectedRowMeta1, expectedRowMeta2), storage.rowsStartingWith(rowId1, highestRowId, Integer.MAX_VALUE));
 
-        assertNull(storage.closestRow(rowId2.increment()));
+        // Starting with rowId2 (which exists in the storage).
+        assertRowMetasEqual(List.of(expectedRowMeta2), storage.rowsStartingWith(rowId2, highestRowId, Integer.MAX_VALUE));
+
+        // Starting with a row ID that is greater than the greatest row ID in the storage.
+        assertThat(storage.rowsStartingWith(rowId2.increment(), highestRowId, Integer.MAX_VALUE), is(empty()));
+
+        // Upper bound limits the search
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId0, rowId1, Integer.MAX_VALUE));
+
+        // Upper bound is inclusive.
+        assertRowMetasEqual(List.of(expectedRowMeta1), storage.rowsStartingWith(rowId1, rowId1, Integer.MAX_VALUE));
     }
 
-    private static void assertRowMetaEquals(RowMeta expected, RowMeta actual) {
-        assertNotNull(actual);
-
-        assertEquals(expected.rowId(), actual.rowId());
-        assertEquals(expected.transactionId(), actual.transactionId());
-        assertEquals(expected.commitTableOrZoneId(), actual.commitTableOrZoneId());
-        assertEquals(expected.commitPartitionId(), actual.commitPartitionId());
+    private static void assertRowMetasEqual(List<RowMeta> expected, List<RowMeta> actual) {
+        assertThat(actual, is(expected));
     }
 
     @Test
     void testClosestRowReconstruction() {
         RowId rowId = new RowId(PARTITION_ID, 0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
 
-        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_ZONE_ID, PARTITION_ID);
 
         addWrite(rowId, binaryRow, txId);
 
-        assertRowMetaEquals(expectedRowMeta, storage.closestRow(RowId.lowestRowId(PARTITION_ID)));
+        assertRowMetasEqual(
+                List.of(expectedRowMeta),
+                storage.rowsStartingWith(RowId.lowestRowId(PARTITION_ID), RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE)
+        );
     }
 
     @Test
@@ -1599,7 +1696,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertTrue(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(not(ReadResult.UNDEFINED_COMMIT_PARTITION_ID)));
-                assertThat(result.commitTableOrZoneId(), is(notNullValue()));
+                assertThat(result.commitZoneId(), is(notNullValue()));
                 assertThat(result.transactionId(), is(notNullValue()));
                 assertThat(result.commitTimestamp(), is(nullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));
@@ -1623,7 +1720,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                 assertThat(result.rowId(), is(rowId));
                 assertFalse(result.isWriteIntent());
                 assertThat(result.commitPartitionId(), is(ReadResult.UNDEFINED_COMMIT_PARTITION_ID));
-                assertThat(result.commitTableOrZoneId(), is(nullValue()));
+                assertThat(result.commitZoneId(), is(nullValue()));
                 assertThat(result.transactionId(), is(nullValue()));
                 assertThat(result.commitTimestamp(), is(notNullValue()));
                 assertThat(result.newestCommitTimestamp(), is(nullValue()));

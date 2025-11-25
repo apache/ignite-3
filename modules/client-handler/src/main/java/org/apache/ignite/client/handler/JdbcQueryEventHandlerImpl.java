@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import java.sql.Connection;
 import java.sql.Statement;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
@@ -72,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Jdbc query event handler implementation.
  */
-public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQueryEventHandler {
+public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDatabaseMetadataHandler {
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
     public static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = EnumSet.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
 
@@ -108,6 +109,37 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
+        return meta.getTablesMeta(req.schemaName(), req.tableName(), req.tableTypes()).thenApply(JdbcMetaTablesResult::new);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
+        return meta.getColumnsMeta(req.schemaName(), req.tableName(), req.columnName()).thenApply(JdbcMetaColumnsResult::new);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
+        return meta.getSchemasMeta(req.schemaName()).thenApply(JdbcMetaSchemasResult::new);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
+        return meta.getPrimaryKeys(req.schemaName(), req.tableName()).thenApply(JdbcMetaPrimaryKeysResult::new);
+    }
+
+    /**
+     * Create connection context on a server and returns connection identity.
+     *
+     * @param timeZoneId Client time-zone ID.
+     * @param username Current user name.
+     * @return A future representing result of the operation.
+     * @deprecated This method is left for compatibility and may be removed in the future.
+     */
+    @Deprecated
     public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, String username) {
         try {
             JdbcConnectionContext connectionContext = new JdbcConnectionContext(
@@ -129,8 +161,15 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * {@link JdbcQueryExecuteRequest} command handler.
+     *
+     * @param connectionId Identifier of the connection.
+     * @param req Execute query request.
+     * @return Result future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
+     */
+    @Deprecated
     public CompletableFuture<? extends Response> queryAsync(long connectionId, JdbcQueryExecuteRequest req) {
         if (req.pageSize() <= 0) {
             return CompletableFuture.completedFuture(new JdbcQuerySingleResult(Response.STATUS_FAILED,
@@ -209,8 +248,15 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 .allowMultiStatement(multiStatement);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * {@link JdbcBatchExecuteRequest} command handler.
+     *
+     * @param connectionId Identifier of the connection.
+     * @param req Batch query request.
+     * @return Result future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
+     */
+    @Deprecated
     public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
         JdbcConnectionContext connectionContext;
         try {
@@ -255,8 +301,15 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         });
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * {@link JdbcBatchPreparedStmntRequest} command handler.
+     *
+     * @param connectionId The identifier of the connection.
+     * @param req Batch query request.
+     * @return Result future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
+     */
+    @Deprecated
     public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
         JdbcConnectionContext connectionContext;
         try {
@@ -367,32 +420,15 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         return new JdbcBatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
-        return meta.getTablesMeta(req.schemaName(), req.tableName(), req.tableTypes()).thenApply(JdbcMetaTablesResult::new);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
-        return meta.getColumnsMeta(req.schemaName(), req.tableName(), req.columnName()).thenApply(JdbcMetaColumnsResult::new);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
-        return meta.getSchemasMeta(req.schemaName()).thenApply(JdbcMetaSchemasResult::new);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
-        return meta.getPrimaryKeys(req.schemaName(), req.tableName()).thenApply(JdbcMetaPrimaryKeysResult::new);
-    }
-
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Commit/rollback active transaction (if any) when {@link Connection#setAutoCommit(boolean)} autocommit} is disabled.
+     *
+     * @param connectionId An identifier of the connection on a server.
+     * @param commit {@code True} to commit active transaction, {@code false} to rollback it.
+     * @return Result future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
+     */
+    @Deprecated
     public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
         JdbcConnectionContext connectionContext;
 
@@ -411,8 +447,15 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         });
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Cancels the execution of JDBC statement.
+     *
+     * @param connectionId An identifier of the connection on a server.
+     * @param correlationToken A token associated with the execution.
+     * @return Result future.
+     * @deprecated This method is left for compatibility and may be removed in the future.
+     */
+    @Deprecated
     public CompletableFuture<JdbcQueryCancelResult> cancelAsync(long connectionId, long correlationToken) {
         JdbcConnectionContext connectionContext;
 

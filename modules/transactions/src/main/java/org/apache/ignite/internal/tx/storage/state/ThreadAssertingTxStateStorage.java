@@ -42,13 +42,6 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
         return wrapTxStatePartitionStorage(wrappedStorage.getOrCreatePartitionStorage(partitionId));
     }
 
-    @Override
-    public TxStatePartitionStorage createPartitionStorage(int partitionId) {
-        assertThreadAllowsToWrite();
-
-        return wrapTxStatePartitionStorage(wrappedStorage.createPartitionStorage(partitionId));
-    }
-
     private static ThreadAssertingTxStatePartitionStorage wrapTxStatePartitionStorage(TxStatePartitionStorage storage) {
         return storage instanceof ThreadAssertingTxStatePartitionStorage
                 ? (ThreadAssertingTxStatePartitionStorage) storage

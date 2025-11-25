@@ -332,7 +332,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+    CompletableFuture<Void> clearStorageAndUpdateDataStructures(
+            AbstractPageMemoryMvPartitionStorage mvPartitionStorage,
+            Runnable afterUpdateStructuresCallback
+    ) {
         GroupPartitionId groupPartitionId = createGroupPartitionId(mvPartitionStorage.partitionId());
 
         return destroyPartitionPhysically(groupPartitionId).thenAccept(unused -> {
@@ -358,6 +361,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                         indexMetaTree,
                         gcQueue
                 );
+
+                afterUpdateStructuresCallback.run();
 
                 return null;
             });

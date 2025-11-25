@@ -40,10 +40,10 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -96,11 +96,14 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     @InjectConfiguration
     private StorageConfiguration storageConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     /**
      * Large interval to effectively disable idle safe time propagation.
      */
     @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis=1000000")
-    private SystemDistributedConfiguration systemConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     private TestInfo testInfo;
 
@@ -161,6 +164,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             this.raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     raftGroupEventsClientListener
             );
@@ -172,8 +176,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
-                    new TestConfigurationValidator(),
-                    new SystemPropertiesNodeProperties()
+                    new TestConfigurationValidator()
             );
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
@@ -227,7 +230,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    systemConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurator,
                     readOperationForCompactionTracker
             );
@@ -318,7 +321,9 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     }
 
     final void enableIdleSafeTimeSync() {
-        CompletableFuture<Void> updateIdleSafeTimeSyncIntervalFuture = systemConfiguration.idleSafeTimeSyncIntervalMillis().update(100L);
+        CompletableFuture<Void> updateIdleSafeTimeSyncIntervalFuture = systemDistributedConfiguration
+                .idleSafeTimeSyncIntervalMillis()
+                .update(100L);
 
         assertThat(updateIdleSafeTimeSyncIntervalFuture, willCompleteSuccessfully());
     }

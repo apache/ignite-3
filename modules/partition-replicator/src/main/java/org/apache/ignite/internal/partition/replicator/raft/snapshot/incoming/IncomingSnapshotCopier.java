@@ -20,11 +20,16 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -32,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -45,12 +51,15 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
@@ -60,6 +69,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
@@ -235,17 +245,18 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             } catch (CancellationException ignored) {
                 // Ignored.
             } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-
-                if (!(cause instanceof CancellationException)) {
-                    partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
+                if (!hasCause(e, CancellationException.class, NodeStoppingException.class)) {
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-26811 HandshakeException is thrown when node is stopping.
+                    if (!hasCause(e, HandshakeException.class)) {
+                        partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
+                    }
 
                     if (isOk()) {
                         setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
                     }
 
                     // By analogy with LocalSnapshotCopier#join.
-                    throw new IllegalStateException(cause);
+                    throw new IllegalStateException(e);
                 }
             }
         }
@@ -543,6 +554,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return new RaftGroupConfiguration(
                 meta.cfgIndex(),
                 meta.cfgTerm(),
+                meta.sequenceToken(),
+                meta.oldSequenceToken(),
                 meta.peersList(),
                 meta.learnersList(),
                 meta.oldPeersList(),
@@ -682,7 +695,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return allOf(
                     aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, snapshotContext),
                     partitionSnapshotStorage.txState().startRebalance()
-            );
+            ).thenComposeAsync(unused -> startRebalanceForReplicationLogStorages(snapshotContext), executor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -728,6 +741,37 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         SnapshotContext(PartitionSnapshotMeta meta, Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId) {
             this.meta = meta;
             this.partitionsByTableId = partitionsByTableId;
+        }
+    }
+
+    private CompletableFuture<Void> startRebalanceForReplicationLogStorages(SnapshotContext snapshotContext) {
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            Set<ReplicationLogStorageKey> keys = collectReplicationLogStorageKeys(snapshotContext);
+
+            return runAsync(() -> inBusyLockSafe(busyLock, () -> keys.forEach(this::startRebalanceForReplicationLogStorage)), executor);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private Set<ReplicationLogStorageKey> collectReplicationLogStorageKeys(SnapshotContext snapshotContext) {
+        return snapshotContext.partitionsByTableId.values().stream()
+                .map(partitionMvStorage -> ReplicationLogStorageKey.create(partitionSnapshotStorage, partitionMvStorage))
+                .collect(toSet());
+    }
+
+    private void startRebalanceForReplicationLogStorage(ReplicationLogStorageKey key) throws IgniteInternalException {
+        try {
+            LogStorageAccess logStorage = partitionSnapshotStorage.logStorage();
+
+            logStorage.destroy(key.replicationGroupId(), key.isVolatile());
+            logStorage.createMetaStorage(key.replicationGroupId());
+        } catch (NodeStoppingException e) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         }
     }
 }

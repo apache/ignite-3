@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.Objects;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -72,5 +74,10 @@ public class TablePartitionKey implements PartitionKey {
     @Override
     public String toString() {
         return S.toString(TablePartitionKey.class, this);
+    }
+
+    @Override
+    public ReplicationGroupId toReplicationGroupId() {
+        return new TablePartitionId(tableId, partitionId);
     }
 }

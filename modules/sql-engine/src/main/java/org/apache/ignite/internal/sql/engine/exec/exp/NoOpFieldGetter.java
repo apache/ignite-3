@@ -21,7 +21,7 @@ import java.lang.reflect.Type;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 class NoOpFieldGetter implements InputGetter {
     static final InputGetter INSTANCE = new NoOpFieldGetter();

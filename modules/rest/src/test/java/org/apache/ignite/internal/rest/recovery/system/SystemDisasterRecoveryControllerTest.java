@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.rest.recovery.system;
 
-import static com.github.npathai.hamcrestopt.OptionalMatchers.isPresent;
+import static io.micronaut.http.HttpStatus.BAD_REQUEST;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -40,17 +40,14 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
 import org.apache.ignite.internal.disaster.system.exception.MigrateException;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.recovery.system.MigrateRequest;
 import org.apache.ignite.internal.rest.api.recovery.system.ResetClusterRequest;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -137,13 +134,10 @@ class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
                 new ResetClusterRequest(List.of("a", "b", "c"), null)
         );
 
-        HttpClientResponseException ex = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
-
-        assertThat(ex.getStatus().getCode(), is(BAD_REQUEST.code()));
-
-        Optional<Problem> body = ex.getResponse().getBody(Problem.class);
-        assertThat(body, isPresent());
-        assertThat(body.get().detail(), is("Oops"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Oops")
+        );
     }
 
     @Test
@@ -187,12 +181,9 @@ class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
 
         HttpRequest<MigrateRequest> post = HttpRequest.POST("/migrate", migrateRequest());
 
-        HttpClientResponseException ex = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
-
-        assertThat(ex.getStatus().getCode(), is(BAD_REQUEST.code()));
-
-        Optional<Problem> body = ex.getResponse().getBody(Problem.class);
-        assertThat(body, isPresent());
-        assertThat(body.get().detail(), is("Oops"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Oops")
+        );
     }
 }

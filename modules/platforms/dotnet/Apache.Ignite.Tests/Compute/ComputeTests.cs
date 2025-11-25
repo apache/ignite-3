@@ -34,6 +34,7 @@ namespace Apache.Ignite.Tests.Compute
     using Internal.Compute;
     using Internal.Network;
     using Internal.Proto;
+    using Microsoft.Extensions.Logging;
     using Network;
     using NodaTime;
     using NUnit.Framework;
@@ -295,8 +296,9 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(11, 4)]
         public async Task TestExecuteColocated(long key, int nodeIdx)
         {
+            using var loggerFactory = new ConsoleLogger(LogLevel.Trace);
             var proxies = GetProxies();
-            using var client = await IgniteClient.StartAsync(GetConfig(proxies));
+            using var client = await IgniteClient.StartAsync(GetConfig(proxies, loggerFactory));
             client.WaitForConnections(proxies.Count);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };

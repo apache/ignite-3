@@ -90,6 +90,7 @@ object ReleaseBuild : BuildType({
             artifacts {
                 artifactRules = """
                     javadoc.zip => ignite-docs
+                    ignite-jdbc => ignite-jdbc
                     libs.zip
                 """.trimIndent()
             }

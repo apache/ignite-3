@@ -406,7 +406,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();
-        int commitTableId = chain.commitTableId();
+        int commitTableId = chain.commitZoneId();
         int commitPartitionId = chain.commitPartitionId();
 
         return ReadResult.createFromWriteIntent(
@@ -432,18 +432,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
-        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
             try {
-                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
+                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
@@ -451,7 +451,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 AddWriteResult addWriteResult = addWrite.addWriteResult();
 
-                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
                 return addWriteResult;
             } catch (IgniteInternalCheckedException e) {
@@ -460,7 +460,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 throw new StorageException(
                         "Error while executing addWrite: [{}]",
                         e,
-                        addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId)
+                        addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId)
                 );
             }
         });
@@ -619,22 +619,41 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+    public @Nullable RowId highestRowId() throws StorageException {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            try (Cursor<VersionChain> cursor = renewableState.versionChainTree().find(new VersionChainKey(lowerBound), null)) {
-                if (cursor.hasNext()) {
+            try {
+                VersionChain lastChain = renewableState.versionChainTree().findLast();
+                return lastChain == null ? null : lastChain.rowId();
+            } catch (Exception e) {
+                throw new StorageException("Error occurred while trying to read a row id", e);
+            }
+        });
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            VersionChainKey lowerBoundKey = new VersionChainKey(lowerBoundInclusive);
+            VersionChainKey upperBoundKey = new VersionChainKey(upperBoundInclusive);
+            try (Cursor<VersionChain> cursor = renewableState.versionChainTree().find(lowerBoundKey, upperBoundKey)) {
+                List<RowMeta> result = new ArrayList<>();
+
+                for (int i = 0; i < limit && cursor.hasNext(); i++) {
                     VersionChain versionChain = cursor.next();
-                    return new RowMeta(
+                    RowMeta row = new RowMeta(
                             versionChain.rowId(),
                             versionChain.transactionId(),
-                            versionChain.commitTableId(),
+                            versionChain.commitZoneId(),
                             versionChain.commitPartitionId()
                     );
+                    result.add(row);
                 }
 
-                return null;
+                return result;
             } catch (Exception e) {
                 throw new StorageException("Error occurred while trying to read a row id", e);
             }
@@ -776,12 +795,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) {
         return IgniteStringFormatter.format(
-                "rowId={}, rowIsTombstone={}, txId={}, commitTableOrZoneId={}, commitPartitionId={}, {}",
-                rowId, row == null, txId, commitTableOrZoneId, commitPartitionId, createStorageInfo()
+                "rowId={}, rowIsTombstone={}, txId={}, commitZoneId={}, commitPartitionId={}, {}",
+                rowId, row == null, txId, commitZoneId, commitPartitionId, createStorageInfo()
         );
     }
 
@@ -819,6 +838,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } catch (Exception e) {
             throw new StorageRebalanceException(
                     IgniteStringFormatter.format("Error on start of rebalancing: [{}]", createStorageInfo()),
+                    e
+            );
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    /**
+     * Prepares the storage and its indexes for rebalance abortion.
+     *
+     * <p>Stops ongoing operations on the storage and its indexes.</p>
+     *
+     * @throws StorageRebalanceException If there was an error when starting the rebalance abortion.
+     */
+    public void startAbortRebalance() {
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        try {
+            closeAll(getResourcesToCloseOnCleanup());
+        } catch (Exception e) {
+            throw new StorageRebalanceException(
+                    IgniteStringFormatter.format("Error on start abort of rebalancing: [{}]", createStorageInfo()),
                     e
             );
         } finally {

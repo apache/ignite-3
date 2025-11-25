@@ -261,6 +261,11 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         lowWatermark.updateLowWatermark(newLowWatermark);
     }
 
+    @Override
+    public boolean isVolatile() {
+        return mvTableStorage.isVolatile();
+    }
+
     private MvPartitionStorage getMvPartitionStorage() {
         int partitionId = partitionId();
 

@@ -68,6 +68,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -380,18 +381,38 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     }
 
     /**
+     * Causes log truncation on the RAFT group (does not guarantee that it will be a leader or learner) of the sole table partition that
+     * exists in the cluster. After such truncation, when a knocked-out follower gets reanimated, the leader will not be able to feed it
+     * with AppendEntries (because the leader does not already have the index that is required to send AppendEntries
+     * to the lagging follower), so the leader will have to send InstallSnapshot instead.
+     */
+    private void causeLogTruncationOnSolePartition(int nodeIndex) {
+        doSnapshotOnSolePartition(nodeIndex, true);
+    }
+
+    /**
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex, boolean forced) throws Exception {
         ReplicationGroupId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME);
 
-        doSnapshotOn(replicationGroupId, expectedLeaderNodeIndex, forced);
+        doSnapshotOnLeader(replicationGroupId, expectedLeaderNodeIndex, forced);
+    }
+
+    /**
+     * Causes a RAFT snapshot to be taken on the RAFT group (does not guarantee that it will be a leader or learner) of the sole table
+     * partition that exists in the cluster.
+     */
+    private void doSnapshotOnSolePartition(int nodeIndex, boolean forced) {
+        ReplicationGroupId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME);
+
+        doSnapshotOn(replicationGroupId, nodeIndex, forced);
     }
 
     /**
      * Takes a RAFT snapshot on the leader of the RAFT group corresponding to the given table partition.
      */
-    private void doSnapshotOn(ReplicationGroupId replicationGroupId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
+    private void doSnapshotOnLeader(ReplicationGroupId replicationGroupId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
         RaftGroupService raftGroupService = cluster.leaderServiceFor(replicationGroupId);
 
         assertThat(
@@ -399,11 +420,22 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
                 raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
         );
 
-        CompletableFuture<Status> fut = new CompletableFuture<>();
+        doSnapshotOn(raftGroupService, forced);
+    }
+
+    /** Takes a RAFT snapshot for the corresponding RAFT group (does not guarantee that it will be a leader or learner) and node. */
+    private void doSnapshotOn(ReplicationGroupId replicationGroupId, int nodeIndex, boolean forced) {
+        RaftGroupService raftGroupService = cluster.raftGroupServiceFor(nodeIndex, replicationGroupId);
+
+        doSnapshotOn(raftGroupService, forced);
+    }
+
+    private static void doSnapshotOn(RaftGroupService raftGroupService, boolean forced) {
+        var fut = new CompletableFuture<Status>();
         raftGroupService.getRaftNode().snapshot(fut::complete, forced);
 
         assertThat(fut, willCompleteSuccessfully());
-        assertEquals(RaftError.SUCCESS, fut.get().getRaftError());
+        assertEquals(RaftError.SUCCESS, fut.join().getRaftError());
     }
 
     /**
@@ -613,6 +645,24 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         };
     }
 
+    private BiPredicate<String, NetworkMessage> dropSnapshotMvDataResponse(
+            int targetNodeIndex,
+            CompletableFuture<Void> sentFirstSnapshotMvDataResponse
+    ) {
+        String targetNodeName = cluster.node(targetNodeIndex).name();
+
+        return (targetConsistentId, message) -> {
+            if (Objects.equals(targetConsistentId, targetNodeName) && message instanceof SnapshotMvDataResponse) {
+                sentFirstSnapshotMvDataResponse.complete(null);
+
+                // Always drop.
+                return true;
+            } else {
+                return false;
+            }
+        };
+    }
+
     /**
      * This is a test for a tricky scenario:
      *
@@ -710,6 +760,50 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         // Make sure the rebalancing is complete.
         assertThat(getFromNode(2, 1), is("one"));
+    }
+
+    @Test
+    void testRestartNodeAfterTruncateRaftLogPrefixAndAbortRebalance() throws Exception {
+        createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
+
+        transferLeadershipOnSolePartitionTo(0);
+
+        putToNode(0, 1, "one");
+        putToNode(0, 2, "two");
+
+        // Let's take RAFT snapshots and truncate RAFT log prefix on all nodes.
+        causeLogTruncationOnSolePartition(0);
+        causeLogTruncationOnSolePartition(1);
+        causeLogTruncationOnSolePartition(2);
+
+        // We will cancel (stopping node) the rebalance immediately after it starts for storages.
+        var sentFirstSnapshotMvDataResponseFormNode0Future = new CompletableFuture<Void>();
+        unwrapIgniteImpl(cluster.node(0)).dropMessages(dropSnapshotMvDataResponse(2, sentFirstSnapshotMvDataResponseFormNode0Future));
+
+        knockoutNode(2);
+
+        // Let's add more inserts and truncate the RAFT log to initiate a rebalance on the returning node.
+        putToNode(0, 3, "three");
+        putToNode(0, 4, "four");
+
+        causeLogTruncationOnSolePartition(0);
+
+        reanimateNode(2);
+
+        // The wait is so long, similar to the neighboring tests.
+        assertThat(sentFirstSnapshotMvDataResponseFormNode0Future, willSucceedIn(1, TimeUnit.MINUTES));
+
+        knockoutNode(2);
+
+        // Let's try to return the node without stopping the rebalancing.
+        unwrapIgniteImpl(cluster.node(0)).stopDroppingMessages();
+
+        reanimateNode(2);
+
+        assertThat(getFromNode(2, 1), is("one"));
+        assertThat(getFromNode(2, 2), is("two"));
+        assertThat(getFromNode(2, 3), is("three"));
+        assertThat(getFromNode(2, 4), is("four"));
     }
 
     /**

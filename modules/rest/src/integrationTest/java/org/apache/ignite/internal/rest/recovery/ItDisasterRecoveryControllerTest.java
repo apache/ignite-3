@@ -17,39 +17,40 @@
 
 package org.apache.ignite.internal.rest.recovery;
 
+import static io.micronaut.http.HttpStatus.BAD_REQUEST;
+import static io.micronaut.http.HttpStatus.OK;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
-import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.not;
 
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -66,6 +67,8 @@ import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResp
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
@@ -130,7 +133,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(path + "/", localStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkPartitionIds(response.body(), range(0, DEFAULT_PARTITION_COUNT).boxed().collect(toSet()), true);
 
@@ -148,61 +151,47 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testLocalPartitionStatesNodeNotFound() {
         String path = localStatePath();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(path + "?nodeNames=no-such-node")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(path + "?nodeNames=no-such-node"),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Some nodes are missing: [no-such-node]")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Some nodes are missing: [no-such-node]"));
     }
 
     @Test
     void testLocalPartitionStatesZoneNotFound() {
         String path = localStatePath();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone"),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Some distribution zones are missing: [no-such-zone]")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Some distribution zones are missing: [no-such-zone]"));
     }
 
     @Test
     void testLocalPartitionStatesNegativePartition() {
         String path = localStatePath();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(path + "?partitionIds=0,1,-1,-10")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(path + "?partitionIds=0,1,-1,-10"),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Partition ID can't be negative, found: -10")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Partition ID can't be negative, found: -10"));
     }
 
     @Test
     void testLocalPartitionStatesPartitionOutOfRange() {
         String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
+        assertThrowsProblem(
                 () -> client.toBlocking().exchange(
                         String.format("%s?partitionIds=0,4,%d&zoneNames=%s", localStatePath(), DEFAULT_PARTITION_COUNT, zoneName)
-                )
+                ),
+                isProblem().withStatus(BAD_REQUEST).withDetail(String.format(
+                        "Partition IDs should be in range [0, %d] for zone %s, found: %d",
+                        DEFAULT_PARTITION_COUNT - 1,
+                        zoneName,
+                        DEFAULT_PARTITION_COUNT
+                ))
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString(
-                        String.format(
-                                "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                                DEFAULT_PARTITION_COUNT - 1,
-                                zoneName,
-                                DEFAULT_PARTITION_COUNT
-                        )
-                ));
     }
 
     @Test
@@ -214,7 +203,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
                 localStateResponseType()
         );
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
         assertEmptyStates(response.body(), true);
     }
 
@@ -226,7 +215,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(url, localStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkLocalStates(response.body(), ZONES, nodeNames);
     }
@@ -239,7 +228,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(url, localStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkLocalStates(response.body(), MIXED_CASE_ZONES, nodeNames);
     }
@@ -254,7 +243,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(url, localStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         Set<String> expectedZoneNames;
 
@@ -277,12 +266,14 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         String url = path + "?nodeNames=" + String.join(",", nodeNames).toUpperCase();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(url)
-        );
+        List<Matcher<? super String>> detailMatchers = nodeNames.stream()
+                .map(String::toUpperCase)
+                .map(Matchers::containsString)
+                .collect(Collectors.toList());
 
-        nodeNames.forEach(nodeName -> assertThat(thrown.getMessage(), containsString(nodeName.toUpperCase())));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(url),
+                isProblem().withStatus(BAD_REQUEST).withDetail(allOf(detailMatchers)));
     }
 
     @Test
@@ -295,7 +286,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(url, localStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkPartitionIds(response.body(), partitionIds.stream().map(Integer::parseInt).collect(toSet()), true);
 
@@ -317,7 +308,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(path + "/", globalStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkPartitionIds(response.body(), range(0, DEFAULT_PARTITION_COUNT).boxed().collect(toSet()), false);
 
@@ -337,49 +328,39 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testGlobalPartitionStatesZoneNotFound() {
         String path = globalStatePath();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone", GlobalPartitionStatesResponse.class)
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone", GlobalPartitionStatesResponse.class),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Some distribution zones are missing: [no-such-zone]")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Some distribution zones are missing: [no-such-zone]"));
     }
 
     @Test
     void testGlobalPartitionStatesIllegalPartitionNegative() {
         String path = globalStatePath();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(path + "?partitionIds=0,1,-1,-10")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(path + "?partitionIds=0,1,-1,-10"),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Partition ID can't be negative, found: -10")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Partition ID can't be negative, found: -10"));
     }
 
     @Test
     void testGlobalPartitionStatesPartitionsOutOfRange() {
         String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
 
-        HttpClientResponseException thrown = assertThrows(
-                HttpClientResponseException.class,
+        assertThrowsProblem(
                 () -> client.toBlocking().exchange(
                         String.format("%s?partitionIds=0,4,%d&zoneNames=%s", globalStatePath(), DEFAULT_PARTITION_COUNT, zoneName),
                         GlobalPartitionStatesResponse.class
-                )
-        );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString(
-                        String.format(
+                ),
+                isProblem().withStatus(BAD_REQUEST)
+                        .withDetail(String.format(
                                 "Partition IDs should be in range [0, %d] for zone %s, found: %d",
                                 DEFAULT_PARTITION_COUNT - 1,
                                 zoneName,
                                 DEFAULT_PARTITION_COUNT
-                        )
-                ));
+                        ))
+        );
     }
 
     @Test
@@ -389,7 +370,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         HttpResponse<?> response = client.toBlocking().exchange(path + "?zoneNames=" + EMPTY_ZONE, globalStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
         assertEmptyStates(response.body(), false);
     }
 
@@ -401,7 +382,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(url, globalStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkGlobalStates(response.body(), ZONES);
     }
@@ -414,7 +395,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(url, globalStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkGlobalStates(response.body(), MIXED_CASE_ZONES);
     }
@@ -429,7 +410,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         var response = client.toBlocking().exchange(url, globalStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         checkPartitionIds(response.body(), partitionIds.stream().map(Integer::parseInt).collect(toSet()), false);
 
@@ -451,12 +432,10 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         MutableHttpRequest<?> post = resetPartitionsRequest(unknownZone, QUALIFIED_TABLE_NAME, emptySet());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        assertThat(e.getMessage(), containsString("Distribution zone was not found [zoneName=" + unknownZone + "]"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Distribution zone was not found [zoneName=" + unknownZone + "]")
+        );
     }
 
     @Test
@@ -467,42 +446,35 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         MutableHttpRequest<?> post = resetPartitionsRequest(FIRST_ZONE, tableName, emptySet());
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName.toUpperCase() + "]"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("The table does not exist [name=" + tableName.toUpperCase() + "]")
+        );
     }
 
     @Test
     void testResetPartitionsIllegalPartitionNegative() {
         MutableHttpRequest<?> post = resetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10));
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        assertThat(e.getMessage(), containsString("Partition ID can't be negative, found: -10"));
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Partition ID can't be negative, found: -10")
+        );
     }
 
     @Test
     void testResetPartitionsPartitionsOutOfRange() {
         MutableHttpRequest<?> post = resetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT));
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(post));
-
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-        assertThat(e.getMessage(), containsString(
-                String.format(
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(post),
+                isProblem().withStatus(BAD_REQUEST).withDetail(String.format(
                         "Partition IDs should be in range [0, %d] for zone %s, found: %d",
                         DEFAULT_PARTITION_COUNT - 1,
                         FIRST_ZONE,
                         DEFAULT_PARTITION_COUNT
-                )
-        ));
+                ))
+        );
     }
 
     @Test
@@ -511,7 +483,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         HttpResponse<?> response = client.toBlocking().exchange(localStatePath() + "/", localStateResponseType());
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         assertThat(collectEstimatedRows(response.body()), containsInAnyOrder(0L, 1L));
     }
@@ -523,9 +495,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     private static void assertEmptyStates(Object body, boolean local) {
-        List<?> statesCasted = castStatesResponse(body, local);
-
-        assertEquals(0, statesCasted.size());
+        assertThat(castStatesResponse(body, local), is(empty()));
     }
 
     private static Set<Long> collectEstimatedRows(Object body) {
@@ -546,26 +516,26 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         if (colocationEnabled()) {
             List<LocalZonePartitionStateResponse> statesCasted = ((LocalZonePartitionStatesResponse) body).states();
 
-            assertFalse(statesCasted.isEmpty());
+            assertThat(statesCasted, is(not(empty())));
 
             statesCasted.forEach(state -> {
-                assertThat(zoneNames, hasItem(state.zoneName()));
-                assertThat(nodes, hasItem(state.nodeName()));
-                assertThat(STATES, hasItem(state.state()));
+                assertThat(state.zoneName(), in(zoneNames));
+                assertThat(state.nodeName(), in(nodes));
+                assertThat(state.state(), in(STATES));
             });
 
         } else {
             List<LocalPartitionStateResponse> statesCasted = ((LocalPartitionStatesResponse) body).states();
 
-            assertFalse(statesCasted.isEmpty());
+            assertThat(statesCasted, is(not(empty())));
 
             statesCasted.forEach(state -> {
-                assertThat(zoneNames, hasItem(state.zoneName()));
-                assertThat(nodes, hasItem(state.nodeName()));
-                assertThat(tableIds, hasItem(state.tableId()));
-                assertEquals(DEFAULT_SCHEMA_NAME, state.schemaName());
-                assertThat(TABLE_NAMES, hasItem(state.tableName()));
-                assertThat(STATES, hasItem(state.state()));
+                assertThat(state.zoneName(), in(zoneNames));
+                assertThat(state.nodeName(), in(nodes));
+                assertThat(state.tableId(), in(tableIds));
+                assertThat(state.schemaName(), is(DEFAULT_SCHEMA_NAME));
+                assertThat(state.tableName(), in(TABLE_NAMES));
+                assertThat(state.state(), in(STATES));
             });
         }
     }
@@ -574,7 +544,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         List<?> statesCasted = castStatesResponse(body, local);
 
         for (Object state : statesCasted) {
-            assertTrue(partitionIds.contains(getPartitionId(state)));
+            assertThat(getPartitionId(state), in(partitionIds));
         }
     }
 
@@ -596,23 +566,23 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         if (colocationEnabled()) {
             List<GlobalZonePartitionStateResponse> statesCasted = ((GlobalZonePartitionStatesResponse) body).states();
 
-            assertFalse(statesCasted.isEmpty());
+            assertThat(statesCasted, is(not(empty())));
 
             statesCasted.forEach(state -> {
-                assertThat(zoneNames, hasItem(state.zoneName()));
-                assertThat(STATES, hasItem(state.state()));
+                assertThat(state.zoneName(), in(zoneNames));
+                assertThat(state.state(), in(STATES));
             });
         } else {
             List<GlobalPartitionStateResponse> statesCasted = ((GlobalPartitionStatesResponse) body).states();
 
-            assertFalse(statesCasted.isEmpty());
+            assertThat(statesCasted, is(not(empty())));
 
             statesCasted.forEach(state -> {
-                assertThat(zoneNames, hasItem(state.zoneName()));
-                assertThat(tableIds, hasItem(state.tableId()));
-                assertEquals(DEFAULT_SCHEMA_NAME, state.schemaName());
-                assertThat(TABLE_NAMES, hasItem(state.tableName()));
-                assertThat(STATES, hasItem(state.state()));
+                assertThat(state.zoneName(), in(zoneNames));
+                assertThat(state.tableId(), in(tableIds));
+                assertThat(state.schemaName(), is(DEFAULT_SCHEMA_NAME));
+                assertThat(state.tableName(), in(TABLE_NAMES));
+                assertThat(state.state(), in(STATES));
             });
         }
     }
@@ -627,11 +597,11 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         }
     }
 
-    static String localStatePath() {
+    private static String localStatePath() {
         return colocationEnabled() ? "zone/state/local" : "state/local";
     }
 
-    static String globalStatePath() {
+    private static String globalStatePath() {
         return colocationEnabled() ? "zone/state/global" : "state/global";
     }
 
@@ -644,21 +614,18 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     private static List<?> castStatesResponse(Object body, boolean local) {
-        List<?> statesCasted;
-
         if (colocationEnabled()) {
             if (local) {
-                statesCasted = ((LocalZonePartitionStatesResponse) body).states();
+                return ((LocalZonePartitionStatesResponse) body).states();
             } else {
-                statesCasted = ((GlobalZonePartitionStatesResponse) body).states();
+                return ((GlobalZonePartitionStatesResponse) body).states();
             }
         } else {
             if (local) {
-                statesCasted = ((LocalPartitionStatesResponse) body).states();
+                return ((LocalPartitionStatesResponse) body).states();
             } else {
-                statesCasted = ((GlobalPartitionStatesResponse) body).states();
+                return ((GlobalPartitionStatesResponse) body).states();
             }
         }
-        return statesCasted;
     }
 }

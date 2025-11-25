@@ -45,7 +45,7 @@ public:
     /**
      * Default heartbeat interval.
      */
-    static constexpr std::chrono::microseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
+    static constexpr std::chrono::milliseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
 
     // Default
     ignite_client_configuration() = default;
@@ -169,7 +169,7 @@ public:
      *
      * @return Heartbeat interval.
      */
-    [[nodiscard]] std::chrono::microseconds get_heartbeat_interval() const { return m_heartbeat_interval; }
+    [[nodiscard]] std::chrono::milliseconds get_heartbeat_interval() const { return m_heartbeat_interval; }
 
     /**
      * Set a heartbeat interval.
@@ -178,10 +178,10 @@ public:
      *
      * @param heartbeat_interval Heartbeat interval.
      */
-    void set_heartbeat_interval(std::chrono::microseconds heartbeat_interval) {
+    void set_heartbeat_interval(std::chrono::milliseconds heartbeat_interval) {
         if (heartbeat_interval.count() < 0) {
             throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Heartbeat interval can not be negative: "
-                + std::to_string(heartbeat_interval.count()) + " microseconds");
+                + std::to_string(heartbeat_interval.count()) + " milliseconds");
         }
 
         m_heartbeat_interval = heartbeat_interval;
@@ -304,7 +304,7 @@ private:
     std::uint32_t m_connection_limit{0};
 
     /** Heartbeat interval. */
-    std::chrono::microseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
+    std::chrono::milliseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
 
     /** SSL Mode. */
     ssl_mode m_ssl_mode{ssl_mode::DISABLE};

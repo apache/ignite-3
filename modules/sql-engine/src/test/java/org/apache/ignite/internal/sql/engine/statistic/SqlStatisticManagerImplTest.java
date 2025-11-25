@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMap.entry;
 import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.DEFAULT_TABLE_SIZE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.INITIAL_DELAY;
+import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.REFRESH_PERIOD;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -31,12 +31,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -53,8 +56,10 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.sql.ColumnType;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -65,6 +70,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests of SqlStatisticManagerImpl.
  */
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TableManager tableManager;
@@ -81,6 +87,12 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     @Mock
     private LowWatermark lowWatermark;
 
+    @Mock
+    StatisticAggregatorImpl statAggregator;
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonExecutor;
+
     private static final CatalogTableColumnDescriptor pkCol =
             new CatalogTableColumnDescriptor("pkCol", ColumnType.STRING, false, 0, 0, 10, null);
 
@@ -89,9 +101,9 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         int tableId = ThreadLocalRandom.current().nextInt();
         // Preparing:
         when(catalogManager.catalog(anyInt())).thenReturn(mock(Catalog.class));
-        when(tableManager.cachedTable(tableId)).thenReturn(null);
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
         sqlStatisticManager.start();
 
         // Test:
@@ -108,51 +120,24 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(tableSize));
+        when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
+                .thenReturn(CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE)))));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
         sqlStatisticManager.start();
 
-        // Test:
-        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
-        // The second time we should obtain the same value from a cache.
-        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        long timeout = 2 * Math.max(REFRESH_PERIOD, INITIAL_DELAY);
 
-        verify(internalTable, times(1)).estimatedSize();
-    }
-
-    @Test
-    public void testEstimationFailure() {
-        int tableId = ThreadLocalRandom.current().nextInt();
-
-        prepareCatalogWithTable(tableId);
-
-        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
-        when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(
-                CompletableFuture.completedFuture(1L),
-                CompletableFuture.completedFuture(2L),
-                CompletableFuture.failedFuture(new IgniteCheckedException(INTERNAL_ERR, "Test exception"))
+        Awaitility.await().timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                assertEquals(tableSize, sqlStatisticManager.tableSize(tableId))
         );
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
-        StatisticUpdatesSupplier notifier = mock(StatisticUpdatesSupplier.class);
-        sqlStatisticManager.changesNotifier(notifier);
-        sqlStatisticManager.start();
+        // Second time we should obtain the same value from a cache.
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
 
-        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
-
-        // table size 1
-        assertEquals(1L, sqlStatisticManager.tableSize(tableId));
-        verify(notifier, times(1)).accept(anyInt());
-
-        // table size 2
-        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
-
-        // exceptionable table size
-        assertEquals(2L, sqlStatisticManager.tableSize(tableId));
-        verify(notifier, times(2)).accept(anyInt());
-        verify(internalTable, times(3)).estimatedSize();
+        verify(statAggregator, times(1)).estimatedSizeWithLastUpdate(List.of(internalTable));
     }
 
     @Test
@@ -160,35 +145,49 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         int tableId = ThreadLocalRandom.current().nextInt();
         long tableSize1 = 999_888_777L;
         long tableSize2 = 111_222_333L;
+
+        HybridTimestamp time1 = HybridTimestamp.MAX_VALUE.subtractPhysicalTime(1000);
+        HybridTimestamp time2 = HybridTimestamp.MAX_VALUE.subtractPhysicalTime(500);
         // Preparing:
         prepareCatalogWithTable(tableId);
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(
-                CompletableFuture.completedFuture(tableSize1),
-                CompletableFuture.completedFuture(tableSize2));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
+                .thenReturn(
+                        CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                                entry(tableId, new PartitionModificationInfo(tableSize1, time1.longValue())))),
+                        CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                                entry(tableId, new PartitionModificationInfo(tableSize2, time2.longValue()))))
+                );
+
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
         sqlStatisticManager.start();
 
-        // Test:
-        assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
+        long timeout = 2 * Math.max(REFRESH_PERIOD, INITIAL_DELAY);
+
+        Awaitility.await().timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId))
+        );
         // The second time we should obtain the same value from a cache.
         assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
 
-        // Allow to refresh value.
-        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
+        // Forcibly update.
+        sqlStatisticManager.forceUpdateAll();
         // Now we need obtain a fresh value of table size.
         assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
+        assertEquals(time2.longValue(), sqlStatisticManager.tableSizeMap.get(tableId).modificationCounter());
 
-        verify(internalTable, times(2)).estimatedSize();
+        verify(statAggregator, times(2)).estimatedSizeWithLastUpdate(List.of(internalTable));
     }
 
     @Test
-    public void checkLoadAllTablesOnStart() {
+    public void checkLoadAllTablesOnStart() throws Exception {
         int minimumCatalogVersion = 1;
         int maximumCatalogVersion = 10;
+        long tableSize = 99999L;
 
         // Preparing:
         when(catalogManager.earliestCatalogVersion()).thenReturn(minimumCatalogVersion);
@@ -223,16 +222,25 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(tableManager.cachedTable(anyInt())).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(99999L));
+        Int2ObjectMap<PartitionModificationInfo> modifications = new Int2ObjectOpenHashMap<>();
+        for (int i = minimumCatalogVersion; i <= maximumCatalogVersion + 1; ++i) {
+            modifications.put(i, new PartitionModificationInfo(tableSize, Long.MAX_VALUE));
+        }
+        when(statAggregator.estimatedSizeWithLastUpdate(any()))
+                .thenReturn(CompletableFuture.completedFuture(modifications));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
         sqlStatisticManager.start();
+
+        sqlStatisticManager.forceUpdateAll();
+        sqlStatisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.MILLISECONDS);
 
         // Test:
         // For known tables we got calculated table size.
         for (int i = minimumCatalogVersion; i <= maximumCatalogVersion; i++) {
-            assertEquals(99999L, sqlStatisticManager.tableSize(i));
-            assertEquals(99999L, sqlStatisticManager.tableSize(i + 1));
+            assertEquals(tableSize, sqlStatisticManager.tableSize(i));
+            assertEquals(tableSize, sqlStatisticManager.tableSize(i + 1));
         }
 
         // For unknown tables we got default size.
@@ -258,13 +266,19 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(tableSize));
+        when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
+                .thenReturn(CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE)))));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
         sqlStatisticManager.start();
 
-        // Test:
-        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        long timeout = 2 * Math.max(REFRESH_PERIOD, INITIAL_DELAY);
+
+        Awaitility.await().timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                assertEquals(tableSize, sqlStatisticManager.tableSize(tableId))
+        );
 
         int catalogVersionBeforeDrop = 1;
         int catalogVersionAfterDrop = 2;
@@ -272,6 +286,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         // After table drop we still obtain the same value from a cache.
         tableDropCapture.getValue().notify(new DropTableEventParameters(-1, catalogVersionAfterDrop, tableId));
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        assertEquals(1L, sqlStatisticManager.droppedTables.size());
 
         // After LWM has been changed data in case is removed and we get default value.
         when(catalogManager.activeCatalogVersion(catalogVersionBeforeDrop)).thenReturn(catalogVersionAfterDrop);
@@ -279,6 +294,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .notify(new ChangeLowWatermarkEventParameters(HybridTimestamp.hybridTimestamp(catalogVersionBeforeDrop)));
 
         assertEquals(DEFAULT_TABLE_SIZE, sqlStatisticManager.tableSize(tableId));
+        // After LWM dropped tables are also cleared.
+        assertEquals(0L, sqlStatisticManager.droppedTables.size());
     }
 
     @SuppressWarnings("PMD.UseNotifyAllInsteadOfNotify")
@@ -295,9 +312,12 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(tableSize));
+        when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable)))
+                .thenReturn(CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize, Long.MAX_VALUE)))));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
         sqlStatisticManager.start();
 
         // Test:
@@ -316,53 +336,97 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 .build();
         tableCreateCapture.getValue().notify(new CreateTableEventParameters(-1, 0, catalogDescriptor));
         // now table is created and size should be actual.
-        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        long timeout = 2 * Math.max(REFRESH_PERIOD, INITIAL_DELAY);
+
+        Awaitility.await().timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                assertEquals(tableSize, sqlStatisticManager.tableSize(tableId))
+        );
     }
 
     @Test
-    void ensureStaleRequestsAreDiscarded() throws InterruptedException {
+    void statisticUpdatesIfEstimationPartiallyUnavailable() {
         int tableId = ThreadLocalRandom.current().nextInt();
         long tableSize1 = 100_000L;
         long tableSize2 = 500_000L;
+
+        HybridTimestamp time1 = HybridTimestamp.MAX_VALUE.subtractPhysicalTime(1000);
+        HybridTimestamp time2 = HybridTimestamp.MAX_VALUE.subtractPhysicalTime(500);
         // Preparing:
         prepareCatalogWithTable(tableId);
 
-        CompletableFuture<Long> staleResultFuture = new CompletableFuture<>();
-        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
-        when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(
-                staleResultFuture, // stale result goes first
-                CompletableFuture.completedFuture(tableSize2)
+        when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable))).thenReturn(
+                // stale result goes first
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize1, time1.longValue())))),
+                CompletableFuture.failedFuture(new RuntimeException("smth wrong")),
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize2, time2.longValue()))))
         );
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
+        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
+        when(tableViewInternal.internalTable()).thenReturn(internalTable);
+
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
+
+        sqlStatisticManager.start();
+        // tableSize1
+        sqlStatisticManager.forceUpdateAll();
+
+        assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
+
+        // err call
+        sqlStatisticManager.forceUpdateAll();
+
+        assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
+
+        // tableSize2
+        sqlStatisticManager.forceUpdateAll();
+
+        assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
+
+        verify(statAggregator, times(3)).estimatedSizeWithLastUpdate(List.of(internalTable));
+    }
+
+    @Test
+    void ensureStaleRequestsAreDiscarded() {
+        int tableId = ThreadLocalRandom.current().nextInt();
+        long tableSize1 = 100_000L;
+        long tableSize2 = 500_000L;
+
+        HybridTimestamp time1 = HybridTimestamp.MAX_VALUE.subtractPhysicalTime(1000);
+        HybridTimestamp time2 = HybridTimestamp.MAX_VALUE.subtractPhysicalTime(500);
+        // Preparing:
+        prepareCatalogWithTable(tableId);
+
+        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
+        when(tableViewInternal.internalTable()).thenReturn(internalTable);
+        when(statAggregator.estimatedSizeWithLastUpdate(List.of(internalTable))).thenReturn(
+                // stale result goes first
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize1, time1.longValue())))),
+                CompletableFuture.completedFuture(Int2ObjectMap.ofEntries(
+                        entry(tableId, new PartitionModificationInfo(tableSize2, time2.longValue()))))
+        );
+
+        SqlStatisticManagerImpl sqlStatisticManager =
+                new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark, commonExecutor, statAggregator);
         sqlStatisticManager.start();
 
         // Test:
-        // first call results in non-completed future, therefore default size is expected 
+        // first call results in non-completed future, therefore default size is expected
         assertEquals(DEFAULT_TABLE_SIZE, sqlStatisticManager.tableSize(tableId));
 
-        // Allow to refresh value.
-        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(1);
+        // get stale
+        sqlStatisticManager.forceUpdateAll();
+        // get tableSize2
+        sqlStatisticManager.forceUpdateAll();
 
-        Future<?> oldUpdateFuture = sqlStatisticManager.lastUpdateStatisticFuture();
+        long timeout = 2 * Math.max(REFRESH_PERIOD, INITIAL_DELAY);
 
-        // Wait till statistics will be requested one more time.
-        assertTrue(waitForCondition(() -> {
-            sqlStatisticManager.tableSize(tableId);
-            Future<?> currentUpdateFuture = sqlStatisticManager.lastUpdateStatisticFuture();
-
-            // reference comparison on purpose
-            return oldUpdateFuture != currentUpdateFuture;
-        }, 1_000));
-
-        // Now we need obtain a new value of table size.
-        assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
-
-        staleResultFuture.complete(tableSize1);
-
-        // Forbid refreshing the statistics.
-        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
+        Awaitility.await().timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+                assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId))
+        );
 
         // Stale result must be discarded.
         assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));

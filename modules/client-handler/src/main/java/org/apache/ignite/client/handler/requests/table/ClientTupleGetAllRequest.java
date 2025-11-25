@@ -17,12 +17,17 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuplesNullable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.HAS_OPTIONS;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -37,10 +42,13 @@ public class ClientTupleGetAllRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param tables    Ignite tables.
-     * @param resources Resource registry.
-     * @param txManager Transaction manager.
+     * @param in           Unpacker.
+     * @param tables       Ignite tables.
+     * @param resources    Resource registry.
+     * @param txManager    Transaction manager.
+     * @param clockService Clock service.
+     * @param tsTracker    Tracker.
+     * @param supportsOptions {@code True} if supports tx options.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -49,14 +57,18 @@ public class ClientTupleGetAllRequest {
             ClientResourceRegistry resources,
             TxManager txManager,
             ClockService clockService,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            boolean supportsOptions
     ) {
-        // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, true)
-                .thenCompose(req -> req.table().recordView().getAllAsync(req.tx(), req.tuples())
-                        .thenApply(resTuples -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req);
-                            writeTuplesNullable(out, resTuples, TuplePart.KEY_AND_VAL, req.table().schemaView());
-                        }));
+        EnumSet<RequestOptions> options = supportsOptions ? of(KEY_ONLY, HAS_OPTIONS) : of(KEY_ONLY);
+
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options)
+                .thenCompose(req -> {
+                    return req.table().recordView().getAllAsync(req.tx(), req.tuples())
+                            .thenApply(resTuples -> out -> {
+                                writeTxMeta(out, tsTracker, clockService, req);
+                                writeTuplesNullable(out, resTuples, TuplePart.KEY_AND_VAL, req.table().schemaView());
+                            });
+                });
     }
 }

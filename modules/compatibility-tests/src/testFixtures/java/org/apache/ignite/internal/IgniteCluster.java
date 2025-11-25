@@ -360,6 +360,11 @@ public class IgniteCluster {
         return nodes;
     }
 
+    /** Returns base client port number from cluster configuration. */
+    public int clientPort() {
+        return clusterConfiguration.baseClientPort();
+    }
+
     /**
      * Starts an embedded node with the given index.
      *
@@ -423,6 +428,20 @@ public class IgniteCluster {
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Stops the runner node with the given index.
+     *
+     * @param nodeIndex Index of the node to stop.
+     */
+    public void stopRunnerNode(int nodeIndex) {
+        if (nodeIndex < runnerNodes.size()) {
+            runnerNodes.get(nodeIndex).stop();
+            runnerNodes.set(nodeIndex, null);
+        } else {
+            throw new IllegalStateException("Runner node with index " + nodeIndex + " is not started");
         }
     }
 

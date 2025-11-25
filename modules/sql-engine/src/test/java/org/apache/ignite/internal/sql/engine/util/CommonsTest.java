@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -33,10 +35,13 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 
 /**
@@ -138,6 +143,23 @@ public class CommonsTest extends BaseIgniteAbstractTest {
 
         IgniteProject project4 = assertInstanceOf(IgniteProject.class, relNodes.get(3), "node4");
         assertEquals(lt, project4.getRowType(), "Invalid types in projection for node4");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "3, 3",
+            "5, 5",
+            "2, 7",
+    })
+    void targetOffset(int sourceSize, int offset) {
+        TargetMapping mapping = Commons.targetOffsetMapping(sourceSize, offset);
+
+        for (int i = 0; i < sourceSize; i++) {
+            assertThat(
+                    "Source <" + i + "> should be shifted by offset <" + offset + ">",
+                    mapping.getTarget(i), is(i + offset)
+            );
+        }
     }
 
     private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {

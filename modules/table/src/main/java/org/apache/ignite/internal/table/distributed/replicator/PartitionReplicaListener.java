@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partitiondistribution.Assignments.fromBytes;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -170,7 +169,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -658,7 +656,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             peersAndLearners
                     );
 
-                    return raftClient.changePeersAndLearnersAsync(peersAndLearners, leaderWithTerm.term());
+                    return raftClient.changePeersAndLearnersAsync(peersAndLearners, leaderWithTerm.term(), request.sequenceToken());
                 });
     }
 
@@ -2028,9 +2026,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             assert Objects.equals(wi.transactionId(), writeIntent.transactionId())
                     : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
 
-            assert Objects.equals(wi.commitTableOrZoneId(), writeIntent.commitTableOrZoneId())
-                    : "Unexpected write intent, commitTableOrZoneId1=" + writeIntent.commitTableOrZoneId()
-                    + ", commitTableId2=" + wi.commitTableOrZoneId();
+            assert Objects.equals(wi.commitZoneId(), writeIntent.commitZoneId())
+                    : "Unexpected write intent, commitZoneId1=" + writeIntent.commitZoneId()
+                    + ", commitZoneId2=" + wi.commitZoneId();
 
             assert wi.commitPartitionId() == writeIntent.commitPartitionId()
                     : "Unexpected write intent, commitPartitionId1=" + writeIntent.commitPartitionId()
@@ -3552,7 +3550,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         return transactionStateResolver.resolveTxState(
                         txId,
-                        replicationGroupId(writeIntent.commitTableOrZoneId(), writeIntent.commitPartitionId()),
+                        replicationGroupId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()),
                         timestamp)
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {
@@ -3700,16 +3698,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
         return reliableCatalogVersions.reliableCatalogVersionFor(ts);
-    }
-
-    /**
-     * Method to convert from {@link TablePartitionId} object to command-based {@link TablePartitionIdMessage} object.
-     *
-     * @param tablePartId {@link TablePartitionId} object to convert to {@link TablePartitionIdMessage}.
-     * @return {@link TablePartitionIdMessage} object converted from argument.
-     */
-    public static TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
-        return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartId);
     }
 
     private static ReplicationGroupIdMessage replicationGroupIdMessage(ReplicationGroupId groupId) {

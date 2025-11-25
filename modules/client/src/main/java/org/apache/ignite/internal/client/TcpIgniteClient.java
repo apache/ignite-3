@@ -100,9 +100,12 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param cfg Config.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
-        this(TcpClientChannel::createAsync, cfg, observableTimeTracker);
+    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable ChannelValidator channelValidator) {
+        this(TcpClientChannel::createAsync, cfg, observableTimeTracker, channelValidator);
     }
 
     /**
@@ -111,8 +114,11 @@ public class TcpIgniteClient implements IgniteClient {
      * @param chFactory Channel factory.
      * @param cfg Config.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable ChannelValidator channelValidator) {
         assert chFactory != null;
         assert cfg != null;
 
@@ -124,7 +130,7 @@ public class TcpIgniteClient implements IgniteClient {
                 : "client_" + GLOBAL_CONN_ID_GEN.incrementAndGet(); // Use underscores for JMX compat.
 
         metrics = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
+        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker, channelValidator);
         tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -168,7 +174,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
-        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null));
+        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null), null);
     }
 
     /**
@@ -176,14 +182,17 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param cfg Thin client configuration.
      * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @param channelValidator A validator that is called when a connection to a node is established,
+     *                         if it throws an exception, the network channel to that node will be closed.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker,
+            @Nullable ChannelValidator channelValidator) {
         ErrorGroups.initialize();
 
         try {
             //noinspection resource: returned from method
-            var client = new TcpIgniteClient(cfg, observableTimeTracker);
+            var client = new TcpIgniteClient(cfg, observableTimeTracker, channelValidator);
 
             return client.initAsync().thenApply(x -> client);
         } catch (IgniteException e) {

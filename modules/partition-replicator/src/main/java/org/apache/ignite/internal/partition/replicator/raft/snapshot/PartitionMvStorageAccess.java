@@ -200,4 +200,7 @@ public interface PartitionMvStorageAccess {
      * @param newLowWatermark Candidate for update.
      */
     void updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    /** Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent. */
+    boolean isVolatile();
 }

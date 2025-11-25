@@ -27,6 +27,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -49,6 +50,9 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.retryTimeoutMillis = 60000")
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration userNodeAttributes;
@@ -78,6 +82,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                         nodeFinder,
                         workDir,
                         raftConfiguration,
+                        systemLocalConfiguration,
                         userNodeAttributes,
                         storageConfiguration,
                         config -> onConfigurationCommittedListener.accept(i, config)
@@ -104,7 +109,28 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                 new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
+                systemLocalConfiguration,
                 userNodeAttributes,
+                storageConfiguration,
+                onConfigurationCommittedListener
+        );
+    }
+
+    protected MockNode createNode(
+            int idx,
+            int clusterSize,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener,
+            NodeAttributesProvider attributesProvider
+    ) {
+        return new MockNode(
+                testInfo,
+                new NetworkAddress("localhost", PORT_BASE + idx),
+                new StaticNodeFinder(createSeedAddresses(clusterSize)),
+                workDir,
+                raftConfiguration,
+                systemLocalConfiguration,
+                userNodeAttributes,
+                attributesProvider,
                 storageConfiguration,
                 onConfigurationCommittedListener
         );

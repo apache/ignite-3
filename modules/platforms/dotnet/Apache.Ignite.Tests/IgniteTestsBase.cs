@@ -69,6 +69,8 @@ namespace Apache.Ignite.Tests
 
         private TestEventListener _eventListener = null!;
 
+        private ConsoleLogger _logger = null!;
+
         static IgniteTestsBase()
         {
             ServerNode = JavaServer.StartAsync().GetAwaiter().GetResult();
@@ -100,8 +102,9 @@ namespace Apache.Ignite.Tests
         public async Task OneTimeSetUp()
         {
             _eventListener = new TestEventListener();
+            _logger = new ConsoleLogger(LogLevel.Trace);
 
-            Client = await IgniteClient.StartAsync(GetConfig());
+            Client = await IgniteClient.StartAsync(GetConfig(_logger));
 
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
@@ -117,6 +120,8 @@ namespace Apache.Ignite.Tests
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
             PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
             PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
+
+            _logger.Flush();
         }
 
         [OneTimeTearDown]
@@ -130,11 +135,13 @@ namespace Apache.Ignite.Tests
             CheckPooledBufferLeak();
 
             _eventListener.Dispose();
+            _logger.Dispose();
         }
 
         [SetUp]
         public void SetUp()
         {
+            _logger.Flush();
             Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
             TestUtils.CheckByteArrayPoolLeak();
         }
@@ -142,12 +149,17 @@ namespace Apache.Ignite.Tests
         [TearDown]
         public void TearDown()
         {
+            // Flush here so events from all threads are captured as current test output.
+            _logger.Flush();
+
             Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
 
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
 
             CheckPooledBufferLeak();
+
+            _logger.Flush();
 
             Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
@@ -180,20 +192,20 @@ namespace Apache.Ignite.Tests
 
         protected static ValPoco GetValPoco(string? val) => new() { Val = val };
 
-        protected static IgniteClientConfiguration GetConfig() => new()
+        protected static IgniteClientConfiguration GetConfig(ILoggerFactory? loggerFactory = null) => new()
         {
             Endpoints =
             {
                 "127.0.0.1:" + ServerNode.Port,
                 "127.0.0.1:" + (ServerNode.Port + 1)
             },
-            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+            LoggerFactory = loggerFactory ?? TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
-        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
+        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies, ILoggerFactory loggerFactory) =>
             new(proxies.Select(x => x.Endpoint).ToArray())
             {
-                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+                LoggerFactory = loggerFactory
             };
 
         protected List<IgniteProxy> GetProxies()

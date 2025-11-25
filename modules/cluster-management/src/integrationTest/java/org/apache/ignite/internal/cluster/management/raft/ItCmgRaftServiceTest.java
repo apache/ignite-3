@@ -53,6 +53,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -95,6 +96,9 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private static SystemLocalConfiguration systemLocalConfiguration;
+
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     private class Node {
@@ -120,7 +124,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
-            this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+            this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
             this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
         }
 

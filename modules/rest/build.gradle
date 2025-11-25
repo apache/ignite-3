@@ -67,6 +67,7 @@ dependencies {
     testImplementation project(':ignite-security')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-rest-api'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
 
@@ -79,6 +80,7 @@ dependencies {
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-security')

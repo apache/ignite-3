@@ -33,9 +33,10 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param groupId the raft group id
      * @param conf current configuration
      * @param peer peer to add
+     * @param sequenceToken Sequence token of the current change.
      * @return operation status
      */
-    Status addPeer(final String groupId, final Configuration conf, final PeerId peer);
+    Status addPeer(final String groupId, final Configuration conf, final PeerId peer, long sequenceToken);
 
     /**
      * Remove a peer from the replicating group which consists of |conf|. return OK status when success.
@@ -43,9 +44,10 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param groupId the raft group id
      * @param conf current configuration
      * @param peer peer to remove
+     * @param sequenceToken Sequence token of the current change.
      * @return operation status
      */
-    Status removePeer(final String groupId, final Configuration conf, final PeerId peer);
+    Status removePeer(final String groupId, final Configuration conf, final PeerId peer, long sequenceToken);
 
     /**
      * Gracefully change the peers and learners of the replication group.
@@ -54,13 +56,15 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param conf current configuration
      * @param newPeersAndLearners new peers and learners to change
      * @param term term on which this method was called. If real raft group term will be different - configuration update will be skipped.
+     * @param sequenceToken Sequence token of the current change.
      * @return operation status
      */
     Status changePeersAndLearners(
             final String groupId,
             final Configuration conf,
             final Configuration newPeersAndLearners,
-            long term
+            long term,
+            long sequenceToken
     );
 
     /**
@@ -71,7 +75,7 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param newPeers new peers to reset
      * @return operation status
      */
-    Status resetPeer(final String groupId, final PeerId peer, final Configuration newPeers);
+    Status resetPeer(final String groupId, final PeerId peer, final Configuration newPeers, long sequenceToken);
 
     /**
      * Add some new learners into the replicating group which consists of |conf|. return OK status when success.
@@ -79,9 +83,10 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param groupId the raft group id
      * @param conf current configuration
      * @param learners learner peers to add
+     * @param sequenceToken Sequence token of the current change.
      * @return operation status
      */
-    Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
+    Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long sequenceToken);
 
     /**
      * Remove some learners from the replicating group which consists of |conf|. return OK status when success.
@@ -89,9 +94,10 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param groupId the raft group id
      * @param conf current configuration
      * @param learners learner peers to remove
+     * @param sequenceToken Sequence token of the current change.
      * @return operation status
      */
-    Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
+    Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long sequenceToken);
 
     /**
      * Converts the specified learner to follower of |conf|.
@@ -100,9 +106,10 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param groupId  the raft group id
      * @param conf     current configuration
      * @param learner  learner peer
+     * @param sequenceToken Sequence token of the current change.
      * @return operation status
      */
-    Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner);
+    Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner, long sequenceToken);
 
     /**
      * Update learners set in the replicating group which consists of |conf|. return OK status when success.
@@ -110,9 +117,10 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param groupId the raft group id
      * @param conf current configuration
      * @param learners learner peers to set
+     * @param sequenceToken Sequence token of the current change.
      * @return operation status
      */
-    Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
+    Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long sequenceToken);
 
     /**
      * Transfer the leader of the replication group to the target peer
