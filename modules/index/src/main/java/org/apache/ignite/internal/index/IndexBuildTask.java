@@ -101,7 +101,7 @@ class IndexBuildTask {
 
     private final List<IndexBuildCompletionListener> buildCompletionListeners;
 
-    private final IndexBuildTaskListener taskListener;
+    private final IndexBuildTaskStatisticsLoggingListener statisticsLoggingListener;
 
     private final long enlistmentConsistencyToken;
 
@@ -128,7 +128,6 @@ class IndexBuildTask {
             int batchSize,
             InternalClusterNode node,
             List<IndexBuildCompletionListener> buildCompletionListeners,
-            IndexBuildTaskListener taskListener,
             long enlistmentConsistencyToken,
             boolean afterDisasterRecovery,
             HybridTimestamp initialOperationTimestamp
@@ -146,7 +145,7 @@ class IndexBuildTask {
         this.node = node;
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.buildCompletionListeners = buildCompletionListeners;
-        this.taskListener = taskListener;
+        this.statisticsLoggingListener = new IndexBuildTaskStatisticsLoggingListener(taskId, afterDisasterRecovery);
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
         this.afterDisasterRecovery = afterDisasterRecovery;
         this.initialOperationTimestamp = initialOperationTimestamp;
@@ -169,7 +168,7 @@ class IndexBuildTask {
         }
 
         try {
-            taskListener.onIndexBuildStarted(taskId);
+            statisticsLoggingListener.onIndexBuildStarted(taskId);
 
             supplyAsync(partitionStorage::highestRowId, executor)
                     .thenApplyAsync(this::handleNextBatch, executor)
@@ -184,10 +183,10 @@ class IndexBuildTask {
                             }
 
                             taskFuture.completeExceptionally(throwable);
-                            taskListener.onIndexBuildFailure(taskId, throwable);
+                            statisticsLoggingListener.onIndexBuildFailure(taskId, throwable);
                         } else {
                             taskFuture.complete(null);
-                            taskListener.onIndexBuildSuccess(taskId);
+                            statisticsLoggingListener.onIndexBuildSuccess(taskId);
                         }
                     });
         } catch (Throwable t) {
@@ -239,14 +238,14 @@ class IndexBuildTask {
                             replicaService.invoke(node, createBuildIndexReplicaRequest(batch, initialOperationTimestamp))
                                     .whenComplete((unused, throwable) -> {
                                         if (throwable == null) {
-                                            taskListener.onRaftCallSuccess(taskId);
+                                            statisticsLoggingListener.onRaftCallSuccess(taskId);
                                         } else {
-                                            taskListener.onRaftCallFailure(taskId);
+                                            statisticsLoggingListener.onRaftCallFailure(taskId);
                                         }
                                     })
                                     .thenApply(unused -> batch)
                     )
-                    .thenAccept(batch -> taskListener.onBatchProcessed(taskId, batch.rowIds.size()))
+                    .thenAccept(batch -> statisticsLoggingListener.onBatchProcessed(taskId, batch.rowIds.size()))
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapRootCause(throwable);
@@ -326,7 +325,7 @@ class IndexBuildTask {
 
         return finalTransactionStateResolver.resolveFinalTxState(transactionId, commitGroupId)
                 .thenApply(txState -> {
-                    taskListener.onWriteIntentResolved(taskId, txState);
+                    statisticsLoggingListener.onWriteIntentResolved(taskId, txState);
 
                     return txState;
                 });

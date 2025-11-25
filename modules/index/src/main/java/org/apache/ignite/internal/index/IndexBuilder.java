@@ -141,8 +141,6 @@ class IndexBuilder implements ManuallyCloseable {
             }
 
             var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
-            boolean afterDisasterRecovery = false;
-            var taskListener = new IndexBuildTaskStatisticsLoggingListener(taskId, afterDisasterRecovery);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -157,9 +155,8 @@ class IndexBuilder implements ManuallyCloseable {
                     BATCH_SIZE,
                     node,
                     buildCompletionListeners,
-                    taskListener,
                     enlistmentConsistencyToken,
-                    afterDisasterRecovery,
+                    false,
                     initialOperationTimestamp
             );
 
@@ -208,8 +205,6 @@ class IndexBuilder implements ManuallyCloseable {
             }
 
             var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
-            boolean afterDisasterRecovery = true;
-            var taskListener = new IndexBuildTaskStatisticsLoggingListener(taskId, afterDisasterRecovery);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
@@ -224,9 +219,8 @@ class IndexBuilder implements ManuallyCloseable {
                     BATCH_SIZE,
                     node,
                     buildCompletionListeners,
-                    taskListener,
                     enlistmentConsistencyToken,
-                    afterDisasterRecovery,
+                    true,
                     initialOperationTimestamp
             );
 

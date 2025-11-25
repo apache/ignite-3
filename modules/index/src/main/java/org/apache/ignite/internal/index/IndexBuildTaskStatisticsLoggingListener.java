@@ -32,7 +32,7 @@ import org.jetbrains.annotations.TestOnly;
  * Listener that collects {@link IndexBuildTask} statistics during execution and logs the aggregated results when the index build
  * completes.
  */
-class IndexBuildTaskStatisticsLoggingListener implements IndexBuildTaskListener {
+class IndexBuildTaskStatisticsLoggingListener {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildTaskStatisticsLoggingListener.class);
 
     private final IndexBuildTaskId taskId;
@@ -54,65 +54,32 @@ class IndexBuildTaskStatisticsLoggingListener implements IndexBuildTaskListener 
         this.afterDisasterRecovery = afterDisasterRecovery;
     }
 
-    @Override
     public void onIndexBuildStarted(IndexBuildTaskId taskId) {
-        checkTaskId(taskId);
-
         startTime.set(System.currentTimeMillis());
     }
 
-    @Override
     public void onWriteIntentResolved(IndexBuildTaskId taskId, TxState txState) {
-        checkTaskId(taskId);
-
         resolvedWriteIntentCount.computeIfAbsent(txState, unused -> new AtomicInteger(0)).incrementAndGet();
     }
 
-    @Override
     public void onRaftCallSuccess(IndexBuildTaskId taskId) {
-        checkTaskId(taskId);
-
         successfulRaftCallCount.incrementAndGet();
     }
 
-    @Override
     public void onRaftCallFailure(IndexBuildTaskId taskId) {
-        checkTaskId(taskId);
-
         failedRaftCallCount.incrementAndGet();
     }
 
-    @Override
     public void onBatchProcessed(IndexBuildTaskId taskId, int rowCount) {
-        checkTaskId(taskId);
-
         rowIndexedCount.addAndGet(rowCount);
     }
 
-    @Override
     public void onIndexBuildSuccess(IndexBuildTaskId taskId) {
-        checkTaskId(taskId);
-
         logStatistics(null);
     }
 
-    @Override
     public void onIndexBuildFailure(IndexBuildTaskId taskId, Throwable throwable) {
-        checkTaskId(taskId);
-
         logStatistics(throwable);
-    }
-
-    private void checkTaskId(IndexBuildTaskId taskId) {
-        if (!this.taskId.equals(taskId)) {
-            String message = String.format(
-                    "Listener invoked with unexpected index id. Expected: [%s], but got: [%s]",
-                    this.taskId, taskId
-            );
-
-            LOG.error(message);
-            throw new IllegalArgumentException(message);
-        }
     }
 
     private void logStatistics(@Nullable Throwable throwable) {

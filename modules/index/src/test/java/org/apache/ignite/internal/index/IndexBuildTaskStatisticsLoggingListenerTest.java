@@ -84,13 +84,6 @@ class IndexBuildTaskStatisticsLoggingListenerTest {
     }
 
     @Test
-    void testExceptionOnWrongTaskId() {
-        var wrongTaskId = new IndexBuildTaskId(2, 2, 2, 2);
-
-        assertThrows(IllegalArgumentException.class, () -> listener.onIndexBuildStarted(wrongTaskId));
-    }
-
-    @Test
     void testExceptionOnStartTimeHasNotBeenSet() {
         assertThrows(IllegalStateException.class, () -> listener.onIndexBuildSuccess(taskId));
     }
