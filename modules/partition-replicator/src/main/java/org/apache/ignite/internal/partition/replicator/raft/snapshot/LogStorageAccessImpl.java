@@ -17,13 +17,26 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/**
- * Uniquely identifies a partition.
- */
-public interface PartitionKey {
-    int partitionId();
+/** {@link LogStorageAccess} implementation. */
+public class LogStorageAccessImpl implements LogStorageAccess {
+    private final ReplicaManager replicaManager;
 
-    ReplicationGroupId toReplicationGroupId();
+    /** Constructor. */
+    public LogStorageAccessImpl(ReplicaManager replicaManager) {
+        this.replicaManager = replicaManager;
+    }
+
+    @Override
+    public void destroy(ReplicationGroupId replicationGroupId, boolean isVolatile) throws NodeStoppingException {
+        replicaManager.destroyReplicationProtocolStorages(replicationGroupId, isVolatile);
+    }
+
+    @Override
+    public void createMetaStorage(ReplicationGroupId replicationGroupId) throws NodeStoppingException {
+        replicaManager.createMetaStorage(replicationGroupId);
+    }
 }

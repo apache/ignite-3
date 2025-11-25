@@ -483,6 +483,24 @@ public class Loza implements RaftManager {
     }
 
     /**
+     * Creates replication log meta storage for the given group ID.
+     *
+     * @param nodeId ID of the Raft node.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void createMetaStorage(RaftNodeId nodeId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            raftServer.createMetaStorage(nodeId);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Returns Raft node IDs for which any storage (log storage or Raft meta storage) is present on disk.
      */
     public Set<StoredRaftNodeId> raftNodeIdsOnDisk() throws NodeStoppingException {

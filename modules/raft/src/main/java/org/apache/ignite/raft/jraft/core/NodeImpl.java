@@ -4355,4 +4355,8 @@ public class NodeImpl implements Node, RaftServerService {
     public FSMCaller fsmCaller() {
         return fsmCaller;
     }
+
+    public RaftMetaStorage metaStorage() {
+        return metaStorage;
+    }
 }
