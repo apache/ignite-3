@@ -1,6 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
@@ -25,9 +26,14 @@ object OdbcDeb : BuildType({
             """.trimIndent()
         }
         customGradle {
-            name = "Build Deb"
-            tasks = ":packaging-odbc:buildDeb -i -Pplatforms.enable"
-            workingDir = "%VCSROOT__IGNITE3%"
+            name = "Build ODBC DEB (Under Rocky Linux 8 container)"
+            tasks = ":packaging-odbc:buildDeb"
+            workingDir = "%VCSROOT__GRIDGAIN9%"
+            gradleParams = "-i -Pplatforms.enable"
+            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
+            dockerPull = true
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
         }
     }
 

@@ -1,6 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
@@ -26,16 +27,24 @@ object OdbcZip : BuildType({
         }
 
         customGradle {
-            name = "Build Zip"
-            tasks = ":packaging-odbc:distZip -i -Pplatforms.enable"
-            workingDir = "%VCSROOT__IGNITE3%"
+            name = "Build ODBC Zip (Under Rocky Linux 8 container)"
+            tasks = ":packaging-odbc:distZip"
+            workingDir = "%VCSROOT__GRIDGAIN9%"
+            gradleParams = "-i -Pplatforms.enable"
+            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
+            dockerPull = true
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
         }
-
         customGradle {
-            name = "Build Tar"
-            id = "Build_Tar"
-            tasks = ":packaging-odbc:distTar -i -Pplatforms.enable"
-            workingDir = "%VCSROOT__IGNITE3%"
+            name = "Build ODBC Tar (Under Rocky Linux 8 container)"
+            tasks = ":packaging-odbc:distTar"
+            workingDir = "%VCSROOT__GRIDGAIN9%"
+            gradleParams = "-i -Pplatforms.enable"
+            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
+            dockerPull = true
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
         }
     }
 
