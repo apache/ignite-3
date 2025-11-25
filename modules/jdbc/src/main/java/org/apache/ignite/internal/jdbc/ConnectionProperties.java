@@ -99,6 +99,24 @@ public interface ConnectionProperties {
     void setConnectionTimeout(Integer connTimeout) throws SQLException;
 
     /**
+     * Gets the background reconnect interval, in milliseconds.
+     *
+     * <p>Value {@code 0} means that background reconnect is disabled.
+     *
+     * <p>Default is {@link org.apache.ignite.client.IgniteClientConfiguration#DFLT_BACKGROUND_RECONNECT_INTERVAL}.
+     */
+    long getReconnectInterval();
+
+    /**
+     * Gets the maximum number of retry attempts to establish connection.
+     *
+     * <p>Value {@code 0} means that no retries will be made, {@code -1} means that the number of retries is unlimited.
+     *
+     * <p>Default is {@link org.apache.ignite.client.RetryLimitPolicy#DFLT_RETRY_LIMIT}.
+     */
+    int getReconnectRetriesLimit();
+
+    /**
      * SSL enabled.
      *
      * @return true if SSL is enabled.
