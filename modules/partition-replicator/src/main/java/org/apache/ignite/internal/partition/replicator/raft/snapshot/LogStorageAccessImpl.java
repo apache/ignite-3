@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
@@ -30,12 +31,12 @@ public class LogStorageAccessImpl implements LogStorageAccess {
     }
 
     @Override
-    public void destroy(ReplicationGroupId replicationGroupId, boolean isVolatile) throws Exception {
+    public void destroy(ReplicationGroupId replicationGroupId, boolean isVolatile) throws NodeStoppingException {
         replicaManager.destroyReplicationProtocolStorages(replicationGroupId, isVolatile);
     }
 
     @Override
-    public void createMetaStorage(ReplicationGroupId replicationGroupId) throws Exception {
+    public void createMetaStorage(ReplicationGroupId replicationGroupId) throws NodeStoppingException {
         replicaManager.createMetaStorage(replicationGroupId);
     }
 }

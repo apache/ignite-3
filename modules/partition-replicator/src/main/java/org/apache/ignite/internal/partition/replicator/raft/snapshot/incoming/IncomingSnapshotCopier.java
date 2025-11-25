@@ -27,8 +27,9 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -242,9 +244,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             } catch (CancellationException ignored) {
                 // Ignored.
             } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-
-                if (!(cause instanceof CancellationException)) {
+                if (!hasCause(e, CancellationException.class, NodeStoppingException.class)) {
                     partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
 
                     if (isOk()) {
@@ -252,7 +252,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     }
 
                     // By analogy with LocalSnapshotCopier#join.
-                    throw new IllegalStateException(cause);
+                    throw new IllegalStateException(e);
                 }
             }
         }
@@ -760,14 +760,14 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 .collect(toSet());
     }
 
-    private void startRebalanceForReplicationLogStorage(ReplicationLogStorageKey key) {
+    private void startRebalanceForReplicationLogStorage(ReplicationLogStorageKey key) throws IgniteInternalException {
         try {
             LogStorageAccess logStorage = partitionSnapshotStorage.logStorage();
 
             logStorage.destroy(key.replicationGroupId(), key.isVolatile());
             logStorage.createMetaStorage(key.replicationGroupId());
-        } catch (Exception e) {
-            throw new IgniteInternalException(INTERNAL_ERR, "Failed to start rebalance for replication log storage: {}", e, key);
+        } catch (NodeStoppingException e) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         }
     }
 }
