@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+
 /**
  * Uniquely identifies a partition.
  */
 public interface PartitionKey {
     int partitionId();
+
+    ReplicationGroupId toReplicationGroupId();
 }

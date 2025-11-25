@@ -985,7 +985,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void cancelLongRunningStatement() throws InterruptedException {
+    public void cancelLongRunningStatement() {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
@@ -1001,9 +1001,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
 
         // Wait until the query starts executing.
-        waitUntilRunningQueriesCount(greaterThan(0));
-        // Wait a bit more to improve failure rate.
-        Thread.sleep(500);
+        waitUntilQueriesInCursorPublicationPhaseCount(greaterThan(0));
 
         // Wait for query cancel.
         cancelHandle.cancel();

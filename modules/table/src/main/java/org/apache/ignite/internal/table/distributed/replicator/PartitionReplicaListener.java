@@ -2026,9 +2026,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             assert Objects.equals(wi.transactionId(), writeIntent.transactionId())
                     : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
 
-            assert Objects.equals(wi.commitTableOrZoneId(), writeIntent.commitTableOrZoneId())
-                    : "Unexpected write intent, commitTableOrZoneId1=" + writeIntent.commitTableOrZoneId()
-                    + ", commitTableId2=" + wi.commitTableOrZoneId();
+            assert Objects.equals(wi.commitZoneId(), writeIntent.commitZoneId())
+                    : "Unexpected write intent, commitZoneId1=" + writeIntent.commitZoneId()
+                    + ", commitZoneId2=" + wi.commitZoneId();
 
             assert wi.commitPartitionId() == writeIntent.commitPartitionId()
                     : "Unexpected write intent, commitPartitionId1=" + writeIntent.commitPartitionId()
@@ -3550,7 +3550,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         return transactionStateResolver.resolveTxState(
                         txId,
-                        replicationGroupId(writeIntent.commitTableOrZoneId(), writeIntent.commitPartitionId()),
+                        replicationGroupId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()),
                         timestamp)
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {

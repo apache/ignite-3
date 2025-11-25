@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.error.code.annotations;
+#pragma once
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Target;
+#include <ignite/common/detail/duration_min_max.h>
 
-/**
- * Annotation that should be placed on the ErrorGroup in the java/org/apache/ignite/lang/ErrorGroups.java
- *
- * <p>Group will be processed by the @{@link org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessor}
- * and C++ and C# files with errors will be generated.
- */
-@Target(ElementType.TYPE)
-public @interface ErrorCodeGroup {
+#include <cassert>
+#include <chrono>
+
+namespace ignite {
+
+inline std::chrono::milliseconds calculate_heartbeat_interval(std::chrono::milliseconds config_value,
+    std::chrono::milliseconds idle_timeout) {
+    static const std::chrono::milliseconds MIN_HEARTBEAT_INTERVAL = std::chrono::milliseconds(500);
+
+    if (config_value.count()) {
+        assert(config_value.count() > 0);
+
+        config_value = min(idle_timeout / 3, config_value);
+        config_value = max(MIN_HEARTBEAT_INTERVAL, config_value);
+    }
+
+    return config_value;
 }
+
+} // namespace ignite

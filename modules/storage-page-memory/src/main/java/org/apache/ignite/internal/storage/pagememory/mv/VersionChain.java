@@ -66,9 +66,9 @@ public class VersionChain extends VersionChainKey {
         return new VersionChain(rowId, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID, headLink, nextLink);
     }
 
-    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, int commitTableId, int commitPartitionId, long headLink,
+    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, int commitZoneId, int commitPartitionId, long headLink,
             long nextLink) {
-        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
+        return new VersionChain(rowId, transactionId, commitZoneId, commitPartitionId, headLink, nextLink);
     }
 
     /**

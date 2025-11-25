@@ -720,6 +720,9 @@ namespace Apache.Ignite
 
             /// <summary> IllegalNodesSet error. </summary>
             public const int IllegalNodesSet = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> RequestForward error. </summary>
+            public const int RequestForward = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>
