@@ -26,8 +26,6 @@ set(SOURCES
     process.cpp
     test_utils.cpp test_utils.h
     hidden_param.h
-    ../fake_server/tcp_client_channel.cpp
-    ../fake_server/tcp_client_channel.h
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})
