@@ -357,7 +357,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
-                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager, nodeProperties),
+                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager),
                 nodeProperties,
                 taskExecutor
         );
