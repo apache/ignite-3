@@ -41,13 +41,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -81,7 +80,6 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
             executorService,
             replicaService,
             new NoOpFailureManager(),
-            new SystemPropertiesNodeProperties(),
             new CommittedFinalTransactionStateResolver(),
             indexMetaStorage
     );
@@ -164,7 +162,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
         when(replicaService.invoke(any(InternalClusterNode.class), any()))
-                .thenReturn(failedFuture(new ReplicationTimeoutException(new TablePartitionId(TABLE_ID, PARTITION_ID))))
+                .thenReturn(failedFuture(new ReplicationTimeoutException(new ZonePartitionId(ZONE_ID, PARTITION_ID))))
                 .thenReturn(nullCompletedFuture());
 
         scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));

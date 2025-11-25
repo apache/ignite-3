@@ -25,15 +25,17 @@ import static org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource.TIMED_
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -47,12 +49,15 @@ import org.junit.jupiter.api.Test;
  */
 public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
 
-    private MetricSet metricsSet;
+    private List<MetricSet> metricsSet;
 
-    private MetricSet metrics() {
+    private List<MetricSet> metrics() {
         if (metricsSet == null) {
-            metricsSet = unwrapIgniteImpl(node(0)).metricManager().metricSnapshot().metrics().get(SqlQueryMetricSource.NAME);
+            metricsSet = CLUSTER.runningNodes()
+                    .map(node -> unwrapIgniteImpl(node).metricManager().metricSnapshot().metrics().get(SqlQueryMetricSource.NAME))
+                    .collect(Collectors.toUnmodifiableList());
         }
+
         return metricsSet;
     }
 
@@ -135,11 +140,10 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
                     success0, failed0, cancelled0, timedout0);
 
             SQLException err;
-            int timeoutMillis = 200;
 
             try (var stmt = conn.createStatement()) {
                 JdbcStatement jdbc = stmt.unwrap(JdbcStatement.class);
-                jdbc.timeout(timeoutMillis);
+                jdbc.setQueryTimeout(1);
 
                 // Start a script
                 err = assertThrows(SQLException.class, () -> {
@@ -155,7 +159,7 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
                     assertTrue(stmt.getMoreResults());
                     try (var rs = stmt.getResultSet()) {
                         // Introduce a delay to trigger a timeout.
-                        TimeUnit.MILLISECONDS.sleep(timeoutMillis * 2);
+                        TimeUnit.SECONDS.sleep(2);
 
                         // Triggers the timeout
                         while (rs.next()) {
@@ -198,9 +202,12 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
     }
 
     private long metricValue(String name) {
-        LongMetric metric = metrics().get(name);
-        Objects.requireNonNull(metric, "metric does not exist: " + name);
+        return metrics().stream().mapToLong(metrics -> {
+            LongMetric metric = metrics.get(name);
 
-        return metric.value();
+            assertNotNull(metric);
+
+            return metric.value();
+        }).sum();
     }
 }

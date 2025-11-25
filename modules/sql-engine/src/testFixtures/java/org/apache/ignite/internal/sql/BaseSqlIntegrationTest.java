@@ -283,7 +283,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
      */
     protected void waitUntilRunningQueriesCount(Matcher<Integer> matcher) {
-        SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor(), matcher);
+        SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, matcher);
     }
 
     /**

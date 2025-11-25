@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 
 /**
@@ -33,5 +33,5 @@ public interface FinalTransactionStateResolver {
      * @param transactionId Transaction ID.
      * @param commitGroupId Commit partition ID.
      */
-    CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ReplicationGroupId commitGroupId);
+    CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ZonePartitionId commitGroupId);
 }

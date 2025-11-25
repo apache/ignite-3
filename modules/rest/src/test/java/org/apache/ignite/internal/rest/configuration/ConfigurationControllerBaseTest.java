@@ -17,26 +17,25 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
+import static io.micronaut.http.HttpStatus.BAD_REQUEST;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.List;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.InvalidParam;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -108,56 +107,32 @@ public abstract class ConfigurationControllerBaseTest {
 
     @Test
     void testUnrecognizedConfigPath() {
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client().toBlocking().exchange("/no-such-root.some-value")
+        assertThrowsProblem(
+                () -> client().toBlocking().exchange("/no-such-root.some-value"),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Configuration value 'no-such-root' has not been found")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-
-        var problem = getProblem(thrown);
-        assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("Configuration value 'no-such-root' has not been found"));
     }
 
     @Test
     void testUnrecognizedConfigPathForUpdate() {
         String givenBrokenConfig = "{root:{foo:foo,subCfg:{no-such-bar:bar}}}";
 
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client().toBlocking().exchange(HttpRequest.PATCH("", givenBrokenConfig).contentType(MediaType.TEXT_PLAIN))
+        assertThrowsProblem(
+                () -> client().toBlocking().exchange(HttpRequest.PATCH("", givenBrokenConfig).contentType(MediaType.TEXT_PLAIN)),
+                isProblem().withStatus(BAD_REQUEST)
+                        .withDetail("'root.subCfg' configuration doesn't have the 'no-such-bar' sub-configuration")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-
-        var problem = getProblem(thrown);
-        assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("'root.subCfg' configuration doesn't have the 'no-such-bar' sub-configuration"));
     }
 
     @Test
     void testValidationForUpdate() {
         String givenConfigWithError = "{root:{foo:error,subCfg:{bar:bar}}}";
 
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client().toBlocking().exchange(HttpRequest.PATCH("", givenConfigWithError).contentType(MediaType.TEXT_PLAIN))
+        assertThrowsProblem(
+                () -> client().toBlocking().exchange(HttpRequest.PATCH("", givenConfigWithError).contentType(MediaType.TEXT_PLAIN)),
+                isProblem().withStatus(BAD_REQUEST)
+                        .withDetail("Validation did not pass for keys: [root.foo, Error word]")
+                        .withInvalidParams(List.of(new InvalidParam("root.foo", "Error word")))
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-
-        var problem = getProblem(thrown);
-        assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("Validation did not pass for keys: [root.foo, Error word]"));
-        assertThat(problem.invalidParams(), hasSize(1));
-
-        InvalidParam invalidParam = problem.invalidParams().stream().findFirst().get();
-        assertEquals("root.foo", invalidParam.name());
-        assertEquals("Error word", invalidParam.reason());
-    }
-
-    private Problem getProblem(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(Problem.class).orElseThrow();
     }
 }

@@ -87,7 +87,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Client supports tx priority option for getAll/containsAll.
      */
-    TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS(12);
+    TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS(12),
+
+    /**
+     * Thin SQL client supports iteration over the results of script execution.
+     */
+    SQL_MULTISTATEMENT_SUPPORT(13);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
