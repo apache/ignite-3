@@ -15,4 +15,6 @@
  * limitations under the License.
  */
 
+apply from: "$rootDir/buildscripts/java-core.gradle"
+
 description = 'ignite-error-code-api'
