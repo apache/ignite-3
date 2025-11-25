@@ -69,7 +69,7 @@ public class BinaryTupleComparatorUtils {
                 return compareAsUuid(tuple1, tuple2, index);
 
             case STRING:
-                return compareAsString(tuple1, tuple2, index, false);
+                return compareAsString(tuple1, tuple2, index);
 
             case DECIMAL:
                 BigDecimal numeric1 = tuple1.decimalValue(index, Integer.MIN_VALUE);
@@ -329,11 +329,10 @@ public class BinaryTupleComparatorUtils {
      * @param tuple1 the first binary tuple reader
      * @param tuple2 the second binary tuple reader
      * @param colIndex the index of the column in the tuple to compare
-     * @param ignoreCase specifies whether the comparison should ignore case differences
      * @return a negative integer, zero, or a positive integer if the first tuple is less than, equal to,
      *         or greater than the second tuple, respectively
      */
-    static int compareAsString(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex, boolean ignoreCase) {
+    static int compareAsString(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
         tuple1.seek(colIndex);
         int begin1 = tuple1.begin();
         int end1 = tuple1.end();
@@ -342,7 +341,7 @@ public class BinaryTupleComparatorUtils {
         int begin2 = tuple2.begin();
         int end2 = tuple2.end();
 
-        return compareAsString(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2, ignoreCase);
+        return compareAsString(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2);
     }
 
     /**
@@ -354,15 +353,12 @@ public class BinaryTupleComparatorUtils {
      * @param buf2 Buffer accessor for the second tuple.
      * @param begin2 Begin position in the second tuple.
      * @param end2 End position in the second tuple.
-     * @param ignoreCase Case sensitivity flag.
      * @return Comparison result.
-     *
-     * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int, boolean)
+     * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int)
      */
-    public static int compareAsString(
+    static int compareAsString(
             ByteBufferAccessor buf1, int begin1, int end1,
-            ByteBufferAccessor buf2, int begin2, int end2,
-            boolean ignoreCase
+            ByteBufferAccessor buf2, int begin2, int end2
     ) {
         if (buf1.get(begin1) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin1++;
@@ -387,8 +383,7 @@ public class BinaryTupleComparatorUtils {
                 buf2,
                 begin2,
                 fullStrLength2,
-                trimmedSize2,
-                ignoreCase
+                trimmedSize2
         );
 
         if (asciiResult != Integer.MIN_VALUE) {
@@ -404,26 +399,8 @@ public class BinaryTupleComparatorUtils {
                 buf2,
                 begin2,
                 fullStrLength2,
-                trimmedSize2,
-                ignoreCase
+                trimmedSize2
         );
-    }
-
-    /**
-     * Compares string values of two binary tuples. Case sensitive.
-     *
-     * @param buf1 Buffer accessor for the first tuple.
-     * @param begin1 Begin position in the first tuple.
-     * @param end1 End position in the first tuple.
-     * @param buf2 Buffer accessor for the second tuple.
-     * @param begin2 Begin position in the second tuple.
-     * @param end2 End position in the second tuple.
-     * @return Comparison result.
-     *
-     * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int, boolean)
-     */
-    public static int compareAsString(ByteBufferAccessor buf1, int begin1, int end1, ByteBufferAccessor buf2, int begin2, int end2) {
-        return compareAsString(buf1, begin1, end1, buf2, begin2, end2, false);
     }
 
     /**
@@ -496,7 +473,6 @@ public class BinaryTupleComparatorUtils {
      * @param begin2 the starting position of the second string in the buffer
      * @param fullStrLength2 the full length of the second string in characters
      * @param trimmedSize2 the size limit of the second string in bytes used for comparison
-     * @param ignoreCase specifies whether the comparison should ignore case differences
      * @return a negative integer if the first string is less than the second string,
      *         zero if they are equal, or a positive integer if the first string is
      *         greater than the second string. Returns 0 if either string is truncated
@@ -510,8 +486,7 @@ public class BinaryTupleComparatorUtils {
             ByteBufferAccessor buf2,
             int begin2,
             int fullStrLength2,
-            int trimmedSize2,
-            boolean ignoreCase
+            int trimmedSize2
     ) {
         int remaining = Math.min(trimmedSize1, trimmedSize2);
 
@@ -531,15 +506,7 @@ public class BinaryTupleComparatorUtils {
             char v2 = (char) cp2;
 
             if (v1 != v2) {
-                if (ignoreCase) {
-                    char upper1 = Character.toUpperCase(v1);
-                    char upper2 = Character.toUpperCase(v2);
-                    if (upper1 != upper2) {
-                        return signum(upper1 - upper2);
-                    }
-                } else {
-                    return signum(v1 - v2);
-                }
+                return signum(v1 - v2);
             }
         }
 
@@ -564,7 +531,6 @@ public class BinaryTupleComparatorUtils {
      * @param begin2 the starting position of the second ASCII sequence in the buffer
      * @param fullStrLength2 the full length of the second ASCII sequence in characters
      * @param trimmedSize2 the size limit of the second sequence used for comparison
-     * @param ignoreCase specifies whether the comparison should ignore case differences
      * @return a negative integer if the first sequence is less than the second sequence,
      *         zero if they are equal, or a positive integer if the first sequence is greater.
      *         If either sequence contains non-ASCII characters, returns Integer.MIN_VALUE.
@@ -578,11 +544,26 @@ public class BinaryTupleComparatorUtils {
             ByteBufferAccessor buf2,
             int begin2,
             int fullStrLength2,
-            int trimmedSize2,
-            boolean ignoreCase
+            int trimmedSize2
     ) {
         int i = 0;
         int remaining = Math.min(trimmedSize1, trimmedSize2);
+
+        while (i + Long.BYTES < remaining) {
+            long w1 = buf1.getLong(begin1 + i);
+            long w2 = buf2.getLong(begin2 + i);
+
+            if (((w1 | w2) & 0x8080808080808080L) != 0) {
+                return Integer.MIN_VALUE;
+            }
+
+            if (w1 != w2) {
+                // Big endian comparison of 8 ASCII characters. None of the bytes have a sign bit set, so no masks required.
+                return Long.compare(Long.reverseBytes(w1), Long.reverseBytes(w2));
+            }
+
+            i += Long.BYTES;
+        }
 
         while (i < remaining) {
             byte b1 = buf1.get(begin1 + i);
@@ -599,15 +580,7 @@ public class BinaryTupleComparatorUtils {
             i++;
 
             if (v1 != v2) {
-                if (ignoreCase) {
-                    char upper1 = Character.toUpperCase(v1);
-                    char upper2 = Character.toUpperCase(v2);
-                    if (upper1 != upper2) {
-                        return signum(upper1 - upper2);
-                    }
-                } else {
-                    return signum(v1 - v2);
-                }
+                return signum(v1 - v2);
             }
         }
 
