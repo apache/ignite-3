@@ -78,7 +78,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link ConfigurationStorage} based on local file configuration storage.
  */
-public class LocalFileConfigurationStorage implements ConfigurationStorage {
+public class LocalFileConfigurationStorage implements LocalConfigurationStorage {
     private static final IgniteLogger LOG = Loggers.forClass(LocalFileConfigurationStorage.class);
 
     /** Path to config file. */
@@ -131,7 +131,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param module Configuration module, which provides configuration patches.
      */
     public LocalFileConfigurationStorage(
-            String nodeName, Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
+            String nodeName,
+            Path configPath,
+            ConfigurationTreeGenerator generator,
+            @Nullable ConfigurationModule module
+    ) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
@@ -309,16 +313,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     private void saveConfigFile() {
-        if (!Files.isWritable(configPath)) {
-            NodeConfigWriteException e = new NodeConfigWriteException(
-                    "The configuration file is read-only, so changes cannot be applied. "
-                            + "Check your system configuration. "
-                            + "If you are using containerization, such as Kubernetes, "
-                            + "the file can only be modified through native Kubernetes methods."
-            );
-            LOG.warn("The config file " + configPath + " is not writable", e);
-            throw e;
-        }
         try {
             Files.write(
                     tempConfigPath,
@@ -401,5 +395,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         );
 
         futureTracker.registerFuture(future);
+    }
+
+    @Override
+    public boolean userModificationsAllowed() {
+        return true;
     }
 }

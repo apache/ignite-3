@@ -55,6 +55,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.NodeConfig;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -66,6 +67,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
+import org.apache.ignite.internal.app.config.ConfigurationStorageFactory;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
@@ -117,9 +119,10 @@ import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfig
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
+import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
@@ -522,7 +525,7 @@ public class IgniteImpl implements Ignite {
      * The Constructor.
      *
      * @param node Embedded node.
-     * @param configPath Path to node configuration in the HOCON format.
+     * @param nodeConfig Path to node configuration in the HOCON format.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
@@ -531,7 +534,7 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(
             IgniteServer node,
             ServerRestarter restarter,
-            Path configPath,
+            NodeConfig nodeConfig,
             Path workDir,
             @Nullable ClassLoader serviceProviderClassLoader,
             Executor asyncContinuationExecutor
@@ -559,19 +562,16 @@ public class IgniteImpl implements Ignite {
                 modules.local().polymorphicSchemaExtensions()
         );
 
-        LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
-                name,
-                configPath,
-                localConfigurationGenerator,
-                modules.local()
-        );
+        ConfigurationStorageFactory storageFactory = new ConfigurationStorageFactory(name, localConfigurationGenerator, vaultMgr, modules);
+
+        LocalConfigurationStorage localConfigurationStorage = nodeConfig.visit(storageFactory);
 
         ConfigurationValidator localConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
 
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                localFileConfigurationStorage,
+                localConfigurationStorage,
                 localConfigurationGenerator,
                 localConfigurationValidator,
                 modules.local()::migrateDeprecatedConfigurations,
@@ -582,12 +582,14 @@ public class IgniteImpl implements Ignite {
         try {
             lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
         } catch (NodeStoppingException e) {
-            throw new AssertionError(String.format("Unexpected exception: [nodeName=%s, configPath=%s]", name, configPath), e);
+            throw new AssertionError(String.format("Unexpected exception: [nodeName=%s, configPath=%s]", name, nodeConfig), e);
         }
 
-        LOG.info("Starting node: [name={}, workDir={}, configPath={}]", name, workDir, configPath);
+        LOG.info("Starting node: [name={}, workDir={}, configPath={}]", name, workDir, nodeConfig);
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
+
+        new HoconPresentation(nodeConfigRegistry).update(nodeConfig.initialContent());
 
         LOG.info("Local node configuration: {}", convertToHoconString(nodeConfigRegistry));
 
