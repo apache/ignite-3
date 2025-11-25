@@ -10,9 +10,9 @@
 #include "ignite/protocol/protocol_version.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
+#include "response_action.h"
 #include "tcp_client_channel.h"
 
-#include <arpa/inet.h>
 #include <atomic>
 #include <cstring>
 #include <ignite/common/ignite_error.h>
@@ -28,8 +28,13 @@ using raw_msg = std::vector<std::byte>;
 
 class fake_server {
 public:
-    explicit fake_server(int srv_port = 10800)
-        : m_srv_port(srv_port) {}
+    explicit fake_server(
+        int srv_port = 10800,
+        std::function<std::unique_ptr<response_action>(protocol::client_operation)> op_type_handler = nullptr
+        )
+        : m_srv_port(srv_port)
+        , m_op_type_handler(op_type_handler)
+    {}
 
     ~fake_server() {
         m_stopped.store(true);
@@ -73,6 +78,11 @@ private:
     const int m_srv_port;
     std::unique_ptr<std::thread> m_io_thread{};
     std::unique_ptr<tcp_client_channel> m_client_channel{};
+
+    /**
+     * Allows developer to define custom action on requests according to their type.
+     */
+    std::function<std::unique_ptr<response_action>(protocol::client_operation)> m_op_type_handler;
 
     void start_socket() {
         m_srv_fd = socket(AF_INET, SOCK_STREAM, 6);
@@ -196,8 +206,7 @@ private:
         std::cout << "Server handshake message sent" << std::endl;
     }
 
-    void send_response(int64_t req_id, std::function<void(protocol::writer &wr)> body) {
-        std::vector<std::byte> resp{};
+    void write_response(std::vector<std::byte>& resp, int64_t req_id, std::function<void(protocol::writer &wr)> body) {
         protocol::buffer_adapter buf(resp);
         protocol::writer wr(buf);
 
@@ -210,11 +219,21 @@ private:
         body(wr);
 
         buf.write_length_header();
-        m_client_channel->send_message(resp);
     }
 
     void handle_requests() {
         using protocol::client_operation;
+
+        struct delayed_response {
+            std::chrono::time_point<std::chrono::steady_clock> time_point;
+            std::vector<std::byte> response;
+        };
+
+        auto cmp = [](delayed_response& lhs, delayed_response& rhs) {
+            return lhs.time_point < rhs.time_point;
+        };
+
+        std::priority_queue<delayed_response, std::vector<delayed_response>, decltype(cmp)> delayed_responses(cmp);
 
         while (!m_stopped) {
             auto size_header = m_client_channel->read_next_n_bytes(4);
@@ -243,11 +262,12 @@ private:
             std::cout << "Received message of size " << msg_size << " Operation type = " << static_cast<int>(op_code)
                       << " req_id = " << req_id << std::endl;
 
+            std::vector<std::byte> resp;
             switch (op) {
                 case client_operation::HEARTBEAT: {
                     auto body = [](protocol::writer &wr) {};
 
-                    send_response(req_id, body);
+                    write_response(resp, req_id, body);
                 } break;
 
                 case client_operation::CLUSTER_GET_NODES: {
@@ -260,12 +280,38 @@ private:
                         wr.write(static_cast<int16_t>(10800));
                     };
 
-                    send_response(req_id, body);
+                    write_response(resp, req_id, body);
                 } break;
                 default:
                     std::stringstream ss;
                     ss << "Unsupported fake server operation:" << static_cast<int>(op);
                     throw ignite_error(ss.str());
+            }
+
+            auto request_action = m_op_type_handler ? m_op_type_handler(op) : nullptr;
+
+            if (request_action) {
+                if (request_action->type() == DROP) {
+                    // ignore that response
+                }
+
+                if (request_action->type() == DELAY) {
+
+                    if (auto delay_action = dynamic_cast<delayed_action*>(request_action.get())) {
+                        auto time_point = std::chrono::steady_clock::now() + delay_action->delay();
+
+                        delayed_responses.push({time_point, resp});
+                    }
+                }
+            } else {
+                m_client_channel->send_message(resp);
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            while (!delayed_responses.empty() && delayed_responses.top().time_point < now) {
+                m_client_channel->send_message(delayed_responses.top().response);
+
+                delayed_responses.pop();
             }
         }
     }

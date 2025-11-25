@@ -23,6 +23,7 @@ set(SOURCES
     main.cpp
     fake_server.cpp
     tcp_client_channel.cpp
+    response_action.cpp
     connection_test.cpp
 )
 

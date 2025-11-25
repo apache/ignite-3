@@ -187,6 +187,10 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
         plan_heartbeat(m_heartbeat_interval);
     }
 
+    if (m_configuration.get_operation_timeout().count() > 0) {
+        handle_timeouts();
+    }
+
     return {};
 }
 
@@ -211,29 +215,40 @@ std::shared_ptr<response_handler> node_connection::find_handler_unsafe(std::int6
     return it->second.handler;
 }
 
-
 void node_connection::handle_timeouts() {
-    std::lock_guard lock(m_request_handlers_mutex);
-
     auto now = std::chrono::steady_clock::now();
 
-    std::vector<int64_t> keys_for_erasure;
+    {
+        std::lock_guard lock(m_request_handlers_mutex);
 
-    for (auto& [id, req] : m_request_handlers) {
-        if (req.timeouts_at > now) {
+        std::vector<int64_t> keys_for_erasure;
 
-            auto res = req.handler->set_error(ignite_error("TIMEOUT!")); // TODO fix wording
+        for (auto& [id, req] : m_request_handlers) {
+            if (req.timeouts_at > now) {
 
-            keys_for_erasure.push_back(id);
+                auto res = req.handler->set_error(ignite_error("TIMEOUT!")); // TODO fix wording
 
-            if (res.has_error())
-                this->m_logger->log_error(
-                    "Uncaught user callback exception while handling operation error: " + res.error().what_str());
+                keys_for_erasure.push_back(id);
+
+                if (res.has_error())
+                    this->m_logger->log_error(
+                        "Uncaught user callback exception while handling operation error: " + res.error().what_str());
+            }
+        }
+
+        for (int64_t key : keys_for_erasure) {
+            m_request_handlers.erase(key);
         }
     }
 
-    for (int64_t key : keys_for_erasure) {
-        m_request_handlers.erase(key);
+    if (auto timeout = m_configuration.get_operation_timeout(); timeout.count() > 0) {
+        if (auto timer_thread = m_timer_thread.lock()) {
+            timer_thread->add(timeout, [self_weak = weak_from_this()] {
+                if (auto self = self_weak.lock()) {
+                    self->handle_timeouts();
+                }
+            });
+        }
     }
 }
 

@@ -51,18 +51,17 @@ public:
 
     struct pending_request {
         /** Handler function for request */
-        std::shared_ptr<response_handler> handler;
+        std::shared_ptr<response_handler> handler = nullptr;
 
         /**
          * Optional request timeout.
          * When provided contains time point after which request would be considered as timed out.
          */
-        std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at;
+        std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at = std::nullopt;
 
         explicit pending_request(
-            std::shared_ptr<response_handler> handler = nullptr,
-            std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at = std::nullopt
-            )
+            std::shared_ptr<response_handler> handler,
+            std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeouts_at)
             : handler(std::move(handler))
             , timeouts_at(timeouts_at) {}
     };
@@ -127,8 +126,7 @@ public:
     [[nodiscard]] std::optional<std::int64_t> perform_request(
         protocol::client_operation op,
         const writer_function_type &wr,
-        std::shared_ptr<response_handler> handler,
-        std::chrono::milliseconds timeout)
+        std::shared_ptr<response_handler> handler)
     {
         auto req_id = generate_request_id();
         std::vector<std::byte> message;
@@ -144,9 +142,14 @@ public:
             buffer.write_length_header();
         }
 
+        std::optional<std::chrono::time_point<std::chrono::steady_clock>> timeout{};
+        if (m_configuration.get_operation_timeout().count() > 0) {
+            timeout = std::chrono::steady_clock::now() + m_configuration.get_operation_timeout();
+        }
+
         {
             std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
-            m_request_handlers[req_id] = pending_request(std::move(handler));
+            m_request_handlers.emplace(req_id, pending_request(std::move(handler), timeout));
         }
 
         if (m_logger->is_debug_enabled()) {
@@ -159,8 +162,6 @@ public:
             get_and_remove_handler(req_id);
             return {};
         }
-         if (timeout.count() != 0) {
-         }
 
         return {req_id};
     }
@@ -182,7 +183,7 @@ public:
         std::function<T(protocol::reader &)> rd,
         ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
-        return perform_request(op, wr, std::move(handler), m_configuration.get_operation_timeout());
+        return perform_request(op, wr, std::move(handler));
     }
 
     /**
