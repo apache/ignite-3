@@ -106,7 +106,7 @@ public interface VersionChainIo {
         putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
 
         UUID txId = row.transactionId();
-        Integer commitTableId = row.commitTableId();
+        Integer commitTableId = row.commitZoneId();
         int commitPartitionId = row.commitPartitionId();
 
         if (txId == null) {

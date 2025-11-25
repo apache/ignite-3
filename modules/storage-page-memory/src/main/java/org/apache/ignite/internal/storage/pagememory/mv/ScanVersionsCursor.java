@@ -115,7 +115,7 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
                     rowId,
                     rowVersion.value(),
                     versionChain.transactionId(),
-                    versionChain.commitTableId(),
+                    versionChain.commitZoneId(),
                     versionChain.commitPartitionId(),
                     null
             );

@@ -51,7 +51,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -69,8 +68,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -132,8 +129,6 @@ abstract class ChangeIndexStatusTask {
 
     private final FailureProcessor failureProcessor;
 
-    private final NodeProperties nodeProperties;
-
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
@@ -151,7 +146,6 @@ abstract class ChangeIndexStatusTask {
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -163,7 +157,6 @@ abstract class ChangeIndexStatusTask {
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
         this.failureProcessor = failureProcessor;
-        this.nodeProperties = nodeProperties;
         this.executor = executor;
         this.busyLock = busyLock;
     }
@@ -300,9 +293,7 @@ abstract class ChangeIndexStatusTask {
                 throw new IndexTaskStoppingException();
             }
 
-            ReplicationGroupId groupId = nodeProperties.colocationEnabled()
-                    ? new ZonePartitionId(tableDescriptor.zoneId(), 0)
-                    : new TablePartitionId(indexDescriptor.tableId(), 0);
+            ZonePartitionId groupId = new ZonePartitionId(tableDescriptor.zoneId(), 0);
 
             return placementDriver.awaitPrimaryReplica(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {

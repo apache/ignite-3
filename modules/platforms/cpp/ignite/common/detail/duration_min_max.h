@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster.exceptions;
+#pragma once
 
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
+#include <algorithm>
+#include <type_traits>
 
-import java.util.Set;
+namespace ignite::detail {
 
-/** Exception is thrown when appropriate zones can`t be found. */
-public class ZonesNotFoundException extends DisasterRecoveryException {
-    private static final long serialVersionUID = -8475588176132321568L;
-
-    public ZonesNotFoundException(Set<String> missingZoneNames) {
-        super(ZONE_NOT_FOUND_ERR, "Some distribution zones are missing: " + missingZoneNames);
-    }
+template<typename D1, typename D2>
+std::common_type_t<D1, D2> min(const D1& d1, const D2& d2) {
+    return std::min<std::common_type_t<D1, D2>>(d1, d2);
 }
+
+template<typename D1, typename D2>
+std::common_type_t<D1, D2> max(const D1& d1, const D2& d2) {
+    return std::max<std::common_type_t<D1, D2>>(d1, d2);
+}
+
+} // namespace ignite::detail

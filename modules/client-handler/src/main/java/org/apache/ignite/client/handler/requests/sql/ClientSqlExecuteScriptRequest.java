@@ -59,7 +59,7 @@ public class ClientSqlExecuteScriptRequest {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandleMap.put(requestId, cancelHandle);
 
-        ClientSqlProperties props = new ClientSqlProperties(in);
+        ClientSqlProperties props = new ClientSqlProperties(in, false);
         String script = in.unpackString();
         Object[] arguments = ClientSqlExecuteRequest.readArgsNotNull(in);
 

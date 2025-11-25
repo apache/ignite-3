@@ -141,8 +141,6 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -870,7 +868,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
 
-        Set<Assignment> union = RebalanceUtil.union(assignmentsBeforeRebalance, newAssignment);
+        Set<Assignment> union = ZoneRebalanceUtil.union(assignmentsBeforeRebalance, newAssignment);
 
         // Check that raft clients on all nodes were updated with the new list of peers.
         Predicate<Node> isNodeInReplicationGroup = n -> isNodeInAssignments(n, union);
@@ -1597,11 +1595,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
-                    threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.commonScheduler(),
                     clockService,
                     outgoingSnapshotManager,
-                    distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
                     failureManager,
@@ -1628,30 +1624,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
                             ? spy(new TestTxStateStorage())
                             : super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
-                }
-
-                @Override
-                protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
-                    ZonePartitionId partitionGroupId = getPartitionGroupId(evt);
-
-                    return super.handleChangeStableAssignmentEvent(evt)
-                            .whenComplete((v, e) -> {
-                                if (partitionGroupId == null) {
-                                    return;
-                                }
-
-                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(partitionGroupId);
-
-                                if (finishFuture == null) {
-                                    return;
-                                }
-
-                                if (e == null) {
-                                    finishFuture.complete(null);
-                                } else {
-                                    finishFuture.completeExceptionally(e);
-                                }
-                            });
                 }
             };
 
@@ -1995,8 +1967,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .map(listener -> {
                     if (listener instanceof ZoneRebalanceRaftGroupEventsListener) {
                         return ((ZoneRebalanceRaftGroupEventsListener) listener).currentRetryDelay();
-                    } else if (listener instanceof RebalanceRaftGroupEventsListener) {
-                        return ((RebalanceRaftGroupEventsListener) listener).currentRetryDelay();
                     } else {
                         // This value can be used, because configuration framework checks delay for positive value.
                         return -1;

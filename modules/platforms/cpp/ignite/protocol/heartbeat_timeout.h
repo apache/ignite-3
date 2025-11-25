@@ -15,13 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+#pragma once
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+#include <ignite/common/detail/duration_min_max.h>
 
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+#include <cassert>
+#include <chrono>
 
-// TODO: IGNITE-22522 - remove this class.
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
-class TableManagerWithColocationTest extends TableManagerTest {
+namespace ignite {
+
+inline std::chrono::milliseconds calculate_heartbeat_interval(std::chrono::milliseconds config_value,
+    std::chrono::milliseconds idle_timeout) {
+    static const std::chrono::milliseconds MIN_HEARTBEAT_INTERVAL = std::chrono::milliseconds(500);
+
+    if (config_value.count()) {
+        assert(config_value.count() > 0);
+
+        config_value = min(idle_timeout / 3, config_value);
+        config_value = max(MIN_HEARTBEAT_INTERVAL, config_value);
+    }
+
+    return config_value;
 }
+
+} // namespace ignite
