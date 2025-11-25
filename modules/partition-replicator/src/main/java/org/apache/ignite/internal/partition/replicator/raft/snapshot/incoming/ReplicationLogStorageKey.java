@@ -23,20 +23,20 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
-/** Helper class for destroying the replication log. */
-class DestroyReplicationLogStorageKey {
+/** Helper class for starting rebalancing for the replication log. */
+class ReplicationLogStorageKey {
     @IgniteToStringInclude
     private final ReplicationGroupId replicationGroupId;
 
     private final boolean isVolatile;
 
-    private DestroyReplicationLogStorageKey(ReplicationGroupId replicationGroupId, boolean isVolatile) {
+    private ReplicationLogStorageKey(ReplicationGroupId replicationGroupId, boolean isVolatile) {
         this.replicationGroupId = replicationGroupId;
         this.isVolatile = isVolatile;
     }
 
-    static DestroyReplicationLogStorageKey create(PartitionSnapshotStorage snapshotStorage, PartitionMvStorageAccess mvStorage) {
-        return new DestroyReplicationLogStorageKey(snapshotStorage.partitionKey().toReplicationGroupId(), mvStorage.isVolatile());
+    static ReplicationLogStorageKey create(PartitionSnapshotStorage snapshotStorage, PartitionMvStorageAccess mvStorage) {
+        return new ReplicationLogStorageKey(snapshotStorage.partitionKey().toReplicationGroupId(), mvStorage.isVolatile());
     }
 
     ReplicationGroupId replicationGroupId() {
@@ -57,7 +57,7 @@ class DestroyReplicationLogStorageKey {
             return false;
         }
 
-        DestroyReplicationLogStorageKey that = (DestroyReplicationLogStorageKey) o;
+        ReplicationLogStorageKey that = (ReplicationLogStorageKey) o;
 
         return isVolatile == that.isVolatile && replicationGroupId.equals(that.replicationGroupId);
     }
@@ -71,6 +71,6 @@ class DestroyReplicationLogStorageKey {
 
     @Override
     public String toString() {
-        return S.toString(DestroyReplicationLogStorageKey.class, this);
+        return S.toString(ReplicationLogStorageKey.class, this);
     }
 }

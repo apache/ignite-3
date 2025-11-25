@@ -66,6 +66,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfo;
 import org.apache.ignite.internal.partition.replicator.raft.PartitionSnapshotInfoSerializer;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
@@ -690,7 +691,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return allOf(
                     aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, snapshotContext),
                     partitionSnapshotStorage.txState().startRebalance()
-            ).thenComposeAsync(unused -> destroyReplicationLogStorages(snapshotContext), executor);
+            ).thenComposeAsync(unused -> startRebalanceForReplicationLogStorages(snapshotContext), executor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -739,31 +740,34 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
     }
 
-    private CompletableFuture<Void> destroyReplicationLogStorages(SnapshotContext snapshotContext) {
+    private CompletableFuture<Void> startRebalanceForReplicationLogStorages(SnapshotContext snapshotContext) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
 
         try {
-            Set<DestroyReplicationLogStorageKey> keys = collectDestroyReplicationLogStorageKeys(snapshotContext);
+            Set<ReplicationLogStorageKey> keys = collectReplicationLogStorageKeys(snapshotContext);
 
-            return runAsync(() -> inBusyLockSafe(busyLock, () -> keys.forEach(this::destroyReplicationLogStorage)), executor);
+            return runAsync(() -> inBusyLockSafe(busyLock, () -> keys.forEach(this::startRebalanceForReplicationLogStorage)), executor);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private Set<DestroyReplicationLogStorageKey> collectDestroyReplicationLogStorageKeys(SnapshotContext snapshotContext) {
+    private Set<ReplicationLogStorageKey> collectReplicationLogStorageKeys(SnapshotContext snapshotContext) {
         return snapshotContext.partitionsByTableId.values().stream()
-                .map(partitionMvStorage -> DestroyReplicationLogStorageKey.create(partitionSnapshotStorage, partitionMvStorage))
+                .map(partitionMvStorage -> ReplicationLogStorageKey.create(partitionSnapshotStorage, partitionMvStorage))
                 .collect(toSet());
     }
 
-    private void destroyReplicationLogStorage(DestroyReplicationLogStorageKey key) {
+    private void startRebalanceForReplicationLogStorage(ReplicationLogStorageKey key) {
         try {
-            partitionSnapshotStorage.logStorage().destroy(key.replicationGroupId(), key.isVolatile());
+            LogStorageAccess logStorage = partitionSnapshotStorage.logStorage();
+
+            logStorage.destroy(key.replicationGroupId(), key.isVolatile());
+            logStorage.createMetaStorage(key.replicationGroupId());
         } catch (Exception e) {
-            throw new IgniteInternalException(INTERNAL_ERR, "Failed to destroy replication log storage: {}", e, key);
+            throw new IgniteInternalException(INTERNAL_ERR, "Failed to start rebalance for replication log storage: {}", e, key);
         }
     }
 }

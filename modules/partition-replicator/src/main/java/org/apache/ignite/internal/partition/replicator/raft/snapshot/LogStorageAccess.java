@@ -29,4 +29,12 @@ public interface LogStorageAccess {
      * @throws Exception If there was an error during destruction.
      */
     void destroy(ReplicationGroupId replicationGroupId, boolean isVolatile) throws Exception;
+
+    /**
+     * Creates a replication log meta storage.
+     *
+     * @param replicationGroupId Replication group ID.
+     * @throws Exception If there was an error during creating meta storage.
+     */
+    void createMetaStorage(ReplicationGroupId replicationGroupId) throws Exception;
 }
