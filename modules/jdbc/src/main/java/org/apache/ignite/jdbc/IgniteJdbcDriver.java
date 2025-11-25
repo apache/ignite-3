@@ -36,7 +36,7 @@ import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.client.RetryReadPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.HostAndPort;
@@ -113,6 +113,19 @@ import org.jetbrains.annotations.Nullable;
  *      <td>connectionTimeout</td>
  *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
+ *   </tr>
+ *   <tr>
+ *      <td>reconnectInterval</td>
+ *      <td>Background reconnect interval, in milliseconds.
+ *          <br>The value {@code 0} can be used to disable background reconnection
+ *          <br>The default value is {@code 30 000}.</td>
+ *   </tr>
+ *   <tr>
+ *      <td>reconnectRetriesLimit</td>
+ *      <td>Maximum number of retry attempts to establish connection.
+ *          <br>The value {@code 0} means that no retries will be made.
+ *          <br>The value {@code -1} means that the number of retries is not limited
+ *          <br>The default value is {@code 16}.</td>
  *   </tr>
  *   <tr>
  *       <th colspan="2">Basic authentication</th>
@@ -303,11 +316,11 @@ public class IgniteJdbcDriver implements Driver {
                 null,
                 addresses,
                 networkTimeout,
-                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL,
+                connectionProperties.getReconnectInterval(),
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                new RetryLimitPolicy(),
+                new RetryReadPolicy().retryLimit(connectionProperties.getReconnectRetriesLimit()),
                 null,
                 extractSslConfiguration(connectionProperties),
                 false,

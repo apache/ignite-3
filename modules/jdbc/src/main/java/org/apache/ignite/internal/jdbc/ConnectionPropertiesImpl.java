@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
 import org.apache.ignite.client.IgniteClientConfiguration;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -69,6 +70,19 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             "Sets the number of milliseconds JDBC client will waits for server to response."
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
+
+    /** JDBC background reconnect interval. */
+    private final LongProperty reconnectInterval = new LongProperty("reconnectInterval",
+            "Sets the background reconnect interval."
+                    + " Zero means that background reconnect is disabled.",
+            IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL, false, 0, Long.MAX_VALUE);
+
+    /** JDBC maximum number of reconnect attempts. */
+    private final IntegerProperty reconnectRetriesLimit = new IntegerProperty("reconnectRetriesLimit",
+            "Sets the maximum number of retry attempts to establish connection."
+                    + " The value `0` means that no retries will be made."
+                    + " The value `-1` means that the number of retries is unlimited.",
+            RetryLimitPolicy.DFLT_RETRY_LIMIT, false, -1, Integer.MAX_VALUE);
 
     /** Path to the truststore. */
     private final StringProperty trustStorePath = new StringProperty("trustStorePath",
@@ -115,7 +129,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, ciphers, keyStorePath, keyStorePassword,
-            username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize
+            username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize,
+            reconnectInterval, reconnectRetriesLimit
     };
 
     /** {@inheritDoc} */
@@ -202,6 +217,18 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setConnectionTimeout(@Nullable Integer timeout) throws SQLException {
         connTimeout.setValue(timeout);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long getReconnectInterval() {
+        return reconnectInterval.value();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getReconnectRetriesLimit() {
+        return reconnectRetriesLimit.value();
     }
 
     /** {@inheritDoc} */

@@ -72,6 +72,8 @@ jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;param
 ** `partitionAwarenessMetadataCacheSize` - Size of cache to store partition awareness metadata of queries, in number of entries. Default value: `1024`.
 ** `queryTimeout` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
 ** `connectionTimeout` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
+** `reconnectInterval` - Background reconnect interval, in milliseconds. `0` means that background reconnect is disabled. Default value: `30_000`.
+** `reconnectRetriesLimit` - Maximum number of retry attempts to establish connection. `0` means that no retries will be made. `-1` means that the number of retries is not limited. Default value: `16`.
 ** `username` - username for basic authentication to the cluster.
 ** `password` - user password for basic authentication to the cluster.
 ** `sslEnabled` - Determines if SSL is enabled. Possible values: `true`, `false`. Default value: `false`
