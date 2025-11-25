@@ -47,6 +47,7 @@ import org.apache.ignite.internal.table.message.GetEstimatedSizeWithLastModified
 import org.apache.ignite.internal.table.message.PartitionModificationInfoMessage;
 import org.apache.ignite.internal.table.message.TableMessageGroup;
 import org.apache.ignite.internal.table.message.TableMessagesFactory;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Statistic aggregator. */
@@ -216,6 +217,31 @@ public class StatisticAggregatorImpl implements
 
         int partitionId() {
             return partitionId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TablePartitionIdentifier that = (TablePartitionIdentifier) o;
+            return tableId == that.tableId && partitionId == that.partitionId;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 31 + partitionId;
+            hash += hash * 31 + tableId;
+
+            return hash;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(TablePartitionIdentifier.class, this);
         }
     }
 }
