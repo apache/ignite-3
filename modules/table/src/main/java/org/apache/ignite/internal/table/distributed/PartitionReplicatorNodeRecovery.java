@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.table.distributed;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.message.DataPresence;
@@ -35,23 +32,11 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.TableViewInternal;
 
-/**
- * Code specific to recovering a partition replicator group node. This includes a case when we lost metadata
- * that is required for the replication protocol (for instance, for RAFT it's about group metadata).
- */
-// TODO sanpwc cleanup imports, etc.
+
 class PartitionReplicatorNodeRecovery {
-    private static final long QUERY_DATA_NODES_COUNT_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
-
-    private static final long PEERS_IN_TOPOLOGY_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
-
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
 
-    private final MetaStorageManager metaStorageManager;
-
     private final MessagingService messagingService;
-
-    private final TopologyService topologyService;
 
     private final Executor storageAccessExecutor;
 
@@ -59,15 +44,11 @@ class PartitionReplicatorNodeRecovery {
     private final IntFunction<TableViewInternal> tableById;
 
     PartitionReplicatorNodeRecovery(
-            MetaStorageManager metaStorageManager,
             MessagingService messagingService,
-            TopologyService topologyService,
             Executor storageAccessExecutor,
             IntFunction<TableViewInternal> tableById
     ) {
-        this.metaStorageManager = metaStorageManager;
         this.messagingService = messagingService;
-        this.topologyService = topologyService;
         this.storageAccessExecutor = storageAccessExecutor;
         this.tableById = tableById;
     }

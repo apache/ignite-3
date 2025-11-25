@@ -535,9 +535,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
-                metaStorageMgr,
                 messagingService,
-                topologyService,
                 partitionOperationsExecutor,
                 tableId -> tablesById().get(tableId)
         );
@@ -1610,7 +1608,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
             );
 
-            // TODO sanpwc Consider removing waitForMetadataCompleteness
+            // TODO IGNITE-22522 Consider removing, not sure though.
             return waitForMetadataCompleteness(assignmentsTimestamp);
         }), ioExecutor);
     }
@@ -2221,7 +2219,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param revision Metastore revision.
      * @return Operation future.
      */
-    // TODO sanpwc Remove and check whether tests will fail.
+    // TODO IGNITE-22522 Consider removing, not sure though.
     public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision, long assignmentsTimestamp) {
         return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
             TableViewInternal table = tables.get(tablePartitionId.tableId());
@@ -2232,7 +2230,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
-                // TODO sanpwc consider removing waitForMetadataCompleteness.
+                // TODO IGNITE-22522 Consider removing, not sure though.
                 return waitForMetadataCompleteness(assignmentsTimestamp);
             }, ioExecutor);
         }), ioExecutor));

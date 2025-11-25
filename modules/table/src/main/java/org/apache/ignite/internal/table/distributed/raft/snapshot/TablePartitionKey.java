@@ -24,7 +24,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Uniquely identifies a partition. This is a pair of internal table ID and partition number (aka partition ID).
  */
-// TODO sanpwc Consider removing.
+// TODO IGNITE-22522 Remove
 public class TablePartitionKey implements PartitionKey {
     private final int tableId;
 
