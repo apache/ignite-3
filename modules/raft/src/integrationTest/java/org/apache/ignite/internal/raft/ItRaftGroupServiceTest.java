@@ -70,6 +70,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.CoalescedHeartbeatRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -169,7 +170,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }, 10_000));
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testChangePeersAndLearnersAsync(TestInfo testInfo) throws InterruptedException {
         // Start some new followers.
         List<TestNode> newFollowers = List.of(startNode(testInfo), startNode(testInfo));
