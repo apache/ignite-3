@@ -58,6 +58,7 @@ public class CompactionMetricsTracker {
     public void onPageSkipped() {
         DATA_PAGES_SKIPPED_UPDATER.incrementAndGet(this);
     }
+
     /**
      * Callback on compaction end.
      *
