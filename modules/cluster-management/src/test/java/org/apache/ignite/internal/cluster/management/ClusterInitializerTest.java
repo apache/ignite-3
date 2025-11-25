@@ -43,7 +43,6 @@ import org.apache.ignite.internal.cluster.management.network.messages.CancelInit
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -88,8 +87,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         clusterInitializer = new ClusterInitializer(
                 clusterService,
                 hocon -> hocon,
-                new TestConfigurationValidator(),
-                new SystemPropertiesNodeProperties()
+                new TestConfigurationValidator()
         );
     }
 

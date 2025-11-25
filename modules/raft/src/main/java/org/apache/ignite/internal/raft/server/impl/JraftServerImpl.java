@@ -721,14 +721,14 @@ public class JraftServerImpl implements RaftServer {
      * @param raftNodeId Raft node ID.
      * @param peersAndLearners New node configuration.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
+    public Status resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
         RaftGroupService raftGroupService = nodes.get(raftNodeId);
 
         List<PeerId> peerIds = peersAndLearners.peers().stream().map(PeerId::fromPeer).collect(toList());
 
         List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
 
-        raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds, sequenceToken));
+        return raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds, sequenceToken));
     }
 
     /**

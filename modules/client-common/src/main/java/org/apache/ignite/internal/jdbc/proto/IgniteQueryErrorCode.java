@@ -65,6 +65,7 @@ public final class IgniteQueryErrorCode {
      * @see <a href="http://en.wikibooks.org/wiki/Structured_Query_Language/SQLSTATE">Wikipedia: SQLSTATE spec.</a>
      * @see IgniteQueryErrorCode
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-15247 Map Ignite error codes to specific JDBC SQL state codes
     public static String codeToSqlState(int statusCode) {
         switch (statusCode) {
             case UNSUPPORTED_OPERATION:

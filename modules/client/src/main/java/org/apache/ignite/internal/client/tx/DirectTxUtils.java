@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.client.tx;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
+import static org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions.READ_ONLY;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.util.EnumSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
@@ -34,6 +37,8 @@ import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -129,8 +134,27 @@ public class DirectTxUtils {
                     ClientLazyTransaction tx0 = (ClientLazyTransaction) tx;
                     out.out().packLong(TX_ID_FIRST_DIRECT);
                     out.out().packLong(tx0.observableTimestamp());
-                    out.out().packBoolean(tx.isReadOnly());
-                    out.out().packLong(tx0.timeout());
+
+                    if (ctx.channel.protocolContext().isFeatureSupported(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS)
+                            && (ctx.opCode == ClientOp.TUPLE_GET_ALL || ctx.opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS)) {
+                        // Use changed pack order for timeout and options.
+                        out.out().packLong(tx0.timeout());
+                        EnumSet<ClientInternalTxOptions> opts = tx0.options();
+                        // Try avoid to allocate new objects for unrelated transactions.
+                        int mask = 0;
+                        if (tx0.isReadOnly()) {
+                            mask |= READ_ONLY.mask();
+                        }
+                        if (opts != null) {
+                            for (ClientInternalTxOptions opt : opts) {
+                                mask |= opt.mask();
+                            }
+                        }
+                        out.out().packInt(mask);
+                    } else {
+                        out.out().packBoolean(tx.isReadOnly());
+                        out.out().packLong(tx0.timeout());
+                    }
                 } else {
                     ClientTransaction tx0 = ClientTransaction.get(tx);
                     out.out().packLong(TX_ID_DIRECT);

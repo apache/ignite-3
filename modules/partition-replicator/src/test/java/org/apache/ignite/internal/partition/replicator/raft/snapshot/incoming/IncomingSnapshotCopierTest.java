@@ -500,7 +500,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
-                    commitTableOrZoneId = readResult.commitTableOrZoneId();
+                    commitTableOrZoneId = readResult.commitZoneId();
                     commitPartitionId = readResult.commitPartitionId();
                 } else {
                     timestamps[j++] = readResult.commitTimestamp().longValue();
@@ -551,7 +551,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 assertEquals(expReadResult.commitTimestamp(), actReadResult.commitTimestamp(), msg);
                 assertEquals(expReadResult.transactionId(), actReadResult.transactionId(), msg);
-                assertEquals(expReadResult.commitTableOrZoneId(), actReadResult.commitTableOrZoneId(), msg);
+                assertEquals(expReadResult.commitZoneId(), actReadResult.commitZoneId(), msg);
                 assertEquals(expReadResult.commitPartitionId(), actReadResult.commitPartitionId(), msg);
                 assertEquals(expReadResult.isWriteIntent(), actReadResult.isWriteIntent(), msg);
             }

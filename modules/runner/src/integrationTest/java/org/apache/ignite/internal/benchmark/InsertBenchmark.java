@@ -287,7 +287,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
             String queryStr = createInsertStatement();
 
             //noinspection CallToDriverManagerGetConnection
-            conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+            conn = DriverManager.getConnection("jdbc:ignite:thin://" + String.join(",", getServerEndpoints(clusterSize)));
 
             stmt = conn.prepareStatement(queryStr);
         }

@@ -155,8 +155,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         mappingService.onTopologyLeap(logicalTopology.getLogicalTopology());
 
-        List<MappedFragment> defaultMapping = await(mappingService.map(PLAN, PARAMS));
-        List<MappedFragment> mappingOnBackups = await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS));
+        MappedFragments defaultMapping = await(mappingService.map(PLAN, PARAMS));
+        MappedFragments mappingOnBackups = await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS));
 
         verify(execProvider, times(2)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
 
@@ -175,7 +175,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         MappingServiceImpl mappingService = createMappingServiceNoCache(localNodeName, List.of(localNodeName));
 
-        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN, PARAMS);
+        CompletableFuture<MappedFragments> mappingFuture = mappingService.map(PLAN, PARAMS);
 
         assertThat(mappingFuture, willSucceedFast());
     }
@@ -187,11 +187,11 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         MappingService service = createMappingService(localNodeName, nodeNames, 100);
 
-        List<MappedFragment> defaultMapping = await(service.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
+        MappedFragments defaultMapping = await(service.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
 
-        assertThat(defaultMapping, hasSize(2));
+        assertThat(defaultMapping.fragments(), hasSize(2));
 
-        MappedFragment leafFragment = defaultMapping.stream()
+        MappedFragment leafFragment = defaultMapping.fragments().stream()
                 .filter(fragment -> !fragment.fragment().rootFragment())
                 .findFirst()
                 .orElseThrow();
@@ -201,11 +201,11 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         String nodeToExclude = leafFragment.nodes().get(0);
 
         MappingParameters params = MappingParameters.create(new Object[0], false, nodeToExclude::equals);
-        List<MappedFragment> mappingWithExclusion = await(service.map(PLAN_WITH_SYSTEM_VIEW, params));
+        MappedFragments mappingWithExclusion = await(service.map(PLAN_WITH_SYSTEM_VIEW, params));
 
         assertNotSame(defaultMapping, mappingWithExclusion);
 
-        for (MappedFragment fragment : mappingWithExclusion) {
+        for (MappedFragment fragment : mappingWithExclusion.fragments()) {
             assertThat(nodeToExclude, not(in(fragment.nodes())));
         }
     }
@@ -233,8 +233,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         mappingService.onTopologyLeap(logicalTopology.getLogicalTopology());
 
-        List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
-        List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
+        MappedFragments tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
+        MappedFragments sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
 
         verify(execProvider, times(1)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
         verify(execProvider, times(1)).forSystemView(any());
@@ -297,7 +297,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 Runnable::run
         ));
 
-        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
+        MappedFragments mappedFragments = await(mappingService.map(PLAN, PARAMS));
         verify(execProvider, times(1)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
@@ -349,7 +349,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         mappingService.onTopologyLeap(logicalTopology.getLogicalTopology());
 
-        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
+        MappedFragments mappedFragments = await(mappingService.map(PLAN, PARAMS));
         verify(execProvider, times(1)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.

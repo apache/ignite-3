@@ -53,6 +53,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SharedComputeUtils {
     private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
+            .filter(type -> type != ColumnType.STRUCT)
             .map(ColumnType::javaClass)
             .collect(Collectors.toUnmodifiableSet());
 

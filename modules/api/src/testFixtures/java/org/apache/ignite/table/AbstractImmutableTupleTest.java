@@ -101,7 +101,7 @@ public abstract class AbstractImmutableTupleTest {
 
     protected abstract Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value);
 
-    @EnumSource(value = ColumnType.class, mode = Mode.EXCLUDE, names = {"PERIOD", "DURATION", "NULL"})
+    @EnumSource(value = ColumnType.class, mode = Mode.EXCLUDE, names = {"PERIOD", "DURATION", "NULL", "STRUCT"})
     @ParameterizedTest
     public void testTupleColumnsEquality(ColumnType type) {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -57,6 +60,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.BeforeEach;
@@ -114,9 +118,12 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(defaultLogicalTopologySnapshot));
 
+        Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
+                DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+
         converter = new DdlSqlToCommandConverter(
                 new ClusterWideStorageProfileValidator(logicalTopologyService),
-                filter -> completedFuture(null)
+                filter -> completedFuture(null), statStalenessProperties
         );
 
         assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));

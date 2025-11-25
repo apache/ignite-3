@@ -105,6 +105,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableProperties;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterTablePropertiesEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -1847,6 +1848,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
         );
 
+        CatalogTableProperties descProps = tableDescriptor.properties();
+
         return new TableImpl(
                 internalTable,
                 lockMgr,
@@ -1855,10 +1858,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 sql.get(),
                 failureProcessor,
                 tableDescriptor.primaryKeyIndexId(),
-                new TableStatsStalenessConfiguration(
-                        tableDescriptor.properties().staleRowsFraction(),
-                        tableDescriptor.properties().minStaleRowsCount()
-                )
+                new TableStatsStalenessConfiguration(descProps.staleRowsFraction(), descProps.minStaleRowsCount())
         );
     }
 
@@ -2334,7 +2334,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(
+    protected CompletableFuture<Void> handleChangePendingAssignmentEvent(
             Entry pendingAssignmentsEntry,
             long revision,
             boolean isRecovery
@@ -2483,12 +2483,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             computedStableAssignments
                     ), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
-                assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
-
-                // Sequence token for data partitions is MS revision.
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision);
-            }), ioExecutor);
+            localServicesStartFuture = replicaMgr.resetWithRetry(
+                    replicaGrpId,
+                    fromAssignments(computedStableAssignments.nodes()),
+                    revision
+            );
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
