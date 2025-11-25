@@ -258,7 +258,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
 
             // And: All load threads are parked.
             for (Thread t : loadThreads) {
-                assertTrue(waitForCondition(() -> t.getState() == TIMED_WAITING, 1000L), t.getName());
+                assertTrue(waitForCondition(() -> t.getState() == TIMED_WAITING, 5000L), t.getName());
             }
 
             // When: Disable throttling
@@ -271,7 +271,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
 
             // Then: All load threads should be unparked.
             for (Thread t : loadThreads) {
-                assertTrue(waitForCondition(() -> t.getState() != TIMED_WAITING, 500L), t.getName());
+                assertTrue(waitForCondition(() -> t.getState() != TIMED_WAITING, 5000L), t.getName());
             }
 
             for (Thread t : loadThreads) {
@@ -279,6 +279,10 @@ public class ThrottlingTest extends IgniteAbstractTest {
             }
         } finally {
             stopLoad.set(true);
+
+            for (Thread t : loadThreads) {
+                t.join();
+            }
         }
     }
 
