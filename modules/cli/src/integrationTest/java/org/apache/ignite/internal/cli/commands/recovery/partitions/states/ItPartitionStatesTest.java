@@ -166,7 +166,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION
         );
 
-        assertErrOutputContains("Some distribution zones are missing: [UNKNOWN_ZONE]");
+        assertErrOutputContains("Distribution zones were not found [zoneNames=[UNKNOWN_ZONE]]");
 
         assertOutputIsEmpty();
     }

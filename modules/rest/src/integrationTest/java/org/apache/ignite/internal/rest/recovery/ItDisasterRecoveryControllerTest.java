@@ -163,7 +163,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone"),
-                isProblem().withStatus(BAD_REQUEST).withDetail("Some distribution zones are missing: [no-such-zone]")
+                isProblem().withStatus(BAD_REQUEST).withDetail("Distribution zones were not found [zoneNames=[no-such-zone]]")
         );
     }
 
@@ -330,7 +330,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(path + "?zoneNames=no-such-zone", GlobalPartitionStatesResponse.class),
-                isProblem().withStatus(BAD_REQUEST).withDetail("Some distribution zones are missing: [no-such-zone]")
+                isProblem().withStatus(BAD_REQUEST).withDetail("Distribution zones were not found [zoneNames=[no-such-zone]]")
         );
     }
 
