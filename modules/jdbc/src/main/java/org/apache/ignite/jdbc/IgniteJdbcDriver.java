@@ -162,6 +162,12 @@ import org.jetbrains.annotations.Nullable;
  *      <td>ciphers</td>
  *      <td>SSL ciphers list separated by comma '<b>,</b>'.</td>
  *   </tr>
+ *   <tr>
+ *       <td>partitionAwarenessMetadataCacheSize</td>
+ *       <td>Size of cache to store partition awareness metadata of queries, in number of entries.
+ *           <br>By default, the cache stores 1024 entries.
+ *           <br>The value {@code 0} can be used to disable partition awareness.</td>
+ *   </tr>
  *  </table>
  * <br>The driver follows the following precedence (high priority goes first) for parameter value resolution: API arguments (if it available
  * on <code>Connection</code> object), last instance in the connection string, properties object passed during connection.

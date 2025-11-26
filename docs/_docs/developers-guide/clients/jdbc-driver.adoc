@@ -95,8 +95,8 @@ If the same parameters are passed by using different means, the JDBC driver prio
 
 == Performing Transactions
 
-By default a JDBC connection is in auto-commit mode, and in this mode all its SQL statements will be executed and committed as individual transactions.
-To be able to manage the transaction, you must switch connection to non-autocommit mode (see link:https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/Connection.html#setAutoCommit(boolean)[java documentation]).
+By default, a JDBC connection is in auto-commit mode, and in this mode all its SQL statements will be executed and committed as individual transactions.
+To be able to manage the transaction, you must switch connection to non-autocommit mode.
 In non-autocommit mode, you can perform `commit` and `rollback` transactions. For more information about transactions, see link:developers-guide/transactions[Performing Transactions].
 
 Here is how you can commit a transaction:
