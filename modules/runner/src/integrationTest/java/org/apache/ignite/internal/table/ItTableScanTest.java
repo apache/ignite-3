@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -66,8 +65,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -232,7 +229,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
         PendingTxPartitionEnlistment enlistment = tx1.enlistedPartition(replicationGroupId);
         InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -516,7 +513,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
-        ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
         InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -593,7 +590,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false, LONG_RUNNING_TX_TIMEOUT_MILLIS);
 
-        ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+        ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
         InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -675,7 +672,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
             try {
-                ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+                ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
                 PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
                 InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -758,9 +755,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (readOnly) {
             IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            ReplicationGroupId partitionId = colocationEnabled()
-                    ? new ZonePartitionId(internalTable.zoneId(), PART_ID)
-                    : new TablePartitionId(internalTable.tableId(), PART_ID);
+            ZonePartitionId partitionId = new ZonePartitionId(internalTable.zoneId(), PART_ID);
 
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
                     ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
@@ -841,7 +836,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, node0, sortedIndexId, IndexScanCriteria.unbounded(), operationContext);
             } else {
-                ReplicationGroupId replicationGroupId = replicationGroup(PART_ID);
+                ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
                 PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
                 InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
@@ -878,10 +873,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 .orElseThrow();
     }
 
-    private ReplicationGroupId replicationGroup(int partId) {
-        return colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
+    private ZonePartitionId replicationGroup(int partId) {
+        return new ZonePartitionId(table.zoneId(), partId);
     }
 
     /**
@@ -1065,9 +1058,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        ReplicationGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partId)
-                : new TablePartitionId(table.tableId(), partId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(

@@ -16,6 +16,8 @@
  */
 
 #include "ignite/client/detail/node_connection.h"
+#include "ignite/common/detail/duration_min_max.h"
+#include "ignite/protocol/heartbeat_timeout.h"
 
 #include <ignite/protocol/messages.h>
 #include <ignite/protocol/utils.h>
@@ -171,19 +173,13 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 
     on_observable_timestamp_changed(response.observable_timestamp);
 
-    auto heartbeat_ms = m_configuration.get_heartbeat_interval().count();
-    if (heartbeat_ms) {
-        assert(heartbeat_ms > 0);
-
-        heartbeat_ms = std::min(response.idle_timeout_ms / 3, heartbeat_ms);
-        heartbeat_ms = std::max(MIN_HEARTBEAT_INTERVAL.count(), heartbeat_ms);
-    }
-    m_heartbeat_interval = std::chrono::milliseconds(heartbeat_ms);
+    m_heartbeat_interval = calculate_heartbeat_interval(m_configuration.get_heartbeat_interval(),
+        std::chrono::milliseconds(response.idle_timeout_ms));
 
     m_protocol_context = response.context;
     m_handshake_complete = true;
 
-    if (heartbeat_ms) {
+    if (m_heartbeat_interval.count()) {
         plan_heartbeat(m_heartbeat_interval);
     }
 

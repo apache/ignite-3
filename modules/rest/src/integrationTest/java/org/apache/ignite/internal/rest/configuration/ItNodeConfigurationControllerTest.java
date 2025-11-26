@@ -17,28 +17,27 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
+import static io.micronaut.http.HttpStatus.BAD_REQUEST;
+import static io.micronaut.http.HttpStatus.OK;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.blankOrNullString;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.List;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.rest.api.InvalidParam;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -79,72 +78,51 @@ public class ItNodeConfigurationControllerTest extends ClusterPerTestIntegration
 
     @Test
     void testUnrecognizedConfigPath() {
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> readConfig("ignite.no-such-path")
+        assertThrowsProblem(
+                () -> readConfig("ignite.no-such-path"),
+                isProblem().withStatus(BAD_REQUEST).withDetail("Configuration value 'ignite.no-such-path' has not been found")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-
-        var problem = getProblem(thrown);
-        assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("Configuration value 'ignite.no-such-path' has not been found"));
     }
 
     @Test
     void testUnrecognizedConfigPathForUpdate() {
         String givenBrokenConfig = "ignite.no-such-path=value";
 
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> updateConfig(givenBrokenConfig)
+        assertThrowsProblem(
+                () -> updateConfig(givenBrokenConfig),
+                isProblem().withStatus(BAD_REQUEST).withDetail("'ignite' configuration doesn't have the 'no-such-path' sub-configuration")
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-
-        var problem = getProblem(thrown);
-        assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("'ignite' configuration doesn't have the 'no-such-path' sub-configuration"));
     }
 
     @Test
     void testValidationForUpdate() {
         String givenConfigWithError = "ignite.rest.port=0";
 
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> updateConfig(givenConfigWithError)
+        assertThrowsProblem(
+                () -> updateConfig(givenConfigWithError),
+                isProblem().withStatus(BAD_REQUEST)
+                        .withDetail("Validation did not pass for keys: "
+                                + "[ignite.rest.port, Configuration value 'ignite.rest.port' must not be less than 1024]")
+                        .withInvalidParams(List.of(new InvalidParam(
+                                "ignite.rest.port",
+                                "Configuration value 'ignite.rest.port' must not be less than 1024"
+                        )))
         );
-
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-
-        var problem = getProblem(thrown);
-        assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("Validation did not pass for keys: "
-                + "[ignite.rest.port, Configuration value 'ignite.rest.port' must not be less than 1024]"));
-        assertThat(problem.invalidParams(), hasSize(1));
-
-        InvalidParam invalidParam = problem.invalidParams().stream().findFirst().get();
-        assertEquals("ignite.rest.port", invalidParam.name());
-        assertEquals("Configuration value 'ignite.rest.port' must not be less than 1024", invalidParam.reason());
     }
 
     private void updateConfig(String newConfig) {
-        HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.PATCH("", newConfig).contentType(MediaType.TEXT_PLAIN));
-
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(
+                client.toBlocking().exchange(HttpRequest.PATCH("", newConfig).contentType(MediaType.TEXT_PLAIN)),
+                hasStatus(OK)
+        );
     }
 
     private String readConfig(@Nullable String subTree) {
         HttpResponse<String> response = client.toBlocking()
                 .exchange(subTree != null ? HttpRequest.GET("/" + subTree) : HttpRequest.GET(""), String.class);
 
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(response, hasStatus(OK));
 
         return response.body();
-    }
-
-    private Problem getProblem(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(Problem.class).orElseThrow();
     }
 }

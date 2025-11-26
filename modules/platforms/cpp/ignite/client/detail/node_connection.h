@@ -66,9 +66,6 @@ public:
             , timeouts_at(timeouts_at) {}
     };
 
-    /** Minimal heartbeat interval. */
-    constexpr static auto MIN_HEARTBEAT_INTERVAL = std::chrono::milliseconds(500);
-
     // Deleted
     node_connection() = delete;
     node_connection(node_connection &&) = delete;

@@ -67,7 +67,6 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -402,6 +401,7 @@ public class Node {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager()
@@ -415,8 +415,7 @@ public class Node {
         var clusterInitializer = new ClusterInitializer(
                 clusterService,
                 hocon -> hocon,
-                new TestConfigurationValidator(),
-                new SystemPropertiesNodeProperties()
+                new TestConfigurationValidator()
         );
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
@@ -690,7 +689,6 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
-                nodeProperties,
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
@@ -780,11 +778,9 @@ public class Node {
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
-                distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
                 failureManager,
@@ -857,7 +853,6 @@ public class Node {
                 logicalTopologyService,
                 clockService,
                 failureManager,
-                nodeProperties,
                 lowWatermark,
                 txManager
         );
@@ -882,7 +877,6 @@ public class Node {
                 sqlLocalConfiguration,
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),

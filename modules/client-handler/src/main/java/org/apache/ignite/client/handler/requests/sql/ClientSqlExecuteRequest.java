@@ -17,40 +17,38 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
-import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -58,7 +56,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client SQL execute request.
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientSqlExecuteRequest {
     /**
      * Processes the request.
@@ -97,7 +94,8 @@ public class ClientSqlExecuteRequest {
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
-            @Nullable String username
+            @Nullable String username,
+            boolean sqlMultistatementsSupported
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
@@ -108,7 +106,7 @@ public class ClientSqlExecuteRequest {
 
         long[] resIdHolder = {0};
         InternalTransaction tx = readTx(in, timestampTracker, resources, txManager, notificationSender, resIdHolder);
-        ClientSqlProperties props = new ClientSqlProperties(in);
+        ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementsSupported);
         String statement = in.unpackString();
         Object[] arguments = readArgsNotNull(in);
 
@@ -128,7 +126,8 @@ public class ClientSqlExecuteRequest {
                 () -> cancelHandles.remove(requestId),
                 arguments
         ).thenCompose(asyncResultSet ->
-                        writeResultSetAsync(resources, asyncResultSet, metrics, includePartitionAwarenessMeta, sqlDirectTxMappingSupported))
+                        ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, props.pageSize(),
+                                includePartitionAwarenessMeta, sqlDirectTxMappingSupported, sqlMultistatementsSupported, operationExecutor))
                 .thenApply(rsWriter -> out -> {
                     if (tx != null) {
                         writeTxMeta(out, timestampTracker, clockService, tx, resIdHolder[0]);
@@ -146,95 +145,6 @@ public class ClientSqlExecuteRequest {
         return arguments == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : arguments;
     }
 
-    private static CompletableFuture<ResponseWriter> writeResultSetAsync(
-            ClientResourceRegistry resources,
-            AsyncResultSetImpl asyncResultSet,
-            ClientHandlerMetricSource metrics,
-            boolean includePartitionAwarenessMeta,
-            boolean sqlDirectTxMappingSupported
-    ) {
-        if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
-            try {
-                metrics.cursorsActiveIncrement();
-
-                var clientResultSet = new ClientSqlResultSet(asyncResultSet, metrics);
-
-                ClientResource resource = new ClientResource(
-                        clientResultSet,
-                        clientResultSet::closeAsync);
-
-                var resourceId = resources.put(resource);
-
-                return CompletableFuture.completedFuture(out ->
-                        writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta, sqlDirectTxMappingSupported));
-            } catch (IgniteInternalCheckedException e) {
-                return asyncResultSet
-                        .closeAsync()
-                        .thenRun(() -> {
-                            throw new IgniteInternalException(e.getMessage(), e);
-                        });
-            }
-        }
-
-        return asyncResultSet.closeAsync()
-                .thenApply(v -> (ResponseWriter) out ->
-                        writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta, sqlDirectTxMappingSupported));
-    }
-
-    private static void writeResultSet(
-            ClientMessagePacker out,
-            AsyncResultSetImpl res,
-            @Nullable Long resourceId,
-            boolean includePartitionAwarenessMeta,
-            boolean sqlDirectTxMappingSupported
-    ) {
-        out.packLongNullable(resourceId);
-
-        out.packBoolean(res.hasRowSet());
-        out.packBoolean(res.hasMorePages());
-        out.packBoolean(res.wasApplied());
-        out.packLong(res.affectedRows());
-
-        packMeta(out, res.metadata());
-
-        if (includePartitionAwarenessMeta) {
-            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata(), sqlDirectTxMappingSupported);
-        }
-
-        if (res.hasRowSet()) {
-            packCurrentPage(out, res);
-        }
-    }
-
-    private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
-        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
-        if (meta == null || meta.columns() == null) {
-            out.packInt(0);
-            return;
-        }
-
-        ClientSqlCommon.packColumns(out, meta.columns());
-    }
-
-    private static void packPartitionAwarenessMeta(
-            ClientMessagePacker out,
-            @Nullable PartitionAwarenessMetadata meta,
-            boolean sqlDirectTxMappingSupported
-    ) {
-        if (meta == null) {
-            out.packNil();
-            return;
-        }
-
-        out.packInt(meta.tableId());
-        out.packIntArray(meta.indexes());
-        out.packIntArray(meta.hash());
-
-        if (sqlDirectTxMappingSupported) {
-            out.packByte(meta.directTxMode().id);
-        }
-    }
-
     private static CompletableFuture<AsyncResultSetImpl<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             QueryProcessor qryProc,
@@ -247,12 +157,8 @@ public class ClientSqlExecuteRequest {
             @Nullable Object... arguments
     ) {
         try {
-            SqlProperties properties = new SqlProperties(props)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
-                    .allowMultiStatement(false);
-
             CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
-                        properties,
+                        props,
                         timestampTracker,
                         (InternalTransaction) transaction,
                         token,
@@ -260,7 +166,7 @@ public class ClientSqlExecuteRequest {
                         arguments
                     )
                     .thenCompose(cur -> {
-                                cur.onClose().whenComplete((none, ignore) -> onComplete.run());
+                                doWhenAllCursorsComplete(cur, onComplete);
 
                                 return cur.requestNextAsync(pageSize)
                                         .thenApply(
@@ -283,5 +189,31 @@ public class ClientSqlExecuteRequest {
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
+    }
+
+    private static void doWhenAllCursorsComplete(AsyncSqlCursor<InternalSqlRow> cursor, Runnable action) {
+        List<CompletableFuture<?>> dependency = new ArrayList<>();
+        var cursorChainTraverser = new Function<AsyncSqlCursor<?>, CompletableFuture<AsyncSqlCursor<?>>>() {
+            @Override
+            public CompletableFuture<AsyncSqlCursor<?>> apply(AsyncSqlCursor<?> cursor) {
+                dependency.add(cursor.onClose());
+
+                if (cursor.hasNextResult()) {
+                    return cursor.nextResult().thenCompose(this);
+                }
+
+                return allOf(dependency)
+                        .thenRun(action)
+                        .thenApply(ignored -> cursor);
+            }
+        };
+
+        cursorChainTraverser
+                .apply(cursor)
+                .exceptionally(ex -> {
+                    action.run();
+
+                    return null;
+                });
     }
 }

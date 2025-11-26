@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,7 +29,7 @@ public class RowMeta {
     private final RowId rowId;
     private final @Nullable UUID transactionId;
 
-    private final @Nullable Integer commitTableOrZoneId;
+    private final @Nullable Integer commitZoneId;
     private final int commitPartitionId;
 
     /** Creates a RowMeta instance for a row without a write intent. */
@@ -36,10 +38,10 @@ public class RowMeta {
     }
 
     /** Constructor. */
-    public RowMeta(RowId rowId, @Nullable UUID transactionId, @Nullable Integer commitTableOrZoneId, int commitPartitionId) {
+    public RowMeta(RowId rowId, @Nullable UUID transactionId, @Nullable Integer commitZoneId, int commitPartitionId) {
         this.rowId = rowId;
         this.transactionId = transactionId;
-        this.commitTableOrZoneId = commitTableOrZoneId;
+        this.commitZoneId = commitZoneId;
         this.commitPartitionId = commitPartitionId;
     }
 
@@ -58,13 +60,37 @@ public class RowMeta {
         return transactionId != null;
     }
 
-    /** Returns the commit table or zone ID if this row has a write intent, or {@code null} otherwise. */
-    public @Nullable Integer commitTableOrZoneId() {
-        return commitTableOrZoneId;
+    /** Returns the commit zone ID if this row has a write intent, or {@code null} otherwise. */
+    public @Nullable Integer commitZoneId() {
+        return commitZoneId;
     }
 
     /** Returns the commit partition ID. If row has no write intent, it's {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID}. */
     public int commitPartitionId() {
         return commitPartitionId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        RowMeta rowMeta = (RowMeta) o;
+
+        return commitPartitionId == rowMeta.commitPartitionId
+                && Objects.equals(rowId, rowMeta.rowId)
+                && Objects.equals(transactionId, rowMeta.transactionId)
+                && Objects.equals(commitZoneId, rowMeta.commitZoneId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(rowId, transactionId, commitZoneId, commitPartitionId);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

@@ -202,6 +202,9 @@ public class ErrorGroups {
          **/
         public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** This error code indicates that a node is attempting to start over an unsupported table based replication mode. */
+        public static final int UNSUPPORTED_TABLE_BASED_REPLICATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 10);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
          * should be considered as a non-recoverable error
@@ -276,6 +279,9 @@ public class ErrorGroups {
 
         /** Server to client request failed. */
         public static final int SERVER_TO_CLIENT_REQUEST_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
+
+        /** Resource not found. */
+        public static final int RESOURCE_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
     }
 
     /** SQL error group. */
@@ -735,6 +741,9 @@ public class ErrorGroups {
 
         /** Error when node names are not in valid set. */
         public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Error when forwarding disaster recovery request to another node failed. */
+        public static final int REQUEST_FORWARD_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Embedded API error group. */

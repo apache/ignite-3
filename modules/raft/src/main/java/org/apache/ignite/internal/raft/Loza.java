@@ -29,6 +29,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -83,6 +86,9 @@ public class Loza implements RaftManager {
 
     /** Raft client pool size. Size was taken from jraft's TimeManager. */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
+
+    /** Name of the system property to configure is {@link NodeOptions#getSnapshotIntervalSecs()}. */
+    private static final String RAFT_SNAPSHOT_INTERVAL_SECS_PROPERTY_NAME = "raftSnapshotIntervalSecs";
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
@@ -119,6 +125,7 @@ public class Loza implements RaftManager {
             ClusterService clusterService,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             HybridClock hybridClock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager
@@ -127,6 +134,7 @@ public class Loza implements RaftManager {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 failureManager,
@@ -141,6 +149,7 @@ public class Loza implements RaftManager {
      * @param clusterNetSvc Cluster network service.
      * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
+     * @param systemLocalConfiguration Local system configuration.
      * @param clock A hybrid logical clock.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
@@ -150,6 +159,7 @@ public class Loza implements RaftManager {
             ClusterService clusterNetSvc,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager,
@@ -164,6 +174,8 @@ public class Loza implements RaftManager {
 
         options.setClock(clock);
         options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
+
+        setSnapshotIntervalSecs(options, systemLocalConfiguration);
 
         this.opts = options;
 
@@ -471,6 +483,24 @@ public class Loza implements RaftManager {
     }
 
     /**
+     * Creates replication log meta storage for the given group ID.
+     *
+     * @param nodeId ID of the Raft node.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void createMetaStorage(RaftNodeId nodeId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            raftServer.createMetaStorage(nodeId);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Returns Raft node IDs for which any storage (log storage or Raft meta storage) is present on disk.
      */
     public Set<StoredRaftNodeId> raftNodeIdsOnDisk() throws NodeStoppingException {
@@ -632,11 +662,11 @@ public class Loza implements RaftManager {
      * @param peersAndLearners New node configuration.
      * @param sequenceToken Sequence token.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
+    public Status resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long sequenceToken) {
         LOG.warn("Reset peers for raft group {}, new configuration is {}, sequence token {}",
                 raftNodeId, peersAndLearners, sequenceToken);
 
-        raftServer.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
+        return raftServer.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
     }
 
     /**
@@ -699,5 +729,21 @@ public class Loza implements RaftManager {
     @TestOnly
     public Set<RaftNodeId> localNodes() {
         return raftServer.localNodes();
+    }
+
+    private static void setSnapshotIntervalSecs(NodeOptions options, SystemLocalConfiguration systemLocalConfiguration) {
+        SystemPropertyConfiguration systemPropertyConfig = systemLocalConfiguration
+                .properties()
+                .get(RAFT_SNAPSHOT_INTERVAL_SECS_PROPERTY_NAME);
+
+        if (systemPropertyConfig == null) {
+            return;
+        }
+
+        try {
+            options.setSnapshotIntervalSecs(Integer.parseInt(systemPropertyConfig.propertyValue().value()));
+        } catch (NumberFormatException e) {
+            LOG.warn("Failed to set NodeOptions.getSnapshotIntervalSecs, default value will be used", e);
+        }
     }
 }

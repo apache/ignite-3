@@ -56,7 +56,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
@@ -79,7 +78,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final CatalogManager catalogManager;
     private final SqlStatisticManager sqlStatisticManager;
-    private final NodeProperties nodeProperties;
 
     private final Cache<Integer, IgniteSchemas> schemaCache;
 
@@ -100,12 +98,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             CatalogManager catalogManager,
             SqlStatisticManager sqlStatisticManager,
-            NodeProperties nodeProperties,
             CacheFactory factory,
-            int cacheSize) {
+            int cacheSize
+    ) {
         this.catalogManager = catalogManager;
         this.sqlStatisticManager = sqlStatisticManager;
-        this.nodeProperties = nodeProperties;
         this.schemaCache = factory.create(cacheSize);
         this.tableCache = factory.create(cacheSize);
         this.indexCache = factory.create(cacheSize);
@@ -334,9 +331,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         String label = TraitUtils.affinityDistributionLabel(schemaName, descriptor.name(), zoneName);
 
-        return nodeProperties.colocationEnabled()
-                ? IgniteDistributions.affinity(colocationColumns, tableId, zoneId, label)
-                : IgniteDistributions.affinity(colocationColumns, tableId, tableId, label);
+        return IgniteDistributions.affinity(colocationColumns, tableId, zoneId, label);
     }
 
     private static Object2IntMap<String> buildColumnToIndexMap(List<CatalogTableColumnDescriptor> columns) {

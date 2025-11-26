@@ -67,6 +67,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
@@ -94,7 +95,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TX_PIGGYBACK,
             ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
-            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING
+            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
+            ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
+            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -380,6 +383,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()), id);
 
+        boolean expectedException = false;
+
         try {
             var req = payloadCh.out();
 
@@ -392,10 +397,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
+                    String msg = "Failed to send request async [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
                     IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, endpoint(), f.cause());
                     fut.completeExceptionally(ex);
-                    log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
+                    log.warn(msg + "]: " + f.cause().getMessage());
 
                     pendingReqs.remove(id);
                     metrics.requestsActiveDecrement();
@@ -420,6 +425,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     return completedFuture(complete(payloadReader, notificationFut, unpacker));
                 } catch (Throwable t) {
+                    expectedException = true;
                     throw sneakyThrow(ViewUtils.ensurePublicException(t));
                 }
             }
@@ -434,7 +440,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return resFut;
         } catch (Throwable t) {
-            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+            if (expectedException) {
+                // Just re-throw.
+                throw sneakyThrow(t);
+            }
+
+            log.warn("Failed to send request sync [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
 
             // Close buffer manually on fail. Successful write closes the buffer automatically.
@@ -765,11 +776,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             long observableTimestamp = unpacker.unpackLong();
             observableTimestampListener.accept(observableTimestamp);
 
-            unpacker.unpackByte(); // cluster version major
-            unpacker.unpackByte(); // cluster version minor
-            unpacker.unpackByte(); // cluster version maintenance
-            unpacker.unpackByteNullable(); // cluster version patch
-            unpacker.unpackStringNullable(); // cluster version pre release
+            byte major = unpacker.unpackByte(); // cluster version major
+            byte minor = unpacker.unpackByte(); // cluster version minor
+            byte maintenance = unpacker.unpackByte(); // cluster version maintenance
+            Byte patch = unpacker.unpackByteNullable(); // cluster version patch
+            String preRelease = unpacker.unpackStringNullable(); // cluster version pre release
+
+            IgniteProductVersion nodeProductVersion = new IgniteProductVersion(major, minor, maintenance, patch, preRelease);
 
             BitSet serverFeatures = HandshakeUtils.unpackFeatures(unpacker);
             HandshakeUtils.unpackExtensions(unpacker);
@@ -777,7 +790,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(SUPPORTED_FEATURES, serverFeatures);
             EnumSet<ProtocolBitmaskFeature> features = ProtocolBitmaskFeature.enumSet(mutuallySupportedFeatures);
 
-            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName);
+            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName,
+                    nodeProductVersion);
 
             return null;
         } catch (Throwable e) {

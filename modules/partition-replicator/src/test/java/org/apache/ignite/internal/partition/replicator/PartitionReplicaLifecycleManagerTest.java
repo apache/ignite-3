@@ -56,7 +56,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -178,7 +177,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock DataStorageManager dataStorageManager,
             @Mock CatalogService catalogService,
             @Mock OutgoingSnapshotsManager outgoingSnapshotsManager,
-            @InjectExecutorService ExecutorService executorService,
+            @InjectExecutorService ScheduledExecutorService executorService,
             @InjectExecutorService ScheduledExecutorService scheduledExecutorService,
             @InjectConfiguration SystemDistributedConfiguration systemDistributedConfiguration
 
@@ -202,34 +201,6 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 partitionSnapshotStorage,
                 new PendingComparableValuesTracker<>(0L)
         ));
-
-        zoneResourcesManager = spy(new ZoneResourcesManager(
-                sharedTxStateStorage,
-                txManager,
-                outgoingSnapshotsManager,
-                topologyService,
-                catalogService,
-                failureManager,
-                executorService
-        ) {
-            @Override
-            protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
-                TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage) {
-                    @Override
-                    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
-                        return txStatePartitionStorage;
-                    }
-                };
-
-                if (ThreadAssertions.enabled()) {
-                    txStateStorage = new ThreadAssertingTxStateStorage(txStateStorage);
-                }
-
-                txStateStorage.start();
-
-                return txStateStorage;
-            }
-        });
 
         when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class), any()))
                 .thenReturn(topologyAwareRaftGroupService);
@@ -264,6 +235,35 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 groupId -> nullCompletedFuture(),
                 executorService
         ));
+
+        zoneResourcesManager = spy(new ZoneResourcesManager(
+                sharedTxStateStorage,
+                txManager,
+                outgoingSnapshotsManager,
+                topologyService,
+                catalogService,
+                failureManager,
+                executorService,
+                replicaManager
+        ) {
+            @Override
+            protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
+                TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage) {
+                    @Override
+                    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+                        return txStatePartitionStorage;
+                    }
+                };
+
+                if (ThreadAssertions.enabled()) {
+                    txStateStorage = new ThreadAssertingTxStateStorage(txStateStorage);
+                }
+
+                txStateStorage.start();
+
+                return txStateStorage;
+            }
+        });
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,

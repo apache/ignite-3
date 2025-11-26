@@ -43,7 +43,9 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -55,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -235,16 +238,21 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     }
 
     /**
-     * Gets ColumnType type for RelDataType.
+     * Converts given {@link RelDataType relation type} to {@link NativeType native type}.
      *
      * @param relType Rel type.
-     * @return ColumnType type or null.
+     * @return Native type. Never null.
+     * @throws IllegalArgumentException If conversion is not supported for given relation type.
      */
-    public static NativeType relDataTypeToNative(RelDataType relType) {
+    public static NativeType relDataTypeToNative(RelDataType relType) throws IllegalArgumentException {
         assert relType instanceof BasicSqlType
-                || relType instanceof IntervalSqlType : "Not supported:" + relType;
+                || relType instanceof IntervalSqlType
+                || relType instanceof RelRecordType
+                : "Not supported: " + relType;
 
         switch (relType.getSqlTypeName()) {
+            case NULL:
+                return NativeTypes.NULL;
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;
             case TINYINT:
@@ -277,7 +285,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
-                throw new IllegalArgumentException("Type is not supported yet: " + relType);
+                return NativeTypes.PERIOD;
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:
@@ -289,7 +297,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_MINUTE_SECOND:
             case INTERVAL_SECOND:
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
-                throw new IllegalArgumentException("Type is not supported yet:" + relType);
+                return NativeTypes.DURATION;
             case VARCHAR:
             case CHAR:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
@@ -302,6 +310,14 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                         : NativeTypes.blobOf(relType.getPrecision());
             case UUID:
                 return NativeTypes.UUID;
+            case ROW:
+                RowTypeBuilder builder = NativeTypes.rowBuilder();
+
+                for (RelDataTypeField field : relType.getFieldList()) {
+                    builder.addField(field.getName(), relDataTypeToNative(field.getType()), field.getType().isNullable());
+                }
+
+                return builder.build(); 
             case ANY:
             default:
                 throw new IllegalArgumentException("Type is not supported: " + relType);

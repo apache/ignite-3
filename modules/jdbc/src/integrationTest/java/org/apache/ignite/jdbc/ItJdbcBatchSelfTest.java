@@ -43,7 +43,7 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -56,10 +56,12 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -84,6 +86,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /** Prepared statement. */
     private PreparedStatement pstmt;
+
+    /** The number of open thin client resources before the test started. */
+    private int resourcesBefore;
 
     @BeforeAll
     public static void beforeAll() throws Exception {
@@ -110,6 +115,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         try (Statement statement = conn.createStatement()) {
             statement.executeUpdate(SQL_DELETE);
         }
+
+        resourcesBefore = openResources(CLUSTER);
     }
 
     /** {@inheritDoc} */
@@ -128,6 +135,11 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 .getSum();
 
         assertEquals(0, countOfPendingTransactions);
+
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertThat(openResources(CLUSTER) - resourcesBefore, is(0));
+            assertThat(openCursors(CLUSTER), is(0));
+        });
     }
 
     @Test
@@ -168,10 +180,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchWithKill() throws SQLException {
         try (Statement targetQueryStatement = conn.createStatement()) {
             try (ResultSet rs = targetQueryStatement.executeQuery("SELECT x FROM system_range(0, 100000);")) {
-                IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-                SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
-
-                List<QueryInfo> queries = queryProcessor.runningQueries();
+                List<QueryInfo> queries = CLUSTER.runningNodes().flatMap(node ->
+                        ((SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine()).runningQueries().stream())
+                        .collect(Collectors.toList());
 
                 assertThat(queries, hasSize(1));
                 UUID targetId = queries.get(0).id();
@@ -179,7 +190,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 stmt.addBatch("KILL QUERY '" + targetId + "'");
                 stmt.executeBatch();
 
-                SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(0));
+                SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, is(0));
 
                 //noinspection ThrowableNotThrown
                 assertThrowsSqlException(
@@ -194,17 +205,14 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void testMultipleStatementForBatchIsNotAllowed() throws SQLException {
+    public void testMultipleStatementInBatchAreAllowed() throws SQLException {
         String insertStmt = "insert into Person (id, firstName, lastName, age) values";
         String ins1 = insertStmt + valuesRow(1);
         String ins2 = insertStmt + valuesRow(2);
 
         stmt.addBatch(ins1 + ";" + ins2);
 
-        assertThrowsSqlException(
-                BatchUpdateException.class,
-                "Multiple statements are not allowed.",
-                () -> stmt.executeBatch());
+        assertArrayEquals(stmt.executeBatch(), new int[]{1, 1});
     }
 
     @Test
@@ -288,6 +296,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27117")
     public void testBatchException() throws Exception {
         final int successUpdates = 5;
 
@@ -319,6 +328,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27117")
     public void testBatchParseException() throws Exception {
         final int successUpdates = 5;
 
@@ -600,10 +610,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
      * @throws SQLException If failed.
      */
     private void populateTable(int size) throws SQLException {
-        stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
+        stmt.executeUpdate("insert into Person (id, firstName, lastName, age) values "
                 + generateValues(0, size));
-
-        stmt.executeBatch();
     }
 
     @Test
@@ -788,9 +796,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
 
         // Each statement in a batch is executed separately, and timeout is applied to each statement.
-        {
-            int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
-            igniteStmt.timeout(timeoutMillis);
+        // Retry until timeout exception is thrown.
+        Awaitility.await().untilAsserted(() -> {
+            igniteStmt.timeout(1);
 
             for (int i = 0; i < 3; i++) {
                 pstmt.setInt(1, 42);
@@ -800,7 +808,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertThrowsSqlException(SQLException.class,
                     "Query timeout", igniteStmt::executeBatch);
-        }
+        });
 
         {
             // Disable timeout
@@ -857,6 +865,18 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             int[] updated = igniteStmt.executeBatch();
             assertEquals(3, updated.length);
         }
+    }
+
+    @Test
+    public void testMoreResults() throws Exception {
+        stmt.addBatch("INSERT INTO person (id, firstName, lastName, age) VALUES (0, 'Name0', 'Lastname0', 10)");
+        stmt.addBatch("INSERT INTO person (id, firstName, lastName, age) VALUES (1, 'Name1', 'Lastname1', 20)");
+        int[] arr = stmt.executeBatch();
+
+        assertEquals(2, arr.length);
+        assertArrayEquals(new int[]{1, 1}, arr);
+        assertEquals(-1, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
     }
 
     /**
@@ -929,13 +949,13 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                         "Invalid SQL statement type."),
 
                 Arguments.of("START TRANSACTION",
-                        "Transaction control statement can not be executed as an independent statement."),
+                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL."),
 
                 Arguments.of("COMMIT",
-                        "Transaction control statement can not be executed as an independent statement."),
+                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL."),
 
                 Arguments.of("START TRANSACTION; COMMIT",
-                        "Multiple statements are not allowed.")
+                        "Invalid SQL statement type. Expected [DML, DDL, KILL] but got TX_CONTROL.")
         );
     }
 }

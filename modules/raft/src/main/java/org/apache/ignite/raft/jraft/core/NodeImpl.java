@@ -39,7 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -503,7 +503,7 @@ public class NodeImpl implements Node, RaftServerService {
                         if (status.isOk()) {
                             LogId id = node.conf.getId();
 
-                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds, id.getTerm(), id.getIndex());
+                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds, id.getTerm(), id.getIndex(), resultToken);
                         } else {
                             listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm(), resultToken);
                         }
@@ -1800,16 +1800,28 @@ public class NodeImpl implements Node, RaftServerService {
      * ReadIndex response closure
      */
     public static class QuorumConfirmedHeartbeatResponseClosure<T extends Message> extends RpcResponseClosureAdapter<AppendEntriesResponse>{
+        /** Accepts the success flag and response message. */
         final Function<Boolean, T> responseBuilder;
-        final Consumer<T> responseConsumer;
+
+        /** Accepts the success flag and builds the response message. */
+        final BiConsumer<Boolean, T> responseConsumer;
+
         final int quorum;
         final int failPeersThreshold;
         int ackSuccess;
         int ackFailures;
         boolean isDone;
 
+        /**
+         * Contructor.
+         *
+         * @param responseConsumer Accepts the success flag and response message.
+         * @param responseBuilder Accepts the success flag and builds the response message.
+         * @param quorum The quorum size.
+         * @param peersCount The total number of peers.
+        */
         QuorumConfirmedHeartbeatResponseClosure(
-                final Consumer<T> responseConsumer,
+                final BiConsumer<Boolean, T> responseConsumer,
                 final Function<Boolean, T> responseBuilder,
                 final int quorum,
                 final int peersCount
@@ -1839,12 +1851,12 @@ public class NodeImpl implements Node, RaftServerService {
             // Include leader self vote yes.
             if (this.ackSuccess + 1 >= this.quorum) {
                 T response = responseBuilder.apply(true);
-                responseConsumer.accept(response);
+                responseConsumer.accept(true, response);
                 this.isDone = true;
             }
             else if (this.ackFailures >= this.failPeersThreshold) {
                 T response = responseBuilder.apply(false);
-                responseConsumer.accept(response);
+                responseConsumer.accept(false, response);
                 this.isDone = true;
             }
         }
@@ -1958,9 +1970,13 @@ public class NodeImpl implements Node, RaftServerService {
                 Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
                 final QuorumConfirmedHeartbeatResponseClosure<GetLeaderResponse> heartbeatDone =
                         new QuorumConfirmedHeartbeatResponseClosure<>(
-                            response -> {
-                                closure.setResponse(response);
-                                closure.run(Status.OK());
+                            (success, response) -> {
+                                if (success) {
+                                    closure.setResponse(response);
+                                    closure.run(Status.OK());
+                                } else {
+                                    closure.run(new Status(RaftError.EAGAIN, "Failed to confirm leadership from quorum."));
+                                }
                             },
                             success -> respBuilder.build(),
                             quorum,
@@ -2054,7 +2070,7 @@ public class NodeImpl implements Node, RaftServerService {
                 Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
                 final QuorumConfirmedHeartbeatResponseClosure<ReadIndexResponse> heartbeatDone =
                     new QuorumConfirmedHeartbeatResponseClosure<>(
-                            response -> {
+                            (success, response) -> {
                                 closure.setResponse(response);
                                 closure.run(Status.OK());
                             },
@@ -2921,7 +2937,11 @@ public class NodeImpl implements Node, RaftServerService {
         if (this.confCtx.isBusy()) {
             LOG.warn("Node {} refused configuration concurrent changing.", getNodeId());
             if (done != null) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, new Status(RaftError.EBUSY, "Doing another configuration change."));
+                Utils.runClosureInThread(
+                        this.getOptions().getCommonExecutor(),
+                        done,
+                        new Status(RaftError.EBUSY, "Doing another configuration change.")
+                );
             }
             return;
         }
@@ -2937,7 +2957,13 @@ public class NodeImpl implements Node, RaftServerService {
                 if (listener != null) {
                     LogId id = this.conf.getId();
 
-                    listener.onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners(), id.getTerm(), id.getIndex());
+                    listener.onNewPeersConfigurationApplied(
+                            newConf.getPeers(),
+                            newConf.getLearners(),
+                            id.getTerm(),
+                            id.getIndex(),
+                            newConf.getSequenceToken()
+                    );
                 }
 
                 done.run(status);
@@ -4344,5 +4370,9 @@ public class NodeImpl implements Node, RaftServerService {
     @TestOnly
     public FSMCaller fsmCaller() {
         return fsmCaller;
+    }
+
+    public RaftMetaStorage metaStorage() {
+        return metaStorage;
     }
 }

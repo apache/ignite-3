@@ -63,7 +63,7 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26923")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27185")
     void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
         cluster.stop();
         cluster.startEmbedded(2);
@@ -77,7 +77,6 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
 
         // Assert that new node got all log entries from old one.
         await().until(oldNodeMetastorage::appliedRevision, is(newNodeMetastorage.appliedRevision()));
-        ;
     }
 
     private void checkMetastorage() {

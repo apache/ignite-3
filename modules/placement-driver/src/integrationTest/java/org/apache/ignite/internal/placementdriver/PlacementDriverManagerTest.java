@@ -67,6 +67,7 @@ import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -149,6 +150,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
@@ -222,6 +226,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         raftManager = TestLozaFactory.create(
                 clusterService,
                 raftConfiguration,
+                systemLocalConfiguration,
                 nodeClock,
                 eventsClientListener
         );

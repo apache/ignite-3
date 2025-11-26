@@ -131,6 +131,9 @@ namespace Apache.Ignite
             /// <summary> NullableValue error. </summary>
             public const int NullableValue = (GroupCode << 16) | (9 & 0xFFFF);
 
+            /// <summary> UnsupportedTableBasedReplication error. </summary>
+            public const int UnsupportedTableBasedReplication = (GroupCode << 16) | (10 & 0xFFFF);
+
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
         }
@@ -204,6 +207,9 @@ namespace Apache.Ignite
 
             /// <summary> ServerToClientRequest error. </summary>
             public const int ServerToClientRequest = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> ResourceNotFound error. </summary>
+            public const int ResourceNotFound = (GroupCode << 16) | (10 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
@@ -714,6 +720,9 @@ namespace Apache.Ignite
 
             /// <summary> IllegalNodesSet error. </summary>
             public const int IllegalNodesSet = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> RequestForward error. </summary>
+            public const int RequestForward = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>

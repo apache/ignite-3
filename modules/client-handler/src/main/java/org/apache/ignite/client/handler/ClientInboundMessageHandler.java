@@ -18,9 +18,11 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
@@ -82,6 +84,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataReq
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextResultRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptRequest;
@@ -815,7 +818,8 @@ public class ClientInboundMessageHandler
                         notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_GET_ALL:
-                return ClientTupleGetAllRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
+                return ClientTupleGetAllRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
                 return ClientTupleGetAndUpsertRequest.process(in, igniteTables, resources, txManager, clockService,
@@ -865,7 +869,8 @@ public class ClientInboundMessageHandler
                 return ClientTupleContainsKeyRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
+                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
 
             case ClientOp.JDBC_CONNECT:
                 return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler, resolveCurrentUsername());
@@ -959,8 +964,12 @@ public class ClientInboundMessageHandler
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
-                        clockService, notificationSender(requestId), resolveCurrentUsername()
+                        clockService, notificationSender(requestId), resolveCurrentUsername(),
+                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT)
                 );
+
+            case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
+                return ClientSqlCursorNextResultRequest.process(in, resources, partitionOperationsExecutor, metrics);
 
             case ClientOp.OPERATION_CANCEL:
                 return ClientOperationCancelRequest.process(in, cancelHandles);

@@ -32,8 +32,10 @@ public class WriteContext {
     public final HybridTimestampTracker tracker;
     public boolean readOnly;
     public @Nullable ClientChannel channel;
+    public final int opCode;
 
-    public WriteContext(HybridTimestampTracker tracker) {
+    public WriteContext(HybridTimestampTracker tracker, int opCode) {
         this.tracker = tracker;
+        this.opCode = opCode;
     }
 }

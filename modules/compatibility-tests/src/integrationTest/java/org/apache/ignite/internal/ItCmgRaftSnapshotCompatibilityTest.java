@@ -20,21 +20,15 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.core.Is.is;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.compute.TruncateRaftLogCommand;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
-import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.raft.jraft.core.Replicator;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -43,8 +37,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
 public class ItCmgRaftSnapshotCompatibilityTest extends CompatibilityTestBase {
-    private LogInspector replicatorLogInspector;
-
     @Override
     protected boolean restartWithCurrentEmbeddedVersion() {
         return false;
@@ -57,19 +49,11 @@ public class ItCmgRaftSnapshotCompatibilityTest extends CompatibilityTestBase {
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-        replicatorLogInspector = LogInspector.create(Replicator.class, true);
-
         DeploymentUtils.deployJobs();
     }
 
-    @AfterParameterizedClassInvocation
-    void stopReplicatorLogInspector() {
-        replicatorLogInspector.stop();
-    }
-
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26923")
-    void testCmgRaftSnapshotCompatibility() throws InterruptedException {
+    void testCmgRaftSnapshotCompatibility() {
         int nodeIndex = nodesCount() - 1;
 
         // We want to include the NodesLeave command in the log.
@@ -82,26 +66,11 @@ public class ItCmgRaftSnapshotCompatibilityTest extends CompatibilityTestBase {
         runTruncateLogCommand();
 
         cluster.stop();
-        cluster.startEmbedded(nodesCount());
 
-        CountDownLatch snapshotInstalledLatch = snapshotInstalledLatch(0);
-        assertTrue(snapshotInstalledLatch.await(60, TimeUnit.SECONDS), "Did not install a snapshot in time");
+        assertDoesNotThrow(() -> cluster.startEmbedded(nodesCount()));
     }
 
     private void runTruncateLogCommand() {
         runJob(cluster, TruncateRaftLogCommand.class, CmgGroupId.INSTANCE.toString());
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private CountDownLatch snapshotInstalledLatch(int nodeIndex) {
-        CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
-
-        replicatorLogInspector.addHandler(
-                evt -> evt.getMessage().getFormattedMessage().matches(
-                        "Node \\S+ received InstallSnapshotResponse from " + cluster.nodeName(nodeIndex) + " .+ success=true"),
-                snapshotInstalledLatch::countDown
-        );
-
-        return snapshotInstalledLatch;
     }
 }

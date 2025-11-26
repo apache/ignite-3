@@ -28,7 +28,7 @@ object PlatformCppTestsLinux : BuildType({
         param("PATH__CLIENT_TEST_RESULTS", "%PATH__WORKING_DIR%/cpp_client_tests_results.xml")
         param("PATH__ODBC_TEST_RESULTS", "%PATH__WORKING_DIR%/odbc_tests_results.xml")
         param("PATH__UNIT_TESTS_RESULT", "%PATH__WORKING_DIR%/cpp_unit_test_results.xml")
-        text("PATH__WORKING_DIR", "%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.CPP_STAGING", "/tmp/cpp_staging")
     }
 
@@ -39,7 +39,7 @@ object PlatformCppTestsLinux : BuildType({
             scriptContent = """
                 gcc --version || exit 0
                 g++ --version || exit 0
-                
+
                 odbcinst -j || exit 0
                 cat /etc/odbcinst.ini || exit 0
             """.trimIndent()
@@ -49,7 +49,7 @@ object PlatformCppTestsLinux : BuildType({
             scriptContent = """
                 mkdir %PATH__CMAKE_BUILD_DIRECTORY%  || exit 2
                 cd %PATH__CMAKE_BUILD_DIRECTORY%  || exit 3
-                
+
                 cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
                 cmake --install . || (echo 'CMake install failed' && exit 7)

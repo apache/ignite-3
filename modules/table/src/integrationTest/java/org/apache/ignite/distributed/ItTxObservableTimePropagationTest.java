@@ -18,7 +18,6 @@
 package org.apache.ignite.distributed;
 
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -174,10 +173,6 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
     }
 
     private static PartitionListener extractPartitionListener(DelegatingStateMachine fsm, TableViewInternal table) {
-        if (colocationEnabled()) {
-            return (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
-        } else {
-            return (PartitionListener) fsm.getListener();
-        }
+        return (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
     }
 }
