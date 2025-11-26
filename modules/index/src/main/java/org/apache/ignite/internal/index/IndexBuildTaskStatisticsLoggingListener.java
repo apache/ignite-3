@@ -114,12 +114,7 @@ class IndexBuildTaskStatisticsLoggingListener {
     }
 
     private long getBuildTime() {
-        if (startTime.get() == 0) {
-            String message = "Index build start time has not been set.";
-            LOG.error(message);
-
-            throw new IllegalStateException(message);
-        }
+        assert startTime.get() != 0 : "startTime was not initialized before measuring index build time";
 
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime.get());
     }

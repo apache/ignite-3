@@ -85,6 +85,6 @@ class IndexBuildTaskStatisticsLoggingListenerTest {
 
     @Test
     void testExceptionOnStartTimeHasNotBeenSet() {
-        assertThrows(IllegalStateException.class, listener::onIndexBuildSuccess);
+        assertThrows(AssertionError.class, listener::onIndexBuildSuccess);
     }
 }
