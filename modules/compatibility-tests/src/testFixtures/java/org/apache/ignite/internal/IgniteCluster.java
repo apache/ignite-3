@@ -211,12 +211,13 @@ public class IgniteCluster {
         LOG.info("Shut the embedded cluster down");
 
         List<String> nodeNames = runnerNodes.stream()
+                .filter(Objects::nonNull)
                 .map(RunnerNode::nodeName)
                 .collect(toList());
 
         LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
 
-        runnerNodes.parallelStream().forEach(RunnerNode::stop);
+        runnerNodes.parallelStream().filter(Objects::nonNull).forEach(RunnerNode::stop);
         runnerNodes.clear();
 
         LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
@@ -564,8 +565,6 @@ public class IgniteCluster {
 
     /**
      * Parses the cluster configuration and returns {@link BasicAuthenticator} if there is a user with "system" role.
-     *
-     * @see ClusterSecurityConfigurationBuilder
      */
     private static @Nullable IgniteClientAuthenticator authenticator(InitParameters initParameters) {
         if (initParameters.clusterConfiguration() == null) {
