@@ -50,7 +50,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Connect to Ignite",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "develop/connect-to-ignite/index" },
           items: [
             "develop/connect-to-ignite/jdbc",
             {
@@ -68,7 +68,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Work with Data",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "develop/work-with-data/index" },
           items: [
             "develop/work-with-data/table-api",
             "develop/work-with-data/transactions",
@@ -84,7 +84,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Integrate",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "develop/integrate/index" },
           items: [
             "develop/integrate/spring-boot",
             "develop/integrate/spring-data",
@@ -102,13 +102,13 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "SQL Fundamentals",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "sql/fundamentals/index" },
           items: ["sql/fundamentals/engine-architecture"],
         },
         {
           type: "category",
           label: "SQL Operations",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "sql/working-with-sql/index" },
           items: [
             "sql/working-with-sql/execute-queries",
             "sql/working-with-sql/system-views",
@@ -117,12 +117,12 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "SQL Reference",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "sql/reference/index" },
           items: [
             {
               type: "category",
               label: "Language Definition",
-              link: { type: "generated-index" },
+              link: { type: "doc", id: "sql/reference/language-definition/index" },
               items: [
                 "sql/reference/language-definition/ddl",
                 "sql/reference/language-definition/dml",
@@ -134,7 +134,7 @@ const sidebars: SidebarsConfig = {
             {
               type: "category",
               label: "Data Types and Functions",
-              link: { type: "generated-index" },
+              link: { type: "doc", id: "sql/reference/data-types-and-functions/index" },
               items: [
                 "sql/reference/data-types-and-functions/data-types",
                 "sql/reference/data-types-and-functions/operators-and-functions",
@@ -144,7 +144,7 @@ const sidebars: SidebarsConfig = {
             {
               type: "category",
               label: "SQL Conformance",
-              link: { type: "generated-index" },
+              link: { type: "doc", id: "sql/reference/sql-conformance/index" },
               items: [
                 "sql/reference/sql-conformance/sql-conformance",
                 "sql/reference/sql-conformance/keywords",
@@ -155,7 +155,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Advanced SQL",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "sql/advanced/index" },
           items: [
             "sql/advanced/explain-statement",
             "sql/advanced/performance-tuning",
@@ -173,7 +173,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Installation",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "configure-and-operate/installation/index" },
           items: [
             "configure-and-operate/installation/install-zip",
             "configure-and-operate/installation/install-deb-rpm",
@@ -184,7 +184,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Configuration",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "configure-and-operate/configuration/index" },
           items: [
             "configure-and-operate/configuration/config-cluster-and-nodes",
             {
@@ -210,7 +210,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Operations",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "configure-and-operate/operations/index" },
           items: [
             "configure-and-operate/operations/lifecycle",
             {
@@ -232,7 +232,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Monitoring",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "configure-and-operate/monitoring/index" },
           items: [
             {
               type: "category",
@@ -252,7 +252,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Configuration Reference",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "configure-and-operate/reference/index" },
           items: [
             "configure-and-operate/reference/node-configuration",
             "configure-and-operate/reference/cluster-configuration",
@@ -272,7 +272,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Core Concepts",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "understand/core-concepts/index" },
           items: [
             "understand/core-concepts/what-is-ignite",
             "understand/core-concepts/tables-and-schemas",
@@ -284,13 +284,13 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Architecture",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "understand/architecture/index" },
           items: [
             "understand/architecture/storage-architecture",
             {
               type: "category",
               label: "Storage Engines",
-              link: { type: "generated-index" },
+              link: { type: "doc", id: "understand/architecture/storage-engines/index" },
               items: [
                 "understand/architecture/storage-engines/aimem",
                 "understand/architecture/storage-engines/aipersist",
@@ -303,7 +303,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Performance",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "understand/performance/index" },
           items: [
             "understand/performance/using-explain",
             "understand/performance/explain-operators",
@@ -321,7 +321,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Native Client APIs",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "api-reference/native-clients/index" },
           items: [
             {
               type: "category",
@@ -384,7 +384,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "SQL-Only APIs",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "api-reference/sql-only-apis/index" },
           items: [
             "api-reference/sql-only-apis/jdbc",
             "api-reference/sql-only-apis/odbc",
@@ -394,7 +394,7 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "API Documentation",
-          link: { type: "generated-index" },
+          link: { type: "doc", id: "api-reference/api/index" },
           items: [
             "api-reference/api/java-api-reference",
             "api-reference/api/dotnet-api-reference",
